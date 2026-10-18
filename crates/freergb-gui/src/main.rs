@@ -6,6 +6,7 @@
 
 use eframe::egui;
 use freergb_core::{Region, Rgb};
+use freergb_effects::layers::{BlendMode, Layer, MAX_LAYERS};
 use freergb_effects::EffectSpec;
 use serde_json::{json, Value};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
@@ -24,6 +25,8 @@ struct Snapshot {
     effect: Option<Value>,
     /// `None` when the daemon runs without profile storage (`--no-state`).
     profiles: Option<Vec<String>>,
+    /// Saved custom effects; `None` without storage (`--no-state`).
+    custom_effects: Option<Vec<String>>,
     /// Increments with every successful fetch.
     generation: u64,
 }
@@ -49,7 +52,14 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                     pending.push(c);
                 }
                 for c in pending {
-                    if let Err(e) = freergb_client::call(c.method, c.params) {
+                    // GUI-side shortcut: fetch a saved custom effect and apply it.
+                    let result = if c.method == "gui.apply_custom_effect" {
+                        freergb_client::call("custom_effects.get", c.params)
+                            .and_then(|spec| freergb_client::call("effects.set", spec))
+                    } else {
+                        freergb_client::call(c.method, c.params)
+                    };
+                    if let Err(e) = result {
                         last_error = Some(e.to_string());
                     }
                 }
@@ -68,6 +78,9 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
         let profiles = freergb_client::call("profiles.list", Value::Null)
             .ok()
             .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
+        let custom_effects = freergb_client::call("custom_effects.list", Value::Null)
+            .ok()
+            .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
         {
             let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
             match fetched {
@@ -77,6 +90,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                     s.diagnostics = Some(diag);
                     s.effect = Some(effect);
                     s.profiles = profiles;
+                    s.custom_effects = custom_effects;
                     s.generation += 1;
                     s.error = last_error;
                 }
@@ -107,6 +121,7 @@ fn label(name: &str) -> &'static str {
         "audio_pulse" => "Audio pulse",
         "audio_spectrum" => "Audio spectrum",
         "screen_ambience" => "Screen ambience",
+        "layers" => "Custom (layers)",
         _ => "Unknown",
     }
 }
@@ -117,6 +132,8 @@ struct App {
     /// Controls are (re)loaded from the first snapshot newer than this.
     sync_after_generation: Option<u64>,
     profile_name: String,
+    custom_name: String,
+    selected_custom: Option<String>,
     selected_profile: Option<String>,
     spec: EffectSpec,
     brightness: f32,
@@ -140,6 +157,8 @@ impl App {
             tx,
             sync_after_generation: Some(0),
             profile_name: String::new(),
+            custom_name: String::new(),
+            selected_custom: None,
             selected_profile: None,
             spec: EffectSpec::default_for("rainbow_wave").expect("known effect"),
             brightness: 1.0,
@@ -183,6 +202,124 @@ fn color_edit(ui: &mut egui::Ui, text: &str, c: &mut Rgb) -> bool {
 fn period_edit(ui: &mut egui::Ui, ms: &mut u32, range: std::ops::RangeInclusive<u32>) -> bool {
     ui.add(egui::Slider::new(ms, range).text("period (ms)"))
         .changed()
+}
+
+fn blend_label(b: BlendMode) -> &'static str {
+    match b {
+        BlendMode::Normal => "Normal",
+        BlendMode::Add => "Add",
+        BlendMode::Multiply => "Multiply",
+        BlendMode::Screen => "Screen",
+        BlendMode::Max => "Max",
+    }
+}
+
+/// Editor for a custom (layered) effect. Returns `true` on any change.
+fn layers_editor(ui: &mut egui::Ui, layers: &mut Vec<Layer>) -> bool {
+    let mut changed = false;
+    let mut action: Option<(usize, i8)> = None; // (index, -1 up / +1 down / 0 delete)
+    let count = layers.len();
+    for (i, layer) in layers.iter_mut().enumerate() {
+        ui.push_id(i, |ui| {
+            egui::CollapsingHeader::new(format!(
+                "Layer {} – {}",
+                i + 1,
+                label(layer.effect.name())
+            ))
+            .default_open(true)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let current = layer.effect.name();
+                    egui::ComboBox::from_id_salt("layer-effect")
+                        .selected_text(label(current))
+                        .show_ui(ui, |ui| {
+                            // Nested custom effects are not allowed.
+                            for name in EffectSpec::NAMES.iter().filter(|n| **n != "layers") {
+                                if ui.selectable_label(*name == current, label(name)).clicked()
+                                    && *name != current
+                                {
+                                    if let Some(s) = EffectSpec::default_for(name) {
+                                        layer.effect = s;
+                                        changed = true;
+                                    }
+                                }
+                            }
+                        });
+                    egui::ComboBox::from_id_salt("layer-blend")
+                        .selected_text(blend_label(layer.blend))
+                        .show_ui(ui, |ui| {
+                            for b in BlendMode::ALL {
+                                changed |= ui
+                                    .selectable_value(&mut layer.blend, b, blend_label(b))
+                                    .changed();
+                            }
+                        });
+                    if ui.add_enabled(i > 0, egui::Button::new("▲")).clicked() {
+                        action = Some((i, -1));
+                    }
+                    if ui
+                        .add_enabled(i + 1 < count, egui::Button::new("▼"))
+                        .clicked()
+                    {
+                        action = Some((i, 1));
+                    }
+                    if ui.add_enabled(count > 1, egui::Button::new("✕")).clicked() {
+                        action = Some((i, 0));
+                    }
+                });
+                changed |= ui
+                    .add(egui::Slider::new(&mut layer.opacity, 0.0..=1.0).text("opacity"))
+                    .changed();
+                let mut limited = layer.region.is_some();
+                if ui
+                    .checkbox(&mut limited, "Only part of the canvas")
+                    .changed()
+                {
+                    layer.region = limited.then_some(Region::FULL);
+                    changed = true;
+                }
+                if let Some(r) = &mut layer.region {
+                    ui.horizontal(|ui| {
+                        changed |= ui
+                            .add(egui::Slider::new(&mut r.x, 0.0..=0.99).text("x"))
+                            .changed();
+                        changed |= ui
+                            .add(egui::Slider::new(&mut r.y, 0.0..=0.99).text("y"))
+                            .changed();
+                    });
+                    ui.horizontal(|ui| {
+                        changed |= ui
+                            .add(egui::Slider::new(&mut r.w, 0.01..=1.0).text("w"))
+                            .changed();
+                        changed |= ui
+                            .add(egui::Slider::new(&mut r.h, 0.01..=1.0).text("h"))
+                            .changed();
+                    });
+                }
+                changed |= effect_params(ui, &mut layer.effect);
+            });
+        });
+    }
+    match action {
+        Some((i, 0)) => {
+            layers.remove(i);
+            changed = true;
+        }
+        Some((i, d)) => {
+            let j = if d < 0 { i - 1 } else { i + 1 };
+            layers.swap(i, j);
+            changed = true;
+        }
+        None => {}
+    }
+    if layers.len() < MAX_LAYERS && ui.button("+ Add layer").clicked() {
+        let mut l = Layer::new(EffectSpec::default_for("solid").expect("known effect"));
+        l.blend = BlendMode::Add;
+        l.opacity = 0.5;
+        layers.push(l);
+        changed = true;
+    }
+    changed
 }
 
 /// Parameter controls for the current effect. Returns `true` on any change.
@@ -285,6 +422,10 @@ fn effect_params(ui: &mut egui::Ui, spec: &mut EffectSpec) -> bool {
                 .add(egui::Slider::new(saturation, 0.5..=2.5).text("saturation"))
                 .changed();
             ui.label("Mirrors the primary monitor. Place devices in the Layout section to match where they sit around the screen.");
+        }
+        EffectSpec::Layers { layers } => {
+            ui.label("Custom effect: layers are drawn bottom to top.");
+            changed |= layers_editor(ui, layers);
         }
     }
     changed
@@ -463,7 +604,7 @@ fn layout_editor(
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let (connected, error, devices, diag, effect, profiles, generation) = {
+        let (connected, error, devices, diag, effect, profiles, custom_effects, generation) = {
             let s = self.state.lock().unwrap_or_else(|e| e.into_inner());
             (
                 s.connected,
@@ -472,6 +613,7 @@ impl eframe::App for App {
                 s.diagnostics.clone(),
                 s.effect.clone(),
                 s.profiles.clone(),
+                s.custom_effects.clone(),
                 s.generation,
             )
         };
@@ -562,6 +704,45 @@ impl eframe::App for App {
                     if let Ok(v) = serde_json::to_value(&self.spec) {
                         self.send("effects.set", v);
                     }
+                }
+
+                if let Some(list) = &custom_effects {
+                    ui.collapsing("My effects", |ui| {
+                        ui.horizontal(|ui| {
+                            egui::ComboBox::from_id_salt("custom-effects")
+                                .selected_text(self.selected_custom.as_deref().unwrap_or("(choose)"))
+                                .show_ui(ui, |ui| {
+                                    for n in list {
+                                        ui.selectable_value(&mut self.selected_custom, Some(n.clone()), n);
+                                    }
+                                });
+                            let sel = self.selected_custom.clone();
+                            if ui.add_enabled(sel.is_some(), egui::Button::new("Apply")).clicked() {
+                                self.send("gui.apply_custom_effect", json!({"name": sel}));
+                                self.sync_after_generation = Some(generation);
+                            }
+                            if ui.add_enabled(sel.is_some(), egui::Button::new("Delete")).clicked() {
+                                self.send("custom_effects.delete", json!({"name": sel}));
+                                self.selected_custom = None;
+                            }
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.custom_name)
+                                    .hint_text("name for the current effect")
+                                    .desired_width(180.0),
+                            );
+                            let name = self.custom_name.trim().to_owned();
+                            if ui.add_enabled(!name.is_empty(), egui::Button::new("Save")).clicked() {
+                                if let Ok(v) = serde_json::to_value(&self.spec) {
+                                    self.send("custom_effects.save", json!({"name": name, "effect": v}));
+                                    self.selected_custom = Some(name);
+                                    self.custom_name.clear();
+                                }
+                            }
+                        });
+                        ui.label("Tip: choose \"Custom (layers)\" above to build an effect from several layers.");
+                    });
                 }
 
                 ui.separator();
