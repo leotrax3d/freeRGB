@@ -70,6 +70,11 @@ enum Cmd {
         #[arg(long, default_value_t = 10.0)]
         seconds: f32,
     },
+    /// Shows level and frequency bands of the system audio (no RGB hardware).
+    AudioMeter {
+        #[arg(long, default_value_t = 5.0)]
+        seconds: f32,
+    },
     /// Check a device description (TOML) without touching any hardware.
     ValidateDevice { file: std::path::PathBuf },
     /// Call a method on the running freergbd, e.g. `ctl color.set '{"color":"#ff0000"}'`.
@@ -157,6 +162,30 @@ fn main() -> Result<()> {
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
         Cmd::LinkLightTest { seconds } => link_light_test(seconds),
+        Cmd::AudioMeter { seconds } => {
+            let input = freergb_audio::AudioInput::start_system_audio()?;
+            println!("capturing: {}", input.device_name());
+            let start = Instant::now();
+            let bar = |v: f32| "#".repeat((v * 10.0).round() as usize);
+            let mut max_level = 0.0f32;
+            while start.elapsed().as_secs_f32() < seconds {
+                std::thread::sleep(Duration::from_millis(250));
+                let f = input.features();
+                max_level = max_level.max(f.level);
+                let bands: Vec<String> =
+                    f.bands.iter().map(|&b| format!("{:<10}", bar(b))).collect();
+                println!("level {:<10} | {}", bar(f.level), bands.join("|"));
+            }
+            println!(
+                "max level {max_level:.2} ({})",
+                if max_level > 0.0 {
+                    "audio detected"
+                } else {
+                    "silence"
+                }
+            );
+            Ok(())
+        }
         Cmd::ValidateDevice { file } => {
             let text = std::fs::read_to_string(&file)
                 .with_context(|| format!("reading {}", file.display()))?;
