@@ -13,3 +13,6 @@
 * Conflict detection: while SignalRGB (`SignalRgb.exe`, launcher), Corsair iCUE (`iCUE.exe`) or
   OpenRGB runs, `freergbd` releases all hardware devices (back to hardware mode) and opens none;
   checked at start and on every hot-plug scan. `SignalRgbService.exe` alone is not a conflict.
+* Audio and screen capture run only while an audio or screen effect is active and stop when
+  another effect is selected. Only derived data leaves the capture thread (8 band levels,
+  a 64×36 colour grid); nothing is stored or transmitted.

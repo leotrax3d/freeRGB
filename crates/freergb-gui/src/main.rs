@@ -106,6 +106,7 @@ fn label(name: &str) -> &'static str {
         "twinkle" => "Twinkle",
         "audio_pulse" => "Audio pulse",
         "audio_spectrum" => "Audio spectrum",
+        "screen_ambience" => "Screen ambience",
         _ => "Unknown",
     }
 }
@@ -278,6 +279,12 @@ fn effect_params(ui: &mut egui::Ui, spec: &mut EffectSpec) -> bool {
             changed |= color_edit(ui, "Treble colour", high);
             changed |= color_edit(ui, "Background", background);
             ui.label("8 frequency bands across the canvas, bass on the left.");
+        }
+        EffectSpec::ScreenAmbience { saturation } => {
+            changed |= ui
+                .add(egui::Slider::new(saturation, 0.5..=2.5).text("saturation"))
+                .changed();
+            ui.label("Mirrors the primary monitor. Place devices in the Layout section to match where they sit around the screen.");
         }
     }
     changed

@@ -12,7 +12,7 @@
 | 8 | Background service + hardware abstraction | ✅ `freergbd` (autostart pending approval) |
 | 9 | GUI (egui), plugin system | 🔄 GUI with layout editor; plugin stage 1 (TOML device descriptions) done, stage 2 open |
 | 10 | More vendors (iCUE LINK, ASUS AURA, Razer) | open |
-| 11 | Effects library, layout editor, profiles, screen ambience, audio, effect editor | open |
+| 11 | Effects library, layout editor, profiles, screen ambience, audio, effect editor | 🔄 11 effects, layout editor, profiles, audio + screen ambience done; effect editor open |
 | 12 | Windows/Linux compatibility (CI) | 🔄 CI green on both; Linux hardware untested |
 
 Deviation with reason: discovery and the adapter registry were built before the

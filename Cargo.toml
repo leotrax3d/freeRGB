@@ -11,6 +11,7 @@ members = [
     "crates/freergb-client",
     "crates/freergb-gui",
     "crates/freergb-audio",
+    "crates/freergb-screen",
 ]
 
 [workspace.package]
@@ -28,6 +29,7 @@ freergb-effects = { path = "crates/freergb-effects" }
 freergb-hid = { path = "crates/freergb-hid" }
 freergb-client = { path = "crates/freergb-client" }
 freergb-audio = { path = "crates/freergb-audio" }
+freergb-screen = { path = "crates/freergb-screen" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

@@ -10,10 +10,14 @@ use std::time::Duration;
 /// Shared, continuously updated audio analysis.
 pub type AudioHandle = Arc<Mutex<AudioFeatures>>;
 
+/// Shared, continuously updated downscaled screen picture.
+pub type ScreenHandle = Arc<Mutex<freergb_core::ScreenFrame>>;
+
 /// Inputs an effect may use besides time.
 #[derive(Clone, Default)]
 pub struct EffectContext {
     pub audio: Option<AudioHandle>,
+    pub screen: Option<ScreenHandle>,
 }
 
 impl EffectContext {
@@ -83,6 +87,7 @@ mod tests {
     fn ctx(level: f32, bands: [f32; BANDS]) -> EffectContext {
         EffectContext {
             audio: Some(Arc::new(Mutex::new(AudioFeatures { level, bands }))),
+            screen: None,
         }
     }
 

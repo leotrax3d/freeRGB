@@ -24,8 +24,8 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `daemon.version` | – | `{api_version, daemon_version}` |
 | `daemon.shutdown` | – | `true`; daemon releases devices and exits |
 | `devices.list` | – | `[{info, status, brightness, region, leds, frames, dropped, last_error}]` |
-| `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices, conflicts, audio}` – `conflicts` lists other RGB software that is running (hardware is released meanwhile) |
-| `effects.list` | – | effect names: `solid`, `rainbow_wave`, `breathing`, `gradient`, `color_cycle`, `radial_rainbow`, `scanner`, `twinkle`, `audio_pulse`, `audio_spectrum` (audio effects start the system-audio capture while active) |
+| `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices, conflicts, audio, screen}` – `conflicts` lists other RGB software that is running (hardware is released meanwhile) |
+| `effects.list` | – | effect names: `solid`, `rainbow_wave`, `breathing`, `gradient`, `color_cycle`, `radial_rainbow`, `scanner`, `twinkle`, `audio_pulse`, `audio_spectrum`, `screen_ambience` (audio/screen effects start the respective capture only while active) |
 | `effects.default` | `{"name": "scanner"}` | default `EffectSpec` for that effect (use it as a template for `effects.set`) |
 | `effects.get` | – | current `EffectSpec` |
 | `effects.set` | `EffectSpec`, e.g. `{"type":"rainbow_wave","speed":0.3,"scale":1.0}`, `{"type":"breathing","color":{"r":0,"g":155,"b":222},"period_ms":3000}` | `true` |

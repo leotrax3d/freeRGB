@@ -72,6 +72,8 @@ pub struct DeviceSummary {
 pub struct Diagnostics {
     /// Audio capture device while an audio effect runs, or the error.
     pub audio: Option<String>,
+    /// Captured monitor while a screen effect runs, or the error.
+    pub screen: Option<String>,
     /// Other RGB software currently running; hardware is left alone meanwhile.
     pub conflicts: Vec<&'static str>,
     pub uptime_s: f64,
@@ -105,6 +107,9 @@ pub struct Engine {
     /// System-audio capture, running only while an audio effect is active.
     audio: Option<freergb_audio::AudioInput>,
     audio_error: Option<String>,
+    /// Screen capture, running only while a screen effect is active.
+    screen: Option<freergb_screen::ScreenInput>,
+    screen_error: Option<String>,
 }
 
 /// Body of a device worker thread.
@@ -240,9 +245,11 @@ impl Engine {
             conflicts: Vec::new(),
             audio: None,
             audio_error: None,
+            screen: None,
+            screen_error: None,
         };
-        if engine.spec.needs_audio() {
-            // Starts the audio capture the effect needs.
+        if engine.spec.needs_audio() || engine.spec.needs_screen() {
+            // Starts the capture the effect needs.
             let spec = engine.spec.clone();
             engine.set_effect(spec);
         }
@@ -421,7 +428,10 @@ impl Engine {
                 tracing::info!("audio capture stopped (no audio effect active)");
             }
             self.audio_error = None;
-            return freergb_effects::EffectContext::default();
+            return freergb_effects::EffectContext {
+                audio: None,
+                screen: self.screen_handle(spec),
+            };
         }
         if self.audio.is_none() {
             match freergb_audio::AudioInput::start_system_audio() {
@@ -438,7 +448,35 @@ impl Engine {
         }
         freergb_effects::EffectContext {
             audio: self.audio.as_ref().map(freergb_audio::AudioInput::shared),
+            screen: self.screen_handle(spec),
         }
+    }
+
+    /// Starts or stops the screen capture to match `spec`.
+    fn screen_handle(&mut self, spec: &EffectSpec) -> Option<freergb_effects::ScreenHandle> {
+        if !spec.needs_screen() {
+            if self.screen.take().is_some() {
+                tracing::info!("screen capture stopped (no screen effect active)");
+            }
+            self.screen_error = None;
+            return None;
+        }
+        if self.screen.is_none() {
+            match freergb_screen::ScreenInput::start_primary(30) {
+                Ok(s) => {
+                    tracing::info!(monitor = %s.monitor_name(), "screen capture started for screen effect");
+                    self.screen = Some(s);
+                    self.screen_error = None;
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "screen capture unavailable, screen effect stays dark");
+                    self.screen_error = Some(e.to_string());
+                }
+            }
+        }
+        self.screen
+            .as_ref()
+            .map(freergb_screen::ScreenInput::shared)
     }
 
     pub fn set_effect(&mut self, spec: EffectSpec) {
@@ -546,6 +584,11 @@ impl Engine {
         Diagnostics {
             audio: match (&self.audio, &self.audio_error) {
                 (Some(a), _) => Some(format!("capturing: {}", a.device_name())),
+                (None, Some(e)) => Some(format!("error: {e}")),
+                _ => None,
+            },
+            screen: match (&self.screen, &self.screen_error) {
+                (Some(s), _) => Some(format!("capturing: {}", s.monitor_name())),
                 (None, Some(e)) => Some(format!("error: {e}")),
                 _ => None,
             },

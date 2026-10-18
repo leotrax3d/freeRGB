@@ -70,6 +70,12 @@ enum Cmd {
         #[arg(long, default_value_t = 10.0)]
         seconds: f32,
     },
+    /// Captures the primary monitor for a few seconds and prints the average
+    /// colour of a coarse grid (nothing is saved).
+    ScreenProbe {
+        #[arg(long, default_value_t = 3.0)]
+        seconds: f32,
+    },
     /// Shows level and frequency bands of the system audio (no RGB hardware).
     AudioMeter {
         #[arg(long, default_value_t = 5.0)]
@@ -162,6 +168,37 @@ fn main() -> Result<()> {
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
         Cmd::LinkLightTest { seconds } => link_light_test(seconds),
+        Cmd::ScreenProbe { seconds } => {
+            let input = freergb_screen::ScreenInput::start_primary(30)?;
+            println!("capturing: {}", input.monitor_name());
+            let start = Instant::now();
+            let mut changes = 0u32;
+            let mut last = input.frame();
+            while start.elapsed().as_secs_f32() < seconds {
+                std::thread::sleep(Duration::from_millis(5));
+                let f = input.frame();
+                if f != last {
+                    changes += 1;
+                    last = f;
+                }
+            }
+            println!(
+                "frames: {}x{}, {:.1} distinct frames/s (static screen content shows fewer)",
+                last.width,
+                last.height,
+                f64::from(changes) / f64::from(seconds)
+            );
+            for gy in 0..4 {
+                let row: Vec<String> = (0..8)
+                    .map(|gx| {
+                        last.sample((gx as f32 + 0.5) / 8.0, (gy as f32 + 0.5) / 4.0)
+                            .to_string()
+                    })
+                    .collect();
+                println!("  {}", row.join(" "));
+            }
+            Ok(())
+        }
         Cmd::AudioMeter { seconds } => {
             let input = freergb_audio::AudioInput::start_system_audio()?;
             println!("capturing: {}", input.device_name());

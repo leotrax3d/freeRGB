@@ -4,8 +4,9 @@
 
 pub mod audio;
 pub mod extra;
+pub mod screen;
 
-pub use audio::{AudioHandle, EffectContext};
+pub use audio::{AudioHandle, EffectContext, ScreenHandle};
 
 use freergb_core::{Canvas, Hsv, Rgb};
 use serde::{Deserialize, Serialize};
@@ -66,6 +67,9 @@ pub enum EffectSpec {
         high: Rgb,
         background: Rgb,
     },
+    ScreenAmbience {
+        saturation: f32,
+    },
 }
 
 fn ms(v: u32) -> Duration {
@@ -74,7 +78,7 @@ fn ms(v: u32) -> Duration {
 
 impl EffectSpec {
     /// API names of all effects, in display order.
-    pub const NAMES: [&'static str; 10] = [
+    pub const NAMES: [&'static str; 11] = [
         "solid",
         "rainbow_wave",
         "breathing",
@@ -85,6 +89,7 @@ impl EffectSpec {
         "twinkle",
         "audio_pulse",
         "audio_spectrum",
+        "screen_ambience",
     ];
 
     /// A sensible default instance for each name in [`EffectSpec::NAMES`].
@@ -132,6 +137,7 @@ impl EffectSpec {
                 high: accent,
                 background: Rgb::BLACK,
             },
+            "screen_ambience" => EffectSpec::ScreenAmbience { saturation: 1.4 },
             _ => return None,
         })
     }
@@ -149,6 +155,7 @@ impl EffectSpec {
             EffectSpec::Twinkle { .. } => "twinkle",
             EffectSpec::AudioPulse { .. } => "audio_pulse",
             EffectSpec::AudioSpectrum { .. } => "audio_spectrum",
+            EffectSpec::ScreenAmbience { .. } => "screen_ambience",
         }
     }
 
@@ -161,6 +168,11 @@ impl EffectSpec {
         )
     }
 
+    /// Whether this effect needs the screen capture.
+    pub fn needs_screen(&self) -> bool {
+        matches!(self, EffectSpec::ScreenAmbience { .. })
+    }
+
     /// Builds the effect without external inputs (audio effects stay dark).
     pub fn build(&self) -> Box<dyn Effect> {
         self.build_with(&EffectContext::default())
@@ -168,6 +180,10 @@ impl EffectSpec {
 
     pub fn build_with(&self, ctx: &EffectContext) -> Box<dyn Effect> {
         match *self {
+            EffectSpec::ScreenAmbience { saturation } => Box::new(screen::ScreenAmbience {
+                saturation,
+                ctx: ctx.clone(),
+            }),
             EffectSpec::AudioPulse {
                 color,
                 background,

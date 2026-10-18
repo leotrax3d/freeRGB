@@ -18,6 +18,7 @@ freergb-effects.workspace = true
 freergb-hid.workspace = true
 freergb-client.workspace = true
 freergb-audio.workspace = true
+freergb-screen.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
