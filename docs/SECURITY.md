@@ -1,9 +1,12 @@
-# Sicherheit
+# Security
 
-* Unbekannte Geräte werden nur gelesen/inventarisiert, nie beschrieben.
-* Schreibzugriffe nur über validierte Adapter; Property-Writes per Allowlist.
-* Keine Firmware-, Flash-, Treiber- oder SMBus-Schreibzugriffe ohne ausdrückliche Zustimmung.
-* `disconnect` gibt Geräte immer an den Hardware-Modus zurück, auch nach Fehlern (CLI).
-* `unsafe_code = "forbid"` im gesamten Workspace.
-* Lokale API (geplant): nur IPC (Named Pipe/Unix-Socket mit Benutzer-ACL), kein Netzwerkport.
-* Keine Übernahme personenbezogener Daten aus SignalRGB-Logs (z. B. Machine-ID).
+* Unknown devices are only enumerated, never written to. The daemon opens only
+  interfaces whose adapter is at least `Experimental` in the registry.
+* Writes only via validated adapters; property writes via allowlist.
+* No firmware, flash, driver or SMBus writes without explicit user approval.
+* Devices are returned to hardware mode on disconnect and daemon exit.
+* `unsafe_code = "forbid"` across the workspace.
+* Local API: IPC only (named pipe without remote clients / Unix socket `0600`), no TCP port.
+* No personal data from SignalRGB logs (e.g. machine ID) is copied into the project.
+* Installing `freergbd` as a system service or autostart is a system change and requires
+  the user's approval.

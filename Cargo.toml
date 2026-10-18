@@ -7,6 +7,7 @@ members = [
     "crates/freergb-effects",
     "crates/freergb-hid",
     "crates/freergb-cli",
+    "crates/freergb-daemon",
 ]
 
 [workspace.package]

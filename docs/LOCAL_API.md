@@ -1,8 +1,40 @@
-# Lokale API (Entwurf, nicht implementiert)
+# Local API
 
-Transport: Windows Named Pipe `\\.\pipe\freergb` (ACL: aktueller Benutzer),
-Linux `$XDG_RUNTIME_DIR/freergb.sock` (0600). Protokoll: JSON-RPC 2.0, zeilengetrennt.
+Implemented in `crates/freergb-daemon/src/{api,ipc}.rs`, API version **1**.
 
-Geplante Methoden: `devices.list`, `devices.status`, `effects.list`, `effects.set`
-(`EffectSpec` aus `freergb-effects`), `color.set`, `profiles.load|save`,
-`layouts.get|set`, `diagnostics.get`, `plugins.list`, `frames.push` (Ambience/Plugins).
+## Transport
+* **Windows:** named pipe `\\.\pipe\freergb`. Remote clients are rejected; the default
+  pipe DACL gives write access only to the creating user, LocalSystem and administrators.
+* **Linux/Unix:** socket `$XDG_RUNTIME_DIR/freergb.sock` (fallback: temp dir), mode `0600`.
+* No network listener.
+
+## Protocol
+JSON-RPC 2.0, one request per line, one response per line (UTF-8, `\n`).
+
+```
+→ {"jsonrpc":"2.0","id":1,"method":"color.set","params":{"color":"#00ff00"}}
+← {"jsonrpc":"2.0","id":1,"result":true}
+```
+
+CLI client: `freergb ctl <method> [params-json]`.
+
+## Methods
+| Method | Params | Result |
+|---|---|---|
+| `daemon.version` | – | `{api_version, daemon_version}` |
+| `daemon.shutdown` | – | `true`; daemon releases devices and exits |
+| `devices.list` | – | `[{info, status, leds, frames, last_error}]` |
+| `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices}` |
+| `effects.list` | – | `["solid", "rainbow_wave", "breathing"]` |
+| `effects.get` | – | current `EffectSpec` |
+| `effects.set` | `EffectSpec`, e.g. `{"type":"rainbow_wave","speed":0.3,"scale":1.0}`, `{"type":"breathing","color":{"r":0,"g":155,"b":222},"period_ms":3000}` | `true` |
+| `color.set` | `{"color":"#rrggbb"}` | `true` (sets a solid effect) |
+| `brightness.set` | `{"value": 0.0..=1.0}` | `true` |
+
+## Errors
+`-32700` parse error, `-32600` missing method, `-32601` unknown method,
+`-32602` invalid params.
+
+## Planned
+`profiles.load|save`, `layouts.get|set`, `devices.set_region`, `plugins.list`,
+`frames.push` (screen ambience / external plugins), event subscription for the GUI.

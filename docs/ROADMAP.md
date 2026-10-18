@@ -2,18 +2,19 @@
 
 | # | Phase | Status |
 |---|---|---|
-| 1 | Werkzeuge/Umgebung feststellen | ✅ |
-| 2 | SignalRGB untersuchen | ✅ (Grundinventar) |
-| 3 | Reproduzierbares RE-Verfahren | ✅ `REVERSE_ENGINEERING.md` |
-| 4 | Plattformunabhängiger Rust-Kern | ✅ `freergb-core` |
-| 5 | Virtuelles Gerät + Tests | ✅ |
-| 6 | CORSAIR-Erkennung | ✅ K70 CORE, LINK Hub, LCD, RAM identifiziert |
-| 7 | Erster realer RGB-Datenpfad | ✅ K70 CORE validiert |
-| 8 | Hintergrunddienst + HAL | ⏭ nächster Schritt |
-| 9 | GUI (egui), API, Plugin-System | offen |
-| 10 | Weitere Hersteller (iCUE LINK, ASUS AURA, Razer) | offen |
-| 11 | Effekte, Layout-Editor, Profile, Ambience, Audio, Effekt-Editor | offen |
-| 12 | Windows/Linux-Kompatibilität (CI) | offen |
+| 1 | Determine tools and environment | ✅ |
+| 2 | Investigate SignalRGB | ✅ (base inventory) |
+| 3 | Reproducible reverse-engineering procedure | ✅ `REVERSE_ENGINEERING.md` |
+| 4 | Platform-independent Rust core | ✅ `freergb-core` |
+| 5 | Virtual device + tests | ✅ |
+| 6 | Corsair device detection | ✅ K70 CORE, LINK hub, LCD, RAM identified |
+| 7 | First real RGB data path | ✅ K70 CORE validated |
+| 8 | Background service + hardware abstraction | ✅ `freergbd` (autostart pending approval) |
+| 9 | GUI (egui), plugin system | ⏭ next |
+| 10 | More vendors (iCUE LINK, ASUS AURA, Razer) | open |
+| 11 | Effects library, layout editor, profiles, screen ambience, audio, effect editor | open |
+| 12 | Windows/Linux compatibility (CI) | open |
 
-Begründete Abweichung: Discovery und Registry wurden vor dem Daemon gebaut, da sie
-für die sichere Erstvalidierung (nur bekannte Interfaces beschreiben) nötig waren.
+Deviation with reason: discovery and the adapter registry were built before the
+daemon because a safe first hardware validation needed them (only known interfaces
+are ever written to).

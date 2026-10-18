@@ -1,12 +1,12 @@
-# Plugin-System (Entwurf, nicht implementiert)
+# Plugin system (design, not implemented)
 
-Vorbild SignalRGB [B]: JS-Module mit Metadaten-Exports und `Initialize/Render/Shutdown`.
+Reference, SignalRGB [confirmed]: device plugins are JS modules exporting metadata
+(`Name`, `VendorId`, `ProductId`, `LedPositions`, …) plus `Initialize/Render/Shutdown`.
 
-Plan für freeRGB:
-1. **Deklarativ** (TOML): VID/PID/Interface, LED-Layout (Name, Position, Wire-Index),
-   Verweis auf einen eingebauten Protokolladapter + Parameter (z. B. Bragi-Schema).
-   Neue Bragi-Tastaturen ohne Codeänderung.
-2. **Native Protokoll-Plugins** als separate Prozesse, die über die lokale API Frames
-   empfangen und Geräte melden → Fehlerisolation, keine ABI-Probleme.
-3. Versionierung über `api_version` im Manifest; Plugins ohne Signatur nur mit
-   Nutzerfreigabe aktivierbar.
+Plan for freeRGB:
+1. **Declarative** (TOML): VID/PID/interface, LED layout (name, position, wire index),
+   reference to a built-in protocol adapter with parameters (e.g. Bragi scheme).
+   New Bragi keyboards then need no code change.
+2. **Native protocol plugins** as separate processes that register devices and receive
+   frames through the local API → fault isolation, no ABI issues.
+3. Versioning via `api_version` in the manifest; unsigned plugins only with user consent.

@@ -1,41 +1,50 @@
-# HANDOFF – aktueller Stand (2026-10-18)
+# HANDOFF – current state (2026-10-18)
 
 ## Phase
-Roadmap-Phasen 1–7 abgeschlossen: erste reale RGB-Steuerung (K70 CORE) validiert.
-Nächste Phase: 8 (Hintergrunddienst + lokale API).
+Roadmap phases 1–8 done: first real RGB device (K70 CORE) validated, background
+service with local API working end-to-end. Next: phase 9 (GUI, plugin system).
 
-## Erledigt
-* Werkzeug-/Umgebungsinventar (kein „Reverse Engineer Anything“-MCP vorhanden).
-* SignalRGB 2.5.80 inventarisiert (`docs/REVERSE_ENGINEERING.md`).
-* Hardware inventarisiert (`docs/DEVICES.md`).
-* Rust 1.99.1 + MSVC Build Tools installiert (Freigabe des Nutzers).
-* Workspace mit 6 Crates, 35 Unit-/Simulationstests.
-* Bragi-Protokoll implementiert, an K70 CORE validiert (`docs/PROTOCOLS.md`).
+## Done
+* Tool/environment inventory (no "Reverse Engineer Anything" MCP server available).
+* SignalRGB 2.5.80 inventory (`REVERSE_ENGINEERING.md`), hardware inventory (`DEVICES.md`).
+* Rust 1.99.1 + MSVC Build Tools installed (approved by the user).
+* Corsair Bragi protocol implemented and validated on the K70 CORE (`PROTOCOLS.md`).
+* Project renamed to freeRGB; private repo `github.com/leotrax3d/FreeRGB`.
+* `freergbd`: render thread, reconnect with back-off, hot-plug rescan, JSON-RPC over a
+  named pipe / Unix socket, clean release to hardware mode on exit.
 
-## Funktionierende Komponenten [B]
-`freergb-core`, `freergb-device-api` (VirtualDevice, MockTransport), `freergb-effects`
-(Solid, RainbowWave, Breathing), `freergb-hid` (Discovery, Transport, Descriptor-Parser),
-`freergb-protocols` (Bragi, Registry), CLI `freergb` (`discover`, `demo-virtual`,
-`bragi probe|color|effect|key-walk|keys`).
+## Working components [confirmed]
+| Crate | Content |
+|---|---|
+| `freergb-core` | Rgb/Hsv, colour correction, LedLayout, Canvas, Frame |
+| `freergb-device-api` | `HidTransport`, `RgbDevice`, `VirtualDevice`, `MockTransport` |
+| `freergb-effects` | Solid, RainbowWave, Breathing, serializable `EffectSpec` |
+| `freergb-hid` | hidapi discovery/transport, report descriptor parser |
+| `freergb-protocols` | Corsair Bragi adapter, K70 CORE layout, adapter registry |
+| `freergb-daemon` | engine, JSON-RPC API, IPC, hardware scan; binary `freergbd` |
+| `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `ctl` |
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` (35 bestanden) – alle grün, nur Windows. Linux ungetestet.
-Hardwaretests: siehe `docs/DEVICES.md#validierungsprotokoll`.
+`cargo test --workspace` → 40 tests passing (Windows only; Linux not yet built).
+Hardware results: `DEVICES.md#validation-log`.
 
-## Offene Fehler / Fragen
-* Bildrate K70 nur ~22 FPS (Debug-Build) – Release messen, Drain/Quittungen optimieren.
-* `1b1c:1bf0` ohne USB-Interface – Herkunft unklar.
-* `key-walk` über alle 107 Tasten noch nicht visuell geprüft.
-* Remote: privates Repo github.com/leotrax3d/FreeRGB (main).
-* SignalRGB-App ist beendet (Dienst läuft). Neustart: `%LOCALAPPDATA%\VortxEngine\SignalRgbLauncher.exe`.
+## Open issues / questions
+* K70 CORE frame rate ~22 FPS (every stream packet is acknowledged) – profile and optimise.
+* `1b1c:1bf0` (no USB interface) – origin unknown.
+* Full `key-walk` over all 107 keys not yet visually verified.
+* `freergbd` is not installed as a service/autostart (needs user approval: system change).
+* The SignalRGB app is currently stopped (its service still runs). Restart with
+  `%LOCALAPPDATA%\VortxEngine\SignalRgbLauncher.exe`.
 
-## Nächste Aufgaben
-1. Daemon `freergbd`: Render-Loop (Canvas → Geräte), Gerätezustände, Reconnect.
-2. Lokale API (Named Pipe / Unix-Socket, JSON-RPC), `docs/LOCAL_API.md` konkretisieren.
-3. iCUE-LINK-Hub-Protokoll analysieren (Lüfter/AIO), zunächst read-only.
-4. Linux-CI (GitHub Actions).
+## Next tasks
+1. GUI (`freergb-gui`, egui) talking only to the API.
+2. Declarative device descriptions (TOML) as first plugin stage.
+3. Analyse the iCUE LINK hub protocol (fans/AIO), read-only first.
+4. GitHub Actions CI for Windows + Linux.
+5. Profiles (persisted effect/brightness), autostart proposal.
 
-## Einstiegspunkte
-`crates/freergb-protocols/src/corsair_bragi/device.rs`, `crates/freergb-cli/src/main.rs`,
-SignalRGB-Plugins unter `%LOCALAPPDATA%\WhirlwindFX\SignalRgb\cache\plugin_cdn\main\Plugins`.
+## Entry points
+`crates/freergb-daemon/src/main.rs`, `crates/freergb-protocols/src/corsair_bragi/device.rs`,
+`crates/freergb-cli/src/main.rs`. SignalRGB plugins (analysis source):
+`%LOCALAPPDATA%\WhirlwindFX\SignalRgb\cache\plugin_cdn\main\Plugins`.

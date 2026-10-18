@@ -1,88 +1,88 @@
-# Reverse Engineering – Verfahren und Befunde
+# Reverse engineering – procedure and findings
 
-Kennzeichnung: **[B]** bestätigt (reproduzierbar belegt), **[W]** wahrscheinlich
-(statisch belegt, nicht an Hardware geprüft), **[U]** unbekannt/offen.
+Labels: **[C]** confirmed (reproducibly evidenced), **[P]** probable (static evidence,
+not checked on hardware), **[U]** unknown/open.
 
-## 1. Werkzeuge (Stand 2026-10-18)
+## 1. Tools (as of 2026-10-18)
 
-| Werkzeug | Status | Nutzen |
+| Tool | Status | Use |
 |---|---|---|
-| MCP „Reverse Engineer Anything“ | **nicht verfügbar** – in dieser Sitzung existiert kein solcher MCP-Server (ToolSearch ohne Treffer) | – |
-| PowerShell / Git Bash | verfügbar | Dateisystem, Prozesse, Dienste, PnP-/HID-Enumeration (`Get-PnpDevice`, `Get-PnpDeviceProperty`) |
-| Git 2.55 | verfügbar | Versionierung |
-| Rust 1.99.1 (MSVC) + VS 2022 Build Tools | am 2026-10-18 nach Freigabe per winget installiert | Build, Tests, eigene Diagnose-CLI |
-| `freergb discover` / `bragi probe` (eigene Werkzeuge) | verfügbar | HID-Inventar, Report-Descriptor-Auswertung, Read-only-Abfragen |
-| USB-Mitschnitt (USBPcap/Wireshark) | **nicht installiert** | wäre für passive Mitschnitte nötig (Treiberinstallation → Zustimmung erforderlich) |
-| Debugger/Disassembler (x64dbg, Ghidra) | nicht installiert | bisher nicht nötig, da Geräteprotokolle als JS-Plugins vorliegen |
+| MCP "Reverse Engineer Anything" | **not available** – no such MCP server exists in this setup (tool search found nothing) | – |
+| PowerShell / Git Bash | available | file system, processes, services, PnP/HID enumeration (`Get-PnpDevice`, `Get-PnpDeviceProperty`) |
+| Git 2.55, GitHub CLI | available | version control, private repo |
+| Rust 1.99.1 (MSVC) + VS 2022 Build Tools | installed via winget after approval | build, tests, own diagnostic CLI |
+| `freergb discover` / `freergb bragi probe` (own tools) | available | HID inventory, report descriptor parsing, read-only queries |
+| USB capture (USBPcap/Wireshark) | **not installed** | needed for passive captures (driver install → approval required) |
+| Debugger/disassembler (x64dbg, Ghidra) | not installed | not needed so far, device protocols ship as JS plugins |
 
-Fehlende Fähigkeiten wurden **nicht** durch Annahmen ersetzt: Alle Protokollaussagen
-stammen aus (a) statischer Lektüre der SignalRGB-Plugins, (b) SignalRGB-Logdateien,
-(c) eigenen Read-only-Abfragen und (d) kontrollierten, reversiblen Farbtests.
+Missing capabilities were **not** replaced by assumptions: every protocol statement
+comes from (a) static reading of SignalRGB plugins, (b) SignalRGB log files,
+(c) own read-only queries and (d) controlled, reversible colour tests.
 
-## 2. SignalRGB-Bestandsaufnahme [B]
+## 2. SignalRGB inventory [C]
 
-Version **2.5.80.0** (Build `53e4a349`), Squirrel-Installer.
+Version **2.5.80.0** (build `53e4a349`), Squirrel installer.
 
-| Pfad | Inhalt |
+| Path | Content |
 |---|---|
-| `%LOCALAPPDATA%\VortxEngine\app-2.5.80\Signal-x64\SignalRgb.exe` (113 MB) | Hauptprogramm, Qt 6 / QML |
-| `…\Signal-x64\Qt6*.dll`, `qml\` | Qt 6.12-Laufzeit, QtQuick-UI (546 `.qml`) |
-| `…\Signal-x64\WebCore.dll`, `UltralightCore.dll` | Ultralight-HTML-Engine → Effekte sind HTML/JS-Seiten |
-| `…\Signal-x64\Qt6WebEngineCore.dll` | Chromium 140 (Store/Webinhalte) |
-| `…\Signal-x64\Qt6HttpServer.dll`, `Qt6WebSockets.dll` | lokale HTTP-/WebSocket-Schnittstelle **[W]** (Logs: „WebSocketTransport“) |
-| `…\Signal-x64\git2.dll` | libgit2 → Plugin-/Add-on-Repos werden per Git geklont **[W]** (Cache enthält `.github/workflows`) |
-| `…\Signal-x64\tesseract41.dll`, `leptonica` | OCR (Spielintegrationen) |
-| `…\Signal-x64\nvapi64.dll` | NVIDIA-GPU-Beleuchtung über NvAPI-I2C |
-| `…\post\CDM21228_Setup\` | FTDI-Treiberpaket (serielle Geräte) |
-| `C:\ProgramData\WhirlwindFX\SignalRgb\service\SignalRgbService.exe` | Windows-Dienst `SignalRgb.Service`, LocalSystem, Autostart |
-| `C:\Windows\System32\Drivers\SignalRgbDriver.sys` | Kernel-Treiber (läuft) – Low-Level-I/O für SMBus/SuperIO („SignalIO“ in Logs) |
-| `%LOCALAPPDATA%\WhirlwindFX\SignalRgb\cache\plugin_cdn\main\Plugins\` | **341 Geräte-Plugins in JavaScript** (ES-Module) |
-| `…\cache\addons\` | Community-Add-ons (QMK-Tastaturen, WLED, Netzwerkgeräte) |
-| `…\cache\i2c_scan_results.json` | SMBus-Scanergebnis |
-| `…\cache\system_info.json` | GPUs, RAM-Module |
-| `%LOCALAPPDATA%\WhirlwindFX\SignalRgb\Logs\` | Logs; Geräteplugins loggen Antwortpakete |
-| `%USERPROFILE%\Documents\WhirlwindFX\{Effects,Plugins,Components,Macroscripts}` | Benutzerordner (leer) |
+| `%LOCALAPPDATA%\VortxEngine\app-2.5.80\Signal-x64\SignalRgb.exe` (113 MB) | main program, Qt 6 / QML |
+| `…\Signal-x64\Qt6*.dll`, `qml\` | Qt 6.12 runtime, QtQuick UI (546 `.qml`) |
+| `…\Signal-x64\WebCore.dll`, `UltralightCore.dll` | Ultralight HTML engine → effects are HTML/JS pages |
+| `…\Signal-x64\Qt6WebEngineCore.dll` | Chromium 140 (store/web content) |
+| `…\Signal-x64\Qt6HttpServer.dll`, `Qt6WebSockets.dll` | local HTTP/WebSocket interface [P] (logs: "WebSocketTransport") |
+| `…\Signal-x64\git2.dll` | libgit2 → plugin/add-on repos are cloned via Git [P] (cache contains `.github/workflows`) |
+| `…\Signal-x64\tesseract41.dll`, `leptonica` | OCR (game integrations) |
+| `…\Signal-x64\nvapi64.dll` | NVIDIA GPU lighting via NvAPI I2C |
+| `…\post\CDM21228_Setup\` | FTDI driver package (serial devices) |
+| `C:\ProgramData\WhirlwindFX\SignalRgb\service\SignalRgbService.exe` | Windows service `SignalRgb.Service`, LocalSystem, auto start |
+| `C:\Windows\System32\Drivers\SignalRgbDriver.sys` | kernel driver (running) – low-level I/O for SMBus/SuperIO ("SignalIO" in logs) |
+| `%LOCALAPPDATA%\WhirlwindFX\SignalRgb\cache\plugin_cdn\main\Plugins\` | **341 device plugins in JavaScript** (ES modules) |
+| `…\cache\addons\` | community add-ons (QMK keyboards, WLED, network devices) |
+| `…\cache\i2c_scan_results.json` | SMBus scan result |
+| `…\cache\system_info.json` | GPUs, RAM modules |
+| `%LOCALAPPDATA%\WhirlwindFX\SignalRgb\Logs\` | logs; device plugins log response packets |
+| `%USERPROFILE%\Documents\WhirlwindFX\{Effects,Plugins,Components,Macroscripts}` | user folders (empty) |
 
-Prozessstruktur [B]: `SignalRgbLauncher.exe` → `SignalRgb.exe` (+ `QtWebEngineProcess.exe`),
-getrennt davon `SignalRgbService.exe` (Dienst) und der Kernel-Treiber.
+Process structure [C]: `SignalRgbLauncher.exe` → `SignalRgb.exe` (+ `QtWebEngineProcess.exe`),
+separately `SignalRgbService.exe` (service) and the kernel driver.
 
-### Plugin-Modell [B]
-Jedes Geräte-Plugin ist ein ES-Modul. Häufigste Exporte (Anzahl Plugins):
+### Plugin model [C]
+Every device plugin is an ES module. Most common exports (number of plugins):
 `Name/Publisher/Initialize/Render/Shutdown/ImageUrl` (338), `ControllableParameters` (336),
 `VendorId/ProductId` (317), `Validate(endpoint)` (309), `LedNames/LedPositions` (266),
-`Scan` (21, für Busgeräte), `SubdeviceController` (60).
-Host-API `device.*`: `write`(914), `pause`(698), `send_report`(580), `color(x,y)`(301),
-`read`(260), `set_endpoint`(186), `get_report`(94), `createSubdevice`, `setControllableLeds`,
-`bulk_transfer`, `control_transfer`, `getHidInfo` u. a.
-→ Ablauf: Host enumeriert HID, ruft `Validate` je Interface, dann `Initialize`, pro Frame
-`Render` (liest Canvas per `device.color(x,y)`), beim Beenden `Shutdown(suspending)`.
+`Scan` (21, bus devices), `SubdeviceController` (60).
+Host API `device.*`: `write` (914), `pause` (698), `send_report` (580), `color(x,y)` (301),
+`read` (260), `set_endpoint` (186), `get_report` (94), `createSubdevice`,
+`setControllableLeds`, `bulk_transfer`, `control_transfer`, `getHidInfo` and more.
+→ Flow: host enumerates HID, calls `Validate` per interface, then `Initialize`; per frame
+`Render` (reads the canvas via `device.color(x,y)`); on exit `Shutdown(suspending)`.
 
-Auffälligkeit [B]: Das Link-Hub-Plugin enumeriert seine Kindgeräte offenbar bei jedem
-Render erneut – ~100 MB Logs in ~50 Minuten.
+Observation [C]: the Link hub plugin apparently re-enumerates its children on every
+render – ~100 MB of logs in ~50 minutes.
 
-### Lizenz [U]
-Im Plugin-Cache liegt keine Lizenzdatei. Daher wird **kein Plugin-Code übernommen**.
-Übernommen werden nur funktionale Schnittstellenfakten (Befehlsbytes, LED-Indizes),
-die für Interoperabilität nötig sind, in eigener Formulierung und mit Quellenangabe.
+### Licence [U]
+The plugin cache contains no licence file. Therefore **no plugin code is reused**.
+Only functional interface facts (command bytes, LED indices) needed for
+interoperability are used, in our own words and with the source documented.
 
-## 3. Reproduzierbares Verfahren
+## 3. Reproducible procedure
 
-1. **Inventar:** `freergb discover --all` (HID) bzw. PnP-Abfrage (USB-Namen,
-   `HID_DEVICE_UP:xxxx_U:yyyy`-Hardware-IDs).
-2. **Plugin finden:** `Select-String` über `plugin_cdn` nach `0x<PID>`.
-3. **Statische Analyse:** Plugin lesen, Befehle/Felder in `docs/PROTOCOLS.md` als [W] eintragen.
-4. **Laufzeitbelege:** SignalRGB-Logs nach Gerät filtern (Thread-Name enthält `vid:pid:serial`).
-5. **Simulation:** Protokoll in `freergb-protocols` implementieren, gegen Simulator
-   (`MockTransport`) testen.
-6. **Read-only an Hardware:** nur Ping/GetProperty (`freergb bragi probe`). Erwartete
-   Werte (z. B. eigene PID) validieren das Antwortformat.
-7. **Reversibler Schreibtest:** Farbe setzen, danach Hardware-Modus zurück und per
-   Rücklesen prüfen; visuelle Bestätigung durch den Nutzer.
-8. Erst dann Status `[B]` und `SupportLevel::Validated`.
+1. **Inventory:** `freergb discover --all` (HID) or PnP query (USB names,
+   `HID_DEVICE_UP:xxxx_U:yyyy` hardware IDs).
+2. **Find the plugin:** `Select-String` over `plugin_cdn` for `0x<PID>`.
+3. **Static analysis:** read the plugin, add commands/fields to `PROTOCOLS.md` as [P].
+4. **Runtime evidence:** filter SignalRGB logs per device (thread name contains `vid:pid:serial`).
+5. **Simulation:** implement the protocol in `freergb-protocols`, test against a
+   simulator (`MockTransport`).
+6. **Read-only on hardware:** only ping/GetProperty (`freergb bragi probe`). Expected
+   values (e.g. the device's own PID) validate the response format.
+7. **Reversible write test:** set a colour, return to hardware mode and read it back;
+   visual confirmation by the user.
+8. Only then status [C] and `SupportLevel::Validated`.
 
-Vor Hardwaretests muss SignalRGB beendet sein (sonst konkurrierende Zugriffe):
-`Stop-Process -Name SignalRgbLauncher,SignalRgb` (Dienst bleibt unberührt).
+Before hardware tests SignalRGB must be stopped (otherwise concurrent access):
+`Stop-Process -Name SignalRgbLauncher,SignalRgb` (the service is left untouched).
 
-## 4. Gefundene Hardware (dieses System) [B]
+## 4. Hardware found on this system [C]
 
-Siehe `docs/DEVICES.md`.
+See `DEVICES.md`.

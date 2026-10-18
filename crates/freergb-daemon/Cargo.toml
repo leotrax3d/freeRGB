@@ -1,0 +1,28 @@
+[package]
+name = "freergb-daemon"
+description = "freeRGB background service: render loop, device management, local API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "freergbd"
+path = "src/main.rs"
+
+[dependencies]
+freergb-core.workspace = true
+freergb-device-api.workspace = true
+freergb-protocols.workspace = true
+freergb-effects.workspace = true
+freergb-hid.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "signal", "sync", "time"] }
+
+[lints]
+workspace = true

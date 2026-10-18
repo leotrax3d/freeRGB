@@ -1,90 +1,88 @@
-# Protokolle
+# Protocols
 
-Kennzeichnung: **[B]** bestätigt an Hardware, **[W]** wahrscheinlich (statisch belegt),
-**[U]** unbekannt.
+Labels: **[C]** confirmed on hardware, **[P]** probable (statically evidenced),
+**[U]** unknown.
 
 ## Corsair Bragi
 
-Moderne Corsair-Peripherie (Tastaturen, Mäuse, Dongles; auch Basis des iCUE-LINK-Hubs).
+Modern Corsair peripherals (keyboards, mice, dongles; also the base of the iCUE LINK hub).
 
-### 1. Geräte und Schnittstellen
-* K70 CORE RGB `1b1c:1bfd`, Interface 1, Usage Page `0xFF42`, Usage `0x0001` [B].
-  Interface 2 (`0xFF42/0x0002`) dient laut Plugin Benachrichtigungen/Eingaben [W].
-* Report-Längen aus Report-Descriptor: **64 Byte In/Out, keine Report-IDs** [B].
-  hidapi-Schreibpuffer daher 65 Byte mit führendem `0x00`.
+### 1. Devices and interfaces
+* K70 CORE RGB `1b1c:1bfd`, interface 1, usage page `0xFF42`, usage `0x0001` [C].
+  Interface 2 (`0xFF42/0x0002`) carries notifications/input according to the plugin [P].
+* Report lengths from the report descriptor: **64 bytes in/out, no report IDs** [C].
+  The hidapi write buffer is therefore 65 bytes with a leading `0x00`.
 
-### 2. Nachrichtenformat
-Anfrage (nach Report-ID `0x00`): `[target, cmd, args…]`, `target = 0x08 | kindindex`
-(0 = direkt angeschlossenes Gerät) [B für 0x08].
-Antwort: `[x, cmd, err, data…]` (hidapi unter Windows liefert ohne Report-ID) [B].
+### 2. Message format
+Request (after report ID `0x00`): `[target, cmd, args…]`, `target = 0x08 | child_index`
+(0 = directly attached device) [C for 0x08].
+Response: `[x, cmd, err, data…]` (hidapi on Windows strips the report ID) [C].
 `err = 0` → OK.
 
-| cmd | Name | Argumente | Status |
+| cmd | Name | Arguments | Status |
 |---|---|---|---|
-| `0x12` | Ping | – | [B] |
-| `0x02` | GetProperty | `prop:u16le` → Wert in `data[0..3]` (24 bit LE) | [B] |
-| `0x01` | SetProperty | `prop:u16le, wert:u24le` | [B] nur für `mode` |
-| `0x0D` | OpenEndpoint | `handle, endpoint` | [B] |
-| `0x05` | CloseHandle | `0x01, handle` | [B] |
-| `0x09` | CheckHandle | `handle, 0x00` → `err=3` ⇒ geschlossen | [B] |
-| `0x06` | WriteEndpoint | `handle, len:u32le, data…` | [B] |
-| `0x07` | StreamEndpoint | `handle, data…` (Fortsetzung) | [B] |
-| `0x08` | ReadEndpoint | `handle` | [W], nicht implementiert |
-| `0x15` | ConfirmChange | (Commander Core) | [W], nicht implementiert |
+| `0x12` | Ping | – | [C] |
+| `0x02` | GetProperty | `prop:u16le` → value in `data[0..3]` (24-bit LE) | [C] |
+| `0x01` | SetProperty | `prop:u16le, value:u24le` | [C] for `mode` only |
+| `0x0D` | OpenEndpoint | `handle, endpoint` | [C] |
+| `0x05` | CloseHandle | `0x01, handle` | [C] |
+| `0x09` | CheckHandle | `handle, 0x00` → `err=3` ⇒ closed | [C] |
+| `0x06` | WriteEndpoint | `handle, len:u32le, data…` | [C] |
+| `0x07` | StreamEndpoint | `handle, data…` (continuation) | [C] |
+| `0x08` | ReadEndpoint | `handle` | [P], not implemented |
+| `0x15` | ConfirmChange | (Commander Core) | [P], not implemented |
 
-Fehlercodes [W]: 1 ungültiger Wert, 2 Paket zu lang, 3 fehlgeschlagen/nicht unterstützt,
-5 Property nicht unterstützt, 6 Handle nicht offen, 9 schreibgeschützt.
+Error codes [P]: 1 invalid value, 2 packet too long, 3 failed/unsupported,
+5 property unsupported, 6 handle not open, 9 read-only.
 
 ### 3. Properties
-| ID | Bedeutung | Gelesen an K70 CORE |
+| ID | Meaning | Read on K70 CORE |
 |---|---|---|
-| `0x03` | Modus 1=Hardware, 2=Software | 1 bzw. 2 [B] |
-| `0x11` | VID | `0x1B1C` [B] |
-| `0x12` | PID | `0x1BFD` [B] |
-| `0x13` | Firmware `a.b.c` = Bytes 0,1,2 | `1.23.77` [B] |
-| `0x41` | Layout 1=ANSI, 2=ISO | 2 [B] |
-| `0x01` | Polling-Rate (4 = 1000 Hz) | 4 [B] |
-| `0x02` | HW-Helligkeit 0–1000, **laut Plugin im Flash gespeichert** | nicht geschrieben |
-| `0x36` | Funk-Kindgeräte-Bitmaske (Dongles) | [W] |
+| `0x03` | mode 1=hardware, 2=software | 1 / 2 [C] |
+| `0x11` | VID | `0x1B1C` [C] |
+| `0x12` | PID | `0x1BFD` [C] |
+| `0x13` | firmware `a.b.c` = bytes 0,1,2 | `1.23.77` [C] |
+| `0x41` | layout 1=ANSI, 2=ISO | 2 [C] |
+| `0x01` | polling rate (4 = 1000 Hz) | 4 [C] |
+| `0x02` | HW brightness 0–1000, **stored in flash according to the plugin** | never written |
+| `0x36` | wireless child bitmask (dongles) | [P] |
 
-**Sicherheitsregel:** Schreibzugriffe nur auf die Allowlist (`Property::is_writable`,
-derzeit nur `mode`). SignalRGB setzt bei jedem Start die Flash-Helligkeit auf 1000 –
-freeRGB tut das bewusst nicht.
+**Safety rule:** writes only via the allowlist (`Property::is_writable`, currently only
+`mode`). SignalRGB sets the flash brightness to 1000 on every start – freeRGB
+deliberately does not.
 
-### 4. RGB-Daten
+### 4. RGB data
 Handles: 0 Lighting, 1 Background, 2 Auxiliary. Endpoints: `0x01` Lighting (planar
-`RRR…GGG…BBB`), `0x22` LightingController (`[0x12, 0x00]` + `RGB` je LED).
-Die K70 CORE akzeptiert `0x22` [B]. LED-Index = HID-Usage-ID der Taste, Modifier
-abweichend (L-Ctrl 105, L-Shift 106, L-Alt 107, L-Win 108, R-Ctrl 109, R-Shift 110,
-R-Alt 111, Fn 122) [B für L-Ctrl, L-Shift, L-Win, Fn, R-Ctrl, ISO-Tasten 50/100, Esc].
-Puffer: 123 LED-Slots × 3 + 2 = 371 Byte → 1 Write- + 6 Stream-Pakete.
-K70 CORE verlangt `target=0x08` auch in Stream-Paketen und quittiert jedes [B]
-(ohne Quittung laut Plugin nur `target=kindindex`).
+`RRR…GGG…BBB`), `0x22` LightingController (`[0x12, 0x00]` + `RGB` per LED).
+The K70 CORE accepts `0x22` [C]. LED index = HID usage ID of the key, modifiers
+differ (L-Ctrl 105, L-Shift 106, L-Alt 107, L-Win 108, R-Ctrl 109, R-Shift 110,
+R-Alt 111, Fn 122) [C for L-Ctrl, L-Shift, L-Win, Fn, R-Ctrl, ISO keys 50/100, Esc].
+Buffer: 123 LED slots × 3 + 2 = 371 bytes → 1 write + 6 stream packets.
+The K70 CORE requires `target=0x08` in stream packets too and acknowledges each [C]
+(without acknowledgement the plugin uses `target=child_index`).
 
-### 5. Ablauf (implementiert, `freergb-protocols::corsair_bragi`)
-connect: Ping → VID/PID/FW/Mode lesen → PID gegen Modell prüfen → offene Handles
-schließen → Modus Software → Endpoint `0x22` auf Background-Handle testweise öffnen/
-schließen → Lighting-Handle öffnen. Frame: WriteEndpoint + StreamEndpoint(s); bei
-Protokollfehler einmal Handle neu öffnen. disconnect: optional Endfarbe, Handle
-schließen, Modus Hardware.
+### 5. Sequence (implemented, `freergb-protocols::corsair_bragi`)
+connect: ping → read VID/PID/FW/mode → check PID against model → close open handles →
+mode software → probe endpoint `0x22` by opening/closing it on the Background handle →
+open Lighting handle. Frame: WriteEndpoint + StreamEndpoint(s); on a protocol error the
+handle is reopened once. disconnect: optional final colour, close handle, mode hardware.
 
-### 6. Grenzen / offene Fragen
-* Bildrate: 21,9 FPS gemessen (Debug-Build, quittierte Stream-Pakete) [B]. Ursache und
-  Optimierung offen [U].
-* Funk-Kindgeräte (Dongle, `target 0x09…`) nicht getestet [U].
-* Weitere Bragi-Modelle: Tabellen fehlen; neue Modelle nur mit eigener Validierung.
+### 6. Limits / open questions
+* Frame rate: 21.9 FPS measured (debug build, acknowledged stream packets) [C].
+  Cause and optimisation open [U].
+* Wireless children (dongle, `target 0x09…`) not tested [U].
+* Other Bragi models: tables missing; new models only with their own validation.
 
-### 7. Reproduzierbare Tests
-Siehe `docs/TESTING.md` („Hardwaretests K70 CORE“).
+### 7. Reproducible tests
+See `TESTING.md` ("Hardware tests – K70 CORE").
 
-## Corsair iCUE LINK System Hub (`1b1c:0c3f`) – nur identifiziert
-Laufzeitbelege (SignalRGB-Log, Thread `1b1c:0c3f:…`) [B]: Kindgeräte
-3 × „RX Fan“ (Typ 15), „AIO LINK Titan 360 RX“ (Typ 17, Cooler-Typ 2), LCD (Typ 6),
-außerdem Typen 2 und 27. Eindeutige IDs u. a. `0000C763`, `0000C769`, `0000382A`, `00019B75`.
-Protokoll: Bragi-Basis mit eigenem Plugin `Corsair_ICUE_Link_Hub.js` [W] – noch nicht analysiert.
+## Corsair iCUE LINK System Hub (`1b1c:0c3f`) – identified only
+Runtime evidence (SignalRGB log, thread `1b1c:0c3f:…`) [C]: children
+3 × "RX Fan" (type 15), "AIO LINK Titan 360 RX" (type 17, cooler type 2), LCD (type 6),
+plus types 2 and 27. Unique IDs include `0000C763`, `0000C769`, `0000382A`, `00019B75`.
+Protocol: Bragi base with its own plugin `Corsair_ICUE_Link_Hub.js` [P] – not analysed yet.
 
-## Corsair Vengeance DDR5 (SMBus) – nur identifiziert
-`i2c_scan_results.json` [B]: Adressen `0x18` und `0x1A` auf „AMD PIIX4 Bus 0x0b00“,
-zugeordnet `Corsair_Dominator_Ram.js`. SMBus-Schreibzugriffe auf RAM gelten als
-**riskant** (SPD-EEPROM in der Nähe) → nur mit ausdrücklicher Zustimmung und eigenem
-Kernel-/Treiberzugang; zurückgestellt.
+## Corsair Vengeance DDR5 (SMBus) – identified only
+`i2c_scan_results.json` [C]: addresses `0x18` and `0x1A` on "AMD PIIX4 Bus 0x0b00",
+mapped to `Corsair_Dominator_Ram.js`. SMBus writes to RAM are **risky** (SPD EEPROM
+nearby) → only with explicit approval and a dedicated kernel/driver path; deferred.
