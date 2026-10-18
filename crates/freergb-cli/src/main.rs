@@ -46,6 +46,13 @@ enum Cmd {
         #[arg(long, default_value = "1bfd", global = true)]
         pid: String,
     },
+    /// Read-only probe of the Corsair iCUE LINK hub: firmware, mode, child
+    /// devices, fan RPM, temperatures. Never changes mode or fan settings.
+    LinkProbe {
+        /// Also print every raw request/response (hex).
+        #[arg(long)]
+        raw: bool,
+    },
     /// Call a method on the running freergbd, e.g. `ctl color.set '{"color":"#ff0000"}'`.
     Ctl {
         method: String,
@@ -126,7 +133,77 @@ fn main() -> Result<()> {
             bragi(cmd, pid)
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
+        Cmd::LinkProbe { raw } => link_probe(raw),
     }
+}
+
+fn link_probe(show_raw: bool) -> Result<()> {
+    use freergb_protocols::corsair_bragi::link_hub::LinkHubProbe;
+
+    let info = freergb_hid::find(0x1B1C, 0x0C3F, 0xFF42, 0x0001)?;
+    let t = HidapiTransport::open(&info)?;
+    let s = t.report_sizes();
+    eprintln!(
+        "opened {} (in {} / out {} bytes, report ids: {})",
+        info.product.as_deref().unwrap_or("?"),
+        s.input,
+        s.output,
+        s.uses_report_ids
+    );
+    let r = LinkHubProbe::new(t).run()?;
+
+    if show_raw {
+        let hex = |b: &[u8]| {
+            let end = b.iter().rposition(|&x| x != 0).map_or(0, |i| i + 1);
+            b[..end.max(8).min(b.len())]
+                .iter()
+                .map(|x| format!("{x:02x}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        for (req, resp) in &r.raw {
+            println!("> {}\n< {}", hex(req), hex(resp));
+        }
+    }
+    println!("vid       {:#06x}", r.vid);
+    println!("pid       {:#06x}", r.pid);
+    println!("firmware  {}", r.firmware);
+    println!(
+        "mode      {} ({})",
+        r.mode,
+        match r.mode {
+            1 => "hardware",
+            2 => "software",
+            _ => "unknown",
+        }
+    );
+    match &r.children {
+        Ok(c) => {
+            println!("children  {}", c.len());
+            for d in c {
+                let id = &d.id[d.id.len().saturating_sub(8)..];
+                println!(
+                    "  slot {:>2}  type {:>2}/{}  {:<20} leds {:<4} id …{}",
+                    d.slot,
+                    d.device_type,
+                    d.subtype,
+                    d.model_name().unwrap_or("unknown"),
+                    d.led_count().map_or("?".into(), |n| n.to_string()),
+                    id
+                );
+            }
+        }
+        Err(e) => println!("children  error: {e}"),
+    }
+    match &r.fan_rpm {
+        Ok(v) => println!("fan rpm   {v:?}"),
+        Err(e) => println!("fan rpm   error: {e}"),
+    }
+    match &r.temperatures_c {
+        Ok(v) => println!("temps °C  {v:?}"),
+        Err(e) => println!("temps     error: {e}"),
+    }
+    Ok(())
 }
 
 /// Sends one JSON-RPC request to freergbd over the local IPC endpoint.

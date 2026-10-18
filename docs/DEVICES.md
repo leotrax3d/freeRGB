@@ -6,7 +6,7 @@ PnP and `freergb discover`. All entries confirmed.
 | Device | VID:PID | RGB interface | SignalRGB plugin | freeRGB status |
 |---|---|---|---|---|
 | CORSAIR K70 CORE RGB (ISO, FW 1.23.77) | 1b1c:1bfd | IF1 `FF42:0001` | Modern_Corsair/Corsair_Bragi_Device.js | **Validated** (colour, per-key sample, mode switch, daemon) |
-| CORSAIR iCUE LINK System Hub | 1b1c:0c3f | IF0 `FF42:0001` | Modern_Corsair/Corsair_ICUE_Link_Hub.js | Identified |
+| CORSAIR iCUE LINK System Hub (FW 4.1.144) | 1b1c:0c3f | IF0 `FF42:0001` | Modern_Corsair/Corsair_ICUE_Link_Hub.js | Read-only probe (properties confirmed) |
 | ↳ 3 × iCUE LINK RX fan, AIO LINK Titan 360 RX, LCD | (via hub) | – | – | Identified (log) |
 | CORSAIR iCUE LINK AIO LCD Screen Module | 1b1c:0c4e | `000C:0001` | Corsair/Corsair_ICUE_Link_LCD.js | Identified |
 | Corsair Vengeance RGB DDR5 CMH32GX5M2B6000Z30 (2 modules) | SMBus 0x18, 0x1A | SMBus (PIIX4) | Corsair/Ram/Corsair_Dominator_Ram.js | Identified, deferred (risk) |

@@ -76,11 +76,61 @@ handle is reopened once. disconnect: optional final colour, close handle, mode h
 ### 7. Reproducible tests
 See `TESTING.md` ("Hardware tests – K70 CORE").
 
-## Corsair iCUE LINK System Hub (`1b1c:0c3f`) – identified only
-Runtime evidence (SignalRGB log, thread `1b1c:0c3f:…`) [C]: children
-3 × "RX Fan" (type 15), "AIO LINK Titan 360 RX" (type 17, cooler type 2), LCD (type 6),
-plus types 2 and 27. Unique IDs include `0000C763`, `0000C769`, `0000382A`, `00019B75`.
-Protocol: Bragi base with its own plugin `Corsair_ICUE_Link_Hub.js` [P] – not analysed yet.
+## Corsair iCUE LINK System Hub (`1b1c:0c3f`) – read-only analysis
+
+Implementation: `freergb-protocols::corsair_bragi::link_hub`, CLI `freergb link-probe [--raw]`.
+The hub drives fans and the AIO pump, so freeRGB only reads from it so far.
+
+### Interface [C]
+IF0, usage page `0xFF42`, usage `0x0001`; 512-byte input/output reports, no report IDs.
+
+### Framing [C]
+Request `[0x00 report id, 0x00, target, cmd, args…]`; the hub is target `0x01`
+(the plugin sets the `0x08` bit only for lighting writes [P]).
+Response (hidapi, report ID stripped) `[0x00, 0x00, cmd, err, data…]`.
+
+Raw exchange 2026-10-18 (hardware mode):
+```
+> 00 00 01 12            ping            < 00 00 12 00 02
+> 00 00 01 02 11 00      get VID         < 00 00 02 00 1c 1b
+> 00 00 01 02 12 00      get PID         < 00 00 02 00 3f 0c
+> 00 00 01 02 13 00      get firmware    < 00 00 02 00 04 01 90 02   → 4.1.144
+> 00 00 01 02 03 00      get mode        < 00 00 02 00 01            → hardware
+> 00 00 01 09 01 00      check handle 1  < 00 00 09 03               → closed
+> 00 00 01 0d 01 36      open EP 0x36    < 00 00 0d 03               → error 3
+```
+Opening the child-list (`0x36`), fan-RPM (`0x17`) and temperature (`0x21`) endpoints
+fails with error 3 while the hub is in **hardware mode** [C]. The plugin always
+switches to software mode before reading them [P].
+
+### Child list (endpoint `0x36`) [C, from a logged packet]
+SignalRGB logged one raw child-list response on this machine. Payload after the error
+byte: `[0x21, 0x00, slot_count, slot…]`. Every slot is either 8 zero bytes (empty) or
+`[0, 0, type, subtype, 0, 0, 0x05, id_len, id[id_len] (ASCII)]`. The logged packet
+decodes completely with this rule (15 slots, nothing left over):
+
+| Slot | Type/sub | Model (plugin table) | LEDs |
+|---|---|---|---|
+| 0–2 | 15/0 | iCUE LINK RX Fan | 8 each |
+| 3 | 17/2 | LINK Titan 360 RX (AIO) | 20 |
+| 4 | 6/0 | LINK LCD | – |
+| 5–11 | empty | | |
+| 12, 14 | 27/0 | unknown to the plugin | ? |
+| 13 | 2/0 | LX Fan per table [P] | 18 |
+
+The plugin finds slots by scanning for a byte pattern, cuts both type-27 IDs down to
+the same value (`000000C0`) and has no entry for type 27. This probably makes it
+re-enumerate on every frame, which matches the ~100 MB of repeated log lines [P].
+
+### Sensors [P]
+Fan RPM (`0x17`, data type `0x06`) and temperatures (`0x21`, data type `0x10`):
+`[type_lo, type_hi, count, (status, lo, hi)…]`, temperature in 0.1 °C. Not yet
+read on hardware.
+
+### Next step (needs approval)
+Reading the endpoints requires a short switch to software mode and straight back to
+hardware mode, as SignalRGB does on every start. Fans and pump are attached, so this
+needs the user's explicit approval first.
 
 ## Corsair Vengeance DDR5 (SMBus) – identified only
 `i2c_scan_results.json` [C]: addresses `0x18` and `0x1A` on "AMD PIIX4 Bus 0x0b00",

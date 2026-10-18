@@ -213,6 +213,28 @@ impl<'a> Response<'a> {
         })
     }
 
+    /// Decodes a response whose command echo sits at `cmd_index`
+    /// (`[.., cmd, err, data..]`). Used for framings with extra header bytes,
+    /// such as the iCUE LINK hub.
+    pub fn parse_at(
+        raw: &'a [u8],
+        expected: Command,
+        cmd_index: usize,
+    ) -> Result<Self, ResponseError> {
+        let cmd = expected as u8;
+        if raw.len() < cmd_index + 2 {
+            return Err(ResponseError::Short(raw.len()));
+        }
+        if raw[cmd_index] != cmd {
+            return Err(ResponseError::WrongCommand { expected: cmd });
+        }
+        Ok(Response {
+            command: cmd,
+            error: raw[cmd_index + 1],
+            data: &raw[cmd_index + 2..],
+        })
+    }
+
     pub fn ok(self) -> Result<Self, ResponseError> {
         match self.error {
             0 => Ok(self),
