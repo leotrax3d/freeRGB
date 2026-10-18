@@ -94,17 +94,25 @@ impl ChildDevice {
             (17, 2) => "LINK Titan 360 RX",
             (17, 3) => "LINK Titan 420 RX",
             (19, _) => "RX PWM Fan",
+            (27, _) => "iCUE COMMANDER DUO",
             _ => return None,
         })
     }
 
-    /// LEDs according to the plugin table (RX fan 8, Titan AIO pump head 20).
+    /// LEDs this child occupies in the hub's lighting buffer.
+    ///
+    /// Sources: SignalRGB plugin table (RX 8, Titan 20, LX 18, QX 34, LCD ring
+    /// 24) and the OpenLinkHub device database (GPL-3.0, facts only), which
+    /// lists type 27 as "iCUE COMMANDER DUO" with 0 LED channels and agrees on
+    /// the RX/LX/Titan counts.
     pub fn led_count(&self) -> Option<usize> {
         match self.device_type {
             15 => Some(8),
             17 => Some(20),
             2 => Some(18),
             1 => Some(34),
+            6 => Some(24),
+            27 => Some(0),
             _ => None,
         }
     }
@@ -397,11 +405,9 @@ const STREAM_HEADER: usize = 5;
 pub fn known_lighting_prefix(children: &[ChildDevice]) -> Vec<(ChildDevice, usize)> {
     let mut out = Vec::new();
     for c in children {
-        let leds = match c.device_type {
-            6 => Some(24), // LCD ring (plugin table)
-            _ => c.led_count(),
-        };
-        match leds {
+        match c.led_count() {
+            // Children without LEDs (e.g. Commander DUO) take no buffer space.
+            Some(0) => continue,
             Some(n) => out.push((c.clone(), n)),
             None => break,
         }
@@ -677,7 +683,8 @@ mod tests {
         );
         assert_eq!(c[3].model_name(), Some("LINK Titan 360 RX"));
         assert_eq!(c[3].led_count(), Some(20));
-        assert_eq!(c[5].model_name(), None);
+        assert_eq!(c[5].model_name(), Some("iCUE COMMANDER DUO"));
+        assert_eq!(c[5].led_count(), Some(0));
         assert_ne!(c[5].id, c[7].id, "type-27 IDs must stay distinct");
     }
 
@@ -791,14 +798,26 @@ mod tests {
     }
 
     #[test]
-    fn lighting_prefix_stops_at_unknown_type() {
+    fn lighting_prefix_skips_ledless_children_and_stops_at_unknown() {
         let c = parse_child_list(&sample_payload()).unwrap();
         let seg: Vec<_> = known_lighting_prefix(&c)
             .iter()
             .map(|(d, n)| (d.slot, *n))
             .collect();
-        // RX, RX, RX, Titan, LCD – then type 27 (unknown) ends the prefix.
-        assert_eq!(seg, vec![(0, 8), (1, 8), (2, 8), (3, 20), (4, 24)]);
+        // RX, RX, RX, Titan, LCD, (Commander DUO: no LEDs), LX, (Commander DUO).
+        assert_eq!(
+            seg,
+            vec![(0, 8), (1, 8), (2, 8), (3, 20), (4, 24), (13, 18)]
+        );
+
+        // An unknown type still ends the prefix.
+        let mut unknown = c.clone();
+        unknown[5].device_type = 99;
+        let seg: Vec<_> = known_lighting_prefix(&unknown)
+            .iter()
+            .map(|(d, _)| d.slot)
+            .collect();
+        assert_eq!(seg, vec![0, 1, 2, 3, 4]);
     }
 
     #[test]
@@ -831,7 +850,7 @@ mod tests {
 
         let (declared, received, data) = sim.lighting.lock().unwrap().clone();
         // 2-byte prefix + (3*8 + 20 + 24) LEDs * 3.
-        assert_eq!(declared, 2 + 68 * 3);
+        assert_eq!(declared, 2 + 86 * 3);
         assert_eq!(received, declared);
         assert_eq!(&data[..2], &[0x12, 0x00]);
         assert_eq!(&data[2..5], &[255, 0, 0], "fan 1 red");
@@ -909,11 +928,11 @@ mod tests {
         let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), Some("SIM".into()));
         dev.connect().unwrap();
         assert_eq!(*sim.mode.lock().unwrap(), 2);
-        assert_eq!(dev.layout().len(), 68);
-        assert_eq!(dev.layout().height, 5);
+        assert_eq!(dev.layout().len(), 86);
+        assert_eq!(dev.layout().height, 6);
         assert_eq!(dev.info().firmware.as_deref(), Some("4.1.144"));
 
-        let mut f = Frame::solid(68, Rgb::BLACK);
+        let mut f = Frame::solid(86, Rgb::BLACK);
         f.colors_mut()[24] = Rgb::new(1, 2, 3); // first LED of the AIO segment
         dev.push_frame(&f).unwrap();
         let data = sim.lighting.lock().unwrap().2.clone();
@@ -937,14 +956,14 @@ mod tests {
         *sim.pump_rpm.lock().unwrap() = 300;
         // First bad sample is tolerated, the second one trips.
         std::thread::sleep(WATCHDOG_INTERVAL + std::time::Duration::from_millis(50));
-        dev.push_frame(&Frame::solid(68, Rgb::RED)).unwrap();
+        dev.push_frame(&Frame::solid(86, Rgb::RED)).unwrap();
         assert_eq!(
             *sim.mode.lock().unwrap(),
             2,
             "still running after one bad sample"
         );
         std::thread::sleep(WATCHDOG_INTERVAL + std::time::Duration::from_millis(50));
-        let err = dev.push_frame(&Frame::solid(68, Rgb::RED)).unwrap_err();
+        let err = dev.push_frame(&Frame::solid(86, Rgb::RED)).unwrap_err();
         assert!(matches!(err, DeviceError::Refused(_)), "{err}");
         assert!(dev.tripped().is_some());
         assert!(matches!(dev.status(), DeviceStatus::Faulted(_)));

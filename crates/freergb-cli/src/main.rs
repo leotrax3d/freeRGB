@@ -58,7 +58,7 @@ enum Cmd {
         software_window: bool,
     },
     /// Reversible lighting test on the iCUE LINK hub: fan 1 red, fan 2 green,
-    /// fan 3 blue, AIO white, LCD ring magenta. Watches fan/pump RPM, aborts on
+    /// fan 3 blue, AIO white, LCD ring magenta, LX fan yellow. Watches fan/pump RPM, aborts on
     /// a drop, always returns the hub to hardware mode (verified).
     LinkLightTest {
         #[arg(long, default_value_t = 10.0)]
@@ -161,6 +161,7 @@ fn link_light_test(seconds: f32) -> Result<()> {
         Rgb::BLUE,
         Rgb::WHITE,
         Rgb::new(255, 0, 255),
+        Rgb::new(255, 255, 0),
     ];
     let info = freergb_hid::find(0x1B1C, 0x0C3F, 0xFF42, 0x0001)?;
     let t = HidapiTransport::open(&info)?;
