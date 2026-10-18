@@ -5,6 +5,7 @@
 
 pub mod api;
 pub mod conflicts;
+pub mod custom_effects;
 pub mod engine;
 pub mod hardware;
 pub mod ipc;

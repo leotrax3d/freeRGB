@@ -380,6 +380,14 @@ impl Engine {
         self.profiles_dir.as_deref()
     }
 
+    /// Directory of the effect editor's library (`effects/` next to profiles).
+    pub fn custom_effects_dir(&self) -> Option<std::path::PathBuf> {
+        self.profiles_dir
+            .as_deref()
+            .and_then(std::path::Path::parent)
+            .map(|d| d.join("effects"))
+    }
+
     /// Uses `dir` for named profiles (tests, or a custom location).
     pub fn with_profiles_dir(mut self, dir: PathBuf) -> Self {
         self.profiles_dir = Some(dir);

@@ -23,6 +23,51 @@ fn invalid_params(e: impl std::fmt::Display) -> (i64, String) {
     (-32602, format!("invalid params: {e}"))
 }
 
+/// `custom_effects.*`: the effect editor's library (same storage rules as profiles).
+fn custom_effect_call(
+    engine: &SharedEngine,
+    method: &str,
+    params: &Value,
+) -> Result<Value, (i64, String)> {
+    use crate::profiles::ProfileError;
+
+    let dir = lock(engine).custom_effects_dir().ok_or((
+        -32003,
+        "custom effects are disabled (daemon runs with --no-state)".to_owned(),
+    ))?;
+    let map_err = |e: ProfileError| match e {
+        ProfileError::InvalidName(_) | ProfileError::Corrupt(..) => (-32602, e.to_string()),
+        ProfileError::NotFound(_) => (-32004, e.to_string()),
+        ProfileError::Io(_) => (-32000, e.to_string()),
+    };
+    let name = || {
+        params
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| invalid_params("expected {\"name\": \"…\"}"))
+    };
+    match method {
+        "custom_effects.list" => crate::custom_effects::list(&dir)
+            .map(|l| json!(l))
+            .map_err(map_err),
+        "custom_effects.get" => crate::custom_effects::load(&dir, name()?)
+            .map(|s| json!(s))
+            .map_err(map_err),
+        "custom_effects.save" => {
+            let n = name()?;
+            let spec: EffectSpec =
+                serde_json::from_value(params.get("effect").cloned().unwrap_or(Value::Null))
+                    .map_err(invalid_params)?;
+            crate::custom_effects::save(&dir, n, &spec)
+                .map(|()| json!(true))
+                .map_err(map_err)
+        }
+        _ => crate::custom_effects::delete(&dir, name()?)
+            .map(|()| json!(true))
+            .map_err(map_err),
+    }
+}
+
 /// `profiles.*` methods. Errors: -32602 bad name, -32004 not found,
 /// -32003 profiles disabled (`--no-state`), -32000 I/O.
 fn profile_call(
@@ -113,10 +158,15 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         "effects.get" => Ok(json!(lock(engine).effect())),
         "effects.set" => serde_json::from_value::<EffectSpec>(params)
             .map_err(invalid_params)
+            .and_then(|spec| spec.validate().map(|()| spec).map_err(invalid_params))
             .map(|spec| {
                 lock(engine).set_effect(spec);
                 json!(true)
             }),
+        "custom_effects.list"
+        | "custom_effects.save"
+        | "custom_effects.get"
+        | "custom_effects.delete" => custom_effect_call(engine, method, &params),
         "color.set" => params
             .get("color")
             .and_then(Value::as_str)
@@ -301,6 +351,42 @@ mod tests {
             r.b > 200 && r.r < 60,
             "right device shows the blue end: {r}"
         );
+    }
+
+    #[test]
+    fn custom_effects_library_and_validation() {
+        let root = std::env::temp_dir().join(format!("freergb-api-custom-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let e: SharedEngine = Arc::new(Mutex::new(
+            Engine::new(EffectSpec::Solid { color: Rgb::BLACK }, 30)
+                .with_profiles_dir(root.join("profiles")),
+        ));
+        let nested = r#"{"id":1,"method":"effects.set","params":{"type":"layers","layers":[{"effect":{"type":"layers","layers":[]}}]}}"#;
+        assert_eq!(call(&e, nested)["error"]["code"], json!(-32602));
+
+        let save = r#"{"id":2,"method":"custom_effects.save","params":{"name":"Party","effect":{"type":"layers","layers":[{"effect":{"type":"solid","color":{"r":9,"g":9,"b":9}},"blend":"add","opacity":0.5}]}}}"#;
+        assert_eq!(call(&e, save)["result"], json!(true));
+        assert_eq!(
+            call(&e, r#"{"id":3,"method":"custom_effects.list"}"#)["result"],
+            json!(["Party"])
+        );
+        let got = call(
+            &e,
+            r#"{"id":4,"method":"custom_effects.get","params":{"name":"Party"}}"#,
+        );
+        assert_eq!(got["result"]["layers"][0]["blend"], json!("add"));
+        let set = json!({"id": 5, "method": "effects.set", "params": got["result"]}).to_string();
+        assert_eq!(call(&e, &set)["result"], json!(true));
+        assert_eq!(
+            call(&e, r#"{"id":6,"method":"effects.get"}"#)["result"]["type"],
+            json!("layers")
+        );
+        let missing = call(
+            &e,
+            r#"{"id":7,"method":"custom_effects.get","params":{"name":"Nope"}}"#,
+        );
+        assert_eq!(missing["error"]["code"], json!(-32004));
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

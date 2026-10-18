@@ -4,6 +4,7 @@
 
 pub mod audio;
 pub mod extra;
+pub mod layers;
 pub mod screen;
 
 pub use audio::{AudioHandle, EffectContext, ScreenHandle};
@@ -70,6 +71,10 @@ pub enum EffectSpec {
     ScreenAmbience {
         saturation: f32,
     },
+    /// Custom effect from the editor: a stack of built-in effects.
+    Layers {
+        layers: Vec<layers::Layer>,
+    },
 }
 
 fn ms(v: u32) -> Duration {
@@ -78,7 +83,7 @@ fn ms(v: u32) -> Duration {
 
 impl EffectSpec {
     /// API names of all effects, in display order.
-    pub const NAMES: [&'static str; 11] = [
+    pub const NAMES: [&'static str; 12] = [
         "solid",
         "rainbow_wave",
         "breathing",
@@ -90,6 +95,7 @@ impl EffectSpec {
         "audio_pulse",
         "audio_spectrum",
         "screen_ambience",
+        "layers",
     ];
 
     /// A sensible default instance for each name in [`EffectSpec::NAMES`].
@@ -138,6 +144,25 @@ impl EffectSpec {
                 background: Rgb::BLACK,
             },
             "screen_ambience" => EffectSpec::ScreenAmbience { saturation: 1.4 },
+            "layers" => EffectSpec::Layers {
+                layers: vec![
+                    layers::Layer::new(EffectSpec::RainbowWave {
+                        speed: 0.2,
+                        scale: 1.0,
+                    }),
+                    layers::Layer {
+                        effect: EffectSpec::Scanner {
+                            color: Rgb::WHITE,
+                            background: Rgb::BLACK,
+                            period_ms: 2000,
+                            width: 0.1,
+                        },
+                        blend: layers::BlendMode::Add,
+                        opacity: 0.8,
+                        region: None,
+                    },
+                ],
+            },
             _ => return None,
         })
     }
@@ -156,21 +181,35 @@ impl EffectSpec {
             EffectSpec::AudioPulse { .. } => "audio_pulse",
             EffectSpec::AudioSpectrum { .. } => "audio_spectrum",
             EffectSpec::ScreenAmbience { .. } => "screen_ambience",
+            EffectSpec::Layers { .. } => "layers",
         }
     }
 
     /// Whether this effect needs the system audio (the daemon only captures
     /// audio while such an effect is active).
     pub fn needs_audio(&self) -> bool {
-        matches!(
-            self,
-            EffectSpec::AudioPulse { .. } | EffectSpec::AudioSpectrum { .. }
-        )
+        match self {
+            EffectSpec::AudioPulse { .. } | EffectSpec::AudioSpectrum { .. } => true,
+            EffectSpec::Layers { layers } => layers.iter().any(|l| l.effect.needs_audio()),
+            _ => false,
+        }
     }
 
     /// Whether this effect needs the screen capture.
     pub fn needs_screen(&self) -> bool {
-        matches!(self, EffectSpec::ScreenAmbience { .. })
+        match self {
+            EffectSpec::ScreenAmbience { .. } => true,
+            EffectSpec::Layers { layers } => layers.iter().any(|l| l.effect.needs_screen()),
+            _ => false,
+        }
+    }
+
+    /// Checks values the type system cannot (layer stacks).
+    pub fn validate(&self) -> Result<(), String> {
+        match self {
+            EffectSpec::Layers { layers } => layers::validate(layers),
+            _ => Ok(()),
+        }
     }
 
     /// Builds the effect without external inputs (audio effects stay dark).
@@ -180,6 +219,7 @@ impl EffectSpec {
 
     pub fn build_with(&self, ctx: &EffectContext) -> Box<dyn Effect> {
         match *self {
+            EffectSpec::Layers { ref layers } => Box::new(layers::Layered::new(layers, ctx)),
             EffectSpec::ScreenAmbience { saturation } => Box::new(screen::ScreenAmbience {
                 saturation,
                 ctx: ctx.clone(),
