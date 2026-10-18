@@ -57,6 +57,13 @@ enum Cmd {
         #[arg(long)]
         software_window: bool,
     },
+    /// Reversible lighting test on the iCUE LINK hub: fan 1 red, fan 2 green,
+    /// fan 3 blue, AIO white, LCD ring magenta. Watches fan/pump RPM, aborts on
+    /// a drop, always returns the hub to hardware mode (verified).
+    LinkLightTest {
+        #[arg(long, default_value_t = 10.0)]
+        seconds: f32,
+    },
     /// Call a method on the running freergbd, e.g. `ctl color.set '{"color":"#ff0000"}'`.
     Ctl {
         method: String,
@@ -137,11 +144,51 @@ fn main() -> Result<()> {
             bragi(cmd, pid)
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
+        Cmd::LinkLightTest { seconds } => link_light_test(seconds),
         Cmd::LinkProbe {
             raw,
             software_window,
         } => link_probe(raw, software_window),
     }
+}
+
+fn link_light_test(seconds: f32) -> Result<()> {
+    use freergb_protocols::corsair_bragi::link_hub::LinkHubProbe;
+
+    let palette = [
+        Rgb::RED,
+        Rgb::GREEN,
+        Rgb::BLUE,
+        Rgb::WHITE,
+        Rgb::new(255, 0, 255),
+    ];
+    let info = freergb_hid::find(0x1B1C, 0x0C3F, 0xFF42, 0x0001)?;
+    let t = HidapiTransport::open(&info)?;
+    let r = LinkHubProbe::new(t).lighting_test(
+        |i| palette.get(i).copied().unwrap_or(Rgb::BLACK),
+        Duration::from_secs_f32(seconds),
+    )?;
+    for (i, (d, n)) in r.segments.iter().enumerate() {
+        println!(
+            "segment {i}: slot {:>2} {:<18} {n:>2} LEDs -> {}",
+            d.slot,
+            d.model_name().unwrap_or("?"),
+            palette.get(i).copied().unwrap_or(Rgb::BLACK)
+        );
+    }
+    println!("frames    {}", r.frames);
+    println!("rpm before {:?}", r.rpm_before);
+    for s in &r.rpm_during {
+        println!("rpm during {s:?}");
+    }
+    if let Some(a) = &r.aborted {
+        println!("ABORTED   {a}");
+    }
+    match r.restored_mode {
+        Some(1) => println!("restore   hardware mode verified"),
+        other => bail!("hub did NOT confirm hardware mode: {other:?}"),
+    }
+    Ok(())
 }
 
 fn link_probe(show_raw: bool, software_window: bool) -> Result<()> {

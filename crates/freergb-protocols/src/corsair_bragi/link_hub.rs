@@ -197,6 +197,10 @@ pub enum ProbeError {
     Response(Command, ResponseError),
     #[error("no response to {0:?}")]
     NoResponse(Command),
+    #[error("child list: {0}")]
+    ChildList(#[from] ChildListError),
+    #[error("refused: {0}")]
+    Refused(String),
 }
 
 impl<T: HidTransport> LinkHubProbe<T> {
@@ -364,6 +368,187 @@ impl<T: HidTransport> LinkHubProbe<T> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Lighting (experimental). Evidence: plugin `SendRGBData`/`getColors` [P].
+
+/// Target byte for lighting writes (`0x08 | hub`).
+pub const TARGET_HUB_LIGHTING: u8 = 0x08 | TARGET_HUB;
+pub const EP_LIGHTING_CONTROLLER: u8 = 0x22;
+/// Report ID, 0x00, target, cmd, handle, u32 length.
+const WRITE_HEADER: usize = 9;
+/// Report ID, 0x00, target, cmd, handle.
+const STREAM_HEADER: usize = 5;
+
+/// Children whose LED segment position in the chain is known: the leading
+/// run of children with a known LED count. Everything after the first
+/// unknown type is left out, because its LED count would shift all later
+/// offsets. Returns `(child, led_count)` in chain order.
+pub fn known_lighting_prefix(children: &[ChildDevice]) -> Vec<(ChildDevice, usize)> {
+    let mut out = Vec::new();
+    for c in children {
+        let leds = match c.device_type {
+            6 => Some(24), // LCD ring (plugin table)
+            _ => c.led_count(),
+        };
+        match leds {
+            Some(n) => out.push((c.clone(), n)),
+            None => break,
+        }
+    }
+    out
+}
+
+/// `[0x12, 0x00]` + RGB for every LED of every segment, in order.
+pub fn encode_lighting(segments: &[Vec<freergb_core::Rgb>]) -> Vec<u8> {
+    let mut p = vec![0x12, 0x00];
+    for seg in segments {
+        for c in seg {
+            p.extend_from_slice(&c.to_array());
+        }
+    }
+    p
+}
+
+/// First packet `WriteEndpoint` (target `0x09`, length), then unacknowledged
+/// `StreamEndpoint` packets (target `0x01`).
+pub fn lighting_packets(payload: &[u8], out_len: usize) -> Vec<Vec<u8>> {
+    let first_cap = out_len - WRITE_HEADER;
+    let (first, mut rest) = payload.split_at(payload.len().min(first_cap));
+    let mut p = vec![
+        0,
+        0,
+        TARGET_HUB_LIGHTING,
+        Command::WriteEndpoint as u8,
+        Handle::Lighting as u8,
+    ];
+    p.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+    p.extend_from_slice(first);
+    let mut out = vec![p];
+    while !rest.is_empty() {
+        let (chunk, r) = rest.split_at(rest.len().min(out_len - STREAM_HEADER));
+        let mut s = vec![
+            0,
+            0,
+            TARGET_HUB,
+            Command::StreamEndpoint as u8,
+            Handle::Lighting as u8,
+        ];
+        s.extend_from_slice(chunk);
+        out.push(s);
+        rest = r;
+    }
+    out
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LightingTestReport {
+    pub segments: Vec<(ChildDevice, usize)>,
+    pub frames: u32,
+    pub rpm_before: Vec<Option<u16>>,
+    /// RPM samples taken during the test (about once per second).
+    pub rpm_during: Vec<Vec<Option<u16>>>,
+    pub aborted: Option<String>,
+    pub restored_mode: Option<u32>,
+}
+
+impl<T: HidTransport> LinkHubProbe<T> {
+    fn rpm(&mut self) -> Vec<Option<u16>> {
+        self.read_endpoint(EP_FAN_RPM)
+            .map(|d| parse_sensor_values(&d))
+            .unwrap_or_default()
+    }
+
+    /// Shows `color_for(segment_index)` on the known chain prefix for
+    /// `duration`, while watching the RPM of every fan/pump that was spinning
+    /// before. Aborts if any of them drops below half its starting speed.
+    /// Always returns the hub to hardware mode and reads it back.
+    pub fn lighting_test(
+        mut self,
+        color_for: impl Fn(usize) -> freergb_core::Rgb,
+        duration: std::time::Duration,
+    ) -> Result<LightingTestReport, ProbeError> {
+        self.ok(ping(TARGET_HUB), Command::Ping)?;
+        let mode = self.property(Property::Mode)?;
+        if mode != Mode::Hardware as u32 {
+            return Err(ProbeError::Refused(format!(
+                "hub is in mode {mode}, expected hardware (1); another program may control it"
+            )));
+        }
+        self.set_mode(Mode::Software)?;
+
+        let mut report = LightingTestReport {
+            segments: Vec::new(),
+            frames: 0,
+            rpm_before: Vec::new(),
+            rpm_during: Vec::new(),
+            aborted: None,
+            restored_mode: None,
+        };
+        let body = (|| -> Result<(), ProbeError> {
+            let children = self.read_endpoint(EP_CHILD_DEVICES)?;
+            let children = parse_child_list(&children)?;
+            report.segments = known_lighting_prefix(&children);
+            report.rpm_before = self.rpm();
+
+            let segments: Vec<Vec<freergb_core::Rgb>> = report
+                .segments
+                .iter()
+                .enumerate()
+                .map(|(i, (_, n))| vec![color_for(i); *n])
+                .collect();
+            let packets = lighting_packets(&encode_lighting(&segments), self.t.output_report_len());
+
+            self.ok(
+                open_endpoint(TARGET_HUB, Handle::Lighting, EP_LIGHTING_CONTROLLER),
+                Command::OpenEndpoint,
+            )?;
+            let start = std::time::Instant::now();
+            let mut last_check = start;
+            while start.elapsed() < duration {
+                for (i, p) in packets.iter().enumerate() {
+                    if i == 0 {
+                        self.ok(p.clone(), Command::WriteEndpoint)?;
+                    } else {
+                        self.t.write(p)?;
+                    }
+                }
+                report.frames += 1;
+                if last_check.elapsed() >= std::time::Duration::from_secs(1) {
+                    last_check = std::time::Instant::now();
+                    let now = self.rpm();
+                    let dropped = report.rpm_before.iter().zip(&now).position(|(b, n)| {
+                        matches!((b, n), (Some(b), n) if *b > 300 && n.unwrap_or(0) < b / 2)
+                    });
+                    report.rpm_during.push(now);
+                    if let Some(idx) = dropped {
+                        report.aborted = Some(format!("rpm sensor {idx} dropped below 50 %"));
+                        break;
+                    }
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            Ok(())
+        })();
+
+        // Restore regardless of what happened above.
+        let _ = self.ok(
+            close_handle(TARGET_HUB, Handle::Lighting),
+            Command::CloseHandle,
+        );
+        for _ in 0..3 {
+            if self.set_mode(Mode::Hardware).is_ok() {
+                if let Ok(m) = self.property(Property::Mode) {
+                    report.restored_mode = Some(m);
+                    if m == Mode::Hardware as u32 {
+                        break;
+                    }
+                }
+            }
+        }
+        body.map(|()| report)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -423,11 +608,43 @@ mod tests {
         mode: std::sync::Arc<std::sync::Mutex<u8>>,
         broken_temps: bool,
     ) -> freergb_device_api::mock::MockTransport {
-        let mut open: Option<u8> = None;
+        sim_hub_full(SimHub {
+            mode,
+            broken_temps,
+            ..SimHub::default()
+        })
+    }
+
+    #[derive(Default, Clone)]
+    struct SimHub {
+        mode: std::sync::Arc<std::sync::Mutex<u8>>,
+        broken_temps: bool,
+        /// Declared payload length of the last lighting write and bytes received.
+        lighting: std::sync::Arc<std::sync::Mutex<(usize, usize, Vec<u8>)>>,
+        /// Pump RPM reported at sensor index 4.
+        pump_rpm: std::sync::Arc<std::sync::Mutex<u16>>,
+    }
+
+    fn sim_hub_full(s: SimHub) -> freergb_device_api::mock::MockTransport {
+        let mut open: [Option<u8>; 3] = [None; 3];
+        *s.pump_rpm.lock().unwrap() = 1700;
         freergb_device_api::mock::MockTransport::new(513, 513, move |r| {
-            assert_eq!(&r[..3], &[0, 0, TARGET_HUB], "hub framing");
-            let (cmd, a, b) = (r[3], r[4], r[5]);
-            let mut m = mode.lock().unwrap();
+            let (target, cmd, a, b) = (r[2], r[3], r[4], r[5]);
+            let mut m = s.mode.lock().unwrap();
+            if cmd == 0x07 {
+                assert_eq!(target, TARGET_HUB);
+                assert_eq!(open[0], Some(EP_LIGHTING_CONTROLLER));
+                let mut l = s.lighting.lock().unwrap();
+                let take = (l.0 - l.1).min(r.len() - 5);
+                l.2.extend_from_slice(&r[5..5 + take]);
+                l.1 += take;
+                return vec![]; // streams are not acknowledged
+            }
+            if cmd == 0x06 {
+                assert_eq!(target, TARGET_HUB_LIGHTING, "lighting writes use 0x09");
+            } else {
+                assert_eq!(target, TARGET_HUB, "hub framing");
+            }
             let mut resp = vec![0, 0, cmd, 0];
             match cmd {
                 0x12 => {}
@@ -445,18 +662,34 @@ mod tests {
                     assert_eq!(a, 0x03, "only the mode may be written");
                     *m = r[6];
                 }
-                0x09 => resp[3] = if open.is_some() { 0 } else { 3 },
-                0x05 => open = None,
+                0x09 => resp[3] = if open[usize::from(a)].is_some() { 0 } else { 3 },
+                0x05 => open[usize::from(b)] = None,
                 0x0D => {
-                    if *m != 2 || (broken_temps && b == EP_TEMPERATURES) {
+                    if *m != 2
+                        || (s.broken_temps && b == EP_TEMPERATURES)
+                        || open[usize::from(a)].is_some()
+                    {
                         resp[3] = 3;
                     } else {
-                        open = Some(b);
+                        open[usize::from(a)] = Some(b);
                     }
                 }
-                0x08 => match open {
+                0x06 => {
+                    assert_eq!(*m, 2, "lighting only in software mode");
+                    assert_eq!(open[0], Some(EP_LIGHTING_CONTROLLER));
+                    let len = u32::from_le_bytes([r[5], r[6], r[7], r[8]]) as usize;
+                    let first = len.min(r.len() - 9);
+                    *s.lighting.lock().unwrap() = (len, first, r[9..9 + first].to_vec());
+                }
+                0x08 => match open[usize::from(a)] {
                     Some(EP_CHILD_DEVICES) => resp.extend(sample_payload()),
-                    Some(EP_FAN_RPM) => resp.extend([0x06, 0, 1, 0, 0xB0, 0x04]),
+                    Some(EP_FAN_RPM) => {
+                        let p = s.pump_rpm.lock().unwrap().to_le_bytes();
+                        resp.extend([
+                            0x25, 0, 5, 1, 0, 0, 0, 0xD8, 0x02, 0, 0xD9, 0x02, 0, 0xD6, 0x02, 0,
+                            p[0], p[1],
+                        ]);
+                    }
                     Some(EP_TEMPERATURES) => resp.extend([0x10, 0, 1, 0, 0x2C, 0x01]),
                     _ => resp[3] = 3,
                 },
@@ -479,13 +712,104 @@ mod tests {
     }
 
     #[test]
+    fn lighting_prefix_stops_at_unknown_type() {
+        let c = parse_child_list(&sample_payload()).unwrap();
+        let seg: Vec<_> = known_lighting_prefix(&c)
+            .iter()
+            .map(|(d, n)| (d.slot, *n))
+            .collect();
+        // RX, RX, RX, Titan, LCD – then type 27 (unknown) ends the prefix.
+        assert_eq!(seg, vec![(0, 8), (1, 8), (2, 8), (3, 20), (4, 24)]);
+    }
+
+    #[test]
+    fn lighting_packets_split_and_target() {
+        let payload: Vec<u8> = (0..1100u32).map(|i| i as u8).collect();
+        let p = lighting_packets(&payload, 513);
+        assert_eq!(p.len(), 3);
+        assert_eq!(&p[0][..9], &[0, 0, 0x09, 0x06, 0x00, 0x4C, 0x04, 0, 0]);
+        assert_eq!(&p[1][..5], &[0, 0, 0x01, 0x07, 0x00]);
+        let total: usize = p[0].len() - 9 + p[1].len() - 5 + p[2].len() - 5;
+        assert_eq!(total, 1100);
+    }
+
+    #[test]
+    fn lighting_test_in_simulator_writes_expected_buffer_and_restores() {
+        use freergb_core::Rgb;
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 1;
+        let palette = [Rgb::RED, Rgb::GREEN, Rgb::BLUE, Rgb::WHITE, Rgb::BLACK];
+        let r = LinkHubProbe::new(sim_hub_full(sim.clone()))
+            .lighting_test(
+                |i| palette[i % palette.len()],
+                std::time::Duration::from_millis(1200),
+            )
+            .unwrap();
+        assert!(r.frames >= 1);
+        assert_eq!(r.aborted, None);
+        assert_eq!(r.restored_mode, Some(1));
+        assert_eq!(*sim.mode.lock().unwrap(), 1);
+
+        let (declared, received, data) = sim.lighting.lock().unwrap().clone();
+        // 2-byte prefix + (3*8 + 20 + 24) LEDs * 3.
+        assert_eq!(declared, 2 + 68 * 3);
+        assert_eq!(received, declared);
+        assert_eq!(&data[..2], &[0x12, 0x00]);
+        assert_eq!(&data[2..5], &[255, 0, 0], "fan 1 red");
+        assert_eq!(&data[2 + 8 * 3..2 + 8 * 3 + 3], &[0, 255, 0], "fan 2 green");
+        assert_eq!(
+            &data[2 + 24 * 3..2 + 24 * 3 + 3],
+            &[255, 255, 255],
+            "AIO white"
+        );
+    }
+
+    #[test]
+    fn lighting_test_aborts_when_pump_slows_and_still_restores() {
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 1;
+        let pump = sim.pump_rpm.clone();
+        let t = sim_hub_full(sim.clone());
+        // The simulator starts at 1700 rpm; drop it after the start reading.
+        let handle = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            *pump.lock().unwrap() = 400;
+        });
+        let r = LinkHubProbe::new(t)
+            .lighting_test(
+                |_| freergb_core::Rgb::RED,
+                std::time::Duration::from_secs(5),
+            )
+            .unwrap();
+        handle.join().unwrap();
+        assert!(r.aborted.is_some(), "must abort on pump slowdown");
+        assert_eq!(r.restored_mode, Some(1));
+        assert_eq!(*sim.mode.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn lighting_test_refuses_when_not_in_hardware_mode() {
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 2;
+        let r = LinkHubProbe::new(sim_hub_full(sim.clone())).lighting_test(
+            |_| freergb_core::Rgb::RED,
+            std::time::Duration::from_secs(1),
+        );
+        assert!(matches!(r, Err(ProbeError::Refused(_))));
+        assert_eq!(*sim.mode.lock().unwrap(), 2, "mode untouched");
+    }
+
+    #[test]
     fn software_window_reads_and_restores_hardware_mode() {
         let mode = std::sync::Arc::new(std::sync::Mutex::new(1u8));
         let r = LinkHubProbe::new(sim_hub(mode.clone(), false))
             .run_with_software_window()
             .unwrap();
         assert_eq!(r.children.unwrap().len(), 8);
-        assert_eq!(r.fan_rpm.unwrap(), vec![Some(1200)]);
+        assert_eq!(
+            r.fan_rpm.unwrap(),
+            vec![None, Some(728), Some(729), Some(726), Some(1700)]
+        );
         assert_eq!(r.temperatures_c.unwrap(), vec![Some(30.0)]);
         assert_eq!(r.restored_mode, Some(1));
         assert_eq!(*mode.lock().unwrap(), 1);
