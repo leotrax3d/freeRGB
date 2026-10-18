@@ -42,7 +42,7 @@ Hardware results: `DEVICES.md#validation-log`.
 ## Next tasks
 1. GUI: layout view, profiles, per-device brightness; test on Linux.
 2. Declarative device descriptions (TOML) as first plugin stage.
-3. iCUE LINK hub: confirm AIO/LCD segments visually, identify type 27, then integrate the hub into freergbd (long-running software mode only after a longer RPM soak test).
+3. iCUE LINK hub: identify type 27 (and the LX fan segment behind it), then integrate the hub into freergbd (long-running software mode only after a longer RPM soak test).
 4. Test hardware access on a real Linux machine (udev rules for hidraw).
 5. Named profiles on top of the persisted state; autostart proposal.
 

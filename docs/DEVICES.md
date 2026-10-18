@@ -6,7 +6,7 @@ PnP and `freergb discover`. All entries confirmed.
 | Device | VID:PID | RGB interface | SignalRGB plugin | freeRGB status |
 |---|---|---|---|---|
 | CORSAIR K70 CORE RGB (ISO, FW 1.23.77) | 1b1c:1bfd | IF1 `FF42:0001` | Modern_Corsair/Corsair_Bragi_Device.js | **Validated** (colour, per-key sample, mode switch, daemon) |
-| CORSAIR iCUE LINK System Hub (FW 4.1.144) | 1b1c:0c3f | IF0 `FF42:0001` | Modern_Corsair/Corsair_ICUE_Link_Hub.js | Experimental: children/rpm/temps read, RX fan lighting confirmed |
+| CORSAIR iCUE LINK System Hub (FW 4.1.144) | 1b1c:0c3f | IF0 `FF42:0001` | Modern_Corsair/Corsair_ICUE_Link_Hub.js | Experimental: children/rpm/temps read; lighting of RX fans, pump head and LCD ring confirmed |
 | ↳ 3 × RX fan, Titan 360 RX AIO, LCD, LX fan, 2 × type 27 (unknown) | (via hub) | – | – | Identified (live child list) |
 | CORSAIR iCUE LINK AIO LCD Screen Module | 1b1c:0c4e | `000C:0001` | Corsair/Corsair_ICUE_Link_LCD.js | Identified |
 | Corsair Vengeance RGB DDR5 CMH32GX5M2B6000Z30 (2 modules) | SMBus 0x18, 0x1A | SMBus (PIIX4) | Corsair/Ram/Corsair_Dominator_Ram.js | Identified, deferred (risk) |
@@ -32,3 +32,4 @@ iCUE LINK hub, 2026-10-18, SignalRGB stopped, each step approved by the user:
 2. `link-probe --software-window`: 8 children, fan/pump RPM, temperatures; mode 1 verified.
 3. `link-light-test --seconds 10`: fans 1–3 red/green/blue confirmed by the user; RPM stable;
    mode 1 verified twice.
+4. Second `link-light-test --seconds 10`: pump head white and LCD ring magenta confirmed; mode 1 verified twice.

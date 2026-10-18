@@ -137,7 +137,7 @@ second run. Child list read live matches the logged packet slot for slot.
   idx 1–3, Titan AIO in slot 3 → idx 4 = pump rpm / coolant temperature) [P].
 * Error 3 on `OpenEndpoint` in hardware mode; in software mode all three open [C].
 
-### Lighting (2026-10-18) [C for RX fans]
+### Lighting (2026-10-18) [C for RX fans, Titan pump head, LCD ring]
 Implementation: `link_hub::{known_lighting_prefix, encode_lighting, lighting_packets,
 LinkHubProbe::lighting_test}`, CLI `freergb link-light-test --seconds N` (user-approved).
 
@@ -149,14 +149,14 @@ LinkHubProbe::lighting_test}`, CLI `freergb link-light-test --seconds N` (user-a
   known prefix (RX 8 + RX 8 + RX 8 + Titan 20 + LCD 24 = 68 LEDs, 206 bytes); the hub
   accepted the shorter buffer without error for 96 frames.
 * User observation: fan 1 red, fan 2 green, fan 3 blue exactly as sent → order and
-  8-LED segments of the RX fans [C]. Titan pump head (white) and LCD ring (magenta)
-  were not observed [P].
+  8-LED segments of the RX fans [C]. Second run: Titan pump head white and LCD ring
+  magenta as sent → 20-LED pump segment and 24-LED LCD ring segment in this order [C].
 * Fan and pump RPM stayed stable in software mode without any fan command
   (fans 722–755 rpm, pump 1675–1708 rpm vs. 726–734 / 1693 before) [C, 10 s window].
   The RPM watchdog (abort below 50 %) never triggered. Hardware mode verified afterwards.
 
 ### Next steps
-Confirm the AIO pump head and LCD ring segments visually; find out whether type 27
+Find out whether type 27
 has LEDs (it limits the known prefix); add the hub as an engine device. Fan speeds stay under hardware control;
 writing fan or pump speeds is out of scope without explicit approval.
 
