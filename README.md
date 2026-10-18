@@ -39,7 +39,7 @@ no vendor software required.
 | Screen ambience | ✅ Windows (primary monitor, 64×36, ~30 FPS), Linux untested · `freergb screen-probe` |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
 
-**Numbers:** 11 crates · ~6,600 lines of Rust · 87 automated tests · CI on Windows and Ubuntu.
+**Numbers:** 11 crates · ~9,400 lines of Rust · 87 automated tests · CI on Windows and Ubuntu.
 
 ### Supported hardware
 
