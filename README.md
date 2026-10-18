@@ -30,15 +30,16 @@ no vendor software required.
 | Area | State |
 |---|---|
 | RGB core (colours, layouts, canvas, frames) | ✅ done, tested |
-| Effects | ✅ 8 built-in: Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Radial Rainbow, Scanner, Twinkle |
+| Effects | ✅ 10 built-in: Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Radial Rainbow, Scanner, Twinkle, Audio Pulse, Audio Spectrum |
 | Background service `freergbd` | ✅ one worker thread per device, reconnect, hot-plug, state + profiles persisted |
 | Local API (JSON-RPC over named pipe / Unix socket) | ✅ devices, effects, colour, brightness, profiles, diagnostics |
 | Native GUI (egui) | 🟡 devices with per-device brightness, drag-and-drop canvas layout, all effects with their parameters, profiles |
 | Plugin system | 🟡 stage 1: declarative device descriptions (TOML) – [docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md) |
-| Screen ambience / audio reactivity | ⏳ planned |
+| Audio reactivity | ✅ Windows (WASAPI loopback), Linux untested · `freergb audio-meter` |
+| Screen ambience | ⏳ planned |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
 
-**Numbers:** 9 crates · ~6,600 lines of Rust · 78 automated tests · CI on Windows and Ubuntu.
+**Numbers:** 10 crates · ~6,600 lines of Rust · 84 automated tests · CI on Windows and Ubuntu.
 
 ### Supported hardware
 
@@ -172,7 +173,8 @@ Details: [docs/SECURITY.md](docs/SECURITY.md).
 - [x] Declarative device descriptions (first plugin stage)
 - [x] Per-device placement on the effect canvas (layout editor in the GUI)
 - [ ] More vendors: ASUS AURA, Razer, Logitech, …
-- [ ] Screen ambience and audio-reactive effects
+- [x] Audio-reactive effects (pulse, spectrum)
+- [ ] Screen ambience
 - [ ] Effect editor
 - [x] Linux udev rules and systemd user unit ([packaging/linux](packaging/linux))
 - [ ] Hardware testing on Linux, packaging

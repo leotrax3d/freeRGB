@@ -104,6 +104,8 @@ fn label(name: &str) -> &'static str {
         "radial_rainbow" => "Radial rainbow",
         "scanner" => "Scanner",
         "twinkle" => "Twinkle",
+        "audio_pulse" => "Audio pulse",
+        "audio_spectrum" => "Audio spectrum",
         _ => "Unknown",
     }
 }
@@ -254,6 +256,28 @@ fn effect_params(ui: &mut egui::Ui, spec: &mut EffectSpec) -> bool {
                 .add(egui::Slider::new(density, 0.0..=1.0).text("density"))
                 .changed();
             changed |= period_edit(ui, period_ms, 200..=5_000);
+        }
+        EffectSpec::AudioPulse {
+            color,
+            background,
+            sensitivity,
+        } => {
+            changed |= color_edit(ui, "Colour", color);
+            changed |= color_edit(ui, "Background", background);
+            changed |= ui
+                .add(egui::Slider::new(sensitivity, 0.5..=4.0).text("sensitivity"))
+                .changed();
+            ui.label("Reacts to the sound your PC plays.");
+        }
+        EffectSpec::AudioSpectrum {
+            low,
+            high,
+            background,
+        } => {
+            changed |= color_edit(ui, "Bass colour", low);
+            changed |= color_edit(ui, "Treble colour", high);
+            changed |= color_edit(ui, "Background", background);
+            ui.label("8 frequency bands across the canvas, bass on the left.");
         }
     }
     changed

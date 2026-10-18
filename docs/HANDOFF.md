@@ -26,11 +26,12 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 | `freergb-daemon` | engine, JSON-RPC API, IPC, hardware scan; binary `freergbd` |
 | `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `link-probe`, `link-light-test`, `link-restore`, `ctl` |
 | `freergb-client` | blocking JSON-RPC client (used by CLI and GUI) |
+| `freergb-audio` | audio analysis (8 log bands, auto gain, smoothing) and system-audio capture (WASAPI loopback) |
 | `freergb-gui` | binary `freergb-gui` (egui): devices + per-device brightness, canvas layout editor, all effects with parameters, profiles, stop daemon |
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` → 78 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
+`cargo test --workspace` → 84 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions

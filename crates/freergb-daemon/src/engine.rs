@@ -70,6 +70,8 @@ pub struct DeviceSummary {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Diagnostics {
+    /// Audio capture device while an audio effect runs, or the error.
+    pub audio: Option<String>,
     /// Other RGB software currently running; hardware is left alone meanwhile.
     pub conflicts: Vec<&'static str>,
     pub uptime_s: f64,
@@ -100,6 +102,9 @@ pub struct Engine {
     profiles_dir: Option<PathBuf>,
     retry_interval: Duration,
     conflicts: Vec<&'static str>,
+    /// System-audio capture, running only while an audio effect is active.
+    audio: Option<freergb_audio::AudioInput>,
+    audio_error: Option<String>,
 }
 
 /// Body of a device worker thread.
@@ -216,7 +221,7 @@ fn run_worker(
 impl Engine {
     pub fn new(spec: EffectSpec, target_fps: u32) -> Self {
         let now = Instant::now();
-        Self {
+        let mut engine = Self {
             workers: Vec::new(),
             effect: spec.build(),
             spec,
@@ -233,7 +238,15 @@ impl Engine {
             profiles_dir: None,
             retry_interval: RETRY_INTERVAL,
             conflicts: Vec::new(),
+            audio: None,
+            audio_error: None,
+        };
+        if engine.spec.needs_audio() {
+            // Starts the audio capture the effect needs.
+            let spec = engine.spec.clone();
+            engine.set_effect(spec);
         }
+        engine
     }
 
     /// Overrides the reconnect back-off (tests use a short one).
@@ -400,8 +413,37 @@ impl Engine {
         }
     }
 
+    /// Starts or stops the audio capture to match `spec` and returns the
+    /// context the effect is built with.
+    fn audio_context(&mut self, spec: &EffectSpec) -> freergb_effects::EffectContext {
+        if !spec.needs_audio() {
+            if self.audio.take().is_some() {
+                tracing::info!("audio capture stopped (no audio effect active)");
+            }
+            self.audio_error = None;
+            return freergb_effects::EffectContext::default();
+        }
+        if self.audio.is_none() {
+            match freergb_audio::AudioInput::start_system_audio() {
+                Ok(a) => {
+                    tracing::info!(device = %a.device_name(), "audio capture started for audio effect");
+                    self.audio = Some(a);
+                    self.audio_error = None;
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "audio capture unavailable, audio effect stays dark");
+                    self.audio_error = Some(e.to_string());
+                }
+            }
+        }
+        freergb_effects::EffectContext {
+            audio: self.audio.as_ref().map(freergb_audio::AudioInput::shared),
+        }
+    }
+
     pub fn set_effect(&mut self, spec: EffectSpec) {
-        self.effect = spec.build();
+        let ctx = self.audio_context(&spec);
+        self.effect = spec.build_with(&ctx);
         self.spec = spec;
         self.effect_start = Instant::now();
         self.persist();
@@ -502,6 +544,11 @@ impl Engine {
 
     pub fn diagnostics(&self) -> Diagnostics {
         Diagnostics {
+            audio: match (&self.audio, &self.audio_error) {
+                (Some(a), _) => Some(format!("capturing: {}", a.device_name())),
+                (None, Some(e)) => Some(format!("error: {e}")),
+                _ => None,
+            },
             conflicts: self.conflicts.clone(),
             uptime_s: self.started.elapsed().as_secs_f64(),
             ticks: self.ticks,

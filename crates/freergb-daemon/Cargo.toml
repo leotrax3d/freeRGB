@@ -16,6 +16,7 @@ freergb-device-api.workspace = true
 freergb-protocols.workspace = true
 freergb-effects.workspace = true
 freergb-hid.workspace = true
+freergb-audio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

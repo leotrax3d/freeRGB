@@ -2,24 +2,14 @@
 //! frequency bands, with automatic gain and attack/decay smoothing so the
 //! output stays in `0..=1` for quiet and loud sources alike.
 
+pub use freergb_core::audio::{AudioFeatures, BANDS};
 use rustfft::{num_complex::Complex, Fft, FftPlanner};
-use serde::Serialize;
 use std::sync::Arc;
 
-pub const BANDS: usize = 8;
 const LOW_HZ: f32 = 40.0;
 const HIGH_HZ: f32 = 16_000.0;
 /// Below this input RMS the signal counts as silence (no gain boost).
 const SILENCE_RMS: f32 = 1e-4;
-
-/// Analysis result, every value in `0..=1`.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
-pub struct AudioFeatures {
-    /// Overall loudness.
-    pub level: f32,
-    /// Energy per band, low → high frequencies.
-    pub bands: [f32; BANDS],
-}
 
 pub struct Analyzer {
     fft: Arc<dyn Fft<f32>>,

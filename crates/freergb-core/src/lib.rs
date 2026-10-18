@@ -4,11 +4,13 @@
 //! model, LED layouts, the effect canvas and per-device frames that every other
 //! crate builds on.
 
+pub mod audio;
 pub mod canvas;
 pub mod color;
 pub mod frame;
 pub mod layout;
 
+pub use audio::AudioFeatures;
 pub use canvas::{Canvas, Region};
 pub use color::{ColorCorrection, Hsv, Rgb};
 pub use frame::Frame;

@@ -888,6 +888,7 @@ name = "freergb-audio"
 version = "0.1.0"
 dependencies = [
  "cpal",
+ "freergb-core",
  "rustfft",
  "serde",
  "thiserror 1.0.69",
@@ -936,6 +937,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "freergb-audio",
  "freergb-core",
  "freergb-device-api",
  "freergb-effects",

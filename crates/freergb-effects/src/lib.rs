@@ -2,7 +2,10 @@
 //! keeps them deterministic and testable: the same `t` always produces the
 //! same pixels.
 
+pub mod audio;
 pub mod extra;
+
+pub use audio::{AudioHandle, EffectContext};
 
 use freergb_core::{Canvas, Hsv, Rgb};
 use serde::{Deserialize, Serialize};
@@ -53,6 +56,16 @@ pub enum EffectSpec {
         density: f32,
         period_ms: u32,
     },
+    AudioPulse {
+        color: Rgb,
+        background: Rgb,
+        sensitivity: f32,
+    },
+    AudioSpectrum {
+        low: Rgb,
+        high: Rgb,
+        background: Rgb,
+    },
 }
 
 fn ms(v: u32) -> Duration {
@@ -61,7 +74,7 @@ fn ms(v: u32) -> Duration {
 
 impl EffectSpec {
     /// API names of all effects, in display order.
-    pub const NAMES: [&'static str; 8] = [
+    pub const NAMES: [&'static str; 10] = [
         "solid",
         "rainbow_wave",
         "breathing",
@@ -70,6 +83,8 @@ impl EffectSpec {
         "radial_rainbow",
         "scanner",
         "twinkle",
+        "audio_pulse",
+        "audio_spectrum",
     ];
 
     /// A sensible default instance for each name in [`EffectSpec::NAMES`].
@@ -107,6 +122,16 @@ impl EffectSpec {
                 density: 0.15,
                 period_ms: 1200,
             },
+            "audio_pulse" => EffectSpec::AudioPulse {
+                color: accent,
+                background: Rgb::BLACK,
+                sensitivity: 1.5,
+            },
+            "audio_spectrum" => EffectSpec::AudioSpectrum {
+                low: Rgb::new(255, 0, 80),
+                high: accent,
+                background: Rgb::BLACK,
+            },
             _ => return None,
         })
     }
@@ -122,11 +147,47 @@ impl EffectSpec {
             EffectSpec::RadialRainbow { .. } => "radial_rainbow",
             EffectSpec::Scanner { .. } => "scanner",
             EffectSpec::Twinkle { .. } => "twinkle",
+            EffectSpec::AudioPulse { .. } => "audio_pulse",
+            EffectSpec::AudioSpectrum { .. } => "audio_spectrum",
         }
     }
 
+    /// Whether this effect needs the system audio (the daemon only captures
+    /// audio while such an effect is active).
+    pub fn needs_audio(&self) -> bool {
+        matches!(
+            self,
+            EffectSpec::AudioPulse { .. } | EffectSpec::AudioSpectrum { .. }
+        )
+    }
+
+    /// Builds the effect without external inputs (audio effects stay dark).
     pub fn build(&self) -> Box<dyn Effect> {
+        self.build_with(&EffectContext::default())
+    }
+
+    pub fn build_with(&self, ctx: &EffectContext) -> Box<dyn Effect> {
         match *self {
+            EffectSpec::AudioPulse {
+                color,
+                background,
+                sensitivity,
+            } => Box::new(audio::AudioPulse {
+                color,
+                background,
+                sensitivity,
+                ctx: ctx.clone(),
+            }),
+            EffectSpec::AudioSpectrum {
+                low,
+                high,
+                background,
+            } => Box::new(audio::AudioSpectrum {
+                low,
+                high,
+                background,
+                ctx: ctx.clone(),
+            }),
             EffectSpec::Gradient {
                 from,
                 to,
