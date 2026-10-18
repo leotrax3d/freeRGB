@@ -24,7 +24,7 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 | `freergb-hid` | hidapi discovery/transport, report descriptor parser |
 | `freergb-protocols` | Corsair Bragi adapter (K70 CORE), iCUE LINK hub (probe, lighting, `LinkHubDevice`, `RpmWatchdog`), adapter registry |
 | `freergb-daemon` | engine, JSON-RPC API, IPC, hardware scan; binary `freergbd` |
-| `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `link-probe`, `link-light-test`, `ctl` |
+| `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `link-probe`, `link-light-test`, `link-restore`, `ctl` |
 | `freergb-client` | blocking JSON-RPC client (used by CLI and GUI) |
 | `freergb-gui` | binary `freergb-gui` (egui): devices, effect, colour, brightness, stop daemon |
 
@@ -34,7 +34,7 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions
-* K70 CORE frame rate ~22 FPS (every stream packet is acknowledged) – profile and optimise.
+* K70 CORE frame rate ~27 FPS with pipelined streaming (device-side processing limits it). All devices share one render loop, so the slowest device caps the others – move to per-device render threads.
 * `1b1c:1bf0` (no USB interface) – origin unknown.
 * Full `key-walk` over all 107 keys not yet visually verified.
 * `freergbd` is not installed as a service/autostart (needs user approval: system change).

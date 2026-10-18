@@ -42,6 +42,9 @@ enum Cmd {
     Bragi {
         #[command(subcommand)]
         cmd: BragiCmd,
+        /// Wait for every stream acknowledgement individually (slower, pre-2026-10-18 behaviour).
+        #[arg(long, global = true)]
+        classic_streaming: bool,
         /// USB product id (hex).
         #[arg(long, default_value = "1bfd", global = true)]
         pid: String,
@@ -57,6 +60,8 @@ enum Cmd {
         #[arg(long)]
         software_window: bool,
     },
+    /// Put the iCUE LINK hub back into hardware mode (verified by read-back).
+    LinkRestore,
     /// Reversible lighting test on the iCUE LINK hub: fan 1 red, fan 2 green,
     /// fan 3 blue, AIO white, LCD ring magenta, LX fan yellow. Watches fan/pump RPM, aborts on
     /// a drop, always returns the hub to hardware mode (verified).
@@ -138,13 +143,28 @@ fn main() -> Result<()> {
     match Cli::parse().cmd {
         Cmd::Discover { json, all } => discover(json, all),
         Cmd::DemoVirtual { effect, frames } => demo_virtual(effect, frames),
-        Cmd::Bragi { cmd, pid } => {
+        Cmd::Bragi {
+            cmd,
+            pid,
+            classic_streaming,
+        } => {
             let pid =
                 u16::from_str_radix(pid.trim_start_matches("0x"), 16).context("invalid --pid")?;
-            bragi(cmd, pid)
+            bragi(cmd, pid, !classic_streaming)
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
         Cmd::LinkLightTest { seconds } => link_light_test(seconds),
+        Cmd::LinkRestore => {
+            use freergb_protocols::corsair_bragi::link_hub::LinkHubProbe;
+            let info = freergb_hid::find(0x1B1C, 0x0C3F, 0xFF42, 0x0001)?;
+            let (before, after) =
+                LinkHubProbe::new(HidapiTransport::open(&info)?).restore_hardware_mode()?;
+            println!("mode before {before}, after {after}");
+            if after != 1 {
+                bail!("hub did not confirm hardware mode");
+            }
+            Ok(())
+        }
         Cmd::LinkProbe {
             raw,
             software_window,
@@ -408,9 +428,11 @@ fn open_bragi(pid: u16) -> Result<BragiDevice<HidapiTransport>> {
 /// mode afterwards, also when `body` fails.
 fn with_connected(
     pid: u16,
+    pipelined: bool,
     body: impl FnOnce(&mut BragiDevice<HidapiTransport>) -> Result<()>,
 ) -> Result<()> {
     let mut dev = open_bragi(pid)?;
+    dev.set_pipelined(pipelined);
     dev.connect()?;
     eprintln!(
         "connected, scheme {:?}, firmware {:?}",
@@ -428,7 +450,7 @@ fn with_connected(
     Ok(())
 }
 
-fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
+fn bragi(cmd: BragiCmd, pid: u16, pipelined: bool) -> Result<()> {
     match cmd {
         BragiCmd::Probe => {
             let mut dev = open_bragi(pid)?;
@@ -451,7 +473,7 @@ fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
         }
         BragiCmd::Color { color, seconds } => {
             let c: Rgb = color.parse()?;
-            with_connected(pid, |dev| {
+            with_connected(pid, pipelined, |dev| {
                 let n = dev.layout().len();
                 let deadline = Instant::now() + Duration::from_secs_f32(seconds);
                 // Re-send periodically like a live engine would.
@@ -466,7 +488,7 @@ fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
             effect,
             seconds,
             fps,
-        } => with_connected(pid, |dev| {
+        } => with_connected(pid, pipelined, |dev| {
             let layout = dev.layout().clone();
             let mut fx = effect.spec().build();
             let mut canvas = Canvas::new(
@@ -492,7 +514,7 @@ fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
             );
             Ok(())
         }),
-        BragiCmd::KeyWalk { ms_per_key } => with_connected(pid, |dev| {
+        BragiCmd::KeyWalk { ms_per_key } => with_connected(pid, pipelined, |dev| {
             let layout = dev.layout().clone();
             for (i, led) in layout.leds.iter().enumerate() {
                 let mut f = freergb_core::Frame::solid(layout.len(), Rgb::new(0, 0, 40));
@@ -520,7 +542,7 @@ fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
                     .with_context(|| format!("unknown key {name:?}"))?;
                 frame.colors_mut()[idx] = color.parse()?;
             }
-            with_connected(pid, |dev| {
+            with_connected(pid, pipelined, |dev| {
                 let deadline = Instant::now() + Duration::from_secs_f32(seconds);
                 while Instant::now() < deadline {
                     dev.push_frame(&frame)?;

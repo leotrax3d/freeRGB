@@ -68,8 +68,12 @@ open Lighting handle. Frame: WriteEndpoint + StreamEndpoint(s); on a protocol er
 handle is reopened once. disconnect: optional final colour, close handle, mode hardware.
 
 ### 6. Limits / open questions
-* Frame rate: 21.9 FPS measured (debug build, acknowledged stream packets) [C].
-  Cause and optimisation open [U].
+* Frame rate: 21.9 FPS with per-packet acknowledgement [C]. Timing (release): WriteEndpoint ack
+  ~10 ms, each StreamEndpoint ~1 ms write + ~4.4 ms until its ack – the keyboard's own
+  processing dominates. **Pipelined streaming** (write all 6 stream packets, then read the 6
+  acks; acks still checked) gives 27.1 FPS; rainbow visually confirmed clean → default for the
+  K70 CORE since 2026-10-18 (`--classic-streaming` restores the old behaviour) [C].
+
 * Wireless children (dongle, `target 0x09…`) not tested [U].
 * Other Bragi models: tables missing; new models only with their own validation.
 
@@ -172,3 +176,11 @@ writing fan or pump speeds is out of scope without explicit approval.
 `i2c_scan_results.json` [C]: addresses `0x18` and `0x1A` on "AMD PIIX4 Bus 0x0b00",
 mapped to `Corsair_Dominator_Ram.js`. SMBus writes to RAM are **risky** (SPD EEPROM
 nearby) → only with explicit approval and a dedicated kernel/driver path; deferred.
+
+## Coexistence with SignalRGB [C]
+* While SignalRGB runs it keeps the Corsair vendor interfaces busy. On 2026-10-18 a freeRGB
+  write during a SignalRGB session left the K70 CORE vendor interface (IF1) refusing all
+  output reports (`WaitTimedOut`) even after SignalRGB was stopped; unplugging and
+  re-plugging the keyboard fixed it. → Never run both at the same time.
+* Killing SignalRGB leaves the iCUE LINK hub in software mode (observed: mode 2). Use
+  `freergb link-restore` to return it to hardware mode (verified by read-back).

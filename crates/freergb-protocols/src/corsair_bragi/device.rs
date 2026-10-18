@@ -79,6 +79,8 @@ pub struct BragiModel {
     pub wire_led_count: usize,
     /// Continuation packets need the `0x08` target bit and are acknowledged.
     pub stream_ack: bool,
+    /// Acknowledged stream packets may be pipelined (validated per model).
+    pub pipelined_streams: bool,
 }
 
 impl BragiModel {
@@ -95,6 +97,8 @@ impl BragiModel {
                     wire_map,
                     wire_led_count,
                     stream_ack: true,
+                    // 2026-10-18: 21.8 -> 27.1 FPS, rainbow visually clean.
+                    pipelined_streams: true,
                 })
             }
             _ => None,
@@ -121,12 +125,16 @@ pub struct BragiDevice<T: HidTransport> {
     scheme: Option<LightingScheme>,
     status: DeviceStatus,
     timeout_ms: i32,
+    /// Send all acknowledged stream packets first and collect the
+    /// acknowledgements afterwards (default per model, see `set_pipelined`).
+    pipelined: bool,
 }
 
 const MAX_READS_PER_TRANSACTION: usize = 8;
 
 impl<T: HidTransport> BragiDevice<T> {
     pub fn new(transport: T, model: BragiModel, serial: Option<String>) -> Self {
+        let pipelined = model.pipelined_streams;
         let pid = model.pids[0];
         let info = DeviceInfo {
             id: DeviceId(format!(
@@ -149,11 +157,19 @@ impl<T: HidTransport> BragiDevice<T> {
             scheme: None,
             status: DeviceStatus::Disconnected,
             timeout_ms: 500,
+            pipelined,
         }
     }
 
     pub fn transport(&self) -> &T {
         &self.transport
+    }
+
+    /// Pipelined streaming: write every continuation packet back to back,
+    /// then read one acknowledgement per packet. Acknowledgements are still
+    /// required and checked; only the waiting between packets is removed.
+    pub fn set_pipelined(&mut self, on: bool) {
+        self.pipelined = on;
     }
 
     pub fn scheme(&self) -> Option<LightingScheme> {
@@ -162,8 +178,24 @@ impl<T: HidTransport> BragiDevice<T> {
 
     /// Writes `pkt` and returns the first input report that echoes `cmd`.
     fn transact(&mut self, pkt: &[u8], cmd: Command) -> Result<Vec<u8>, DeviceError> {
+        let t0 = std::time::Instant::now();
         self.transport.drain()?;
+        let t_drain = t0.elapsed();
         self.transport.write(pkt)?;
+        let t_write = t0.elapsed();
+        let raw = self.read_response(cmd)?;
+        tracing::trace!(
+            ?cmd,
+            drain_us = t_drain.as_micros() as u64,
+            write_us = (t_write - t_drain).as_micros() as u64,
+            read_us = (t0.elapsed() - t_write).as_micros() as u64,
+            "transaction"
+        );
+        Ok(raw)
+    }
+
+    /// Reads input reports until one echoes `cmd`.
+    fn read_response(&mut self, cmd: Command) -> Result<Vec<u8>, DeviceError> {
         let mut buf = vec![0u8; self.transport.input_report_len().max(8)];
         for _ in 0..MAX_READS_PER_TRANSACTION {
             let n = self.transport.read_timeout(&mut buf, self.timeout_ms)?;
@@ -293,6 +325,19 @@ impl<T: HidTransport> BragiDevice<T> {
             payload,
             self.transport.output_report_len(),
         );
+        if self.model.stream_ack && self.pipelined {
+            self.expect_ok(&packets[0], Command::WriteEndpoint)?;
+            for pkt in &packets[1..] {
+                self.transport.write(pkt)?;
+            }
+            for _ in 1..packets.len() {
+                let raw = self.read_response(Command::StreamEndpoint)?;
+                Response::parse(&raw, Command::StreamEndpoint)
+                    .and_then(Response::ok)
+                    .map_err(|e| DeviceError::Protocol(format!("StreamEndpoint: {e}")))?;
+            }
+            return Ok(());
+        }
         for (i, pkt) in packets.iter().enumerate() {
             if i == 0 {
                 self.expect_ok(pkt, Command::WriteEndpoint)?;
@@ -521,6 +566,36 @@ mod tests {
         dev.disconnect(Some(Rgb::BLACK)).unwrap();
         assert_eq!(state.lock().unwrap().mode, 1, "hardware mode restored");
         assert_eq!(state.lock().unwrap().open, [None, None, None]);
+    }
+
+    #[test]
+    fn pipelined_streaming_sends_same_bytes_and_checks_acks() {
+        let state = Arc::new(Mutex::new(SimState {
+            mode: 1,
+            ..Default::default()
+        }));
+        let model = BragiModel::for_pid(0x1BFD).unwrap();
+        let n = model.layout.len();
+        let mut dev = BragiDevice::new(sim(state.clone()), model, None);
+        dev.set_pipelined(true);
+        dev.connect().unwrap();
+        dev.push_frame(&Frame::solid(n, Rgb::BLUE)).unwrap();
+        {
+            let s = state.lock().unwrap();
+            assert_eq!(s.expected_len, 2 + 123 * 3);
+            assert!(s.lighting_bytes >= s.expected_len);
+        }
+        // Order on the wire: one WriteEndpoint, then all StreamEndpoint packets.
+        let cmds: Vec<u8> = dev
+            .transport()
+            .written()
+            .iter()
+            .map(|p| p[2])
+            .skip_while(|&c| c != 0x06)
+            .collect();
+        assert_eq!(cmds, vec![0x06, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07]);
+        dev.disconnect(None).unwrap();
+        assert_eq!(state.lock().unwrap().mode, 1);
     }
 
     #[test]

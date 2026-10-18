@@ -309,6 +309,22 @@ impl<T: HidTransport> LinkHubProbe<T> {
     /// hardware mode. The return is attempted even if a read fails, retried,
     /// and verified by reading the mode back; `HubReport::restored_mode` holds
     /// the read-back value.
+    /// Puts the hub back into hardware mode (its own fan/pump curves and
+    /// lighting), e.g. after another program was killed while controlling it.
+    /// Returns the mode read back afterwards.
+    pub fn restore_hardware_mode(mut self) -> Result<(u32, u32), ProbeError> {
+        self.ok(ping(TARGET_HUB), Command::Ping)?;
+        let before = self.property(Property::Mode)?;
+        let _ = self.ok(
+            close_handle(TARGET_HUB, Handle::Lighting),
+            Command::CloseHandle,
+        );
+        if before != Mode::Hardware as u32 {
+            self.set_mode(Mode::Hardware)?;
+        }
+        Ok((before, self.property(Property::Mode)?))
+    }
+
     pub fn run_with_software_window(mut self) -> Result<HubReport, ProbeError> {
         self.ok(ping(TARGET_HUB), Command::Ping)?;
         let before = self.property(Property::Mode)?;
