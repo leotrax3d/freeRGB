@@ -12,6 +12,7 @@ no vendor software required.
 ![Status](https://img.shields.io/badge/status-early%20development-orange)
 ![Rust](https://img.shields.io/badge/rust-1.80%2B-blue)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey)
+![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green)
 
 </div>
 
@@ -219,4 +220,13 @@ names are trademarks of their respective owners. Use at your own risk.
 
 ## License
 
-See `Cargo.toml` (`license` field).
+Licensed under either of
+
+* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+* MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion
+in freeRGB by you, as defined in the Apache-2.0 license, shall be dual licensed as above,
+without any additional terms or conditions.
