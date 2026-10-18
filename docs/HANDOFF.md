@@ -37,8 +37,8 @@ Hardware results: `DEVICES.md#validation-log`.
 ## Open issues / questions
 * K70 CORE ~19–22 FPS with acknowledged streaming (device-side limit). Pipelining hangs the
   keyboard after up to 2.5 min even with serialised HID access → not usable.
-* K70 dropped out after ~10 min in a 15-min soak: device closed its lighting handle (no keepalive
-  ping). Keepalive + plugin pacing added (`70fe64b`); 20-min soak pending.
+* K70 ~10-min dropout fixed by keepalive ping + plugin pacing; 20-min soak passed (21 FPS).
+  Next: multi-hour soak before calling the hub non-experimental.
 * While the K70 streams, the hub drops from ~52 to ~28 FPS (std Mutex is not fair, the K70
   worker re-acquires the HID gate quickly) – consider a fair gate.
 * Each re-plug of the K70 was needed after a vendor-interface hang; a software reset path

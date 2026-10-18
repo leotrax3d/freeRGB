@@ -60,3 +60,9 @@ iCUE LINK hub, 2026-10-18, SignalRGB stopped, each step approved by the user:
     and slowed the hub to ~38 FPS → exponential back-off added. After the user re-plugged
     the K70 the worker kept using the dead handle → unplugged devices are now dropped and
     re-added by the hot-plug scan.
+12. 20-min daemon soak with keepalive (ping 50 s, mode check 5 s) and plugin pacing
+    (`70fe64b`): K70 CORE 20.8–21.1 FPS and hub 57.4 FPS for the full 20 min, no errors, no
+    "left software mode" event; both devices read back mode 1 after shutdown. Latency summaries
+    (one per minute) flat over the whole run: frame avg 47.1–47.7 ms, max 182–191 ms;
+    6–10 acknowledgements per minute take ~135 ms (periodic, not growing). **The ~10-minute
+    dropout is fixed.**

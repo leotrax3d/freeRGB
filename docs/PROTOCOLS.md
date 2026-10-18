@@ -185,7 +185,7 @@ nearby) → only with explicit approval and a dedicated kernel/driver path; defe
 * Killing SignalRGB leaves the iCUE LINK hub in software mode (observed: mode 2). Use
   `freergb link-restore` to return it to hardware mode (verified by read-back).
 
-## Corsair Bragi – session keepalive and pacing [C for the failure, P for the fix]
+## Corsair Bragi – session keepalive and pacing [C for the failure, C for the fix]
 * 15-min daemon soak (2026-10-18, classic streaming, serialised HID): after ~10 min the
   K70 CORE answered a `StreamEndpoint` with **error 3 (handle closed)** – the keyboard had
   closed the lighting handle on its own. Reopening it then ended in write timeouts and a
@@ -196,7 +196,7 @@ nearby) → only with explicit approval and a dedicated kernel/driver path; defe
   ping every 50 s, mode check every 5 s; if the device left software mode it is put back and
   the lighting handle reopened. It also pauses like the plugin: 10 ms before/after control
   commands, 3 ms after `WriteEndpoint`, 1 ms after each `StreamEndpoint`.
-* Verification: 20-minute soak, see `DEVICES.md`.
+* Verification: 20-minute soak passed (K70 21 FPS throughout, no session loss) – `DEVICES.md` #12.
 
 ## ASUS AURA USB mainboard controller (`0b05:19af`) – static analysis only [P]
 Source: SignalRGB plugin `Asus/Motherboard Controllers/Asus_Motherboard_Controller.js`

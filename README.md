@@ -48,7 +48,7 @@ Everything else is detected and listed, but never touched.
 
 | Device | Status | Notes |
 |---|---|---|
-| Corsair **K70 CORE RGB** (`1b1c:1bfd`) | ✅ **Validated** | Per-key lighting (107 keys, ISO/ANSI), ~20 FPS |
+| Corsair **K70 CORE RGB** (`1b1c:1bfd`) | ✅ **Validated** | Per-key lighting (107 keys, ISO/ANSI), ~21 FPS, 20-min soak passed |
 | Corsair **iCUE LINK System Hub** (`1b1c:0c3f`) | 🧪 **Experimental** (opt-in) | Lighting confirmed for RX/LX fans, Titan RX AIO pump head and LCD ring; ~50 FPS; fan/pump RPM watchdog |
 | Corsair iCUE LINK child devices | ✅ detected | RX, LX, QX fans, Titan AIOs, LCD; Commander DUO recognised (no LEDs) |
 | Corsair iCUE LINK AIO LCD screen (`1b1c:0c4e`) | 🔍 identified | Display content not supported |
