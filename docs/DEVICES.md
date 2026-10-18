@@ -1,9 +1,9 @@
 # Geräte
 
 Inventar dieses Systems (Windows 11 Pro 26300), erhoben 2026-10-18 per PnP und
-`signal-rs discover`. Alle Einträge [B] belegt.
+`freergb discover`. Alle Einträge [B] belegt.
 
-| Gerät | VID:PID | RGB-Schnittstelle | SignalRGB-Plugin | Signal-RS-Status |
+| Gerät | VID:PID | RGB-Schnittstelle | SignalRGB-Plugin | freeRGB-Status |
 |---|---|---|---|---|
 | CORSAIR K70 CORE RGB (ISO, FW 1.23.77) | 1b1c:1bfd | IF1 `FF42:0001` | Modern_Corsair/Corsair_Bragi_Device.js | **Validated** (Farbe, Per-Key-Stichprobe, Moduswechsel) |
 | CORSAIR iCUE LINK System Hub | 1b1c:0c3f | IF0 `FF42:0001` | Modern_Corsair/Corsair_ICUE_Link_Hub.js | Identified |

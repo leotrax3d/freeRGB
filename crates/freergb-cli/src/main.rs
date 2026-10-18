@@ -1,20 +1,20 @@
-//! `signal-rs` command line tool.
+//! `freergb` command line tool.
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use signal_core::{Canvas, Region, Rgb};
-use signal_device_api::{RgbDevice, VirtualDevice};
-use signal_effects::EffectSpec;
-use signal_hid::HidapiTransport;
-use signal_protocols::corsair_bragi::{BragiDevice, BragiModel};
-use signal_protocols::registry;
+use freergb_core::{Canvas, Region, Rgb};
+use freergb_device_api::{RgbDevice, VirtualDevice};
+use freergb_effects::EffectSpec;
+use freergb_hid::HidapiTransport;
+use freergb_protocols::corsair_bragi::{BragiDevice, BragiModel};
+use freergb_protocols::registry;
 use std::time::{Duration, Instant};
 
 #[derive(Parser)]
 #[command(
-    name = "signal-rs",
+    name = "freergb",
     version,
-    about = "Signal-RS RGB control: discovery and diagnostics"
+    about = "freeRGB RGB control: discovery and diagnostics"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -123,7 +123,7 @@ fn main() -> Result<()> {
 }
 
 fn discover(json: bool, all: bool) -> Result<()> {
-    let list = signal_hid::enumerate()?;
+    let list = freergb_hid::enumerate()?;
     let rows: Vec<_> = list
         .iter()
         .filter(|i| all || registry::vendor_name(i.vid).is_some())
@@ -177,7 +177,7 @@ fn discover(json: bool, all: bool) -> Result<()> {
 }
 
 fn demo_virtual(effect: EffectArg, frames: u32) -> Result<()> {
-    let layout = signal_protocols::corsair_bragi::k70_core::layout();
+    let layout = freergb_protocols::corsair_bragi::k70_core::layout();
     let mut dev = VirtualDevice::new("Virtual K70", layout.clone());
     let log = dev.frame_log();
     dev.connect()?;
@@ -207,7 +207,7 @@ fn demo_virtual(effect: EffectArg, frames: u32) -> Result<()> {
 fn open_bragi(pid: u16) -> Result<BragiDevice<HidapiTransport>> {
     let model =
         BragiModel::for_pid(pid).with_context(|| format!("no Bragi model for PID {pid:04x}"))?;
-    let info = signal_hid::find(0x1B1C, pid, 0xFF42, 0x0001)?;
+    let info = freergb_hid::find(0x1B1C, pid, 0xFF42, 0x0001)?;
     let transport = HidapiTransport::open(&info)?;
     let sizes = transport.report_sizes();
     eprintln!(
@@ -275,7 +275,7 @@ fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
                 let deadline = Instant::now() + Duration::from_secs_f32(seconds);
                 // Re-send periodically like a live engine would.
                 while Instant::now() < deadline {
-                    dev.push_frame(&signal_core::Frame::solid(n, c))?;
+                    dev.push_frame(&freergb_core::Frame::solid(n, c))?;
                     std::thread::sleep(Duration::from_millis(200));
                 }
                 Ok(())
@@ -314,7 +314,7 @@ fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
         BragiCmd::KeyWalk { ms_per_key } => with_connected(pid, |dev| {
             let layout = dev.layout().clone();
             for (i, led) in layout.leds.iter().enumerate() {
-                let mut f = signal_core::Frame::solid(layout.len(), Rgb::new(0, 0, 40));
+                let mut f = freergb_core::Frame::solid(layout.len(), Rgb::new(0, 0, 40));
                 f.colors_mut()[i] = Rgb::WHITE;
                 dev.push_frame(&f)?;
                 println!("{:>3} {}", i, led.name);
@@ -329,7 +329,7 @@ fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
             let layout = BragiModel::for_pid(pid)
                 .with_context(|| format!("no Bragi model for PID {pid:04x}"))?
                 .layout;
-            let mut frame = signal_core::Frame::solid(layout.len(), Rgb::BLACK);
+            let mut frame = freergb_core::Frame::solid(layout.len(), Rgb::BLACK);
             for a in &assignments {
                 let (name, color) = a
                     .rsplit_once('=')

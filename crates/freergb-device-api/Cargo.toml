@@ -1,17 +1,17 @@
 [package]
-name = "signal-core"
-description = "Platform-independent RGB core: colors, LED layouts, frames"
+name = "freergb-device-api"
+description = "Device and transport abstractions, virtual RGB device and mock transport"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+freergb-core.workspace = true
 serde.workspace = true
-thiserror.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

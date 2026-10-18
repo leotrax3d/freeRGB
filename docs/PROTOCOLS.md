@@ -49,7 +49,7 @@ Fehlercodes [W]: 1 ungültiger Wert, 2 Paket zu lang, 3 fehlgeschlagen/nicht unt
 
 **Sicherheitsregel:** Schreibzugriffe nur auf die Allowlist (`Property::is_writable`,
 derzeit nur `mode`). SignalRGB setzt bei jedem Start die Flash-Helligkeit auf 1000 –
-Signal-RS tut das bewusst nicht.
+freeRGB tut das bewusst nicht.
 
 ### 4. RGB-Daten
 Handles: 0 Lighting, 1 Background, 2 Auxiliary. Endpoints: `0x01` Lighting (planar
@@ -61,7 +61,7 @@ Puffer: 123 LED-Slots × 3 + 2 = 371 Byte → 1 Write- + 6 Stream-Pakete.
 K70 CORE verlangt `target=0x08` auch in Stream-Paketen und quittiert jedes [B]
 (ohne Quittung laut Plugin nur `target=kindindex`).
 
-### 5. Ablauf (implementiert, `signal-protocols::corsair_bragi`)
+### 5. Ablauf (implementiert, `freergb-protocols::corsair_bragi`)
 connect: Ping → VID/PID/FW/Mode lesen → PID gegen Modell prüfen → offene Handles
 schließen → Modus Software → Endpoint `0x22` auf Background-Handle testweise öffnen/
 schließen → Lighting-Handle öffnen. Frame: WriteEndpoint + StreamEndpoint(s); bei

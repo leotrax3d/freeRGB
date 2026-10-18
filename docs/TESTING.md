@@ -13,9 +13,9 @@ mit simuliertem K70 inkl. Modus/Handle-Zustand), Hardware (manuell, unten).
 
 ## Hardwaretests K70 CORE (manuell)
 Voraussetzung: SignalRGB beendet (`Stop-Process -Name SignalRgbLauncher,SignalRgb`).
-1. `signal-rs bragi probe` → pid `0x1bfd`, Modus lesen.
-2. `signal-rs bragi color #ff0000 --seconds 20` → komplett rot, danach Hardware-Modus.
-3. `signal-rs bragi keys Esc=#ffffff "Left Ctrl=#ff0000" Fn=#ffff00 …` → nur genannte Tasten.
-4. `signal-rs bragi key-walk` → jede Taste einzeln, Namen in Ausgabe vergleichen.
-5. `signal-rs bragi effect rainbow --fps 60` → FPS-Ausgabe.
+1. `freergb bragi probe` → pid `0x1bfd`, Modus lesen.
+2. `freergb bragi color #ff0000 --seconds 20` → komplett rot, danach Hardware-Modus.
+3. `freergb bragi keys Esc=#ffffff "Left Ctrl=#ff0000" Fn=#ffff00 …` → nur genannte Tasten.
+4. `freergb bragi key-walk` → jede Taste einzeln, Namen in Ausgabe vergleichen.
+5. `freergb bragi effect rainbow --fps 60` → FPS-Ausgabe.
 Ergebnisse: `docs/DEVICES.md`.

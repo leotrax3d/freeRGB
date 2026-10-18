@@ -11,7 +11,7 @@ Kennzeichnung: **[B]** bestätigt (reproduzierbar belegt), **[W]** wahrscheinlic
 | PowerShell / Git Bash | verfügbar | Dateisystem, Prozesse, Dienste, PnP-/HID-Enumeration (`Get-PnpDevice`, `Get-PnpDeviceProperty`) |
 | Git 2.55 | verfügbar | Versionierung |
 | Rust 1.99.1 (MSVC) + VS 2022 Build Tools | am 2026-10-18 nach Freigabe per winget installiert | Build, Tests, eigene Diagnose-CLI |
-| `signal-rs discover` / `bragi probe` (eigene Werkzeuge) | verfügbar | HID-Inventar, Report-Descriptor-Auswertung, Read-only-Abfragen |
+| `freergb discover` / `bragi probe` (eigene Werkzeuge) | verfügbar | HID-Inventar, Report-Descriptor-Auswertung, Read-only-Abfragen |
 | USB-Mitschnitt (USBPcap/Wireshark) | **nicht installiert** | wäre für passive Mitschnitte nötig (Treiberinstallation → Zustimmung erforderlich) |
 | Debugger/Disassembler (x64dbg, Ghidra) | nicht installiert | bisher nicht nötig, da Geräteprotokolle als JS-Plugins vorliegen |
 
@@ -67,14 +67,14 @@ die für Interoperabilität nötig sind, in eigener Formulierung und mit Quellen
 
 ## 3. Reproduzierbares Verfahren
 
-1. **Inventar:** `signal-rs discover --all` (HID) bzw. PnP-Abfrage (USB-Namen,
+1. **Inventar:** `freergb discover --all` (HID) bzw. PnP-Abfrage (USB-Namen,
    `HID_DEVICE_UP:xxxx_U:yyyy`-Hardware-IDs).
 2. **Plugin finden:** `Select-String` über `plugin_cdn` nach `0x<PID>`.
 3. **Statische Analyse:** Plugin lesen, Befehle/Felder in `docs/PROTOCOLS.md` als [W] eintragen.
 4. **Laufzeitbelege:** SignalRGB-Logs nach Gerät filtern (Thread-Name enthält `vid:pid:serial`).
-5. **Simulation:** Protokoll in `signal-protocols` implementieren, gegen Simulator
+5. **Simulation:** Protokoll in `freergb-protocols` implementieren, gegen Simulator
    (`MockTransport`) testen.
-6. **Read-only an Hardware:** nur Ping/GetProperty (`signal-rs bragi probe`). Erwartete
+6. **Read-only an Hardware:** nur Ping/GetProperty (`freergb bragi probe`). Erwartete
    Werte (z. B. eigene PID) validieren das Antwortformat.
 7. **Reversibler Schreibtest:** Farbe setzen, danach Hardware-Modus zurück und per
    Rücklesen prüfen; visuelle Bestätigung durch den Nutzer.

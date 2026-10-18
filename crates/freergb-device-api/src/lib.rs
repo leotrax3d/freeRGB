@@ -1,8 +1,8 @@
-//! Hardware abstraction for Signal-RS.
+//! Hardware abstraction for freeRGB.
 //!
 //! The split is:
 //! * [`HidTransport`] moves raw reports to and from one HID interface.
-//! * A protocol (crate `signal-protocols`) turns intents into reports.
+//! * A protocol (crate `freergb-protocols`) turns intents into reports.
 //! * [`RgbDevice`] is what the engine talks to: identify, connect, push
 //!   frames, report status, disconnect safely.
 
@@ -10,8 +10,8 @@ pub mod mock;
 pub mod transport;
 pub mod virtual_device;
 
+use freergb_core::{Frame, LedLayout, Rgb};
 use serde::{Deserialize, Serialize};
-use signal_core::{Frame, LedLayout, Rgb};
 
 pub use transport::{HidTransport, TransportError};
 pub use virtual_device::VirtualDevice;

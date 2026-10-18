@@ -1,5 +1,5 @@
 [package]
-name = "signal-protocols"
+name = "freergb-protocols"
 description = "Vendor protocol adapters (packet encoding, device state machines)"
 version.workspace = true
 edition.workspace = true
@@ -7,8 +7,8 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-signal-core.workspace = true
-signal-device-api.workspace = true
+freergb-core.workspace = true
+freergb-device-api.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 

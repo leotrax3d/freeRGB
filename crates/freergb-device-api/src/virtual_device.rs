@@ -2,7 +2,7 @@
 //! touching hardware. Used for tests, demos and as a debugging sink.
 
 use crate::{check_frame, DeviceError, DeviceId, DeviceInfo, DeviceKind, DeviceStatus, RgbDevice};
-use signal_core::{Frame, LedLayout, Rgb};
+use freergb_core::{Frame, LedLayout, Rgb};
 use std::collections::VecDeque;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -71,7 +71,7 @@ impl VirtualDevice {
             info: DeviceInfo {
                 id: DeviceId(format!("virtual:{}", name.to_lowercase().replace(' ', "-"))),
                 name: name.to_owned(),
-                vendor: "Signal-RS".to_owned(),
+                vendor: "freeRGB".to_owned(),
                 kind: DeviceKind::Virtual,
                 usb_vid: None,
                 usb_pid: None,

@@ -1,4 +1,4 @@
-# Signal-RS
+# freeRGB
 
 Eigenständige RGB-Steuerung in Rust (Windows/Linux) als unabhängiger Ersatz für SignalRGB.
 
@@ -7,9 +7,9 @@ Corsair-Bragi-Adapter (K70 CORE). Daemon, API und GUI folgen – siehe `docs/ROA
 
 ```
 cargo test --workspace
-cargo run -p signal-cli -- discover
-cargo run -p signal-cli -- bragi probe
-cargo run -p signal-cli -- bragi effect rainbow --seconds 10
+cargo run -p freergb-cli -- discover
+cargo run -p freergb-cli -- bragi probe
+cargo run -p freergb-cli -- bragi effect rainbow --seconds 10
 ```
 
 Vor Hardwaretests SignalRGB beenden. Dokumentation: `docs/` (Einstieg: `docs/HANDOFF.md`).

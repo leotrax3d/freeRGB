@@ -13,9 +13,9 @@ Nächste Phase: 8 (Hintergrunddienst + lokale API).
 * Bragi-Protokoll implementiert, an K70 CORE validiert (`docs/PROTOCOLS.md`).
 
 ## Funktionierende Komponenten [B]
-`signal-core`, `signal-device-api` (VirtualDevice, MockTransport), `signal-effects`
-(Solid, RainbowWave, Breathing), `signal-hid` (Discovery, Transport, Descriptor-Parser),
-`signal-protocols` (Bragi, Registry), CLI `signal-rs` (`discover`, `demo-virtual`,
+`freergb-core`, `freergb-device-api` (VirtualDevice, MockTransport), `freergb-effects`
+(Solid, RainbowWave, Breathing), `freergb-hid` (Discovery, Transport, Descriptor-Parser),
+`freergb-protocols` (Bragi, Registry), CLI `freergb` (`discover`, `demo-virtual`,
 `bragi probe|color|effect|key-walk|keys`).
 
 ## Tests
@@ -27,15 +27,15 @@ Hardwaretests: siehe `docs/DEVICES.md#validierungsprotokoll`.
 * Bildrate K70 nur ~22 FPS (Debug-Build) – Release messen, Drain/Quittungen optimieren.
 * `1b1c:1bf0` ohne USB-Interface – Herkunft unklar.
 * `key-walk` über alle 107 Tasten noch nicht visuell geprüft.
-* Kein Git-Remote: `gh` nicht angemeldet → Nutzer muss `gh auth login` ausführen.
+* Remote: privates Repo github.com/leotrax3d/FreeRGB (main).
 * SignalRGB-App ist beendet (Dienst läuft). Neustart: `%LOCALAPPDATA%\VortxEngine\SignalRgbLauncher.exe`.
 
 ## Nächste Aufgaben
-1. Daemon `signal-rsd`: Render-Loop (Canvas → Geräte), Gerätezustände, Reconnect.
+1. Daemon `freergbd`: Render-Loop (Canvas → Geräte), Gerätezustände, Reconnect.
 2. Lokale API (Named Pipe / Unix-Socket, JSON-RPC), `docs/LOCAL_API.md` konkretisieren.
 3. iCUE-LINK-Hub-Protokoll analysieren (Lüfter/AIO), zunächst read-only.
-4. Linux-CI (GitHub Actions) sobald Remote existiert.
+4. Linux-CI (GitHub Actions).
 
 ## Einstiegspunkte
-`crates/signal-protocols/src/corsair_bragi/device.rs`, `crates/signal-cli/src/main.rs`,
+`crates/freergb-protocols/src/corsair_bragi/device.rs`, `crates/freergb-cli/src/main.rs`,
 SignalRGB-Plugins unter `%LOCALAPPDATA%\WhirlwindFX\SignalRgb\cache\plugin_cdn\main\Plugins`.

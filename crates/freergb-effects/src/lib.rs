@@ -2,8 +2,8 @@
 //! keeps them deterministic and testable: the same `t` always produces the
 //! same pixels.
 
+use freergb_core::{Canvas, Hsv, Rgb};
 use serde::{Deserialize, Serialize};
-use signal_core::{Canvas, Hsv, Rgb};
 use std::time::Duration;
 
 pub trait Effect: Send {

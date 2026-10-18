@@ -1,13 +1,13 @@
 [package]
-name = "signal-effects"
-description = "Built-in lighting effects rendering onto the Signal-RS canvas"
+name = "freergb-effects"
+description = "Built-in lighting effects rendering onto the freeRGB canvas"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-signal-core.workspace = true
+freergb-core.workspace = true
 serde.workspace = true
 
 [dev-dependencies]

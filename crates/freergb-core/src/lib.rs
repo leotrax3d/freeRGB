@@ -1,4 +1,4 @@
-//! Platform-independent RGB core of Signal-RS.
+//! Platform-independent RGB core of freeRGB.
 //!
 //! This crate has no I/O and no platform dependencies. It defines the colour
 //! model, LED layouts, the effect canvas and per-device frames that every other

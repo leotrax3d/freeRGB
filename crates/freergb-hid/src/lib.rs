@@ -4,8 +4,8 @@
 pub mod descriptor;
 
 use descriptor::ReportSizes;
+use freergb_device_api::{HidTransport, TransportError};
 use serde::Serialize;
-use signal_device_api::{HidTransport, TransportError};
 use std::ffi::CString;
 
 /// One HID interface (Windows: top-level collection) as enumerated.

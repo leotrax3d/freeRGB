@@ -8,7 +8,7 @@
 //! HID Usage Tables for all non-modifier keys. Status: probable until the
 //! per-key test in `docs/TESTING.md` has been run.
 
-use signal_core::{Led, LedLayout};
+use freergb_core::{Led, LedLayout};
 
 /// `(name, x, y, wire_index)`
 pub const KEYS: &[(&str, u16, u16, u8)] = &[

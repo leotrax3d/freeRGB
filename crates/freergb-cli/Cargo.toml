@@ -1,21 +1,21 @@
 [package]
-name = "signal-cli"
-description = "Signal-RS command line: discovery, diagnostics, hardware tests"
+name = "freergb-cli"
+description = "freeRGB command line: discovery, diagnostics, hardware tests"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
 [[bin]]
-name = "signal-rs"
+name = "freergb"
 path = "src/main.rs"
 
 [dependencies]
-signal-core.workspace = true
-signal-device-api.workspace = true
-signal-protocols.workspace = true
-signal-effects.workspace = true
-signal-hid.workspace = true
+freergb-core.workspace = true
+freergb-device-api.workspace = true
+freergb-protocols.workspace = true
+freergb-effects.workspace = true
+freergb-hid.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

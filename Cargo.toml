@@ -1,27 +1,27 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/signal-core",
-    "crates/signal-device-api",
-    "crates/signal-protocols",
-    "crates/signal-effects",
-    "crates/signal-hid",
-    "crates/signal-cli",
+    "crates/freergb-core",
+    "crates/freergb-device-api",
+    "crates/freergb-protocols",
+    "crates/freergb-effects",
+    "crates/freergb-hid",
+    "crates/freergb-cli",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://example.invalid/signal-rs"
+repository = "https://github.com/leotrax3d/FreeRGB"
 rust-version = "1.80"
 
 [workspace.dependencies]
-signal-core = { path = "crates/signal-core" }
-signal-device-api = { path = "crates/signal-device-api" }
-signal-protocols = { path = "crates/signal-protocols" }
-signal-effects = { path = "crates/signal-effects" }
-signal-hid = { path = "crates/signal-hid" }
+freergb-core = { path = "crates/freergb-core" }
+freergb-device-api = { path = "crates/freergb-device-api" }
+freergb-protocols = { path = "crates/freergb-protocols" }
+freergb-effects = { path = "crates/freergb-effects" }
+freergb-hid = { path = "crates/freergb-hid" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

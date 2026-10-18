@@ -5,7 +5,7 @@
 | 1 | Werkzeuge/Umgebung feststellen | ✅ |
 | 2 | SignalRGB untersuchen | ✅ (Grundinventar) |
 | 3 | Reproduzierbares RE-Verfahren | ✅ `REVERSE_ENGINEERING.md` |
-| 4 | Plattformunabhängiger Rust-Kern | ✅ `signal-core` |
+| 4 | Plattformunabhängiger Rust-Kern | ✅ `freergb-core` |
 | 5 | Virtuelles Gerät + Tests | ✅ |
 | 6 | CORSAIR-Erkennung | ✅ K70 CORE, LINK Hub, LCD, RAM identifiziert |
 | 7 | Erster realer RGB-Datenpfad | ✅ K70 CORE validiert |

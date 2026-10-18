@@ -1,5 +1,5 @@
 [package]
-name = "signal-hid"
+name = "freergb-hid"
 description = "hidapi-based HID discovery and transport"
 version.workspace = true
 edition.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-signal-device-api.workspace = true
+freergb-device-api.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true

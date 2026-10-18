@@ -3,8 +3,8 @@
 use super::packet::{
     self, Command, Endpoint, Handle, Mode, Property, Response, ResponseError, TARGET_BASE,
 };
-use signal_core::{Frame, LedLayout, Rgb};
-use signal_device_api::{
+use freergb_core::{Frame, LedLayout, Rgb};
+use freergb_device_api::{
     check_frame, DeviceError, DeviceId, DeviceInfo, DeviceKind, DeviceStatus, HidTransport,
     RgbDevice,
 };
@@ -168,7 +168,7 @@ impl<T: HidTransport> BragiDevice<T> {
         for _ in 0..MAX_READS_PER_TRANSACTION {
             let n = self.transport.read_timeout(&mut buf, self.timeout_ms)?;
             if n == 0 {
-                return Err(signal_device_api::TransportError::Timeout.into());
+                return Err(freergb_device_api::TransportError::Timeout.into());
             }
             match Response::parse(&buf[..n], cmd) {
                 Ok(_) => return Ok(buf[..n].to_vec()),
@@ -397,7 +397,7 @@ impl<T: HidTransport> RgbDevice for BragiDevice<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use signal_device_api::mock::MockTransport;
+    use freergb_device_api::mock::MockTransport;
     use std::sync::{Arc, Mutex};
 
     /// Minimal simulated K70 CORE: answers the commands above, tracks mode and

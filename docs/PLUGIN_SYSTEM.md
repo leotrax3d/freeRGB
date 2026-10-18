@@ -2,7 +2,7 @@
 
 Vorbild SignalRGB [B]: JS-Module mit Metadaten-Exports und `Initialize/Render/Shutdown`.
 
-Plan für Signal-RS:
+Plan für freeRGB:
 1. **Deklarativ** (TOML): VID/PID/Interface, LED-Layout (Name, Position, Wire-Index),
    Verweis auf einen eingebauten Protokolladapter + Parameter (z. B. Bragi-Schema).
    Neue Bragi-Tastaturen ohne Codeänderung.
