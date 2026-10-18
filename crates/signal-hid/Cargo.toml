@@ -1,0 +1,25 @@
+[package]
+name = "signal-hid"
+description = "hidapi-based HID discovery and transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+signal-device-api.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+hidapi = { version = "2.6", default-features = false, features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+hidapi = { version = "2.6", default-features = false, features = ["linux-native"] }
+
+[target.'cfg(not(any(windows, target_os = "linux")))'.dependencies]
+hidapi = { version = "2.6" }
+
+[lints]
+workspace = true
