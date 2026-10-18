@@ -34,11 +34,11 @@ no vendor software required.
 | Background service `freergbd` | ✅ one worker thread per device, reconnect, hot-plug, state + profiles persisted |
 | Local API (JSON-RPC over named pipe / Unix socket) | ✅ devices, effects, colour, brightness, profiles, diagnostics |
 | Native GUI (egui) | 🟡 devices with per-device brightness, drag-and-drop canvas layout, all effects with their parameters, profiles |
-| Plugin system | ⏳ designed ([docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md)), not implemented |
+| Plugin system | 🟡 stage 1: declarative device descriptions (TOML) – [docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md) |
 | Screen ambience / audio reactivity | ⏳ planned |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
 
-**Numbers:** 9 crates · ~6,600 lines of Rust · 74 automated tests · CI on Windows and Ubuntu.
+**Numbers:** 9 crates · ~6,600 lines of Rust · 78 automated tests · CI on Windows and Ubuntu.
 
 ### Supported hardware
 
@@ -103,6 +103,7 @@ Installing the binaries, Linux udev rules and a systemd user service: [docs/INST
 | `freergb link-probe [--software-window]` | iCUE LINK hub: firmware, child devices, fan RPM, temperatures |
 | `freergb link-light-test` | Reversible colour test on the iCUE LINK chain with RPM watchdog |
 | `freergb link-restore` | Puts the iCUE LINK hub back into hardware mode |
+| `freergb validate-device <file.toml>` | Checks a device description without touching hardware |
 | `freergb ctl <method> [json]` | Calls any [local API](docs/LOCAL_API.md) method on the running service |
 
 ---
@@ -168,7 +169,7 @@ Details: [docs/SECURITY.md](docs/SECURITY.md).
 - [x] iCUE LINK hub: fans, AIO, LCD ring (experimental)
 - [x] Basic native GUI
 - [ ] Longer hardware soak tests, then iCUE LINK out of experimental
-- [ ] Declarative device descriptions (first plugin stage)
+- [x] Declarative device descriptions (first plugin stage)
 - [x] Per-device placement on the effect canvas (layout editor in the GUI)
 - [ ] More vendors: ASUS AURA, Razer, Logitech, …
 - [ ] Screen ambience and audio-reactive effects

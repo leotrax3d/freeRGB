@@ -17,7 +17,7 @@ pub enum SupportLevel {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdapterMatch {
     pub adapter: &'static str,
-    pub device_name: &'static str,
+    pub device_name: String,
     pub level: SupportLevel,
 }
 
@@ -34,15 +34,6 @@ struct Entry {
 }
 
 const ENTRIES: &[Entry] = &[
-    Entry {
-        vid: 0x1B1C,
-        pid: 0x1BFD,
-        usage_page: 0xFF42,
-        usage: 0x0001,
-        adapter: "corsair-bragi",
-        name: "CORSAIR K70 CORE RGB",
-        level: SupportLevel::Experimental,
-    },
     Entry {
         vid: 0x1B1C,
         pid: 0x0C3F,
@@ -73,15 +64,42 @@ const ENTRIES: &[Entry] = &[
 ];
 
 /// Looks up the adapter for one HID interface.
+/// Looks up the adapter for one HID interface using the built-in device
+/// descriptions and the table of identified-only devices.
 pub fn match_interface(vid: u16, pid: u16, usage_page: u16, usage: u16) -> Option<AdapterMatch> {
-    ENTRIES
+    match_interface_with(&[], vid, pid, usage_page, usage)
+}
+
+/// Like [`match_interface`], additionally consulting `extra` descriptions
+/// (user files, always experimental). Built-in descriptions win.
+pub fn match_interface_with(
+    extra: &[crate::descriptions::DeviceDescription],
+    vid: u16,
+    pid: u16,
+    usage_page: u16,
+    usage: u16,
+) -> Option<AdapterMatch> {
+    let from_desc = crate::descriptions::builtin()
         .iter()
-        .find(|e| e.vid == vid && e.pid == pid && e.usage_page == usage_page && e.usage == usage)
-        .map(|e| AdapterMatch {
-            adapter: e.adapter,
-            device_name: e.name,
-            level: e.level,
-        })
+        .chain(extra)
+        .find(|d| d.matches(vid, pid, usage_page, usage))
+        .map(|d| AdapterMatch {
+            adapter: d.adapter,
+            device_name: d.name.clone(),
+            level: d.support,
+        });
+    from_desc.or_else(|| {
+        ENTRIES
+            .iter()
+            .find(|e| {
+                e.vid == vid && e.pid == pid && e.usage_page == usage_page && e.usage == usage
+            })
+            .map(|e| AdapterMatch {
+                adapter: e.adapter,
+                device_name: e.name.to_owned(),
+                level: e.level,
+            })
+    })
 }
 
 /// Coarse vendor name for diagnostics.
@@ -107,7 +125,8 @@ mod tests {
     fn matches_k70_vendor_interface_only() {
         let m = match_interface(0x1B1C, 0x1BFD, 0xFF42, 0x0001).unwrap();
         assert_eq!(m.adapter, "corsair-bragi");
-        assert_eq!(m.level, SupportLevel::Experimental);
+        assert_eq!(m.level, SupportLevel::Validated);
+        assert_eq!(m.device_name, "CORSAIR K70 CORE RGB");
         // The keyboard's boot interface must not be matched.
         assert!(match_interface(0x1B1C, 0x1BFD, 0x0001, 0x0006).is_none());
         assert!(match_interface(0x1B1C, 0x1BFD, 0xFF42, 0x0002).is_none());

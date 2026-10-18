@@ -5,4 +5,5 @@
 //! implemented.
 
 pub mod corsair_bragi;
+pub mod descriptions;
 pub mod registry;

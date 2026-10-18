@@ -30,7 +30,7 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` → 74 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
+`cargo test --workspace` → 78 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions
@@ -50,7 +50,7 @@ Hardware results: `DEVICES.md#validation-log`.
 
 ## Next tasks
 1. GUI: layout view, profiles, per-device brightness; test on Linux.
-2. Declarative device descriptions (TOML) as first plugin stage.
+2. Plugin stage 2: out-of-process protocol plugins over the local API.
 3. iCUE LINK hub: Commander DUO ARGB ports (if any); longer soak (hours) before making `--enable-link-hub` a recommended default.
 4. Test hardware access on a real Linux machine with `packaging/linux/60-freergb.rules` (see `INSTALL.md`).
 5. Named profiles on top of the persisted state; autostart proposal.

@@ -9,7 +9,9 @@ rust-version.workspace = true
 [dependencies]
 freergb-core.workspace = true
 freergb-device-api.workspace = true
+serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
+toml = { version = "1.0.7", default-features = false, features = ["parse", "serde"] }
 tracing.workspace = true
 
 [lints]

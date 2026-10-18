@@ -13,7 +13,6 @@
 //! `[target', command, error, data...]`.
 
 pub mod device;
-pub mod k70_core;
 pub mod link_hub;
 pub mod link_hub_device;
 pub mod packet;

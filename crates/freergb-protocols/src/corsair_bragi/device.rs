@@ -67,11 +67,11 @@ impl LightingScheme {
     }
 }
 
-/// Static description of a supported Bragi model.
+/// A supported Bragi model, built from a device description.
 #[derive(Debug, Clone)]
 pub struct BragiModel {
-    pub name: &'static str,
-    pub pids: &'static [u16],
+    pub name: String,
+    pub pids: Vec<u16>,
     pub kind: DeviceKind,
     pub layout: LedLayout,
     pub wire_map: Vec<u16>,
@@ -84,26 +84,37 @@ pub struct BragiModel {
 }
 
 impl BragiModel {
+    /// Model for `pid` from the built-in device descriptions.
     pub fn for_pid(pid: u16) -> Option<Self> {
-        match pid {
-            0x1BFD | 0x1BFF => {
-                let wire_map = super::k70_core::wire_map();
-                let wire_led_count = usize::from(*wire_map.iter().max().unwrap_or(&0)) + 1;
-                Some(Self {
-                    name: "CORSAIR K70 CORE RGB",
-                    pids: &[0x1BFD, 0x1BFF],
-                    kind: DeviceKind::Keyboard,
-                    layout: super::k70_core::layout(),
-                    wire_map,
-                    wire_led_count,
-                    stream_ack: true,
-                    // Pipelining gave 26-27 FPS but hung the vendor interface after
-                    // 6 s-2.5 min, also with serialised HID access (2026-10-18).
-                    pipelined_streams: false,
-                })
-            }
-            _ => None,
-        }
+        Self::for_pid_in(crate::descriptions::builtin(), pid)
+    }
+
+    /// Model for `pid` from the given descriptions (built-in or user).
+    pub fn for_pid_in(
+        descriptions: &[crate::descriptions::DeviceDescription],
+        pid: u16,
+    ) -> Option<Self> {
+        descriptions
+            .iter()
+            .filter(|d| d.adapter == "corsair-bragi" && d.product_ids.contains(&pid))
+            .find_map(Self::from_description)
+    }
+
+    pub fn from_description(d: &crate::descriptions::DeviceDescription) -> Option<Self> {
+        let params = d.bragi?;
+        let wire_led_count = usize::from(*d.wire_map.iter().max()?) + 1;
+        Some(Self {
+            name: d.name.clone(),
+            pids: d.product_ids.clone(),
+            kind: d.kind,
+            layout: d.layout.clone(),
+            wire_map: d.wire_map.clone(),
+            wire_led_count,
+            stream_ack: params.stream_ack,
+            // Pipelining gave 26-27 FPS on the K70 CORE but hung its vendor
+            // interface after 6 s-2.5 min (2026-10-18); never on by default.
+            pipelined_streams: false,
+        })
     }
 }
 
@@ -263,7 +274,7 @@ impl<T: HidTransport> BragiDevice<T> {
                 "hid:1b1c:{pid:04x}:{}",
                 serial.as_deref().unwrap_or("noserial")
             )),
-            name: model.name.to_owned(),
+            name: model.name.clone(),
             vendor: "Corsair".to_owned(),
             kind: model.kind,
             usb_vid: Some(0x1B1C),
@@ -826,7 +837,7 @@ mod tests {
     fn refuses_wrong_pid() {
         let state = Arc::new(Mutex::new(SimState::default()));
         let mut model = BragiModel::for_pid(0x1BFD).unwrap();
-        model.pids = &[0x1B2D];
+        model.pids = vec![0x1B2D];
         let mut dev = BragiDevice::new(sim(state.clone()), model, None);
         assert!(matches!(dev.connect(), Err(DeviceError::Refused(_))));
         assert_eq!(

@@ -70,6 +70,8 @@ enum Cmd {
         #[arg(long, default_value_t = 10.0)]
         seconds: f32,
     },
+    /// Check a device description (TOML) without touching any hardware.
+    ValidateDevice { file: std::path::PathBuf },
     /// Call a method on the running freergbd, e.g. `ctl color.set '{"color":"#ff0000"}'`.
     Ctl {
         method: String,
@@ -155,6 +157,29 @@ fn main() -> Result<()> {
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
         Cmd::LinkLightTest { seconds } => link_light_test(seconds),
+        Cmd::ValidateDevice { file } => {
+            let text = std::fs::read_to_string(&file)
+                .with_context(|| format!("reading {}", file.display()))?;
+            let d = freergb_protocols::descriptions::DeviceDescription::parse(
+                &text,
+                &file.display().to_string(),
+            )?;
+            println!("OK: {} ({:?}, adapter {})", d.name, d.kind, d.adapter);
+            println!(
+                "    vid {:04x}, pids {:04x?}, interface {:04x}:{:04x}",
+                d.vendor_id, d.product_ids, d.usage_page, d.usage
+            );
+            println!(
+                "    {} LEDs on a {}x{} grid, wire indices {}..={}",
+                d.layout.len(),
+                d.layout.width,
+                d.layout.height,
+                d.wire_map.iter().min().unwrap_or(&0),
+                d.wire_map.iter().max().unwrap_or(&0)
+            );
+            println!("    loaded via --user-devices it is treated as experimental.");
+            Ok(())
+        }
         Cmd::LinkRestore => {
             use freergb_protocols::corsair_bragi::link_hub::LinkHubProbe;
             let info = freergb_hid::find(0x1B1C, 0x0C3F, 0xFF42, 0x0001)?;
@@ -379,7 +404,9 @@ fn discover(json: bool, all: bool) -> Result<()> {
 }
 
 fn demo_virtual(effect: EffectArg, frames: u32) -> Result<()> {
-    let layout = freergb_protocols::corsair_bragi::k70_core::layout();
+    let layout = BragiModel::for_pid(0x1BFD)
+        .expect("built-in K70 CORE")
+        .layout;
     let mut dev = VirtualDevice::new("Virtual K70", layout.clone());
     let log = dev.frame_log();
     dev.connect()?;

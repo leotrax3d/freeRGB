@@ -8,20 +8,24 @@ use freergb_device_api::{DeviceId, RgbDevice};
 use freergb_hid::HidapiTransport;
 use freergb_protocols::corsair_bragi::link_hub_device::LinkHubDevice;
 use freergb_protocols::corsair_bragi::{BragiDevice, BragiModel};
+use freergb_protocols::descriptions::{self, DeviceDescription};
 use freergb_protocols::registry::{self, SupportLevel};
 
-/// Builds a device for an opened interface (transport, serial, product id).
-type DeviceFactory = fn(HidapiTransport, Option<String>, u16) -> Box<dyn RgbDevice>;
+/// Builds a device for an opened interface (transport, serial).
+type DeviceFactory = Box<dyn FnOnce(HidapiTransport, Option<String>) -> Box<dyn RgbDevice>>;
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ScanOptions {
     /// Drive the iCUE LINK hub (keeps it in software mode while running).
     pub enable_link_hub: bool,
+    /// Device descriptions loaded from the user directory (opt-in, always
+    /// experimental). Empty unless `--user-devices` is given.
+    pub user_devices: std::sync::Arc<Vec<DeviceDescription>>,
 }
 
 /// Adds newly attached supported devices to the engine. Returns how many
 /// were added.
-pub fn scan(engine: &SharedEngine, opts: ScanOptions) -> usize {
+pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
     let conflicts = crate::conflicts::running();
     {
         let mut e = lock(engine);
@@ -52,8 +56,13 @@ pub fn scan(engine: &SharedEngine, opts: ScanOptions) -> usize {
     lock(engine).prune_finished();
     let mut added = 0;
     for info in list {
-        let Some(m) = registry::match_interface(info.vid, info.pid, info.usage_page, info.usage)
-        else {
+        let Some(m) = registry::match_interface_with(
+            &opts.user_devices,
+            info.vid,
+            info.pid,
+            info.usage_page,
+            info.usage,
+        ) else {
             continue;
         };
         if m.level < SupportLevel::Experimental {
@@ -62,22 +71,22 @@ pub fn scan(engine: &SharedEngine, opts: ScanOptions) -> usize {
         let serial = info.serial.as_deref().unwrap_or("noserial");
         let (id, make): (DeviceId, DeviceFactory) = match m.adapter {
             "corsair-bragi" => {
-                let Some(model) = BragiModel::for_pid(info.pid) else {
+                let model = BragiModel::for_pid_in(descriptions::builtin(), info.pid)
+                    .or_else(|| BragiModel::for_pid_in(&opts.user_devices, info.pid));
+                let Some(model) = model else {
                     continue;
                 };
                 (
                     DeviceId(format!("hid:1b1c:{:04x}:{serial}", model.pids[0])),
-                    |t, s, pid| {
-                        let model = BragiModel::for_pid(pid).expect("checked above");
-                        Box::new(BragiDevice::new(t, model, s))
-                    },
+                    Box::new(move |t, s| {
+                        Box::new(BragiDevice::new(t, model, s)) as Box<dyn RgbDevice>
+                    }),
                 )
             }
-            "corsair-icue-link" if opts.enable_link_hub => {
-                (DeviceId(format!("hid:1b1c:0c3f:{serial}")), |t, s, _| {
-                    Box::new(LinkHubDevice::new(t, s))
-                })
-            }
+            "corsair-icue-link" if opts.enable_link_hub => (
+                DeviceId(format!("hid:1b1c:0c3f:{serial}")),
+                Box::new(|t, s| Box::new(LinkHubDevice::new(t, s)) as Box<dyn RgbDevice>),
+            ),
             _ => continue,
         };
         if lock(engine).has_device(&id) {
@@ -85,7 +94,7 @@ pub fn scan(engine: &SharedEngine, opts: ScanOptions) -> usize {
         }
         match HidapiTransport::open(&info) {
             Ok(t) => {
-                lock(engine).add_device(make(t, info.serial.clone(), info.pid));
+                lock(engine).add_device(make(t, info.serial.clone()));
                 added += 1;
             }
             Err(e) => tracing::warn!(path = %info.path, error = %e, "open failed"),

@@ -37,6 +37,10 @@ struct Args {
     /// on any fan or pump slowdown.
     #[arg(long)]
     enable_link_hub: bool,
+    /// Also load device descriptions (*.toml) from this directory. They are
+    /// always treated as experimental. See docs/PLUGIN_SYSTEM.md.
+    #[arg(long, value_name = "DIR")]
+    user_devices: Option<std::path::PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -61,11 +65,25 @@ fn main() -> Result<()> {
             LedLayout::strip(16),
         )));
     }
+    let user_devices = match &args.user_devices {
+        Some(dir) => {
+            let (ok, errors) = freergb_protocols::descriptions::load_user_dir(dir);
+            for e in &errors {
+                tracing::warn!(error = %e, "skipping device description");
+            }
+            for d in &ok {
+                tracing::warn!(name = %d.name, source = %d.source, "using user device description (experimental)");
+            }
+            ok
+        }
+        None => Vec::new(),
+    };
     let scan_opts = hardware::ScanOptions {
         enable_link_hub: args.enable_link_hub,
+        user_devices: Arc::new(user_devices),
     };
     if !args.no_hardware {
-        let n = hardware::scan(&engine, scan_opts);
+        let n = hardware::scan(&engine, &scan_opts);
         tracing::info!(added = n, "initial hardware scan");
     }
 
@@ -112,7 +130,7 @@ fn render_loop(
         if let Some(every) = rescan {
             if last_scan.elapsed() >= every {
                 last_scan = Instant::now();
-                let n = hardware::scan(&engine, scan_opts);
+                let n = hardware::scan(&engine, &scan_opts);
                 if n > 0 {
                     tracing::info!(added = n, "hot-plug scan");
                 }
