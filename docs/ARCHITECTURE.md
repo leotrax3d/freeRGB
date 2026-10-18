@@ -1,7 +1,8 @@
 # Architecture
 
 ```
-freergb-cli ─────┐            (later: freergb-gui → API only)
+freergb-gui ── freergb-client ──(JSON-RPC, local IPC)──▶ freergbd
+freergb-cli ─────┐
 freergb-daemon ──┼─ freergb-protocols ── freergb-device-api ── freergb-core
                  ├─ freergb-hid ──────── freergb-device-api
                  └─ freergb-effects ──── freergb-core
@@ -28,3 +29,9 @@ freergb-daemon ──┼─ freergb-protocols ── freergb-device-api ── f
 Principles: transport, protocol and device function are separate; unknown devices are
 never written to; property writes go through an allowlist; `unsafe` is forbidden
 workspace-wide. Decisions: `DECISIONS.md`.
+
+## GUI (`freergb-gui`)
+egui/eframe (glow backend). Contains no device or protocol code. A worker thread
+polls `devices.list`, `diagnostics.get` and `effects.get` once per second and sends
+queued commands (bursts from slider drags are coalesced per method). The window only
+repaints when new state arrives, keeping idle CPU low.

@@ -2,7 +2,7 @@
 
 ## Phase
 Roadmap phases 1–8 done: first real RGB device (K70 CORE) validated, background
-service with local API working end-to-end. Next: phase 9 (GUI, plugin system).
+service with local API working end-to-end. Phase 9 started: native GUI (egui) talking only to the API. Next: plugin system.
 
 ## Done
 * Tool/environment inventory (no "Reverse Engineer Anything" MCP server available).
@@ -23,6 +23,8 @@ service with local API working end-to-end. Next: phase 9 (GUI, plugin system).
 | `freergb-protocols` | Corsair Bragi adapter, K70 CORE layout, adapter registry |
 | `freergb-daemon` | engine, JSON-RPC API, IPC, hardware scan; binary `freergbd` |
 | `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `ctl` |
+| `freergb-client` | blocking JSON-RPC client (used by CLI and GUI) |
+| `freergb-gui` | binary `freergb-gui` (egui): devices, effect, colour, brightness, stop daemon |
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
@@ -38,7 +40,7 @@ Hardware results: `DEVICES.md#validation-log`.
   `%LOCALAPPDATA%\VortxEngine\SignalRgbLauncher.exe`.
 
 ## Next tasks
-1. GUI (`freergb-gui`, egui) talking only to the API.
+1. GUI: layout view, profiles, per-device brightness; test on Linux.
 2. Declarative device descriptions (TOML) as first plugin stage.
 3. Analyse the iCUE LINK hub protocol (fans/AIO), read-only first.
 4. GitHub Actions CI for Windows + Linux.

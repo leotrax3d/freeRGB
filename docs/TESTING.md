@@ -30,3 +30,9 @@ Precondition: SignalRGB stopped (`Stop-Process -Name SignalRgbLauncher,SignalRgb
 4. `freergb ctl daemon.shutdown` → process exits; `freergb bragi probe` shows mode 1.
 
 Results: `DEVICES.md`.
+
+## GUI smoke test (manual)
+`freergbd --virtual-device --no-hardware`, then `freergb-gui`: window shows
+"daemon connected" and the virtual strip; changing the effect via `freergb ctl` keeps
+the GUI alive. 2026-10-18: passed on Windows (start + state change). Interactive
+controls were not clicked by an automated test yet.

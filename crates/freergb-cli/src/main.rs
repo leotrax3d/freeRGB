@@ -131,35 +131,11 @@ fn main() -> Result<()> {
 
 /// Sends one JSON-RPC request to freergbd over the local IPC endpoint.
 fn ctl(method: &str, params: Option<&str>) -> Result<()> {
-    use std::io::{BufRead, BufReader, Write};
-
     let params: serde_json::Value = match params {
         Some(p) => serde_json::from_str(p).context("params must be JSON")?,
         None => serde_json::Value::Null,
     };
-    let req = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-
-    #[cfg(windows)]
-    let stream = std::fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(r"\\.\pipe\freergb")
-        .context("cannot reach freergbd (is it running?)")?;
-    #[cfg(unix)]
-    let stream = {
-        let dir = std::env::var_os("XDG_RUNTIME_DIR")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(std::env::temp_dir);
-        std::os::unix::net::UnixStream::connect(dir.join("freergb.sock"))
-            .context("cannot reach freergbd (is it running?)")?
-    };
-
-    let mut writer = stream.try_clone()?;
-    writeln!(writer, "{req}")?;
-    writer.flush()?;
-    let mut line = String::new();
-    BufReader::new(stream).read_line(&mut line)?;
-    let resp: serde_json::Value = serde_json::from_str(&line)?;
+    let resp = freergb_client::call_raw(method, params)?;
     println!("{}", serde_json::to_string_pretty(&resp)?);
     if resp.get("error").is_some() {
         bail!("daemon returned an error");

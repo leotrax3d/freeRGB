@@ -8,6 +8,8 @@ members = [
     "crates/freergb-hid",
     "crates/freergb-cli",
     "crates/freergb-daemon",
+    "crates/freergb-client",
+    "crates/freergb-gui",
 ]
 
 [workspace.package]
@@ -23,6 +25,7 @@ freergb-device-api = { path = "crates/freergb-device-api" }
 freergb-protocols = { path = "crates/freergb-protocols" }
 freergb-effects = { path = "crates/freergb-effects" }
 freergb-hid = { path = "crates/freergb-hid" }
+freergb-client = { path = "crates/freergb-client" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
