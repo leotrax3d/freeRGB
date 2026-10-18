@@ -40,7 +40,11 @@ pub struct LinkHubDevice<T: HidTransport> {
 }
 
 fn proto(e: ProbeError) -> DeviceError {
-    DeviceError::Protocol(e.to_string())
+    match e {
+        // Keep transport errors (e.g. unplugged) distinguishable for the engine.
+        ProbeError::Transport(t) => DeviceError::Transport(t),
+        other => DeviceError::Protocol(other.to_string()),
+    }
 }
 
 impl<T: HidTransport> LinkHubDevice<T> {

@@ -129,13 +129,134 @@ pub struct BragiDevice<T: HidTransport> {
     /// Send all acknowledged stream packets first and collect the
     /// acknowledgements afterwards (experimental, off by default, see `set_pipelined`).
     pipelined: bool,
+    pacing: Pacing,
+    stats: LatencyStats,
+    keepalive: Keepalive,
+}
+
+/// Periodic housekeeping the SignalRGB plugin performs while streaming: a
+/// ping every 50 s ("Corsair pings every 52 seconds. This will keep the
+/// device in software mode.") and a mode check every 5 s. Without it the
+/// K70 CORE closed the lighting handle by itself after ~10 min (2026-10-18).
+#[derive(Debug, Clone, Copy)]
+struct Keepalive {
+    last_ping: std::time::Instant,
+    last_mode_check: std::time::Instant,
+}
+
+impl Keepalive {
+    const PING_EVERY: std::time::Duration = std::time::Duration::from_secs(50);
+    const MODE_CHECK_EVERY: std::time::Duration = std::time::Duration::from_secs(5);
+
+    fn new() -> Self {
+        let now = std::time::Instant::now();
+        Self {
+            last_ping: now,
+            last_mode_check: now,
+        }
+    }
 }
 
 const MAX_READS_PER_TRANSACTION: usize = 8;
 
+/// Pauses around a transaction, modelled on the SignalRGB plugin's timing
+/// (`device.pause` calls). Without them the K70 CORE vendor interface hung
+/// after ~10 min of continuous streaming (2026-10-18).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Pacing {
+    /// Before and after writing a control command (property, handle ops).
+    pub control: std::time::Duration,
+    /// After the first lighting packet (`WriteEndpoint`), before its ack.
+    pub after_write: std::time::Duration,
+    /// After each acknowledged `StreamEndpoint` packet, before its ack.
+    pub after_stream: std::time::Duration,
+}
+
+impl Pacing {
+    pub const PLUGIN: Pacing = Pacing {
+        control: std::time::Duration::from_millis(10),
+        after_write: std::time::Duration::from_millis(3),
+        after_stream: std::time::Duration::from_millis(1),
+    };
+    pub const NONE: Pacing = Pacing {
+        control: std::time::Duration::ZERO,
+        after_write: std::time::Duration::ZERO,
+        after_stream: std::time::Duration::ZERO,
+    };
+
+    fn around(self, cmd: Command) -> (std::time::Duration, std::time::Duration) {
+        match cmd {
+            Command::WriteEndpoint => (std::time::Duration::ZERO, self.after_write),
+            Command::StreamEndpoint => (std::time::Duration::ZERO, self.after_stream),
+            _ => (self.control, self.control),
+        }
+    }
+}
+
+/// Ack latency statistics. Single acks slower than [`LatencyStats::SLOW`]
+/// are logged at once; a summary is logged every [`LatencyStats::WINDOW`].
+#[derive(Debug, Clone)]
+pub struct LatencyStats {
+    window_start: std::time::Instant,
+    frames: u64,
+    frame_us_sum: u64,
+    frame_us_max: u64,
+    acks: u64,
+    ack_us_max: u64,
+    slow_acks: u64,
+}
+
+impl LatencyStats {
+    pub const SLOW: std::time::Duration = std::time::Duration::from_millis(50);
+    pub const WINDOW: std::time::Duration = std::time::Duration::from_secs(60);
+
+    fn new() -> Self {
+        Self {
+            window_start: std::time::Instant::now(),
+            frames: 0,
+            frame_us_sum: 0,
+            frame_us_max: 0,
+            acks: 0,
+            ack_us_max: 0,
+            slow_acks: 0,
+        }
+    }
+
+    fn ack(&mut self, device: &DeviceId, cmd: Command, d: std::time::Duration) {
+        let us = d.as_micros() as u64;
+        self.acks += 1;
+        self.ack_us_max = self.ack_us_max.max(us);
+        if d >= Self::SLOW {
+            self.slow_acks += 1;
+            tracing::warn!(device = %device, ?cmd, ack_ms = us as f64 / 1000.0, "slow acknowledgement");
+        }
+    }
+
+    fn frame(&mut self, device: &DeviceId, d: std::time::Duration) {
+        let us = d.as_micros() as u64;
+        self.frames += 1;
+        self.frame_us_sum += us;
+        self.frame_us_max = self.frame_us_max.max(us);
+        if self.window_start.elapsed() >= Self::WINDOW {
+            tracing::info!(
+                device = %device,
+                frames = self.frames,
+                frame_avg_ms = self.frame_us_sum as f64 / self.frames.max(1) as f64 / 1000.0,
+                frame_max_ms = self.frame_us_max as f64 / 1000.0,
+                acks = self.acks,
+                ack_max_ms = self.ack_us_max as f64 / 1000.0,
+                slow_acks = self.slow_acks,
+                "latency summary"
+            );
+            *self = Self::new();
+        }
+    }
+}
+
 impl<T: HidTransport> BragiDevice<T> {
     pub fn new(transport: T, model: BragiModel, serial: Option<String>) -> Self {
         let pipelined = model.pipelined_streams;
+        let model_pacing = Pacing::PLUGIN;
         let pid = model.pids[0];
         let info = DeviceInfo {
             id: DeviceId(format!(
@@ -159,7 +280,47 @@ impl<T: HidTransport> BragiDevice<T> {
             status: DeviceStatus::Disconnected,
             timeout_ms: 500,
             pipelined,
+            pacing: model_pacing,
+            stats: LatencyStats::new(),
+            keepalive: Keepalive::new(),
         }
+    }
+
+    #[cfg(test)]
+    fn force_keepalive_due(&mut self) {
+        let past = std::time::Instant::now() - std::time::Duration::from_secs(120);
+        self.keepalive = Keepalive {
+            last_ping: past,
+            last_mode_check: past,
+        };
+    }
+
+    /// Ping and mode check on the plugin's schedule. If the device has left
+    /// software mode, it is put back and the lighting handle reopened.
+    fn keepalive(&mut self) -> Result<(), DeviceError> {
+        let now = std::time::Instant::now();
+        if now.duration_since(self.keepalive.last_ping) >= Keepalive::PING_EVERY {
+            self.keepalive.last_ping = now;
+            self.ping()?;
+            tracing::debug!(device = %self.info.id, "keepalive ping");
+        }
+        if now.duration_since(self.keepalive.last_mode_check) >= Keepalive::MODE_CHECK_EVERY {
+            self.keepalive.last_mode_check = now;
+            let mode = self.get_property(Property::Mode)?;
+            if mode != Mode::Software as u32 {
+                tracing::warn!(device = %self.info.id, mode, "device left software mode, restoring");
+                let scheme = self.scheme.ok_or(DeviceError::NotConnected)?;
+                self.set_mode(Mode::Software)?;
+                self.close_if_open(Handle::Lighting)?;
+                self.open(Handle::Lighting, scheme.endpoint())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Overrides the inter-packet pauses (tests use [`Pacing::NONE`]).
+    pub fn set_pacing(&mut self, pacing: Pacing) {
+        self.pacing = pacing;
     }
 
     pub fn transport(&self) -> &T {
@@ -179,12 +340,20 @@ impl<T: HidTransport> BragiDevice<T> {
 
     /// Writes `pkt` and returns the first input report that echoes `cmd`.
     fn transact(&mut self, pkt: &[u8], cmd: Command) -> Result<Vec<u8>, DeviceError> {
+        let (before, after) = self.pacing.around(cmd);
         let t0 = std::time::Instant::now();
         self.transport.drain()?;
         let t_drain = t0.elapsed();
+        if !before.is_zero() {
+            std::thread::sleep(before);
+        }
         self.transport.write(pkt)?;
         let t_write = t0.elapsed();
+        if !after.is_zero() {
+            std::thread::sleep(after);
+        }
         let raw = self.read_response(cmd)?;
+        self.stats.ack(&self.info.id, cmd, t0.elapsed() - t_write);
         tracing::trace!(
             ?cmd,
             drain_us = t_drain.as_micros() as u64,
@@ -354,8 +523,12 @@ impl<T: HidTransport> BragiDevice<T> {
     fn write_frame(&mut self, frame: &Frame) -> Result<(), DeviceError> {
         let scheme = self.scheme.ok_or(DeviceError::NotConnected)?;
         let payload = scheme.encode(frame, &self.model.wire_map);
+        let t0 = std::time::Instant::now();
         match self.send_payload(&payload) {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                self.stats.frame(&self.info.id, t0.elapsed());
+                Ok(())
+            }
             Err(DeviceError::Protocol(msg)) => {
                 // Handle may have been closed by another program; reopen once.
                 tracing::warn!(device = %self.info.id, %msg, "lighting write failed, reopening handle");
@@ -401,6 +574,7 @@ impl<T: HidTransport> RgbDevice for BragiDevice<T> {
         };
         tracing::info!(device = %self.info.id, ?scheme, "bragi lighting scheme");
         self.open(Handle::Lighting, scheme.endpoint())?;
+        self.keepalive = Keepalive::new();
         self.scheme = Some(scheme);
         self.status = DeviceStatus::Connected;
         Ok(())
@@ -415,9 +589,11 @@ impl<T: HidTransport> RgbDevice for BragiDevice<T> {
             return Err(DeviceError::NotConnected);
         }
         check_frame(&self.model.layout, frame)?;
-        self.write_frame(frame).inspect_err(|e| {
-            self.status = DeviceStatus::Faulted(e.to_string());
-        })
+        self.keepalive()
+            .and_then(|()| self.write_frame(frame))
+            .inspect_err(|e| {
+                self.status = DeviceStatus::Faulted(e.to_string());
+            })
     }
 
     fn status(&self) -> DeviceStatus {
@@ -597,6 +773,53 @@ mod tests {
         assert_eq!(cmds, vec![0x06, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07]);
         dev.disconnect(None).unwrap();
         assert_eq!(state.lock().unwrap().mode, 1);
+    }
+
+    #[test]
+    fn plugin_pacing_is_applied_per_frame() {
+        let state = Arc::new(Mutex::new(SimState {
+            mode: 1,
+            ..Default::default()
+        }));
+        let model = BragiModel::for_pid(0x1BFD).unwrap();
+        let n = model.layout.len();
+        let mut dev = BragiDevice::new(sim(state), model, None);
+        dev.set_pacing(Pacing::NONE);
+        dev.connect().unwrap();
+        dev.set_pacing(Pacing::PLUGIN);
+        let t0 = std::time::Instant::now();
+        dev.push_frame(&Frame::solid(n, Rgb::RED)).unwrap();
+        // 3 ms after WriteEndpoint + 6 x 1 ms after StreamEndpoint.
+        assert!(
+            t0.elapsed() >= std::time::Duration::from_millis(9),
+            "{:?}",
+            t0.elapsed()
+        );
+    }
+
+    #[test]
+    fn keepalive_restores_software_mode_and_handle() {
+        let state = Arc::new(Mutex::new(SimState {
+            mode: 1,
+            ..Default::default()
+        }));
+        let model = BragiModel::for_pid(0x1BFD).unwrap();
+        let n = model.layout.len();
+        let mut dev = BragiDevice::new(sim(state.clone()), model, None);
+        dev.set_pacing(Pacing::NONE);
+        dev.connect().unwrap();
+        // Firmware drops the session: back to hardware mode, handle closed.
+        {
+            let mut s = state.lock().unwrap();
+            s.mode = 1;
+            s.open = [None, None, None];
+        }
+        dev.force_keepalive_due();
+        dev.push_frame(&Frame::solid(n, Rgb::GREEN)).unwrap();
+        let s = state.lock().unwrap();
+        assert_eq!(s.mode, 2, "software mode restored");
+        assert_eq!(s.open[0], Some(0x22), "lighting handle reopened");
+        assert_eq!(s.expected_len, 2 + 123 * 3, "frame written afterwards");
     }
 
     #[test]

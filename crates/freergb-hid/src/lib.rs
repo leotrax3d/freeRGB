@@ -118,7 +118,18 @@ impl HidapiTransport {
 }
 
 fn io(e: hidapi::HidError) -> TransportError {
-    TransportError::Io(e.to_string())
+    let msg = e.to_string();
+    // Windows ERROR_DEVICE_NOT_CONNECTED (1167), Linux ENODEV: the device was
+    // unplugged and this handle can never work again.
+    let lower = msg.to_lowercase();
+    if msg.contains("os error 1167")
+        || lower.contains("not connected")
+        || lower.contains("no such device")
+    {
+        TransportError::Disconnected
+    } else {
+        TransportError::Io(msg)
+    }
 }
 
 impl HidTransport for HidapiTransport {

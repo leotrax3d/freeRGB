@@ -29,6 +29,7 @@ pub fn scan(engine: &SharedEngine, opts: ScanOptions) -> usize {
             return 0;
         }
     };
+    lock(engine).prune_finished();
     let mut added = 0;
     for info in list {
         let Some(m) = registry::match_interface(info.vid, info.pid, info.usage_page, info.usage)

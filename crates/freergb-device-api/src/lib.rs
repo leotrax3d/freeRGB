@@ -94,6 +94,14 @@ pub trait RgbDevice: Send {
     fn disconnect(&mut self, final_color: Option<Rgb>) -> Result<(), DeviceError>;
 }
 
+impl DeviceError {
+    /// The device was unplugged: its handle is dead and a fresh one must be
+    /// opened (the engine drops the device; the next hot-plug scan re-adds it).
+    pub fn is_gone(&self) -> bool {
+        matches!(self, DeviceError::Transport(TransportError::Disconnected))
+    }
+}
+
 /// Helper for implementations: checks a frame against the layout size.
 pub fn check_frame(layout: &LedLayout, frame: &Frame) -> Result<(), DeviceError> {
     if frame.len() != layout.len() {

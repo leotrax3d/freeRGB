@@ -18,6 +18,8 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 pub const RETRY_INTERVAL: Duration = Duration::from_secs(2);
+/// Upper bound for the exponential reconnect back-off.
+pub const MAX_RETRY: Duration = Duration::from_secs(60);
 const CANVAS_W: usize = 320;
 const CANVAS_H: usize = 200;
 /// How long an idle worker sleeps before re-checking retries / stop.
@@ -109,6 +111,14 @@ fn run_worker(
         }
     };
 
+    // Exponential back-off: retry_interval, x2, x4 … capped at MAX_RETRY. A
+    // hung device then blocks the shared HID gate only rarely.
+    let mut failures: u32 = 0;
+    let backoff = |failures: u32| {
+        let factor = 1u32 << failures.saturating_sub(1).min(5);
+        (retry_interval * factor).min(MAX_RETRY.max(retry_interval))
+    };
+
     // Connect right away; on failure retry after the back-off.
     let mut next_retry = match dev.connect() {
         Ok(()) => {
@@ -118,7 +128,8 @@ fn run_worker(
         Err(e) => {
             tracing::warn!(device = %dev.info().id, error = %e, "connect failed");
             publish(dev.as_ref(), &view, Some(Some(e.to_string())));
-            Some(Instant::now() + retry_interval)
+            failures = 1;
+            Some(Instant::now() + backoff(failures))
         }
     };
 
@@ -143,9 +154,15 @@ fn run_worker(
                 let Some(frame) = frame else { continue };
                 match dev.push_frame(&frame) {
                     Ok(()) => guard(&view).frames += 1,
+                    Err(e) if e.is_gone() => {
+                        tracing::info!(device = %dev.info().id, "device unplugged, releasing worker");
+                        publish(dev.as_ref(), &view, Some(Some(e.to_string())));
+                        return;
+                    }
                     Err(e) => {
                         tracing::warn!(device = %dev.info().id, error = %e, "frame failed");
-                        next_retry = Some(Instant::now() + retry_interval);
+                        failures = 1;
+                        next_retry = Some(Instant::now() + backoff(failures));
                         publish(dev.as_ref(), &view, Some(Some(e.to_string())));
                     }
                 }
@@ -155,13 +172,22 @@ fn run_worker(
                 if Instant::now() >= *due {
                     let _ = dev.disconnect(None);
                     match dev.connect() {
+                        Err(e) if e.is_gone() => {
+                            tracing::info!(device = %dev.info().id, "device unplugged, releasing worker");
+                            publish(dev.as_ref(), &view, Some(Some(e.to_string())));
+                            return;
+                        }
                         Ok(()) => {
                             tracing::info!(device = %dev.info().id, "reconnected");
                             next_retry = None;
+                            failures = 0;
                             publish(dev.as_ref(), &view, Some(None));
                         }
                         Err(e) => {
-                            next_retry = Some(Instant::now() + retry_interval);
+                            failures = failures.saturating_add(1);
+                            let wait = backoff(failures);
+                            tracing::debug!(device = %dev.info().id, error = %e, retry_in_s = wait.as_secs_f32(), "reconnect failed");
+                            next_retry = Some(Instant::now() + wait);
                             publish(dev.as_ref(), &view, Some(Some(e.to_string())));
                         }
                     }
@@ -204,6 +230,23 @@ impl Engine {
 
     pub fn target_fps(&self) -> u32 {
         self.target_fps
+    }
+
+    /// Drops workers that have finished (device unplugged), so a hot-plug scan
+    /// can add the device again with a fresh handle. Returns how many.
+    pub fn prune_finished(&mut self) -> usize {
+        let before = self.workers.len();
+        self.workers.retain_mut(|w| {
+            let done = w.handle.as_ref().is_some_and(JoinHandle::is_finished);
+            if done {
+                if let Some(h) = w.handle.take() {
+                    let _ = h.join();
+                }
+                tracing::info!(device = %w.id, "removed unplugged device");
+            }
+            !done
+        });
+        before - self.workers.len()
     }
 
     pub fn has_device(&self, id: &DeviceId) -> bool {
@@ -495,6 +538,56 @@ mod tests {
         assert_eq!(e.devices()[0].last_error, None);
         e.tick(Instant::now());
         assert!(wait_until(|| log.total() == 1));
+    }
+
+    /// Connects, then reports "unplugged" on the first frame.
+    struct Unplugged(VirtualDevice);
+
+    impl RgbDevice for Unplugged {
+        fn info(&self) -> &DeviceInfo {
+            self.0.info()
+        }
+        fn connect(&mut self) -> Result<(), DeviceError> {
+            self.0.connect()
+        }
+        fn layout(&self) -> &LedLayout {
+            self.0.layout()
+        }
+        fn push_frame(&mut self, _f: &Frame) -> Result<(), DeviceError> {
+            Err(DeviceError::Transport(
+                freergb_device_api::TransportError::Disconnected,
+            ))
+        }
+        fn status(&self) -> DeviceStatus {
+            self.0.status()
+        }
+        fn disconnect(&mut self, c: Option<Rgb>) -> Result<(), DeviceError> {
+            self.0.disconnect(c)
+        }
+    }
+
+    #[test]
+    fn unplugged_device_is_pruned_and_can_be_re_added() {
+        let mut e = Engine::new(EffectSpec::Solid { color: Rgb::RED }, 30);
+        e.add_device(Box::new(Unplugged(VirtualDevice::new(
+            "plug",
+            LedLayout::strip(1),
+        ))));
+        let id = e.devices()[0].info.id.clone();
+        assert!(wait_until(
+            || e.devices()[0].status == DeviceStatus::Connected
+        ));
+        e.tick(Instant::now());
+        assert!(
+            wait_until(|| e.prune_finished() == 1),
+            "worker should end after unplug"
+        );
+        assert!(!e.has_device(&id));
+        e.add_device(Box::new(VirtualDevice::new("plug", LedLayout::strip(1))));
+        assert!(e.has_device(&id));
+        assert!(wait_until(
+            || e.devices()[0].status == DeviceStatus::Connected
+        ));
     }
 
     #[test]
