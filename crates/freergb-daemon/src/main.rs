@@ -32,6 +32,11 @@ struct Args {
     /// Neither restore nor save effect/brightness.
     #[arg(long)]
     no_state: bool,
+    /// Also drive the Corsair iCUE LINK hub (fans/AIO lighting). Keeps the hub in
+    /// software mode while running; an RPM watchdog returns it to hardware mode
+    /// on any fan or pump slowdown.
+    #[arg(long)]
+    enable_link_hub: bool,
 }
 
 fn main() -> Result<()> {
@@ -56,8 +61,11 @@ fn main() -> Result<()> {
             LedLayout::strip(16),
         )));
     }
+    let scan_opts = hardware::ScanOptions {
+        enable_link_hub: args.enable_link_hub,
+    };
     if !args.no_hardware {
-        let n = hardware::scan(&engine);
+        let n = hardware::scan(&engine, scan_opts);
         tracing::info!(added = n, "initial hardware scan");
     }
 
@@ -68,7 +76,7 @@ fn main() -> Result<()> {
         let rescan = (!args.no_hardware).then(|| Duration::from_secs(args.rescan_secs.max(1)));
         std::thread::Builder::new()
             .name("render".into())
-            .spawn(move || render_loop(engine, stop, rescan))?
+            .spawn(move || render_loop(engine, stop, rescan, scan_opts))?
     };
 
     let rt = tokio::runtime::Runtime::new()?;
@@ -90,7 +98,12 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn render_loop(engine: SharedEngine, stop: Arc<AtomicBool>, rescan: Option<Duration>) {
+fn render_loop(
+    engine: SharedEngine,
+    stop: Arc<AtomicBool>,
+    rescan: Option<Duration>,
+    scan_opts: hardware::ScanOptions,
+) {
     let period = Duration::from_secs_f64(1.0 / f64::from(lock(&engine).target_fps()));
     let mut last_scan = Instant::now();
     while !stop.load(Ordering::SeqCst) {
@@ -99,7 +112,7 @@ fn render_loop(engine: SharedEngine, stop: Arc<AtomicBool>, rescan: Option<Durat
         if let Some(every) = rescan {
             if last_scan.elapsed() >= every {
                 last_scan = Instant::now();
-                let n = hardware::scan(&engine);
+                let n = hardware::scan(&engine, scan_opts);
                 if n > 0 {
                     tracing::info!(added = n, "hot-plug scan");
                 }

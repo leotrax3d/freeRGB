@@ -50,7 +50,7 @@ const ENTRIES: &[Entry] = &[
         usage: 0x0001,
         adapter: "corsair-icue-link",
         name: "CORSAIR iCUE LINK System Hub",
-        level: SupportLevel::Identified,
+        level: SupportLevel::Experimental,
     },
     Entry {
         vid: 0x1B1C,

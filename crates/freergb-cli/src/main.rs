@@ -178,8 +178,19 @@ fn link_light_test(seconds: f32) -> Result<()> {
     }
     println!("frames    {}", r.frames);
     println!("rpm before {:?}", r.rpm_before);
-    for s in &r.rpm_during {
-        println!("rpm during {s:?}");
+    println!("rpm samples {}", r.rpm_during.len());
+    for (i, before) in r.rpm_before.iter().enumerate() {
+        let Some(before) = before else { continue };
+        let during: Vec<u16> = r
+            .rpm_during
+            .iter()
+            .filter_map(|s| s.get(i).copied().flatten())
+            .collect();
+        let (min, max) = (
+            during.iter().min().copied().unwrap_or(0),
+            during.iter().max().copied().unwrap_or(0),
+        );
+        println!("rpm sensor {i:>2}: before {before:>5}  during min {min:>5} max {max:>5}");
     }
     if let Some(a) = &r.aborted {
         println!("ABORTED   {a}");

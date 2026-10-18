@@ -184,9 +184,11 @@ pub struct HubReport {
 
 /// Read-only session with a hub.
 pub struct LinkHubProbe<T: HidTransport> {
-    t: T,
+    pub(super) t: T,
     timeout_ms: i32,
     raw: Vec<(Vec<u8>, Vec<u8>)>,
+    /// Keep every exchange in `raw` (diagnostics). Off for long-running use.
+    record_raw: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -209,10 +211,17 @@ impl<T: HidTransport> LinkHubProbe<T> {
             t,
             timeout_ms: 500,
             raw: Vec::new(),
+            record_raw: true,
         }
     }
 
-    fn transact(&mut self, pkt: Vec<u8>, cmd: Command) -> Result<Vec<u8>, ProbeError> {
+    /// Disables raw exchange recording (for long-running sessions).
+    pub fn without_raw_log(mut self) -> Self {
+        self.record_raw = false;
+        self
+    }
+
+    pub(super) fn transact(&mut self, pkt: Vec<u8>, cmd: Command) -> Result<Vec<u8>, ProbeError> {
         self.t.drain()?;
         self.t.write(&pkt)?;
         let mut buf = vec![0u8; self.t.input_report_len().max(8)];
@@ -223,7 +232,9 @@ impl<T: HidTransport> LinkHubProbe<T> {
             }
             let resp = buf[..n].to_vec();
             let matches = parse(&resp, cmd).is_ok();
-            self.raw.push((pkt.clone(), resp.clone()));
+            if self.record_raw {
+                self.raw.push((pkt.clone(), resp.clone()));
+            }
             if matches {
                 return Ok(resp);
             }
@@ -231,7 +242,7 @@ impl<T: HidTransport> LinkHubProbe<T> {
         Err(ProbeError::NoResponse(cmd))
     }
 
-    fn ok(&mut self, pkt: Vec<u8>, cmd: Command) -> Result<Vec<u8>, ProbeError> {
+    pub(super) fn ok(&mut self, pkt: Vec<u8>, cmd: Command) -> Result<Vec<u8>, ProbeError> {
         let raw = self.transact(pkt, cmd)?;
         parse(&raw, cmd)
             .and_then(Response::ok)
@@ -280,7 +291,7 @@ impl<T: HidTransport> LinkHubProbe<T> {
         Ok(r.data.to_vec())
     }
 
-    fn set_mode(&mut self, mode: Mode) -> Result<(), ProbeError> {
+    pub(super) fn set_mode(&mut self, mode: Mode) -> Result<(), ProbeError> {
         self.ok(set_mode_request(TARGET_HUB, mode), Command::SetProperty)
             .map(|_| ())
     }
@@ -452,7 +463,7 @@ pub struct LightingTestReport {
 }
 
 impl<T: HidTransport> LinkHubProbe<T> {
-    fn rpm(&mut self) -> Vec<Option<u16>> {
+    pub(super) fn rpm(&mut self) -> Vec<Option<u16>> {
         self.read_endpoint(EP_FAN_RPM)
             .map(|d| parse_sensor_values(&d))
             .unwrap_or_default()
@@ -785,6 +796,67 @@ mod tests {
         assert!(r.aborted.is_some(), "must abort on pump slowdown");
         assert_eq!(r.restored_mode, Some(1));
         assert_eq!(*sim.mode.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn hub_device_lifecycle_restores_hardware_mode() {
+        use super::super::link_hub_device::LinkHubDevice;
+        use freergb_core::{Frame, Rgb};
+        use freergb_device_api::{DeviceStatus, RgbDevice};
+
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 1;
+        let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), Some("SIM".into()));
+        dev.connect().unwrap();
+        assert_eq!(*sim.mode.lock().unwrap(), 2);
+        assert_eq!(dev.layout().len(), 68);
+        assert_eq!(dev.layout().height, 5);
+        assert_eq!(dev.info().firmware.as_deref(), Some("4.1.144"));
+
+        let mut f = Frame::solid(68, Rgb::BLACK);
+        f.colors_mut()[24] = Rgb::new(1, 2, 3); // first LED of the AIO segment
+        dev.push_frame(&f).unwrap();
+        let data = sim.lighting.lock().unwrap().2.clone();
+        assert_eq!(&data[2 + 24 * 3..2 + 24 * 3 + 3], &[1, 2, 3]);
+
+        dev.disconnect(None).unwrap();
+        assert_eq!(dev.status(), DeviceStatus::Disconnected);
+        assert_eq!(*sim.mode.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn hub_device_watchdog_trips_and_blocks_reconnect() {
+        use super::super::link_hub_device::{LinkHubDevice, WATCHDOG_INTERVAL};
+        use freergb_core::{Frame, Rgb};
+        use freergb_device_api::{DeviceError, DeviceStatus, RgbDevice};
+
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 1;
+        let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), None);
+        dev.connect().unwrap();
+        *sim.pump_rpm.lock().unwrap() = 300;
+        std::thread::sleep(WATCHDOG_INTERVAL + std::time::Duration::from_millis(50));
+        let err = dev.push_frame(&Frame::solid(68, Rgb::RED)).unwrap_err();
+        assert!(matches!(err, DeviceError::Refused(_)), "{err}");
+        assert!(dev.tripped().is_some());
+        assert!(matches!(dev.status(), DeviceStatus::Faulted(_)));
+        assert_eq!(*sim.mode.lock().unwrap(), 1, "hardware mode restored");
+
+        *sim.pump_rpm.lock().unwrap() = 1700;
+        assert!(matches!(dev.connect(), Err(DeviceError::Refused(_))));
+        assert_eq!(*sim.mode.lock().unwrap(), 1, "no reconnect after a trip");
+    }
+
+    #[test]
+    fn hub_device_refuses_software_mode_start() {
+        use super::super::link_hub_device::LinkHubDevice;
+        use freergb_device_api::{DeviceError, RgbDevice};
+
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 2;
+        let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), None);
+        assert!(matches!(dev.connect(), Err(DeviceError::Refused(_))));
+        assert_eq!(*sim.mode.lock().unwrap(), 2);
     }
 
     #[test]
