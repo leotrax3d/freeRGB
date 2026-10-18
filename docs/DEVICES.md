@@ -47,3 +47,9 @@ iCUE LINK hub, 2026-10-18, SignalRGB stopped, each step approved by the user:
    *and* with classic streaming. With all hidapi calls serialised: 2 min at target 60 FPS,
    hub 52.4 FPS, K70 19.1 FPS, no errors; both devices read back mode 1 after shutdown.
    Pipelined streaming stays experimental (`bragi --pipelined`), untested with the gate.
+10. Pipelining retest with the HID gate (`freergbd --enable-link-hub`, 5 min, temporary
+    `--experimental-pipelining` flag): K70 26 FPS for ~2.3 min, then "timed out waiting for a
+    response" and the vendor interface hung again (re-plug needed). Hub stayed connected
+    (28 FPS while the K70 streamed, 46 FPS after it dropped out); mode 1 verified after
+    shutdown. **Conclusion: the K70 CORE needs per-packet acknowledgement.** The daemon flag
+    was removed again; pipelining remains a research option in `freergb bragi --pipelined`.

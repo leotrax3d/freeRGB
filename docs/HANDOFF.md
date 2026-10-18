@@ -34,8 +34,11 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions
-* K70 CORE ~19–22 FPS (acknowledged streaming; device-side processing limits it). Pipelining
-  (27 FPS) is experimental: retest it now that HID access is serialised.
+* K70 CORE ~19–22 FPS with acknowledged streaming (device-side limit). Pipelining hangs the
+  keyboard after up to 2.5 min even with serialised HID access → not usable.
+* Classic mode in the threaded daemon was only tested for 2 min – run a longer soak.
+* While the K70 streams, the hub drops from ~52 to ~28 FPS (std Mutex is not fair, the K70
+  worker re-acquires the HID gate quickly) – consider a fair gate.
 * Each re-plug of the K70 was needed after a vendor-interface hang; a software reset path
   (e.g. re-open + mode reset) is not known yet.
 * `1b1c:1bf0` (no USB interface) – origin unknown.

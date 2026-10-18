@@ -68,11 +68,11 @@ open Lighting handle. Frame: WriteEndpoint + StreamEndpoint(s); on a protocol er
 handle is reopened once. disconnect: optional final colour, close handle, mode hardware.
 
 ### 6. Limits / open questions
-* Frame rate: 21.9 FPS with per-packet acknowledgement [C]. Timing (release): WriteEndpoint ack
+* Frame rate: 21.9 FPS with per-packet acknowledgement [C].
   ~10 ms, each StreamEndpoint ~1 ms write + ~4.4 ms until its ack – the keyboard's own
-  processing dominates. **Pipelined streaming** (write all 6 stream packets, then read the 6
-  acks; acks still checked) gives 27.1 FPS; rainbow visually confirmed clean → default for the
-  K70 CORE since 2026-10-18 (`--classic-streaming` restores the old behaviour) [C].
+  processing dominates. Pipelined streaming (all 6 stream packets first, acks afterwards) gives
+  26–27 FPS but hangs the vendor interface after 6 s–2.5 min, also with serialised HID access;
+  only a re-plug recovers it [C]. → The K70 CORE requires per-packet acknowledgement.
 
 * Wireless children (dongle, `target 0x09…`) not tested [U].
 * Other Bragi models: tables missing; new models only with their own validation.

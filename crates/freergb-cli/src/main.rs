@@ -42,8 +42,8 @@ enum Cmd {
     Bragi {
         #[command(subcommand)]
         cmd: BragiCmd,
-        /// EXPERIMENTAL: send stream packets back to back and collect acks afterwards.
-        /// Hung the K70 CORE under sustained load; for short measurements only.
+        /// RESEARCH ONLY: send stream packets back to back and collect acks afterwards.
+        /// Hangs the K70 CORE vendor interface after ~0.1-2.5 min (re-plug needed).
         #[arg(long, global = true)]
         pipelined: bool,
         /// USB product id (hex).

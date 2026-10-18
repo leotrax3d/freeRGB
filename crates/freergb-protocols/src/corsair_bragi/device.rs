@@ -97,8 +97,8 @@ impl BragiModel {
                     wire_map,
                     wire_led_count,
                     stream_ack: true,
-                    // Pipelining gave 27 FPS in a 15 s test but hung the vendor
-                    // interface after 6-40 s of sustained daemon load (2026-10-18).
+                    // Pipelining gave 26-27 FPS but hung the vendor interface after
+                    // 6 s-2.5 min, also with serialised HID access (2026-10-18).
                     pipelined_streams: false,
                 })
             }
