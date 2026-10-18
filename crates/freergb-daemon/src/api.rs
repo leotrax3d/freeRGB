@@ -124,7 +124,18 @@ mod tests {
             r#"{"jsonrpc":"2.0","id":2,"method":"brightness.set","params":{"value":0.5}}"#,
         );
         assert_eq!(r["id"], json!(2));
+
+        // Devices run on worker threads: wait for the connect, then the frame.
+        let deadline = Instant::now() + std::time::Duration::from_secs(2);
+        while lock(&e).devices()[0].status != freergb_device_api::DeviceStatus::Connected {
+            assert!(Instant::now() < deadline, "device did not connect");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
         lock(&e).tick(Instant::now());
+        while log.total() == 0 {
+            assert!(Instant::now() < deadline, "frame did not arrive");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
         assert_eq!(log.last().unwrap().colors()[0], Rgb::new(0, 128, 0));
 
         let r = call(&e, r#"{"jsonrpc":"2.0","id":3,"method":"devices.list"}"#);

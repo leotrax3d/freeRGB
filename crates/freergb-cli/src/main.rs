@@ -42,9 +42,10 @@ enum Cmd {
     Bragi {
         #[command(subcommand)]
         cmd: BragiCmd,
-        /// Wait for every stream acknowledgement individually (slower, pre-2026-10-18 behaviour).
+        /// EXPERIMENTAL: send stream packets back to back and collect acks afterwards.
+        /// Hung the K70 CORE under sustained load; for short measurements only.
         #[arg(long, global = true)]
-        classic_streaming: bool,
+        pipelined: bool,
         /// USB product id (hex).
         #[arg(long, default_value = "1bfd", global = true)]
         pid: String,
@@ -146,11 +147,11 @@ fn main() -> Result<()> {
         Cmd::Bragi {
             cmd,
             pid,
-            classic_streaming,
+            pipelined,
         } => {
             let pid =
                 u16::from_str_radix(pid.trim_start_matches("0x"), 16).context("invalid --pid")?;
-            bragi(cmd, pid, !classic_streaming)
+            bragi(cmd, pid, pipelined)
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
         Cmd::LinkLightTest { seconds } => link_light_test(seconds),

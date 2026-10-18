@@ -97,8 +97,9 @@ impl BragiModel {
                     wire_map,
                     wire_led_count,
                     stream_ack: true,
-                    // 2026-10-18: 21.8 -> 27.1 FPS, rainbow visually clean.
-                    pipelined_streams: true,
+                    // Pipelining gave 27 FPS in a 15 s test but hung the vendor
+                    // interface after 6-40 s of sustained daemon load (2026-10-18).
+                    pipelined_streams: false,
                 })
             }
             _ => None,
@@ -126,7 +127,7 @@ pub struct BragiDevice<T: HidTransport> {
     status: DeviceStatus,
     timeout_ms: i32,
     /// Send all acknowledged stream packets first and collect the
-    /// acknowledgements afterwards (default per model, see `set_pipelined`).
+    /// acknowledgements afterwards (experimental, off by default, see `set_pipelined`).
     pipelined: bool,
 }
 

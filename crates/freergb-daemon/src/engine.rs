@@ -1,28 +1,54 @@
 //! Render engine: one effect draws onto a shared canvas, every device samples
 //! its region, applies its colour correction and receives the frame.
 //!
-//! Faulted devices are retried with a fixed back-off; a device that keeps
-//! failing never blocks the others.
+//! Each device runs on its own worker thread that owns the device. `tick`
+//! only renders and drops the newest frame into the worker's slot; a slow
+//! device skips stale frames instead of slowing the others down. Workers also
+//! handle connecting and retrying with a fixed back-off.
 
 use crate::state;
-use freergb_core::{Canvas, ColorCorrection, Region};
+use freergb_core::{Canvas, ColorCorrection, Frame, LedLayout, Region};
 use freergb_device_api::{DeviceId, DeviceInfo, DeviceStatus, RgbDevice};
 use freergb_effects::{Effect, EffectSpec};
 use serde::Serialize;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 pub const RETRY_INTERVAL: Duration = Duration::from_secs(2);
 const CANVAS_W: usize = 320;
 const CANVAS_H: usize = 200;
+/// How long an idle worker sleeps before re-checking retries / stop.
+const WORKER_POLL: Duration = Duration::from_millis(100);
 
-struct Managed {
-    dev: Box<dyn RgbDevice>,
+fn guard<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// What the engine and the API may see of a device without touching it.
+#[derive(Debug, Clone)]
+struct View {
+    info: DeviceInfo,
+    status: DeviceStatus,
+    layout: LedLayout,
+    frames: u64,
+    dropped: u64,
+    last_error: Option<String>,
+}
+
+/// Newest pending frame for a worker (`None` = nothing new).
+type Slot = Arc<(Mutex<Option<Frame>>, Condvar)>;
+
+struct Worker {
+    id: DeviceId,
+    view: Arc<Mutex<View>>,
+    slot: Slot,
+    stop: Arc<AtomicBool>,
+    handle: Option<JoinHandle<()>>,
     region: Region,
     correction: ColorCorrection,
-    last_error: Option<String>,
-    next_retry: Option<Instant>,
-    frames: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,6 +57,8 @@ pub struct DeviceSummary {
     pub status: DeviceStatus,
     pub leds: usize,
     pub frames: u64,
+    /// Frames replaced before the device could take them (device slower than the engine).
+    pub dropped: u64,
     pub last_error: Option<String>,
 }
 
@@ -46,7 +74,7 @@ pub struct Diagnostics {
 }
 
 pub struct Engine {
-    devices: Vec<Managed>,
+    workers: Vec<Worker>,
     spec: EffectSpec,
     effect: Box<dyn Effect>,
     effect_start: Instant,
@@ -57,13 +85,101 @@ pub struct Engine {
     target_fps: u32,
     fps_window: (Instant, u64, f64),
     state_path: Option<PathBuf>,
+    retry_interval: Duration,
+}
+
+/// Body of a device worker thread.
+fn run_worker(
+    mut dev: Box<dyn RgbDevice>,
+    view: Arc<Mutex<View>>,
+    slot: Slot,
+    stop: Arc<AtomicBool>,
+    retry_interval: Duration,
+) {
+    let publish = |dev: &dyn RgbDevice, view: &Mutex<View>, err: Option<Option<String>>| {
+        let mut v = guard(view);
+        v.status = dev.status();
+        v.info = dev.info().clone();
+        if v.layout != *dev.layout() {
+            v.layout = dev.layout().clone();
+        }
+        if let Some(e) = err {
+            v.last_error = e;
+        }
+    };
+
+    // Connect right away; on failure retry after the back-off.
+    let mut next_retry = match dev.connect() {
+        Ok(()) => {
+            publish(dev.as_ref(), &view, Some(None));
+            None
+        }
+        Err(e) => {
+            tracing::warn!(device = %dev.info().id, error = %e, "connect failed");
+            publish(dev.as_ref(), &view, Some(Some(e.to_string())));
+            Some(Instant::now() + retry_interval)
+        }
+    };
+
+    while !stop.load(Ordering::SeqCst) {
+        let frame = {
+            let (lock, cv) = &*slot;
+            let mut pending = guard(lock);
+            if pending.is_none() {
+                pending = cv
+                    .wait_timeout(pending, WORKER_POLL)
+                    .unwrap_or_else(|e| e.into_inner())
+                    .0;
+            }
+            pending.take()
+        };
+        if stop.load(Ordering::SeqCst) {
+            break;
+        }
+
+        match dev.status() {
+            DeviceStatus::Connected => {
+                let Some(frame) = frame else { continue };
+                match dev.push_frame(&frame) {
+                    Ok(()) => guard(&view).frames += 1,
+                    Err(e) => {
+                        tracing::warn!(device = %dev.info().id, error = %e, "frame failed");
+                        next_retry = Some(Instant::now() + retry_interval);
+                        publish(dev.as_ref(), &view, Some(Some(e.to_string())));
+                    }
+                }
+            }
+            DeviceStatus::Disconnected | DeviceStatus::Faulted(_) => {
+                let due = next_retry.get_or_insert_with(|| Instant::now() + retry_interval);
+                if Instant::now() >= *due {
+                    let _ = dev.disconnect(None);
+                    match dev.connect() {
+                        Ok(()) => {
+                            tracing::info!(device = %dev.info().id, "reconnected");
+                            next_retry = None;
+                            publish(dev.as_ref(), &view, Some(None));
+                        }
+                        Err(e) => {
+                            next_retry = Some(Instant::now() + retry_interval);
+                            publish(dev.as_ref(), &view, Some(Some(e.to_string())));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if let Err(e) = dev.disconnect(None) {
+        tracing::warn!(device = %dev.info().id, error = %e, "disconnect failed");
+    }
+    publish(dev.as_ref(), &view, None);
 }
 
 impl Engine {
     pub fn new(spec: EffectSpec, target_fps: u32) -> Self {
         let now = Instant::now();
         Self {
-            devices: Vec::new(),
+            workers: Vec::new(),
             effect: spec.build(),
             spec,
             effect_start: now,
@@ -74,7 +190,14 @@ impl Engine {
             target_fps: target_fps.clamp(1, 240),
             fps_window: (now, 0, 0.0),
             state_path: None,
+            retry_interval: RETRY_INTERVAL,
         }
+    }
+
+    /// Overrides the reconnect back-off (tests use a short one).
+    pub fn with_retry_interval(mut self, d: Duration) -> Self {
+        self.retry_interval = d;
+        self
     }
 
     pub fn target_fps(&self) -> u32 {
@@ -82,27 +205,44 @@ impl Engine {
     }
 
     pub fn has_device(&self, id: &DeviceId) -> bool {
-        self.devices.iter().any(|m| &m.dev.info().id == id)
+        self.workers.iter().any(|w| &w.id == id)
     }
 
-    /// Adds a device and tries to connect it immediately. A failed connect is
-    /// recorded and retried by `tick`.
-    pub fn add_device(&mut self, mut dev: Box<dyn RgbDevice>) {
-        let (last_error, next_retry) = match dev.connect() {
-            Ok(()) => (None, None),
-            Err(e) => {
-                tracing::warn!(device = %dev.info().id, error = %e, "connect failed");
-                (Some(e.to_string()), Some(Instant::now() + RETRY_INTERVAL))
-            }
+    /// Hands the device to its own worker thread, which connects it and
+    /// retries on failure.
+    pub fn add_device(&mut self, dev: Box<dyn RgbDevice>) {
+        let id = dev.info().id.clone();
+        tracing::info!(device = %id, name = %dev.info().name, "device added");
+        let view = Arc::new(Mutex::new(View {
+            info: dev.info().clone(),
+            status: DeviceStatus::Disconnected,
+            layout: dev.layout().clone(),
+            frames: 0,
+            dropped: 0,
+            last_error: None,
+        }));
+        let slot: Slot = Arc::new((Mutex::new(None), Condvar::new()));
+        let stop = Arc::new(AtomicBool::new(false));
+        let handle = {
+            let (view, slot, stop, retry) = (
+                view.clone(),
+                slot.clone(),
+                stop.clone(),
+                self.retry_interval,
+            );
+            std::thread::Builder::new()
+                .name(format!("dev-{id}"))
+                .spawn(move || run_worker(dev, view, slot, stop, retry))
+                .expect("spawn device worker")
         };
-        tracing::info!(device = %dev.info().id, name = %dev.info().name, "device added");
-        self.devices.push(Managed {
-            dev,
+        self.workers.push(Worker {
+            id,
+            view,
+            slot,
+            stop,
+            handle: Some(handle),
             region: Region::FULL,
             correction: ColorCorrection::default(),
-            last_error,
-            next_retry,
-            frames: 0,
         });
     }
 
@@ -144,7 +284,8 @@ impl Engine {
         self.persist();
     }
 
-    /// Renders one frame at `now` and pushes it to all connected devices.
+    /// Renders one frame at `now` and offers it to every connected device.
+    /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
         self.effect.render(
             now.saturating_duration_since(self.effect_start),
@@ -152,40 +293,27 @@ impl Engine {
         );
         let brightness = self.brightness;
 
-        for m in &mut self.devices {
-            match m.dev.status() {
-                DeviceStatus::Connected => {
-                    let frame = self.canvas.sample_layout(m.dev.layout(), m.region);
-                    let corr = ColorCorrection {
-                        brightness: m.correction.brightness * brightness,
-                        ..m.correction
-                    };
-                    match m.dev.push_frame(&frame.corrected(&corr)) {
-                        Ok(()) => m.frames += 1,
-                        Err(e) => {
-                            tracing::warn!(device = %m.dev.info().id, error = %e, "frame failed");
-                            m.last_error = Some(e.to_string());
-                            m.next_retry = Some(now + RETRY_INTERVAL);
-                        }
-                    }
+        for w in &self.workers {
+            let layout = {
+                let v = guard(&w.view);
+                if v.status != DeviceStatus::Connected {
+                    continue;
                 }
-                DeviceStatus::Disconnected | DeviceStatus::Faulted(_) => {
-                    if m.next_retry.is_some_and(|t| now >= t) {
-                        let _ = m.dev.disconnect(None);
-                        match m.dev.connect() {
-                            Ok(()) => {
-                                tracing::info!(device = %m.dev.info().id, "reconnected");
-                                m.last_error = None;
-                                m.next_retry = None;
-                            }
-                            Err(e) => {
-                                m.last_error = Some(e.to_string());
-                                m.next_retry = Some(now + RETRY_INTERVAL);
-                            }
-                        }
-                    }
-                }
+                v.layout.clone()
+            };
+            let corr = ColorCorrection {
+                brightness: w.correction.brightness * brightness,
+                ..w.correction
+            };
+            let frame = self
+                .canvas
+                .sample_layout(&layout, w.region)
+                .corrected(&corr);
+            let (lock, cv) = &*w.slot;
+            if guard(lock).replace(frame).is_some() {
+                guard(&w.view).dropped += 1;
             }
+            cv.notify_one();
         }
 
         self.ticks += 1;
@@ -198,14 +326,18 @@ impl Engine {
     }
 
     pub fn devices(&self) -> Vec<DeviceSummary> {
-        self.devices
+        self.workers
             .iter()
-            .map(|m| DeviceSummary {
-                info: m.dev.info().clone(),
-                status: m.dev.status(),
-                leds: m.dev.layout().len(),
-                frames: m.frames,
-                last_error: m.last_error.clone(),
+            .map(|w| {
+                let v = guard(&w.view);
+                DeviceSummary {
+                    info: v.info.clone(),
+                    status: v.status.clone(),
+                    leds: v.layout.len(),
+                    frames: v.frames,
+                    dropped: v.dropped,
+                    last_error: v.last_error.clone(),
+                }
             })
             .collect()
     }
@@ -218,25 +350,48 @@ impl Engine {
             measured_fps: self.fps_window.2,
             effect: self.spec.clone(),
             brightness: self.brightness,
-            devices: self.devices.len(),
+            devices: self.workers.len(),
         }
     }
 
-    /// Releases every device back to hardware mode.
+    /// Stops every worker; each releases its device back to hardware mode.
+    /// Waits until all workers have finished.
     pub fn shutdown(&mut self) {
-        for m in &mut self.devices {
-            if let Err(e) = m.dev.disconnect(None) {
-                tracing::warn!(device = %m.dev.info().id, error = %e, "disconnect failed");
+        for w in &self.workers {
+            w.stop.store(true, Ordering::SeqCst);
+            w.slot.1.notify_one();
+        }
+        for w in &mut self.workers {
+            if let Some(h) = w.handle.take() {
+                let _ = h.join();
             }
         }
+    }
+}
+
+impl Drop for Engine {
+    fn drop(&mut self) {
+        self.shutdown();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use freergb_core::{LedLayout, Rgb};
+    use freergb_core::Rgb;
     use freergb_device_api::{DeviceError, VirtualDevice};
+
+    /// Polls `cond` for up to two seconds.
+    fn wait_until(mut cond: impl FnMut() -> bool) -> bool {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            if cond() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        false
+    }
 
     #[test]
     fn renders_to_virtual_device_with_brightness() {
@@ -244,23 +399,29 @@ mod tests {
         let dev = VirtualDevice::new("v", LedLayout::strip(4));
         let log = dev.frame_log();
         e.add_device(Box::new(dev));
+        assert!(wait_until(
+            || e.devices()[0].status == DeviceStatus::Connected
+        ));
+
         e.tick(Instant::now());
+        assert!(wait_until(|| log.total() == 1));
         assert_eq!(log.last().unwrap().colors(), &[Rgb::WHITE; 4]);
 
         e.set_brightness(0.5);
         e.set_effect(EffectSpec::Solid { color: Rgb::RED });
         e.tick(Instant::now());
+        assert!(wait_until(|| log.total() == 2));
         assert_eq!(log.last().unwrap().colors(), &[Rgb::new(128, 0, 0); 4]);
         assert_eq!(e.devices()[0].frames, 2);
         e.shutdown();
         assert_eq!(e.devices()[0].status, DeviceStatus::Disconnected);
     }
 
-    /// Fails the first `fail_connects` connects and every push while
-    /// `fail_push` is set.
+    /// Fails the first `fail_connects` connects; optionally sleeps per frame.
     struct Flaky {
         inner: VirtualDevice,
         fail_connects: u32,
+        frame_delay: Duration,
     }
 
     impl RgbDevice for Flaky {
@@ -277,7 +438,8 @@ mod tests {
         fn layout(&self) -> &LedLayout {
             self.inner.layout()
         }
-        fn push_frame(&mut self, f: &freergb_core::Frame) -> Result<(), DeviceError> {
+        fn push_frame(&mut self, f: &Frame) -> Result<(), DeviceError> {
+            std::thread::sleep(self.frame_delay);
             self.inner.push_frame(f)
         }
         fn status(&self) -> DeviceStatus {
@@ -290,22 +452,61 @@ mod tests {
 
     #[test]
     fn retries_failed_connect_after_backoff() {
-        let mut e = Engine::new(EffectSpec::Solid { color: Rgb::BLUE }, 30);
+        let mut e = Engine::new(EffectSpec::Solid { color: Rgb::BLUE }, 30)
+            .with_retry_interval(Duration::from_millis(50));
         let inner = VirtualDevice::new("flaky", LedLayout::strip(2));
         let log = inner.frame_log();
         e.add_device(Box::new(Flaky {
             inner,
             fail_connects: 1,
+            frame_delay: Duration::ZERO,
         }));
-        let t0 = Instant::now();
-        e.tick(t0);
-        assert!(e.devices()[0].last_error.is_some());
-        assert_eq!(log.total(), 0);
-
-        e.tick(t0 + RETRY_INTERVAL); // reconnects
-        e.tick(t0 + RETRY_INTERVAL + Duration::from_millis(33)); // pushes
-        assert_eq!(e.devices()[0].status, DeviceStatus::Connected);
+        assert!(wait_until(|| e.devices()[0].last_error.is_some()));
+        assert!(wait_until(
+            || e.devices()[0].status == DeviceStatus::Connected
+        ));
         assert_eq!(e.devices()[0].last_error, None);
-        assert_eq!(log.total(), 1);
+        e.tick(Instant::now());
+        assert!(wait_until(|| log.total() == 1));
+    }
+
+    #[test]
+    fn slow_device_does_not_slow_down_fast_device() {
+        let mut e = Engine::new(EffectSpec::Solid { color: Rgb::GREEN }, 60);
+        let fast = VirtualDevice::new("fast", LedLayout::strip(2));
+        let fast_log = fast.frame_log();
+        let slow_inner = VirtualDevice::new("slow", LedLayout::strip(2));
+        let slow_log = slow_inner.frame_log();
+        e.add_device(Box::new(fast));
+        e.add_device(Box::new(Flaky {
+            inner: slow_inner,
+            fail_connects: 0,
+            frame_delay: Duration::from_millis(100),
+        }));
+        assert!(wait_until(|| e
+            .devices()
+            .iter()
+            .all(|d| d.status == DeviceStatus::Connected)));
+
+        let start = Instant::now();
+        for _ in 0..20 {
+            e.tick(Instant::now());
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let tick_time = start.elapsed();
+        assert!(
+            wait_until(|| fast_log.total() >= 15),
+            "fast got {}",
+            fast_log.total()
+        );
+        // 20 ticks in ~200 ms: the 100 ms device can take only a few and
+        // drops the rest, without stalling the ticks.
+        assert!(
+            tick_time < Duration::from_millis(600),
+            "ticks blocked: {tick_time:?}"
+        );
+        assert!(slow_log.total() <= 5, "slow got {}", slow_log.total());
+        assert!(e.devices()[1].dropped > 0);
+        e.shutdown();
     }
 }
