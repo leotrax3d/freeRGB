@@ -13,7 +13,7 @@
 | 9 | GUI (egui), plugin system | 🔄 GUI basic version done; plugin system next |
 | 10 | More vendors (iCUE LINK, ASUS AURA, Razer) | open |
 | 11 | Effects library, layout editor, profiles, screen ambience, audio, effect editor | open |
-| 12 | Windows/Linux compatibility (CI) | open |
+| 12 | Windows/Linux compatibility (CI) | 🔄 CI green on both; Linux hardware untested |
 
 Deviation with reason: discovery and the adapter registry were built before the
 daemon because a safe first hardware validation needed them (only known interfaces
