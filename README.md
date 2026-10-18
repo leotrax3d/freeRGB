@@ -30,7 +30,8 @@ no vendor software required.
 | Area | State |
 |---|---|
 | RGB core (colours, layouts, canvas, frames) | ✅ done, tested |
-| Effects | ✅ 11 built-in: Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Radial Rainbow, Scanner, Twinkle, Audio Pulse, Audio Spectrum, Screen Ambience |
+| Effects | ✅ 11 built-in (Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Radial Rainbow, Scanner, Twinkle, Audio Pulse, Audio Spectrum, Screen Ambience) + custom layered effects |
+| Effect editor | ✅ GUI layer editor (up to 8 layers, blend modes, opacity, regions), named library |
 | Background service `freergbd` | ✅ one worker thread per device, reconnect, hot-plug, state + profiles persisted |
 | Local API (JSON-RPC over named pipe / Unix socket) | ✅ devices, effects, colour, brightness, profiles, diagnostics |
 | Native GUI (egui) | 🟡 devices with per-device brightness, drag-and-drop canvas layout, all effects with their parameters, profiles |
@@ -39,7 +40,7 @@ no vendor software required.
 | Screen ambience | ✅ Windows (primary monitor, 64×36, ~30 FPS), confirmed live; Linux untested · `freergb screen-probe` |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
 
-**Numbers:** 11 crates · ~9,400 lines of Rust · 88 automated tests · CI on Windows and Ubuntu.
+**Numbers:** 11 crates · ~9,400 lines of Rust · 94 automated tests · CI on Windows and Ubuntu.
 
 ### Supported hardware
 
@@ -175,7 +176,7 @@ Details: [docs/SECURITY.md](docs/SECURITY.md).
 - [ ] More vendors: ASUS AURA, Razer, Logitech, …
 - [x] Audio-reactive effects (pulse, spectrum)
 - [x] Screen ambience
-- [ ] Effect editor
+- [x] Effect editor (layers, blend modes, library)
 - [x] Linux udev rules and systemd user unit ([packaging/linux](packaging/linux))
 - [ ] Hardware testing on Linux, packaging
 
