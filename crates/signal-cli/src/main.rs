@@ -72,6 +72,12 @@ enum BragiCmd {
         #[arg(long, default_value_t = 150)]
         ms_per_key: u64,
     },
+    /// Light named keys, e.g. `Esc=#ffffff "Num 5=#ff0000"`; others stay dark.
+    Keys {
+        assignments: Vec<String>,
+        #[arg(long, default_value_t = 15.0)]
+        seconds: f32,
+    },
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -316,5 +322,31 @@ fn bragi(cmd: BragiCmd, pid: u16) -> Result<()> {
             }
             Ok(())
         }),
+        BragiCmd::Keys {
+            assignments,
+            seconds,
+        } => {
+            let layout = BragiModel::for_pid(pid)
+                .with_context(|| format!("no Bragi model for PID {pid:04x}"))?
+                .layout;
+            let mut frame = signal_core::Frame::solid(layout.len(), Rgb::BLACK);
+            for a in &assignments {
+                let (name, color) = a
+                    .rsplit_once('=')
+                    .with_context(|| format!("expected NAME=#rrggbb, got {a:?}"))?;
+                let idx = layout
+                    .index_of(name)
+                    .with_context(|| format!("unknown key {name:?}"))?;
+                frame.colors_mut()[idx] = color.parse()?;
+            }
+            with_connected(pid, |dev| {
+                let deadline = Instant::now() + Duration::from_secs_f32(seconds);
+                while Instant::now() < deadline {
+                    dev.push_frame(&frame)?;
+                    std::thread::sleep(Duration::from_millis(200));
+                }
+                Ok(())
+            })
+        }
     }
 }
