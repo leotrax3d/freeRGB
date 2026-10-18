@@ -6,7 +6,7 @@ PnP and `freergb discover`. All entries confirmed.
 | Device | VID:PID | RGB interface | SignalRGB plugin | freeRGB status |
 |---|---|---|---|---|
 | CORSAIR K70 CORE RGB (ISO, FW 1.23.77) | 1b1c:1bfd | IF1 `FF42:0001` | Modern_Corsair/Corsair_Bragi_Device.js | **Validated** (colour, per-key sample, mode switch, daemon) |
-| CORSAIR iCUE LINK System Hub (FW 4.1.144) | 1b1c:0c3f | IF0 `FF42:0001` | Modern_Corsair/Corsair_ICUE_Link_Hub.js | Experimental: children/rpm/temps read; lighting of RX fans, pump head and LCD ring confirmed |
+| CORSAIR iCUE LINK System Hub (FW 4.1.144) | 1b1c:0c3f | IF0 `FF42:0001` | Modern_Corsair/Corsair_ICUE_Link_Hub.js | Experimental, in daemon via `--enable-link-hub`: RX fans, pump head, LCD ring; RPM watchdog; 15-min soak passed |
 | ↳ 3 × RX fan, Titan 360 RX AIO, LCD, LX fan, 2 × type 27 (unknown) | (via hub) | – | – | Identified (live child list) |
 | CORSAIR iCUE LINK AIO LCD Screen Module | 1b1c:0c4e | `000C:0001` | Corsair/Corsair_ICUE_Link_LCD.js | Identified |
 | Corsair Vengeance RGB DDR5 CMH32GX5M2B6000Z30 (2 modules) | SMBus 0x18, 0x1A | SMBus (PIIX4) | Corsair/Ram/Corsair_Dominator_Ram.js | Identified, deferred (risk) |
@@ -33,3 +33,11 @@ iCUE LINK hub, 2026-10-18, SignalRGB stopped, each step approved by the user:
 3. `link-light-test --seconds 10`: fans 1–3 red/green/blue confirmed by the user; RPM stable;
    mode 1 verified twice.
 4. Second `link-light-test --seconds 10`: pump head white and LCD ring magenta confirmed; mode 1 verified twice.
+5. Soak test 1 (`link-light-test --seconds 900`): aborted after ~4.4 min by the first watchdog
+   version on a single unreadable RPM sample (all measured values ≥ 719 rpm); hardware mode
+   verified. Watchdog changed to "two bad samples in a row".
+6. Soak test 2 (15 min): 8619 frames, 0 glitches, fans 838–1047 rpm, pump 1721–1946 rpm
+   (slowly rising in software mode); hardware mode verified.
+7. `freergbd --enable-link-hub`: hub (68 LEDs) and K70 CORE connected together, `color.set`
+   via API, 528 frames each without errors at ~22 FPS; `daemon.shutdown` → both devices read
+   back mode 1. Colour on the fans not visually confirmed in this run.

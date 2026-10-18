@@ -155,9 +155,17 @@ LinkHubProbe::lighting_test}`, CLI `freergb link-light-test --seconds N` (user-a
   (fans 722–755 rpm, pump 1675–1708 rpm vs. 726–734 / 1693 before) [C, 10 s window].
   The RPM watchdog (abort below 50 %) never triggered. Hardware mode verified afterwards.
 
+### Daemon integration [C]
+`LinkHubDevice` (`link_hub_device.rs`) implements `RgbDevice`; `freergbd --enable-link-hub`
+opts in (off by default). Layout: one row per lit segment (RX, RX, RX, Titan, LCD = 68 LEDs).
+`connect` only from hardware mode → software mode → child list → RPM baseline → open
+lighting handle. `RpmWatchdog` (every 2 s; alarm after two consecutive samples that are
+missing or < 50 % of the start value on a sensor that spun > 300 rpm) returns the hub to
+hardware mode and blocks reconnects until the daemon restarts. Shutdown restores
+hardware mode (verified).
+
 ### Next steps
-Find out whether type 27
-has LEDs (it limits the known prefix); add the hub as an engine device. Fan speeds stay under hardware control;
+Find out whether type 27 has LEDs (it limits the known prefix) and light the LX fan behind it. Fan speeds stay under hardware control;
 writing fan or pump speeds is out of scope without explicit approval.
 
 ## Corsair Vengeance DDR5 (SMBus) – identified only

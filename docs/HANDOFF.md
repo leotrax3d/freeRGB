@@ -10,6 +10,8 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 * Rust 1.99.1 + MSVC Build Tools installed (approved by the user).
 * Corsair Bragi protocol implemented and validated on the K70 CORE (`PROTOCOLS.md`).
 * Project renamed to freeRGB; private repo `github.com/leotrax3d/FreeRGB`.
+* iCUE LINK hub: read-only probe, sensors, lighting of 3 RX fans + Titan AIO + LCD ring, opt-in
+  daemon device with RPM watchdog (15-min soak passed).
 * `freergbd`: render thread, reconnect with back-off, hot-plug rescan, JSON-RPC over a
   named pipe / Unix socket, clean release to hardware mode on exit; effect/brightness persisted across restarts.
 
@@ -20,15 +22,15 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 | `freergb-device-api` | `HidTransport`, `RgbDevice`, `VirtualDevice`, `MockTransport` |
 | `freergb-effects` | Solid, RainbowWave, Breathing, serializable `EffectSpec` |
 | `freergb-hid` | hidapi discovery/transport, report descriptor parser |
-| `freergb-protocols` | Corsair Bragi adapter, K70 CORE layout, adapter registry |
+| `freergb-protocols` | Corsair Bragi adapter (K70 CORE), iCUE LINK hub (probe, lighting, `LinkHubDevice`, `RpmWatchdog`), adapter registry |
 | `freergb-daemon` | engine, JSON-RPC API, IPC, hardware scan; binary `freergbd` |
-| `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `ctl` |
+| `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `link-probe`, `link-light-test`, `ctl` |
 | `freergb-client` | blocking JSON-RPC client (used by CLI and GUI) |
 | `freergb-gui` | binary `freergb-gui` (egui): devices, effect, colour, brightness, stop daemon |
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` → 41 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
+`cargo test --workspace` → 58 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions
@@ -42,7 +44,7 @@ Hardware results: `DEVICES.md#validation-log`.
 ## Next tasks
 1. GUI: layout view, profiles, per-device brightness; test on Linux.
 2. Declarative device descriptions (TOML) as first plugin stage.
-3. iCUE LINK hub: identify type 27 (and the LX fan segment behind it), then integrate the hub into freergbd (long-running software mode only after a longer RPM soak test).
+3. iCUE LINK hub: identify type 27 and light the LX fan behind it; longer soak (hours) before making `--enable-link-hub` a recommended default.
 4. Test hardware access on a real Linux machine (udev rules for hidraw).
 5. Named profiles on top of the persisted state; autostart proposal.
 
