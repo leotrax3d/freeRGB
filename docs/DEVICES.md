@@ -7,7 +7,7 @@ PnP and `freergb discover`. All entries confirmed.
 |---|---|---|---|---|
 | CORSAIR K70 CORE RGB (ISO, FW 1.23.77) | 1b1c:1bfd | IF1 `FF42:0001` | Modern_Corsair/Corsair_Bragi_Device.js | **Validated** (colour, per-key sample, mode switch, daemon) |
 | CORSAIR iCUE LINK System Hub (FW 4.1.144) | 1b1c:0c3f | IF0 `FF42:0001` | Modern_Corsair/Corsair_ICUE_Link_Hub.js | Experimental, in daemon via `--enable-link-hub`: RX fans, pump head, LCD ring; RPM watchdog; 15-min soak passed |
-| ↳ 3 × RX fan, Titan 360 RX AIO, LCD, LX fan, 2 × type 27 (unknown) | (via hub) | – | – | Identified (live child list) |
+| ↳ 3 × RX fan, Titan 360 RX AIO, LCD ring, LX fan (lit, confirmed), iCUE COMMANDER DUO (type 27, 2 entries, no LEDs) | (via hub) | – | – | Lighting confirmed for all LED children |
 | CORSAIR iCUE LINK AIO LCD Screen Module | 1b1c:0c4e | `000C:0001` | Corsair/Corsair_ICUE_Link_LCD.js | Identified |
 | Corsair Vengeance RGB DDR5 CMH32GX5M2B6000Z30 (2 modules) | SMBus 0x18, 0x1A | SMBus (PIIX4) | Corsair/Ram/Corsair_Dominator_Ram.js | Identified, deferred (risk) |
 | ASUS AURA LED Controller (mainboard) | 0b05:19af | IF2 `FF72:00A1` | Asus/Motherboard Controllers | Identified |
@@ -41,3 +41,4 @@ iCUE LINK hub, 2026-10-18, SignalRGB stopped, each step approved by the user:
 7. `freergbd --enable-link-hub`: hub (68 LEDs) and K70 CORE connected together, `color.set`
    via API, 528 frames each without errors at ~22 FPS; `daemon.shutdown` → both devices read
    back mode 1. Colour on the fans not visually confirmed in this run.
+8. Type 27 identified as iCUE COMMANDER DUO (0 LED channels, per OpenLinkHub database; GPL-3.0, facts only). `link-light-test --seconds 15` with the LX fan as 6th segment (after the LCD ring, Commander DUO skipped): user confirmed the LX fan fully yellow.

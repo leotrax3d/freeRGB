@@ -44,7 +44,7 @@ Hardware results: `DEVICES.md#validation-log`.
 ## Next tasks
 1. GUI: layout view, profiles, per-device brightness; test on Linux.
 2. Declarative device descriptions (TOML) as first plugin stage.
-3. iCUE LINK hub: identify type 27 and light the LX fan behind it; longer soak (hours) before making `--enable-link-hub` a recommended default.
+3. iCUE LINK hub: Commander DUO ARGB ports (if any); longer soak (hours) before making `--enable-link-hub` a recommended default.
 4. Test hardware access on a real Linux machine (udev rules for hidraw).
 5. Named profiles on top of the persisted state; autostart proposal.
 
