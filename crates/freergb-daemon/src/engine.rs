@@ -85,6 +85,7 @@ pub struct Engine {
     target_fps: u32,
     fps_window: (Instant, u64, f64),
     state_path: Option<PathBuf>,
+    profiles_dir: Option<PathBuf>,
     retry_interval: Duration,
 }
 
@@ -190,6 +191,7 @@ impl Engine {
             target_fps: target_fps.clamp(1, 240),
             fps_window: (now, 0, 0.0),
             state_path: None,
+            profiles_dir: None,
             retry_interval: RETRY_INTERVAL,
         }
     }
@@ -252,8 +254,33 @@ impl Engine {
         let s = state::load(&path);
         self.set_effect(s.effect);
         self.brightness = s.brightness.clamp(0.0, 1.0);
+        self.profiles_dir = crate::profiles::dir_for_state(&path);
         self.state_path = Some(path);
         self
+    }
+
+    /// Directory for named profiles; `None` when state persistence is off.
+    pub fn profiles_dir(&self) -> Option<&std::path::Path> {
+        self.profiles_dir.as_deref()
+    }
+
+    /// Uses `dir` for named profiles (tests, or a custom location).
+    pub fn with_profiles_dir(mut self, dir: PathBuf) -> Self {
+        self.profiles_dir = Some(dir);
+        self
+    }
+
+    pub fn current_state(&self) -> state::State {
+        state::State {
+            effect: self.spec.clone(),
+            brightness: self.brightness,
+        }
+    }
+
+    /// Applies a saved state (effect + brightness) and persists it.
+    pub fn apply_state(&mut self, s: state::State) {
+        self.brightness = s.brightness.clamp(0.0, 1.0);
+        self.set_effect(s.effect);
     }
 
     fn persist(&self) {

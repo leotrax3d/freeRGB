@@ -17,6 +17,8 @@ type DeviceFactory = fn(HidapiTransport, Option<String>, u16) -> Box<dyn RgbDevi
 pub struct ScanOptions {
     /// Drive the iCUE LINK hub (keeps it in software mode while running).
     pub enable_link_hub: bool,
+    /// Experimental: pipelined stream packets on Bragi keyboards.
+    pub bragi_pipelined: bool,
 }
 
 /// Adds newly attached supported devices to the engine. Returns how many
@@ -39,6 +41,7 @@ pub fn scan(engine: &SharedEngine, opts: ScanOptions) -> usize {
             continue;
         }
         let serial = info.serial.as_deref().unwrap_or("noserial");
+        let pipelined = opts.bragi_pipelined;
         let (id, make): (DeviceId, DeviceFactory) = match m.adapter {
             "corsair-bragi" => {
                 let Some(model) = BragiModel::for_pid(info.pid) else {
@@ -46,9 +49,18 @@ pub fn scan(engine: &SharedEngine, opts: ScanOptions) -> usize {
                 };
                 (
                     DeviceId(format!("hid:1b1c:{:04x}:{serial}", model.pids[0])),
-                    |t, s, pid| {
-                        let model = BragiModel::for_pid(pid).expect("checked above");
-                        Box::new(BragiDevice::new(t, model, s))
+                    if pipelined {
+                        |t, s, pid| {
+                            let model = BragiModel::for_pid(pid).expect("checked above");
+                            let mut d = BragiDevice::new(t, model, s);
+                            d.set_pipelined(true);
+                            Box::new(d)
+                        }
+                    } else {
+                        |t, s, pid| {
+                            let model = BragiModel::for_pid(pid).expect("checked above");
+                            Box::new(BragiDevice::new(t, model, s))
+                        }
                     },
                 )
             }

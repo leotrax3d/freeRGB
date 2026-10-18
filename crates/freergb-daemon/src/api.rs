@@ -23,6 +23,54 @@ fn invalid_params(e: impl std::fmt::Display) -> (i64, String) {
     (-32602, format!("invalid params: {e}"))
 }
 
+/// `profiles.*` methods. Errors: -32602 bad name, -32004 not found,
+/// -32003 profiles disabled (`--no-state`), -32000 I/O.
+fn profile_call(
+    engine: &SharedEngine,
+    method: &str,
+    params: &Value,
+) -> Result<Value, (i64, String)> {
+    use crate::profiles::{self, ProfileError};
+
+    let dir = lock(engine)
+        .profiles_dir()
+        .map(std::path::Path::to_path_buf)
+        .ok_or((
+            -32003,
+            "profiles are disabled (daemon runs with --no-state)".to_owned(),
+        ))?;
+    let map_err = |e: ProfileError| match e {
+        ProfileError::InvalidName(_) => (-32602, e.to_string()),
+        ProfileError::NotFound(_) => (-32004, e.to_string()),
+        _ => (-32000, e.to_string()),
+    };
+    let name = || {
+        params
+            .get("name")
+            .and_then(Value::as_str)
+            .ok_or_else(|| invalid_params("expected {\"name\": \"…\"}"))
+    };
+
+    match method {
+        "profiles.list" => profiles::list(&dir).map(|l| json!(l)).map_err(map_err),
+        "profiles.save" => {
+            let n = name()?;
+            let s = lock(engine).current_state();
+            profiles::save(&dir, n, &s)
+                .map(|()| json!(true))
+                .map_err(map_err)
+        }
+        "profiles.load" => {
+            let s = profiles::load(&dir, name()?).map_err(map_err)?;
+            lock(engine).apply_state(s);
+            Ok(json!(true))
+        }
+        _ => profiles::delete(&dir, name()?)
+            .map(|()| json!(true))
+            .map_err(map_err),
+    }
+}
+
 pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
     let req: Value = match serde_json::from_str(line) {
         Ok(v) => v,
@@ -76,6 +124,9 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 lock(engine).set_brightness(v as f32);
                 json!(true)
             }),
+        "profiles.list" | "profiles.save" | "profiles.load" | "profiles.delete" => {
+            profile_call(engine, method, &params)
+        }
         "daemon.shutdown" => {
             shutdown = true;
             Ok(json!(true))
@@ -141,6 +192,77 @@ mod tests {
         let r = call(&e, r#"{"jsonrpc":"2.0","id":3,"method":"devices.list"}"#);
         assert_eq!(r["result"][0]["info"]["id"], json!("virtual:api-test"));
         assert_eq!(r["result"][0]["status"], json!("Connected"));
+    }
+
+    #[test]
+    fn profiles_round_trip_over_api() {
+        let dir = std::env::temp_dir().join(format!("freergb-api-profiles-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let e: SharedEngine = Arc::new(Mutex::new(
+            Engine::new(EffectSpec::Solid { color: Rgb::BLACK }, 30).with_profiles_dir(dir.clone()),
+        ));
+
+        call(
+            &e,
+            r##"{"id":1,"method":"color.set","params":{"color":"#ff8800"}}"##,
+        );
+        call(
+            &e,
+            r#"{"id":2,"method":"brightness.set","params":{"value":0.25}}"#,
+        );
+        let r = call(
+            &e,
+            r#"{"id":3,"method":"profiles.save","params":{"name":"Abend"}}"#,
+        );
+        assert_eq!(r["result"], json!(true));
+
+        call(
+            &e,
+            r##"{"id":4,"method":"color.set","params":{"color":"#0000ff"}}"##,
+        );
+        call(
+            &e,
+            r#"{"id":5,"method":"brightness.set","params":{"value":1.0}}"#,
+        );
+        assert_eq!(
+            call(&e, r#"{"id":6,"method":"profiles.list"}"#)["result"],
+            json!(["Abend"])
+        );
+
+        call(
+            &e,
+            r#"{"id":7,"method":"profiles.load","params":{"name":"Abend"}}"#,
+        );
+        let fx = call(&e, r#"{"id":8,"method":"effects.get"}"#);
+        assert_eq!(fx["result"]["color"], json!({"r": 255, "g": 136, "b": 0}));
+        let d = call(&e, r#"{"id":9,"method":"diagnostics.get"}"#);
+        assert_eq!(d["result"]["brightness"], json!(0.25));
+
+        let r = call(
+            &e,
+            r#"{"id":10,"method":"profiles.load","params":{"name":"../x"}}"#,
+        );
+        assert_eq!(r["error"]["code"], json!(-32602));
+        let r = call(
+            &e,
+            r#"{"id":11,"method":"profiles.load","params":{"name":"Fehlt"}}"#,
+        );
+        assert_eq!(r["error"]["code"], json!(-32004));
+        let r = call(
+            &e,
+            r#"{"id":12,"method":"profiles.delete","params":{"name":"Abend"}}"#,
+        );
+        assert_eq!(r["result"], json!(true));
+        let _ = std::fs::remove_dir_all(dir);
+
+        let off: SharedEngine = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::BLACK },
+            30,
+        )));
+        assert_eq!(
+            call(&off, r#"{"id":1,"method":"profiles.list"}"#)["error"]["code"],
+            json!(-32003)
+        );
     }
 
     #[test]

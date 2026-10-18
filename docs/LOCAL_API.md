@@ -30,11 +30,19 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `effects.set` | `EffectSpec`, e.g. `{"type":"rainbow_wave","speed":0.3,"scale":1.0}`, `{"type":"breathing","color":{"r":0,"g":155,"b":222},"period_ms":3000}` | `true` |
 | `color.set` | `{"color":"#rrggbb"}` | `true` (sets a solid effect) |
 | `brightness.set` | `{"value": 0.0..=1.0}` | `true` |
+| `profiles.list` | – | sorted profile names |
+| `profiles.save` | `{"name": "…"}` | `true`; saves current effect + brightness |
+| `profiles.load` | `{"name": "…"}` | `true`; applies and persists the profile |
+| `profiles.delete` | `{"name": "…"}` | `true` |
 
 ## Errors
 `-32700` parse error, `-32600` missing method, `-32601` unknown method,
-`-32602` invalid params.
+`-32602` invalid params (also invalid profile names), `-32004` profile not found,
+`-32003` profiles disabled (`--no-state`), `-32000` storage I/O error.
+
+Profiles live in `profiles/<name>.json` next to the state file. Names: 1–64 characters,
+letters, digits, space, `-`, `_` – nothing that could leave the directory.
 
 ## Planned
-`profiles.load|save`, `layouts.get|set`, `devices.set_region`, `plugins.list`,
+`layouts.get|set`, `devices.set_region`, `plugins.list`,
 `frames.push` (screen ambience / external plugins), event subscription for the GUI.

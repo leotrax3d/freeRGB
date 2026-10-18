@@ -20,6 +20,10 @@ struct Snapshot {
     devices: Vec<Value>,
     diagnostics: Option<Value>,
     effect: Option<Value>,
+    /// `None` when the daemon runs without profile storage (`--no-state`).
+    profiles: Option<Vec<String>>,
+    /// Increments with every successful fetch.
+    generation: u64,
 }
 
 /// A call queued by the UI.
@@ -57,6 +61,9 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                 freergb_client::call("effects.get", Value::Null)?,
             ))
         })();
+        let profiles = freergb_client::call("profiles.list", Value::Null)
+            .ok()
+            .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
         {
             let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
             match fetched {
@@ -65,11 +72,15 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                     s.devices = devices.as_array().cloned().unwrap_or_default();
                     s.diagnostics = Some(diag);
                     s.effect = Some(effect);
+                    s.profiles = profiles;
+                    s.generation += 1;
                     s.error = last_error;
                 }
                 Err(e) => {
+                    let generation = s.generation;
                     *s = Snapshot {
                         error: Some(e.to_string()),
+                        generation,
                         ..Snapshot::default()
                     };
                 }
@@ -105,7 +116,10 @@ impl EffectKind {
 struct App {
     state: Arc<Mutex<Snapshot>>,
     tx: Sender<Command>,
-    synced_from_daemon: bool,
+    /// Controls are (re)loaded from the first snapshot newer than this.
+    sync_after_generation: Option<u64>,
+    profile_name: String,
+    selected_profile: Option<String>,
     kind: EffectKind,
     color: [u8; 3],
     speed: f32,
@@ -126,7 +140,9 @@ impl App {
         Self {
             state,
             tx,
-            synced_from_daemon: false,
+            sync_after_generation: Some(0),
+            profile_name: String::new(),
+            selected_profile: None,
             kind: EffectKind::RainbowWave,
             color: [0, 155, 222],
             speed: 0.2,
@@ -181,7 +197,6 @@ impl App {
         {
             self.brightness = b as f32;
         }
-        self.synced_from_daemon = true;
     }
 }
 
@@ -221,7 +236,7 @@ fn device_row(ui: &mut egui::Ui, d: &Value) {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let (connected, error, devices, diag, effect) = {
+        let (connected, error, devices, diag, effect, profiles, generation) = {
             let s = self.state.lock().unwrap_or_else(|e| e.into_inner());
             (
                 s.connected,
@@ -229,11 +244,14 @@ impl eframe::App for App {
                 s.devices.clone(),
                 s.diagnostics.clone(),
                 s.effect.clone(),
+                s.profiles.clone(),
+                s.generation,
             )
         };
-        if !self.synced_from_daemon {
-            if let Some(e) = &effect {
+        if let (Some(after), Some(e)) = (self.sync_after_generation, &effect) {
+            if generation > after {
                 self.sync_from(e, diag.as_ref());
+                self.sync_after_generation = None;
             }
         }
 
@@ -339,6 +357,68 @@ impl eframe::App for App {
                 ui.label(format!("{:.0} %", self.brightness * 100.0));
                 if r.changed() {
                     self.send("brightness.set", json!({"value": self.brightness}));
+                }
+
+                ui.separator();
+                ui.heading("Profiles");
+                match &profiles {
+                    None => {
+                        ui.label("Profiles are disabled (daemon started with --no-state).");
+                    }
+                    Some(list) => {
+                        if self
+                            .selected_profile
+                            .as_ref()
+                            .is_some_and(|p| !list.contains(p))
+                        {
+                            self.selected_profile = None;
+                        }
+                        ui.horizontal(|ui| {
+                            egui::ComboBox::from_id_salt("profiles")
+                                .selected_text(
+                                    self.selected_profile.as_deref().unwrap_or("(choose)"),
+                                )
+                                .show_ui(ui, |ui| {
+                                    for p in list {
+                                        ui.selectable_value(
+                                            &mut self.selected_profile,
+                                            Some(p.clone()),
+                                            p,
+                                        );
+                                    }
+                                });
+                            let sel = self.selected_profile.clone();
+                            if ui
+                                .add_enabled(sel.is_some(), egui::Button::new("Load"))
+                                .clicked()
+                            {
+                                self.send("profiles.load", json!({"name": sel}));
+                                self.sync_after_generation = Some(generation);
+                            }
+                            if ui
+                                .add_enabled(sel.is_some(), egui::Button::new("Delete"))
+                                .clicked()
+                            {
+                                self.send("profiles.delete", json!({"name": sel}));
+                            }
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.profile_name)
+                                    .hint_text("new profile name")
+                                    .desired_width(180.0),
+                            );
+                            let name = self.profile_name.trim().to_owned();
+                            if ui
+                                .add_enabled(!name.is_empty(), egui::Button::new("Save current"))
+                                .clicked()
+                            {
+                                self.send("profiles.save", json!({"name": name}));
+                                self.selected_profile = Some(name);
+                                self.profile_name.clear();
+                            }
+                        });
+                    }
                 }
 
                 ui.separator();

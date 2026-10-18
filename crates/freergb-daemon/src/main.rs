@@ -37,6 +37,9 @@ struct Args {
     /// on any fan or pump slowdown.
     #[arg(long)]
     enable_link_hub: bool,
+    /// EXPERIMENTAL: pipelined stream packets for Bragi keyboards (K70 CORE).
+    #[arg(long)]
+    experimental_pipelining: bool,
 }
 
 fn main() -> Result<()> {
@@ -63,6 +66,7 @@ fn main() -> Result<()> {
     }
     let scan_opts = hardware::ScanOptions {
         enable_link_hub: args.enable_link_hub,
+        bragi_pipelined: args.experimental_pipelining,
     };
     if !args.no_hardware {
         let n = hardware::scan(&engine, scan_opts);

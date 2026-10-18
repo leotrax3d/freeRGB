@@ -7,6 +7,7 @@ pub mod api;
 pub mod engine;
 pub mod hardware;
 pub mod ipc;
+pub mod profiles;
 pub mod state;
 
 use std::sync::{Arc, Mutex, MutexGuard};
