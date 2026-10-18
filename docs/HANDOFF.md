@@ -26,7 +26,7 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 | `freergb-daemon` | engine, JSON-RPC API, IPC, hardware scan; binary `freergbd` |
 | `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `link-probe`, `link-light-test`, `link-restore`, `ctl` |
 | `freergb-client` | blocking JSON-RPC client (used by CLI and GUI) |
-| `freergb-gui` | binary `freergb-gui` (egui): devices, all effects with parameters, brightness, profiles, stop daemon |
+| `freergb-gui` | binary `freergb-gui` (egui): devices + per-device brightness, canvas layout editor, all effects with parameters, profiles, stop daemon |
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,

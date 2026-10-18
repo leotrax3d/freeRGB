@@ -33,7 +33,7 @@ no vendor software required.
 | Effects | ✅ 8 built-in: Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Radial Rainbow, Scanner, Twinkle |
 | Background service `freergbd` | ✅ one worker thread per device, reconnect, hot-plug, state + profiles persisted |
 | Local API (JSON-RPC over named pipe / Unix socket) | ✅ devices, effects, colour, brightness, profiles, diagnostics |
-| Native GUI (egui) | 🟡 devices with per-device brightness, all effects with their parameters, global brightness, profiles |
+| Native GUI (egui) | 🟡 devices with per-device brightness, drag-and-drop canvas layout, all effects with their parameters, profiles |
 | Plugin system | ⏳ designed ([docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md)), not implemented |
 | Screen ambience / audio reactivity | ⏳ planned |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
@@ -168,7 +168,7 @@ Details: [docs/SECURITY.md](docs/SECURITY.md).
 - [x] Basic native GUI
 - [ ] Longer hardware soak tests, then iCUE LINK out of experimental
 - [ ] Declarative device descriptions (first plugin stage)
-- [ ] Layout editor and per-device placement on the canvas
+- [x] Per-device placement on the effect canvas (layout editor in the GUI)
 - [ ] More vendors: ASUS AURA, Razer, Logitech, …
 - [ ] Screen ambience and audio-reactive effects
 - [ ] Effect editor

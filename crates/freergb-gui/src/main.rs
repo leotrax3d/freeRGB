@@ -5,7 +5,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::egui;
-use freergb_core::Rgb;
+use freergb_core::{Region, Rgb};
 use freergb_effects::EffectSpec;
 use serde_json::{json, Value};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
@@ -119,6 +119,8 @@ struct App {
     brightness: f32,
     /// Per-device slider values not yet confirmed by the daemon.
     device_brightness: std::collections::HashMap<String, f32>,
+    /// Canvas regions dragged in the layout editor, not yet confirmed.
+    device_regions: std::collections::HashMap<String, Region>,
 }
 
 impl App {
@@ -139,6 +141,7 @@ impl App {
             spec: EffectSpec::default_for("rainbow_wave").expect("known effect"),
             brightness: 1.0,
             device_brightness: Default::default(),
+            device_regions: Default::default(),
         }
     }
 
@@ -315,6 +318,118 @@ fn device_row(
     changed
 }
 
+/// Canvas layout editor: every device is a rectangle on the effect canvas.
+/// Drag to move, drag the bottom-right corner to resize. `local` holds
+/// positions changed here but not yet reported back by the daemon. Returns the
+/// region to send when a drag ends.
+fn layout_editor(
+    ui: &mut egui::Ui,
+    devices: &[Value],
+    local: &mut std::collections::HashMap<String, Region>,
+) -> Option<(String, Region)> {
+    const PALETTE: [egui::Color32; 6] = [
+        egui::Color32::from_rgb(90, 160, 250),
+        egui::Color32::from_rgb(250, 140, 70),
+        egui::Color32::from_rgb(120, 210, 120),
+        egui::Color32::from_rgb(220, 110, 220),
+        egui::Color32::from_rgb(240, 210, 80),
+        egui::Color32::from_rgb(110, 210, 210),
+    ];
+    let width = ui.available_width().min(480.0);
+    let (resp, painter) =
+        ui.allocate_painter(egui::vec2(width, width * 0.625), egui::Sense::hover());
+    let canvas = resp.rect;
+    painter.rect_filled(canvas, 4.0, egui::Color32::from_gray(30));
+    let (cw, ch) = (canvas.width(), canvas.height());
+    let mut done = None;
+
+    for (i, d) in devices.iter().enumerate() {
+        let Some(id) = d
+            .get("info")
+            .and_then(|v| v.get("id"))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+        else {
+            continue;
+        };
+        let name = d
+            .get("info")
+            .and_then(|v| v.get("name"))
+            .and_then(Value::as_str)
+            .unwrap_or("?");
+        let reported: Region = d
+            .get("region")
+            .cloned()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or(Region::FULL);
+        if local.get(&id).is_some_and(|r| {
+            (r.x - reported.x).abs() < 0.002
+                && (r.y - reported.y).abs() < 0.002
+                && (r.w - reported.w).abs() < 0.002
+                && (r.h - reported.h).abs() < 0.002
+        }) {
+            local.remove(&id);
+        }
+        let mut r = local.get(&id).copied().unwrap_or(reported);
+
+        let rect = egui::Rect::from_min_size(
+            canvas.min + egui::vec2(r.x * cw, r.y * ch),
+            egui::vec2(r.w * cw, r.h * ch),
+        );
+        let handle = egui::Rect::from_center_size(rect.max, egui::vec2(12.0, 12.0));
+        let body = ui.interact(
+            rect,
+            egui::Id::new(("layout-body", &id)),
+            egui::Sense::drag(),
+        );
+        let corner = ui.interact(
+            handle,
+            egui::Id::new(("layout-corner", &id)),
+            egui::Sense::drag(),
+        );
+
+        let mut moved = false;
+        if corner.dragged() {
+            let dlt = corner.drag_delta();
+            r.w = (r.w + dlt.x / cw).clamp(0.02, 1.0 - r.x);
+            r.h = (r.h + dlt.y / ch).clamp(0.02, 1.0 - r.y);
+            moved = true;
+        } else if body.dragged() {
+            let dlt = body.drag_delta();
+            r.x = (r.x + dlt.x / cw).clamp(0.0, 1.0 - r.w);
+            r.y = (r.y + dlt.y / ch).clamp(0.0, 1.0 - r.h);
+            moved = true;
+        }
+        if moved {
+            local.insert(id.clone(), r);
+        }
+        if body.drag_stopped() || corner.drag_stopped() {
+            done = Some((id.clone(), r));
+        }
+
+        let color = PALETTE[i % PALETTE.len()];
+        let rect = egui::Rect::from_min_size(
+            canvas.min + egui::vec2(r.x * cw, r.y * ch),
+            egui::vec2(r.w * cw, r.h * ch),
+        );
+        painter.rect_filled(rect, 3.0, color.gamma_multiply(0.25));
+        painter.rect_stroke(rect, 3.0, egui::Stroke::new(1.5_f32, color));
+        painter.rect_filled(
+            egui::Rect::from_center_size(rect.max, egui::vec2(8.0, 8.0)),
+            1.0,
+            color,
+        );
+        painter.text(
+            rect.min + egui::vec2(4.0, 3.0),
+            egui::Align2::LEFT_TOP,
+            name,
+            egui::FontId::proportional(12.0),
+            egui::Color32::WHITE,
+        );
+    }
+    done
+}
+
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let (connected, error, devices, diag, effect, profiles, generation) = {
@@ -410,6 +525,16 @@ impl eframe::App for App {
                 ui.label(format!("{:.0} %", self.brightness * 100.0));
                 if r.changed() {
                     self.send("brightness.set", json!({"value": self.brightness}));
+                }
+
+                ui.separator();
+                ui.heading("Layout");
+                ui.label("Where each device sits on the effect canvas. Drag to move, drag the corner to resize.");
+                if let Some((id, r)) = layout_editor(ui, &devices, &mut self.device_regions) {
+                    self.send(
+                        "devices.set_region",
+                        json!({"id": id, "x": r.x, "y": r.y, "w": r.w, "h": r.h}),
+                    );
                 }
 
                 ui.separator();
