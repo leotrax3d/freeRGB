@@ -24,7 +24,7 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `daemon.version` | – | `{api_version, daemon_version}` |
 | `daemon.shutdown` | – | `true`; daemon releases devices and exits |
 | `devices.list` | – | `[{info, status, brightness, region, leds, frames, dropped, last_error}]` |
-| `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices}` |
+| `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices, conflicts}` – `conflicts` lists other RGB software that is running (hardware is released meanwhile) |
 | `effects.list` | – | effect names: `solid`, `rainbow_wave`, `breathing`, `gradient`, `color_cycle`, `radial_rainbow`, `scanner`, `twinkle` |
 | `effects.default` | `{"name": "scanner"}` | default `EffectSpec` for that effect (use it as a template for `effects.set`) |
 | `effects.get` | – | current `EffectSpec` |

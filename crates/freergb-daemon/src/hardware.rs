@@ -22,6 +22,26 @@ pub struct ScanOptions {
 /// Adds newly attached supported devices to the engine. Returns how many
 /// were added.
 pub fn scan(engine: &SharedEngine, opts: ScanOptions) -> usize {
+    let conflicts = crate::conflicts::running();
+    {
+        let mut e = lock(engine);
+        if e.conflicts() != conflicts.as_slice() {
+            if conflicts.is_empty() {
+                tracing::info!("conflicting RGB software gone, resuming hardware");
+            } else {
+                let released = e.release_hardware();
+                tracing::warn!(
+                    ?conflicts,
+                    released,
+                    "other RGB software is running, leaving hardware alone"
+                );
+            }
+            e.set_conflicts(conflicts.clone());
+        }
+    }
+    if !conflicts.is_empty() {
+        return 0;
+    }
     let list = match freergb_hid::enumerate() {
         Ok(l) => l,
         Err(e) => {

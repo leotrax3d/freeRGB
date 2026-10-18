@@ -4,6 +4,7 @@
 //! so they can be tested without hardware or sockets.
 
 pub mod api;
+pub mod conflicts;
 pub mod engine;
 pub mod hardware;
 pub mod ipc;

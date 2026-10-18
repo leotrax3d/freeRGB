@@ -70,6 +70,8 @@ pub struct DeviceSummary {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Diagnostics {
+    /// Other RGB software currently running; hardware is left alone meanwhile.
+    pub conflicts: Vec<&'static str>,
     pub uptime_s: f64,
     pub ticks: u64,
     pub target_fps: u32,
@@ -97,6 +99,7 @@ pub struct Engine {
     device_regions: std::collections::BTreeMap<String, Region>,
     profiles_dir: Option<PathBuf>,
     retry_interval: Duration,
+    conflicts: Vec<&'static str>,
 }
 
 /// Body of a device worker thread.
@@ -229,6 +232,7 @@ impl Engine {
             device_regions: Default::default(),
             profiles_dir: None,
             retry_interval: RETRY_INTERVAL,
+            conflicts: Vec::new(),
         }
     }
 
@@ -240,6 +244,35 @@ impl Engine {
 
     pub fn target_fps(&self) -> u32 {
         self.target_fps
+    }
+
+    pub fn conflicts(&self) -> &[&'static str] {
+        &self.conflicts
+    }
+
+    pub fn set_conflicts(&mut self, c: Vec<&'static str>) {
+        self.conflicts = c;
+    }
+
+    /// Stops and removes every real (`hid:`) device; each worker hands its
+    /// device back to hardware mode first. Virtual devices stay. The next
+    /// hot-plug scan without conflicts adds the hardware again.
+    pub fn release_hardware(&mut self) -> usize {
+        let (hw, keep): (Vec<Worker>, Vec<Worker>) = std::mem::take(&mut self.workers)
+            .into_iter()
+            .partition(|w| w.id.0.starts_with("hid:"));
+        self.workers = keep;
+        let n = hw.len();
+        for w in &hw {
+            w.stop.store(true, Ordering::SeqCst);
+            w.slot.1.notify_one();
+        }
+        for mut w in hw {
+            if let Some(h) = w.handle.take() {
+                let _ = h.join();
+            }
+        }
+        n
     }
 
     /// Drops workers that have finished (device unplugged), so a hot-plug scan
@@ -469,6 +502,7 @@ impl Engine {
 
     pub fn diagnostics(&self) -> Diagnostics {
         Diagnostics {
+            conflicts: self.conflicts.clone(),
             uptime_s: self.started.elapsed().as_secs_f64(),
             ticks: self.ticks,
             target_fps: self.target_fps,
@@ -643,6 +677,44 @@ mod tests {
         assert!(wait_until(
             || e.devices()[0].status == DeviceStatus::Connected
         ));
+    }
+
+    #[test]
+    fn release_hardware_keeps_virtual_devices() {
+        struct Hw(VirtualDevice, DeviceInfo);
+        impl RgbDevice for Hw {
+            fn info(&self) -> &DeviceInfo {
+                &self.1
+            }
+            fn connect(&mut self) -> Result<(), DeviceError> {
+                self.0.connect()
+            }
+            fn layout(&self) -> &LedLayout {
+                self.0.layout()
+            }
+            fn push_frame(&mut self, f: &Frame) -> Result<(), DeviceError> {
+                self.0.push_frame(f)
+            }
+            fn status(&self) -> DeviceStatus {
+                self.0.status()
+            }
+            fn disconnect(&mut self, c: Option<Rgb>) -> Result<(), DeviceError> {
+                self.0.disconnect(c)
+            }
+        }
+        let mut e = Engine::new(EffectSpec::Solid { color: Rgb::RED }, 30);
+        let inner = VirtualDevice::new("kb", LedLayout::strip(1));
+        let mut info = inner.info().clone();
+        info.id = DeviceId("hid:1b1c:1bfd:test".into());
+        e.add_device(Box::new(Hw(inner, info)));
+        e.add_device(Box::new(VirtualDevice::new("virt", LedLayout::strip(1))));
+        assert!(wait_until(|| e
+            .devices()
+            .iter()
+            .all(|d| d.status == DeviceStatus::Connected)));
+        assert_eq!(e.release_hardware(), 1);
+        assert_eq!(e.devices().len(), 1);
+        assert_eq!(e.devices()[0].info.id.0, "virtual:virt");
     }
 
     #[test]

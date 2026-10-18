@@ -470,6 +470,21 @@ impl eframe::App for App {
             if let Some(e) = &error {
                 ui.colored_label(egui::Color32::from_rgb(230, 90, 90), e);
             }
+            let conflicts: Vec<&str> = diag
+                .as_ref()
+                .and_then(|d| d.get("conflicts"))
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(Value::as_str).collect())
+                .unwrap_or_default();
+            if !conflicts.is_empty() {
+                ui.colored_label(
+                    egui::Color32::from_rgb(240, 180, 60),
+                    format!(
+                        "{} is running – freeRGB leaves your hardware alone until it is closed.",
+                        conflicts.join(", ")
+                    ),
+                );
+            }
         });
 
         egui::SidePanel::left("devices")

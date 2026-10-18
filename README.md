@@ -151,8 +151,9 @@ freeRGB is written to fail safe:
   While freeRGB controls it, an RPM watchdog checks fans and pump every 2 s and returns the
   hub to hardware mode on any slowdown, then refuses to reconnect until restart.
 * **Devices are handed back** to hardware mode on every shutdown path and verified by read-back.
-* **Do not run freeRGB together with SignalRGB or iCUE.** Concurrent access can lock up a
-  device's vendor interface until it is re-plugged.
+* **Other RGB software is detected.** While SignalRGB, iCUE or OpenRGB runs, `freergbd` hands
+  all hardware back and leaves it alone (shown in the GUI); it resumes when they are closed.
+  Concurrent access can lock up a device's vendor interface until it is re-plugged.
 
 Details: [docs/SECURITY.md](docs/SECURITY.md).
 
