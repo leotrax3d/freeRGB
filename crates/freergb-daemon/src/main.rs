@@ -7,9 +7,8 @@
 use anyhow::Result;
 use clap::Parser;
 use freergb_core::LedLayout;
-use freergb_daemon::{engine::Engine, hardware, ipc, lock, SharedEngine};
+use freergb_daemon::{engine::Engine, hardware, ipc, lock, state, SharedEngine};
 use freergb_device_api::VirtualDevice;
-use freergb_effects::EffectSpec;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -30,6 +29,9 @@ struct Args {
     /// Seconds between hot-plug rescans.
     #[arg(long, default_value_t = 5)]
     rescan_secs: u64,
+    /// Neither restore nor save effect/brightness.
+    #[arg(long)]
+    no_state: bool,
 }
 
 fn main() -> Result<()> {
@@ -40,13 +42,14 @@ fn main() -> Result<()> {
         .init();
     let args = Args::parse();
 
-    let engine: SharedEngine = Arc::new(Mutex::new(Engine::new(
-        EffectSpec::RainbowWave {
-            speed: 0.2,
-            scale: 1.0,
-        },
-        args.fps,
-    )));
+    let mut engine = Engine::new(state::State::default().effect, args.fps);
+    if !args.no_state {
+        if let Some(path) = state::default_path() {
+            tracing::info!(path = %path.display(), "state file");
+            engine = engine.with_state_file(path);
+        }
+    }
+    let engine: SharedEngine = Arc::new(Mutex::new(engine));
     if args.virtual_device {
         lock(&engine).add_device(Box::new(VirtualDevice::new(
             "Virtual Strip",

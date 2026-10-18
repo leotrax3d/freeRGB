@@ -4,10 +4,12 @@
 //! Faulted devices are retried with a fixed back-off; a device that keeps
 //! failing never blocks the others.
 
+use crate::state;
 use freergb_core::{Canvas, ColorCorrection, Region};
 use freergb_device_api::{DeviceId, DeviceInfo, DeviceStatus, RgbDevice};
 use freergb_effects::{Effect, EffectSpec};
 use serde::Serialize;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 pub const RETRY_INTERVAL: Duration = Duration::from_secs(2);
@@ -54,6 +56,7 @@ pub struct Engine {
     ticks: u64,
     target_fps: u32,
     fps_window: (Instant, u64, f64),
+    state_path: Option<PathBuf>,
 }
 
 impl Engine {
@@ -70,6 +73,7 @@ impl Engine {
             ticks: 0,
             target_fps: target_fps.clamp(1, 240),
             fps_window: (now, 0, 0.0),
+            state_path: None,
         }
     }
 
@@ -102,10 +106,33 @@ impl Engine {
         });
     }
 
+    /// Restores effect and brightness from `path` and saves every later change
+    /// there.
+    pub fn with_state_file(mut self, path: PathBuf) -> Self {
+        let s = state::load(&path);
+        self.set_effect(s.effect);
+        self.brightness = s.brightness.clamp(0.0, 1.0);
+        self.state_path = Some(path);
+        self
+    }
+
+    fn persist(&self) {
+        if let Some(path) = &self.state_path {
+            let s = state::State {
+                effect: self.spec.clone(),
+                brightness: self.brightness,
+            };
+            if let Err(e) = state::save(path, &s) {
+                tracing::warn!(path = %path.display(), error = %e, "saving state failed");
+            }
+        }
+    }
+
     pub fn set_effect(&mut self, spec: EffectSpec) {
         self.effect = spec.build();
         self.spec = spec;
         self.effect_start = Instant::now();
+        self.persist();
     }
 
     pub fn effect(&self) -> &EffectSpec {
@@ -114,6 +141,7 @@ impl Engine {
 
     pub fn set_brightness(&mut self, b: f32) {
         self.brightness = b.clamp(0.0, 1.0);
+        self.persist();
     }
 
     /// Renders one frame at `now` and pushes it to all connected devices.

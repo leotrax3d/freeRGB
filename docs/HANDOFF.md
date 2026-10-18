@@ -11,7 +11,7 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 * Corsair Bragi protocol implemented and validated on the K70 CORE (`PROTOCOLS.md`).
 * Project renamed to freeRGB; private repo `github.com/leotrax3d/FreeRGB`.
 * `freergbd`: render thread, reconnect with back-off, hot-plug rescan, JSON-RPC over a
-  named pipe / Unix socket, clean release to hardware mode on exit.
+  named pipe / Unix socket, clean release to hardware mode on exit; effect/brightness persisted across restarts.
 
 ## Working components [confirmed]
 | Crate | Content |
@@ -28,7 +28,7 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` → 40 tests passing (Windows only; Linux not yet built).
+`cargo test --workspace` → 41 tests passing (Windows only; Linux not yet built).
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions
@@ -44,7 +44,7 @@ Hardware results: `DEVICES.md#validation-log`.
 2. Declarative device descriptions (TOML) as first plugin stage.
 3. Analyse the iCUE LINK hub protocol (fans/AIO), read-only first.
 4. GitHub Actions CI for Windows + Linux.
-5. Profiles (persisted effect/brightness), autostart proposal.
+5. Named profiles on top of the persisted state; autostart proposal.
 
 ## Entry points
 `crates/freergb-daemon/src/main.rs`, `crates/freergb-protocols/src/corsair_bragi/device.rs`,

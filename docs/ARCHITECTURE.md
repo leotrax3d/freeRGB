@@ -23,6 +23,8 @@ freergb-daemon ──┼─ freergb-protocols ── freergb-device-api ── f
   HID I/O is blocking, so it lives on a plain thread.
 * Tokio runtime: IPC server; each request runs `api::handle_line` via `spawn_blocking`
   and briefly locks the engine.
+* State: effect and brightness are saved to `%APPDATA%\freeRGB\state.json` (Linux:
+  `$XDG_CONFIG_HOME/freergb/state.json`) on every change and restored on start (`--no-state` disables).
 * Exit (Ctrl+C or `daemon.shutdown`): stop render thread, `Engine::shutdown` returns
   every device to hardware mode.
 
