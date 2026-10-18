@@ -10,10 +10,12 @@
 //!
 //! The hub also drives fans and the AIO pump. This module therefore only
 //! implements reads: ping, properties, and the child-list / fan-RPM /
-//! temperature endpoints. It never changes the mode and never writes to an
-//! endpoint, so the hub keeps running its own (hardware) cooling curves.
+//! temperature endpoints. It never writes to an endpoint. The endpoints only
+//! open in software mode [confirmed]; `run_with_software_window` switches to
+//! software mode just for those reads and verifiably back to hardware mode, so
+//! the hub keeps running its own cooling curves. `run` never changes the mode.
 
-use super::packet::{Command, Handle, Property, Response, ResponseError};
+use super::packet::{Command, Handle, Mode, Property, Response, ResponseError};
 use freergb_device_api::{HidTransport, TransportError};
 
 pub const TARGET_HUB: u8 = 0x01;
@@ -46,6 +48,15 @@ pub fn close_handle(target: u8, handle: Handle) -> Vec<u8> {
 
 pub fn check_handle(target: u8, handle: Handle) -> Vec<u8> {
     req(target, Command::CheckHandle, &[handle as u8, 0x00])
+}
+
+/// The only write this module can build: the mode property (allowlisted in
+/// `Property::is_writable`).
+pub fn set_mode_request(target: u8, mode: Mode) -> Vec<u8> {
+    debug_assert!(Property::Mode.is_writable());
+    let mut args = (Property::Mode as u16).to_le_bytes().to_vec();
+    args.extend_from_slice(&(mode as u32).to_le_bytes()[..3]);
+    req(target, Command::SetProperty, &args)
 }
 
 pub fn read_endpoint(target: u8, handle: Handle) -> Vec<u8> {
@@ -165,6 +176,8 @@ pub struct HubReport {
     pub children: Result<Vec<ChildDevice>, String>,
     pub fan_rpm: Result<Vec<Option<u16>>, String>,
     pub temperatures_c: Result<Vec<Option<f32>>, String>,
+    /// Mode read back after a software window (`Some(1)` = hardware restored).
+    pub restored_mode: Option<u32>,
     /// Every raw exchange as (request, response) for documentation.
     pub raw: Vec<(Vec<u8>, Vec<u8>)>,
 }
@@ -263,13 +276,45 @@ impl<T: HidTransport> LinkHubProbe<T> {
         Ok(r.data.to_vec())
     }
 
-    pub fn run(mut self) -> Result<HubReport, ProbeError> {
-        self.ok(ping(TARGET_HUB), Command::Ping)?;
-        let vid = self.property(Property::VendorId)?;
-        let pid = self.property(Property::ProductId)?;
-        let fw = self.property(Property::Firmware)?;
-        let mode = self.property(Property::Mode)?;
+    fn set_mode(&mut self, mode: Mode) -> Result<(), ProbeError> {
+        self.ok(set_mode_request(TARGET_HUB, mode), Command::SetProperty)
+            .map(|_| ())
+    }
 
+    /// Like [`Self::run`], but if the hub is in hardware mode it is switched
+    /// to software mode only for the endpoint reads and then returned to
+    /// hardware mode. The return is attempted even if a read fails, retried,
+    /// and verified by reading the mode back; `HubReport::restored_mode` holds
+    /// the read-back value.
+    pub fn run_with_software_window(mut self) -> Result<HubReport, ProbeError> {
+        self.ok(ping(TARGET_HUB), Command::Ping)?;
+        let before = self.property(Property::Mode)?;
+        if before != Mode::Hardware as u32 {
+            // Not our state to change; read without switching.
+            return self.run();
+        }
+        self.set_mode(Mode::Software)?;
+        let mut report = self.read_all();
+
+        let mut restored = None;
+        for _ in 0..3 {
+            if self.set_mode(Mode::Hardware).is_ok() {
+                if let Ok(m) = self.property(Property::Mode) {
+                    restored = Some(m);
+                    if m == Mode::Hardware as u32 {
+                        break;
+                    }
+                }
+            }
+        }
+        // Report the mode the hub was in before the window, not during it.
+        report.mode = before;
+        report.restored_mode = restored;
+        report.raw = std::mem::take(&mut self.raw);
+        Ok(report)
+    }
+
+    fn read_all(&mut self) -> HubReport {
         let children = self
             .read_endpoint(EP_CHILD_DEVICES)
             .map_err(|e| e.to_string())
@@ -288,7 +333,16 @@ impl<T: HidTransport> LinkHubProbe<T> {
             })
             .map_err(|e| e.to_string());
 
-        Ok(HubReport {
+        let id = (|| -> Result<_, ProbeError> {
+            Ok((
+                self.property(Property::VendorId)?,
+                self.property(Property::ProductId)?,
+                self.property(Property::Firmware)?,
+                self.property(Property::Mode)?,
+            ))
+        })();
+        let (vid, pid, fw, mode) = id.unwrap_or((0, 0, 0, 0));
+        HubReport {
             vid,
             pid,
             firmware: format!("{}.{}.{}", fw & 0xFF, (fw >> 8) & 0xFF, (fw >> 16) & 0xFF),
@@ -296,8 +350,17 @@ impl<T: HidTransport> LinkHubProbe<T> {
             children,
             fan_rpm,
             temperatures_c,
-            raw: self.raw,
-        })
+            restored_mode: None,
+            raw: Vec::new(),
+        }
+    }
+
+    /// Strictly read-only: never changes the mode.
+    pub fn run(mut self) -> Result<HubReport, ProbeError> {
+        self.ok(ping(TARGET_HUB), Command::Ping)?;
+        let mut report = self.read_all();
+        report.raw = std::mem::take(&mut self.raw);
+        Ok(report)
     }
 }
 
@@ -352,6 +415,91 @@ mod tests {
         assert_eq!(c[3].led_count(), Some(20));
         assert_eq!(c[5].model_name(), None);
         assert_ne!(c[5].id, c[7].id, "type-27 IDs must stay distinct");
+    }
+
+    /// Simulated hub: endpoints only open in software mode; temperature
+    /// endpoint optionally broken to exercise the restore path.
+    fn sim_hub(
+        mode: std::sync::Arc<std::sync::Mutex<u8>>,
+        broken_temps: bool,
+    ) -> freergb_device_api::mock::MockTransport {
+        let mut open: Option<u8> = None;
+        freergb_device_api::mock::MockTransport::new(513, 513, move |r| {
+            assert_eq!(&r[..3], &[0, 0, TARGET_HUB], "hub framing");
+            let (cmd, a, b) = (r[3], r[4], r[5]);
+            let mut m = mode.lock().unwrap();
+            let mut resp = vec![0, 0, cmd, 0];
+            match cmd {
+                0x12 => {}
+                0x02 => {
+                    let v: u32 = match a {
+                        0x11 => 0x1B1C,
+                        0x12 => 0x0C3F,
+                        0x13 => 0x90_01_04,
+                        0x03 => u32::from(*m),
+                        _ => 0,
+                    };
+                    resp.extend_from_slice(&v.to_le_bytes()[..3]);
+                }
+                0x01 => {
+                    assert_eq!(a, 0x03, "only the mode may be written");
+                    *m = r[6];
+                }
+                0x09 => resp[3] = if open.is_some() { 0 } else { 3 },
+                0x05 => open = None,
+                0x0D => {
+                    if *m != 2 || (broken_temps && b == EP_TEMPERATURES) {
+                        resp[3] = 3;
+                    } else {
+                        open = Some(b);
+                    }
+                }
+                0x08 => match open {
+                    Some(EP_CHILD_DEVICES) => resp.extend(sample_payload()),
+                    Some(EP_FAN_RPM) => resp.extend([0x06, 0, 1, 0, 0xB0, 0x04]),
+                    Some(EP_TEMPERATURES) => resp.extend([0x10, 0, 1, 0, 0x2C, 0x01]),
+                    _ => resp[3] = 3,
+                },
+                _ => panic!("unexpected command {cmd:#04x} sent to hub"),
+            }
+            resp.resize(512, 0);
+            vec![resp]
+        })
+    }
+
+    #[test]
+    fn read_only_run_never_changes_mode() {
+        let mode = std::sync::Arc::new(std::sync::Mutex::new(1u8));
+        let r = LinkHubProbe::new(sim_hub(mode.clone(), false))
+            .run()
+            .unwrap();
+        assert_eq!(r.firmware, "4.1.144");
+        assert!(r.children.is_err(), "endpoints are closed in hardware mode");
+        assert_eq!(*mode.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn software_window_reads_and_restores_hardware_mode() {
+        let mode = std::sync::Arc::new(std::sync::Mutex::new(1u8));
+        let r = LinkHubProbe::new(sim_hub(mode.clone(), false))
+            .run_with_software_window()
+            .unwrap();
+        assert_eq!(r.children.unwrap().len(), 8);
+        assert_eq!(r.fan_rpm.unwrap(), vec![Some(1200)]);
+        assert_eq!(r.temperatures_c.unwrap(), vec![Some(30.0)]);
+        assert_eq!(r.restored_mode, Some(1));
+        assert_eq!(*mode.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn hardware_mode_is_restored_even_if_a_read_fails() {
+        let mode = std::sync::Arc::new(std::sync::Mutex::new(1u8));
+        let r = LinkHubProbe::new(sim_hub(mode.clone(), true))
+            .run_with_software_window()
+            .unwrap();
+        assert!(r.temperatures_c.is_err());
+        assert_eq!(r.restored_mode, Some(1));
+        assert_eq!(*mode.lock().unwrap(), 1);
     }
 
     #[test]

@@ -52,6 +52,10 @@ enum Cmd {
         /// Also print every raw request/response (hex).
         #[arg(long)]
         raw: bool,
+        /// Switch to software mode only for the sensor/child reads, then back to
+        /// hardware mode (verified). Fans and pump are attached to the hub.
+        #[arg(long)]
+        software_window: bool,
     },
     /// Call a method on the running freergbd, e.g. `ctl color.set '{"color":"#ff0000"}'`.
     Ctl {
@@ -133,11 +137,14 @@ fn main() -> Result<()> {
             bragi(cmd, pid)
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
-        Cmd::LinkProbe { raw } => link_probe(raw),
+        Cmd::LinkProbe {
+            raw,
+            software_window,
+        } => link_probe(raw, software_window),
     }
 }
 
-fn link_probe(show_raw: bool) -> Result<()> {
+fn link_probe(show_raw: bool, software_window: bool) -> Result<()> {
     use freergb_protocols::corsair_bragi::link_hub::LinkHubProbe;
 
     let info = freergb_hid::find(0x1B1C, 0x0C3F, 0xFF42, 0x0001)?;
@@ -150,7 +157,12 @@ fn link_probe(show_raw: bool) -> Result<()> {
         s.output,
         s.uses_report_ids
     );
-    let r = LinkHubProbe::new(t).run()?;
+    let probe = LinkHubProbe::new(t);
+    let r = if software_window {
+        probe.run_with_software_window()?
+    } else {
+        probe.run()?
+    };
 
     if show_raw {
         let hex = |b: &[u8]| {
@@ -202,6 +214,14 @@ fn link_probe(show_raw: bool) -> Result<()> {
     match &r.temperatures_c {
         Ok(v) => println!("temps °C  {v:?}"),
         Err(e) => println!("temps     error: {e}"),
+    }
+    if software_window {
+        match r.restored_mode {
+            Some(1) => println!("restore   hardware mode verified"),
+            other => {
+                bail!("hub did NOT confirm hardware mode after the software window: {other:?}")
+            }
+        }
     }
     Ok(())
 }

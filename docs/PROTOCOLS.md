@@ -122,15 +122,25 @@ The plugin finds slots by scanning for a byte pattern, cuts both type-27 IDs dow
 the same value (`000000C0`) and has no entry for type 27. This probably makes it
 re-enumerate on every frame, which matches the ~100 MB of repeated log lines [P].
 
-### Sensors [P]
-Fan RPM (`0x17`, data type `0x06`) and temperatures (`0x21`, data type `0x10`):
-`[type_lo, type_hi, count, (status, lo, hi)…]`, temperature in 0.1 °C. Not yet
-read on hardware.
 
-### Next step (needs approval)
-Reading the endpoints requires a short switch to software mode and straight back to
-hardware mode, as SignalRGB does on every start. Fans and pump are attached, so this
-needs the user's explicit approval first.
+### Sensors and live read (2026-10-18) [C]
+`freergb link-probe --software-window` (approved by the user): mode 1 → 2 for three
+endpoint reads (~0.1 s), then back to 1; read back by the probe and by an independent
+second run. Child list read live matches the logged packet slot for slot.
+
+* Payload of fan RPM (`0x17`): data type `0x25 0x00` (the plugin assumes `0x06`), count 26,
+  entries `(status, lo, hi)`; status `0` = valid, `1` = absent.
+  Values: idx 1–3 = 728/729/726 rpm, idx 4 = 1698 rpm, idx 13 = 546, idx 14 = 877.
+* Payload of temperatures (`0x21`): data type `0x10 0x00`, count 52, same entry layout,
+  0.1 °C. Values: idx 0 = 33.1, idx 4 = 33.4, idx 13 = 24.2, idx 15 = 22.9 °C.
+* Mapping sensor index → child slot is probably `slot + 1` (RX fans in slots 0–2 →
+  idx 1–3, Titan AIO in slot 3 → idx 4 = pump rpm / coolant temperature) [P].
+* Error 3 on `OpenEndpoint` in hardware mode; in software mode all three open [C].
+
+### Next steps
+Lighting for the child devices (LightingController endpoint, `target 0x09`) – first in
+simulation, then a reversible colour test. Fan speeds stay under hardware control;
+writing fan or pump speeds is out of scope without explicit approval.
 
 ## Corsair Vengeance DDR5 (SMBus) – identified only
 `i2c_scan_results.json` [C]: addresses `0x18` and `0x1A` on "AMD PIIX4 Bus 0x0b00",

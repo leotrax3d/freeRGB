@@ -42,7 +42,7 @@ Hardware results: `DEVICES.md#validation-log`.
 ## Next tasks
 1. GUI: layout view, profiles, per-device brightness; test on Linux.
 2. Declarative device descriptions (TOML) as first plugin stage.
-3. iCUE LINK hub: read child list/RPM/temps (needs a short software-mode switch – awaiting user approval), then lighting.
+3. iCUE LINK hub: lighting for child devices (simulation first, then reversible colour test). Identify type 27.
 4. Test hardware access on a real Linux machine (udev rules for hidraw).
 5. Named profiles on top of the persisted state; autostart proposal.
 
