@@ -23,7 +23,7 @@ CLI client: `freergb ctl <method> [params-json]`.
 |---|---|---|
 | `daemon.version` | – | `{api_version, daemon_version}` |
 | `daemon.shutdown` | – | `true`; daemon releases devices and exits |
-| `devices.list` | – | `[{info, status, brightness, leds, frames, dropped, last_error}]` |
+| `devices.list` | – | `[{info, status, brightness, region, leds, frames, dropped, last_error}]` |
 | `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices}` |
 | `effects.list` | – | effect names: `solid`, `rainbow_wave`, `breathing`, `gradient`, `color_cycle`, `radial_rainbow`, `scanner`, `twinkle` |
 | `effects.default` | `{"name": "scanner"}` | default `EffectSpec` for that effect (use it as a template for `effects.set`) |
@@ -31,6 +31,7 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `effects.set` | `EffectSpec`, e.g. `{"type":"rainbow_wave","speed":0.3,"scale":1.0}`, `{"type":"breathing","color":{"r":0,"g":155,"b":222},"period_ms":3000}` | `true` |
 | `color.set` | `{"color":"#rrggbb"}` | `true` (sets a solid effect) |
 | `brightness.set` | `{"value": 0.0..=1.0}` | `true` |
+| `devices.set_region` | `{"id": "…", "x": 0.0, "y": 0.0, "w": 0.5, "h": 1.0}` | `true`; places the device on the effect canvas (normalised, persisted) |
 | `devices.set_brightness` | `{"id": "hid:1b1c:1bfd:…", "value": 0.0..=1.0}` | `true`; per-device brightness, multiplied with the global one, persisted |
 | `profiles.list` | – | sorted profile names |
 | `profiles.save` | `{"name": "…"}` | `true`; saves current effect + brightness |
@@ -46,5 +47,5 @@ Profiles live in `profiles/<name>.json` next to the state file. Names: 1–64 ch
 letters, digits, space, `-`, `_` – nothing that could leave the directory.
 
 ## Planned
-`layouts.get|set`, `devices.set_region`, `plugins.list`,
+`layouts.get|set`, `plugins.list`,
 `frames.push` (screen ambience / external plugins), event subscription for the GUI.

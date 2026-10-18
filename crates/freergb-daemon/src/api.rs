@@ -126,6 +126,24 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 lock(engine).set_effect(EffectSpec::Solid { color });
                 json!(true)
             }),
+        "devices.set_region" => {
+            let id = params.get("id").and_then(Value::as_str);
+            let region = serde_json::from_value::<freergb_core::Region>(params.clone())
+                .ok()
+                .filter(freergb_core::Region::is_valid);
+            match (id, region) {
+                (Some(id), Some(r)) => {
+                    if lock(engine).set_device_region(id, r) {
+                        Ok(json!(true))
+                    } else {
+                        Err((-32004, format!("no device with id {id:?}")))
+                    }
+                }
+                _ => Err(invalid_params(
+                    "expected {\"id\", \"x\", \"y\" in 0..=1, \"w\", \"h\" in 0.01..=1}",
+                )),
+            }
+        }
         "devices.set_brightness" => {
             let id = params.get("id").and_then(Value::as_str);
             let value = params
@@ -222,6 +240,67 @@ mod tests {
         let r = call(&e, r#"{"jsonrpc":"2.0","id":3,"method":"devices.list"}"#);
         assert_eq!(r["result"][0]["info"]["id"], json!("virtual:api-test"));
         assert_eq!(r["result"][0]["status"], json!("Connected"));
+    }
+
+    #[test]
+    fn device_regions_split_a_gradient() {
+        let mut engine = Engine::new(
+            EffectSpec::Gradient {
+                from: Rgb::RED,
+                to: Rgb::BLUE,
+                angle_deg: 0.0,
+            },
+            30,
+        );
+        let left = VirtualDevice::new("left", LedLayout::strip(1));
+        let right = VirtualDevice::new("right", LedLayout::strip(1));
+        let (ll, rl) = (left.frame_log(), right.frame_log());
+        engine.add_device(Box::new(left));
+        engine.add_device(Box::new(right));
+        let e: SharedEngine = Arc::new(Mutex::new(engine));
+
+        let r = call(
+            &e,
+            r#"{"id":1,"method":"devices.set_region","params":{"id":"virtual:left","x":0,"y":0,"w":0.1,"h":1}}"#,
+        );
+        assert_eq!(r["result"], json!(true));
+        call(
+            &e,
+            r#"{"id":2,"method":"devices.set_region","params":{"id":"virtual:right","x":0.9,"y":0,"w":0.1,"h":1}}"#,
+        );
+        let bad = call(
+            &e,
+            r#"{"id":3,"method":"devices.set_region","params":{"id":"virtual:left","x":0,"y":0,"w":0,"h":1}}"#,
+        );
+        assert_eq!(bad["error"]["code"], json!(-32602));
+        assert_eq!(
+            call(&e, r#"{"id":4,"method":"devices.list"}"#)["result"][1]["region"]["x"],
+            json!(0.9f32)
+        );
+
+        let deadline = Instant::now() + std::time::Duration::from_secs(2);
+        while lock(&e)
+            .devices()
+            .iter()
+            .any(|d| d.status != freergb_device_api::DeviceStatus::Connected)
+        {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        lock(&e).tick(Instant::now());
+        while ll.total() == 0 || rl.total() == 0 {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let (l, r) = (
+            ll.last().unwrap().colors()[0],
+            rl.last().unwrap().colors()[0],
+        );
+        assert!(l.r > 200 && l.b < 60, "left device shows the red end: {l}");
+        assert!(
+            r.b > 200 && r.r < 60,
+            "right device shows the blue end: {r}"
+        );
     }
 
     #[test]

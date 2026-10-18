@@ -14,6 +14,9 @@ pub struct State {
     /// Per-device brightness (0..=1) by device id; missing = 1.0.
     #[serde(default)]
     pub device_brightness: std::collections::BTreeMap<String, f32>,
+    /// Where each device sits on the effect canvas, by device id; missing = full canvas.
+    #[serde(default)]
+    pub device_regions: std::collections::BTreeMap<String, freergb_core::Region>,
 }
 
 impl Default for State {
@@ -25,6 +28,7 @@ impl Default for State {
             },
             brightness: 1.0,
             device_brightness: Default::default(),
+            device_regions: Default::default(),
         }
     }
 }

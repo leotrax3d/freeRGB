@@ -59,6 +59,8 @@ pub struct DeviceSummary {
     pub status: DeviceStatus,
     /// Per-device brightness (multiplied with the global brightness).
     pub brightness: f32,
+    /// Where the device sits on the effect canvas (normalised).
+    pub region: Region,
     pub leds: usize,
     pub frames: u64,
     /// Frames replaced before the device could take them (device slower than the engine).
@@ -91,6 +93,8 @@ pub struct Engine {
     state_path: Option<PathBuf>,
     /// Per-device brightness by device id (persisted).
     device_brightness: std::collections::BTreeMap<String, f32>,
+    /// Per-device canvas regions by device id (persisted).
+    device_regions: std::collections::BTreeMap<String, Region>,
     profiles_dir: Option<PathBuf>,
     retry_interval: Duration,
 }
@@ -222,6 +226,7 @@ impl Engine {
             fps_window: (now, 0, 0.0),
             state_path: None,
             device_brightness: Default::default(),
+            device_regions: Default::default(),
             profiles_dir: None,
             retry_interval: RETRY_INTERVAL,
         }
@@ -292,7 +297,11 @@ impl Engine {
             slot,
             stop,
             handle: Some(handle),
-            region: Region::FULL,
+            region: self
+                .device_regions
+                .get(&id_str)
+                .copied()
+                .unwrap_or(Region::FULL),
             correction: ColorCorrection {
                 brightness: self.device_brightness.get(&id_str).copied().unwrap_or(1.0),
                 ..ColorCorrection::default()
@@ -307,6 +316,7 @@ impl Engine {
         self.set_effect(s.effect);
         self.brightness = s.brightness.clamp(0.0, 1.0);
         self.device_brightness = s.device_brightness;
+        self.device_regions = s.device_regions;
         self.profiles_dir = crate::profiles::dir_for_state(&path);
         self.state_path = Some(path);
         self
@@ -328,6 +338,7 @@ impl Engine {
             effect: self.spec.clone(),
             brightness: self.brightness,
             device_brightness: self.device_brightness.clone(),
+            device_regions: self.device_regions.clone(),
         }
     }
 
@@ -335,8 +346,14 @@ impl Engine {
     pub fn apply_state(&mut self, s: state::State) {
         self.brightness = s.brightness.clamp(0.0, 1.0);
         self.device_brightness = s.device_brightness;
+        self.device_regions = s.device_regions;
         for w in &mut self.workers {
             w.correction.brightness = self.device_brightness.get(&w.id.0).copied().unwrap_or(1.0);
+            w.region = self
+                .device_regions
+                .get(&w.id.0)
+                .copied()
+                .unwrap_or(Region::FULL);
         }
         self.set_effect(s.effect);
     }
@@ -359,6 +376,18 @@ impl Engine {
 
     pub fn effect(&self) -> &EffectSpec {
         &self.spec
+    }
+
+    /// Places one device on the canvas. Returns `false` if no such device;
+    /// the caller validates the region.
+    pub fn set_device_region(&mut self, id: &str, region: Region) -> bool {
+        let Some(w) = self.workers.iter_mut().find(|w| w.id.0 == id) else {
+            return false;
+        };
+        w.region = region;
+        self.device_regions.insert(id.to_owned(), region);
+        self.persist();
+        true
     }
 
     /// Sets one device's brightness (0..=1). Returns `false` if no such device.
@@ -428,6 +457,7 @@ impl Engine {
                     info: v.info.clone(),
                     status: v.status.clone(),
                     brightness: w.correction.brightness,
+                    region: w.region,
                     leds: v.layout.len(),
                     frames: v.frames,
                     dropped: v.dropped,

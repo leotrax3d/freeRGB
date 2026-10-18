@@ -38,7 +38,7 @@ no vendor software required.
 | Screen ambience / audio reactivity | ⏳ planned |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
 
-**Numbers:** 9 crates · ~6,600 lines of Rust · 73 automated tests · CI on Windows and Ubuntu.
+**Numbers:** 9 crates · ~6,600 lines of Rust · 74 automated tests · CI on Windows and Ubuntu.
 
 ### Supported hardware
 

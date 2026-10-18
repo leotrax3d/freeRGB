@@ -87,6 +87,18 @@ pub struct Region {
 }
 
 impl Region {
+    /// Checks that the rectangle is finite, starts inside the canvas and has a
+    /// usable size. Parts reaching past the canvas edge sample the border.
+    pub fn is_valid(&self) -> bool {
+        [self.x, self.y, self.w, self.h]
+            .iter()
+            .all(|v| v.is_finite())
+            && (0.0..=1.0).contains(&self.x)
+            && (0.0..=1.0).contains(&self.y)
+            && (0.01..=1.0).contains(&self.w)
+            && (0.01..=1.0).contains(&self.h)
+    }
+
     pub const FULL: Region = Region {
         x: 0.0,
         y: 0.0,
