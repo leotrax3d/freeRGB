@@ -197,3 +197,27 @@ nearby) → only with explicit approval and a dedicated kernel/driver path; defe
   the lighting handle reopened. It also pauses like the plugin: 10 ms before/after control
   commands, 3 ms after `WriteEndpoint`, 1 ms after each `StreamEndpoint`.
 * Verification: 20-minute soak, see `DEVICES.md`.
+
+## ASUS AURA USB mainboard controller (`0b05:19af`) – static analysis only [P]
+Source: SignalRGB plugin `Asus/Motherboard Controllers/Asus_Motherboard_Controller.js`
+(behaviour only). Nothing has been sent to the device yet.
+
+* Interface 2 (`FF72:00A1` on this system [C]); 65-byte reports, report ID `0xEC` as first byte.
+* Commands (`0xEC`, cmd, …):
+
+  | cmd | Name | Args | Response | Effect |
+  |---|---|---|---|---|
+  | `0x82` | firmware / model | – | `data[1]=0x02`, `data[2..18]` ASCII model | read-only |
+  | `0xB0` | config table | – | `data[1]=0x30`, table; `[6]` ARGB channels, `[31]` mainboard LEDs, `[33]` 12 V headers | read-only |
+  | `0x35` | set mode | `channel, 0, 0, mode` (`0xFF` = direct) | – | **changes the channel mode** |
+  | `0x40` | direct colours | `channel (\|0x80 = apply), start, count, RGB…` (≤ 20 LEDs/packet, ≤ 120/channel) | – | colour write |
+  | `0x52` | `0xEC 0x52 0x53 0x00 0x01` ("stop using gen 2") | – | – | **unknown – never sent by freeRGB** |
+
+* Channel 4 = mainboard LEDs + 12 V headers; ARGB headers are channels 0…n (offset by 1 on
+  boards with a "Polymo" panel). ARGB colour order is configurable (RGB/GRB/…), i.e. it depends
+  on the connected strips.
+* **Open safety question:** the plugin never restores the previous mode on shutdown; it only
+  paints a shutdown colour. A "hand back to hardware" path is unknown, so switching channels
+  to direct mode may not be reversible without Armoury Crate or a reboot. Before any write
+  test: read-only probe (`0x82`, `0xB0`), find out how to read and restore the current mode,
+  and ask the user.
