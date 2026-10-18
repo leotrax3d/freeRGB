@@ -192,6 +192,10 @@ fn link_light_test(seconds: f32) -> Result<()> {
         );
         println!("rpm sensor {i:>2}: before {before:>5}  during min {min:>5} max {max:>5}");
     }
+    println!("glitches  {} (isolated bad samples tolerated)", r.glitches);
+    if let Some(s) = &r.last_bad_sample {
+        println!("last bad  {s:?}");
+    }
     if let Some(a) = &r.aborted {
         println!("ABORTED   {a}");
     }

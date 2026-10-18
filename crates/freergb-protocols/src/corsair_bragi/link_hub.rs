@@ -451,6 +451,68 @@ pub fn lighting_packets(payload: &[u8], out_len: usize) -> Vec<Vec<u8>> {
     out
 }
 
+/// Fan/pump RPM watchdog. Every sensor that spun above 300 rpm at the start
+/// is monitored. A sample is *bad* if the sensor is missing/unreadable or
+/// below 50 % of its start value. Two bad samples in a row on the same sensor
+/// raise the alarm; a single bad sample is counted as a glitch. (Soak test
+/// 2026-10-18 showed one isolated unreadable sample after ~4 min.)
+#[derive(Debug, Clone, PartialEq)]
+pub struct RpmWatchdog {
+    baseline: Vec<Option<u16>>,
+    strikes: Vec<u8>,
+    pub glitches: u32,
+    /// The last bad sample, for diagnostics.
+    pub last_bad: Option<Vec<Option<u16>>>,
+}
+
+impl RpmWatchdog {
+    pub const STRIKES_TO_ALARM: u8 = 2;
+
+    pub fn new(baseline: Vec<Option<u16>>) -> Self {
+        Self {
+            strikes: vec![0; baseline.len()],
+            baseline,
+            glitches: 0,
+            last_bad: None,
+        }
+    }
+
+    pub fn baseline(&self) -> &[Option<u16>] {
+        &self.baseline
+    }
+
+    /// Feeds one sample; returns an alarm message when it trips.
+    pub fn check(&mut self, now: &[Option<u16>]) -> Option<String> {
+        let mut alarm = None;
+        let mut any_bad = false;
+        for (i, b) in self.baseline.iter().enumerate() {
+            let Some(b) = *b else { continue };
+            if b <= 300 {
+                continue;
+            }
+            let n = now.get(i).copied().flatten();
+            let bad = n.map_or(true, |n| n < b / 2);
+            if bad {
+                any_bad = true;
+                self.strikes[i] += 1;
+                if self.strikes[i] >= Self::STRIKES_TO_ALARM && alarm.is_none() {
+                    alarm = Some(format!(
+                        "rpm sensor {i}: {} bad samples in a row (start {b}, now {n:?})",
+                        self.strikes[i]
+                    ));
+                }
+            } else {
+                self.strikes[i] = 0;
+            }
+        }
+        if any_bad {
+            self.glitches += 1;
+            self.last_bad = Some(now.to_vec());
+        }
+        alarm
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct LightingTestReport {
     pub segments: Vec<(ChildDevice, usize)>,
@@ -459,6 +521,9 @@ pub struct LightingTestReport {
     /// RPM samples taken during the test (about once per second).
     pub rpm_during: Vec<Vec<Option<u16>>>,
     pub aborted: Option<String>,
+    /// Isolated bad samples tolerated by the watchdog, and the last of them.
+    pub glitches: u32,
+    pub last_bad_sample: Option<Vec<Option<u16>>>,
     pub restored_mode: Option<u32>,
 }
 
@@ -493,6 +558,8 @@ impl<T: HidTransport> LinkHubProbe<T> {
             rpm_before: Vec::new(),
             rpm_during: Vec::new(),
             aborted: None,
+            glitches: 0,
+            last_bad_sample: None,
             restored_mode: None,
         };
         let body = (|| -> Result<(), ProbeError> {
@@ -513,6 +580,7 @@ impl<T: HidTransport> LinkHubProbe<T> {
                 open_endpoint(TARGET_HUB, Handle::Lighting, EP_LIGHTING_CONTROLLER),
                 Command::OpenEndpoint,
             )?;
+            let mut watchdog = RpmWatchdog::new(report.rpm_before.clone());
             let start = std::time::Instant::now();
             let mut last_check = start;
             while start.elapsed() < duration {
@@ -527,17 +595,17 @@ impl<T: HidTransport> LinkHubProbe<T> {
                 if last_check.elapsed() >= std::time::Duration::from_secs(1) {
                     last_check = std::time::Instant::now();
                     let now = self.rpm();
-                    let dropped = report.rpm_before.iter().zip(&now).position(|(b, n)| {
-                        matches!((b, n), (Some(b), n) if *b > 300 && n.unwrap_or(0) < b / 2)
-                    });
+                    let alarm = watchdog.check(&now);
                     report.rpm_during.push(now);
-                    if let Some(idx) = dropped {
-                        report.aborted = Some(format!("rpm sensor {idx} dropped below 50 %"));
+                    if let Some(msg) = alarm {
+                        report.aborted = Some(msg);
                         break;
                     }
                 }
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
+            report.glitches = watchdog.glitches;
+            report.last_bad_sample = watchdog.last_bad.clone();
             Ok(())
         })();
 
@@ -799,6 +867,38 @@ mod tests {
     }
 
     #[test]
+    fn watchdog_tolerates_single_glitch_but_alarms_on_two() {
+        let mut w = RpmWatchdog::new(vec![None, Some(720), Some(1700), Some(200)]);
+        assert_eq!(
+            w.check(&[None, Some(730), Some(1690), Some(0)]),
+            None,
+            "low-rpm sensor ignored"
+        );
+        assert_eq!(w.check(&[None, None, Some(1690)]), None, "single glitch");
+        assert_eq!(w.glitches, 1);
+        assert_eq!(w.check(&[None, Some(725), Some(1700)]), None, "recovered");
+        assert_eq!(
+            w.check(&[None, Some(725), Some(800)]),
+            None,
+            "first low pump sample"
+        );
+        assert!(
+            w.check(&[None, Some(725), Some(790)]).is_some(),
+            "second low sample alarms"
+        );
+    }
+
+    #[test]
+    fn watchdog_alarms_on_repeated_unreadable_rpm() {
+        let mut w = RpmWatchdog::new(vec![None, Some(720)]);
+        assert_eq!(w.check(&[]), None);
+        assert!(
+            w.check(&[]).is_some(),
+            "empty reads must not be silently ignored"
+        );
+    }
+
+    #[test]
     fn hub_device_lifecycle_restores_hardware_mode() {
         use super::super::link_hub_device::LinkHubDevice;
         use freergb_core::{Frame, Rgb};
@@ -835,6 +935,14 @@ mod tests {
         let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), None);
         dev.connect().unwrap();
         *sim.pump_rpm.lock().unwrap() = 300;
+        // First bad sample is tolerated, the second one trips.
+        std::thread::sleep(WATCHDOG_INTERVAL + std::time::Duration::from_millis(50));
+        dev.push_frame(&Frame::solid(68, Rgb::RED)).unwrap();
+        assert_eq!(
+            *sim.mode.lock().unwrap(),
+            2,
+            "still running after one bad sample"
+        );
         std::thread::sleep(WATCHDOG_INTERVAL + std::time::Duration::from_millis(50));
         let err = dev.push_frame(&Frame::solid(68, Rgb::RED)).unwrap_err();
         assert!(matches!(err, DeviceError::Refused(_)), "{err}");

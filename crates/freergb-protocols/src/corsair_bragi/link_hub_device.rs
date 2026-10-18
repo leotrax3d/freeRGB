@@ -4,18 +4,18 @@
 //! Safety rules:
 //! * `connect` only starts from hardware mode (otherwise another program may
 //!   be in charge of the hub).
-//! * Fan/pump RPM is compared with the values at connect every
-//!   [`WATCHDOG_INTERVAL`]. A drop below 50 % on any sensor that was spinning
-//!   returns the hub to hardware mode at once and *trips* the device: it
-//!   refuses to reconnect until the process restarts.
+//! * Fan/pump RPM is checked every [`WATCHDOG_INTERVAL`] by an [`RpmWatchdog`]
+//!   (two bad samples in a row on a sensor that was spinning at connect:
+//!   missing or below 50 %). An alarm returns the hub to hardware mode at once
+//!   and *trips* the device: it refuses to reconnect until the process restarts.
 //! * `disconnect` closes the lighting handle and restores hardware mode,
 //!   verified by reading the mode back.
 //! * Only the known chain prefix is lit (see `known_lighting_prefix`).
 
 use super::link_hub::{
     close_handle, encode_lighting, known_lighting_prefix, lighting_packets, open_endpoint,
-    parse_child_list, ping, LinkHubProbe, ProbeError, EP_CHILD_DEVICES, EP_LIGHTING_CONTROLLER,
-    TARGET_HUB,
+    parse_child_list, ping, LinkHubProbe, ProbeError, RpmWatchdog, EP_CHILD_DEVICES,
+    EP_LIGHTING_CONTROLLER, TARGET_HUB,
 };
 use super::packet::{Command, Handle, Mode, Property};
 use freergb_core::{Frame, Led, LedLayout, Rgb};
@@ -34,7 +34,7 @@ pub struct LinkHubDevice<T: HidTransport> {
     /// LED count per lit segment, in chain order.
     segments: Vec<usize>,
     status: DeviceStatus,
-    baseline: Vec<Option<u16>>,
+    watchdog: RpmWatchdog,
     last_check: Instant,
     tripped: Option<String>,
 }
@@ -63,7 +63,7 @@ impl<T: HidTransport> LinkHubDevice<T> {
             layout: LedLayout::strip(1),
             segments: Vec::new(),
             status: DeviceStatus::Disconnected,
-            baseline: Vec::new(),
+            watchdog: RpmWatchdog::new(Vec::new()),
             last_check: Instant::now(),
             tripped: None,
         }
@@ -147,7 +147,7 @@ impl<T: HidTransport> LinkHubDevice<T> {
             }
             self.layout = Self::build_layout(&names, &segments);
             self.segments = segments;
-            self.baseline = self.p.rpm();
+            self.watchdog = RpmWatchdog::new(self.p.rpm());
             self.p
                 .ok(
                     open_endpoint(TARGET_HUB, Handle::Lighting, EP_LIGHTING_CONTROLLER),
@@ -162,14 +162,6 @@ impl<T: HidTransport> LinkHubDevice<T> {
         }
         self.last_check = Instant::now();
         Ok(())
-    }
-
-    /// Index of a sensor that dropped below half its baseline, if any.
-    fn rpm_drop(baseline: &[Option<u16>], now: &[Option<u16>]) -> Option<usize> {
-        baseline
-            .iter()
-            .zip(now)
-            .position(|(b, n)| matches!((b, n), (Some(b), n) if *b > 300 && n.unwrap_or(0) < b / 2))
     }
 
     fn trip(&mut self, reason: String) -> DeviceError {
@@ -236,14 +228,8 @@ impl<T: HidTransport> RgbDevice for LinkHubDevice<T> {
         if self.last_check.elapsed() >= WATCHDOG_INTERVAL {
             self.last_check = Instant::now();
             let now = self.p.rpm();
-            if now.is_empty() {
-                return Err(self.trip("RPM could not be read".into()));
-            }
-            if let Some(idx) = Self::rpm_drop(&self.baseline, &now) {
-                return Err(self.trip(format!(
-                    "rpm sensor {idx} dropped from {:?} to {:?}",
-                    self.baseline[idx], now[idx]
-                )));
+            if let Some(msg) = self.watchdog.check(&now) {
+                return Err(self.trip(msg));
             }
         }
         Ok(())
