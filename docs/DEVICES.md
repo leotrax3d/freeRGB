@@ -66,3 +66,9 @@ iCUE LINK hub, 2026-10-18, SignalRGB stopped, each step approved by the user:
     (one per minute) flat over the whole run: frame avg 47.1–47.7 ms, max 182–191 ms;
     6–10 acknowledgements per minute take ~135 ms (periodic, not growing). **The ~10-minute
     dropout is fixed.**
+13. Live test with the user watching (`freergbd --enable-link-hub`): `audio_spectrum` first
+    reacted "only on the left" (bass) – band energies were the mean over all FFT bins and shared
+    one gain reference, so treble bands stayed near zero. Fixed (peak bin per band, per-band
+    auto gain floored at 5 % of the loudest band); user: "movement everywhere" on K70 and fans.
+    `screen_ambience` (saturation 1.6): user confirmed keyboard and fans follow the screen.
+    Daemon at ~59 FPS; both devices back in mode 1 after shutdown.

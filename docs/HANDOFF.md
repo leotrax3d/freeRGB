@@ -32,7 +32,7 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` → 87 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
+`cargo test --workspace` → 88 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions

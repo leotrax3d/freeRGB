@@ -17,10 +17,13 @@ pub struct Analyzer {
     window: Vec<f32>,
     /// FFT bin range `[start, end)` per band.
     band_bins: [(usize, usize); BANDS],
-    /// Slowly decaying peaks used as automatic gain reference. All bands share
-    /// one reference so their relative strength is preserved.
+    /// Slowly decaying peaks used as automatic gain reference. Each band has
+    /// its own peak (music has far more energy in the bass than in the treble,
+    /// so a shared reference leaves the upper bands nearly empty), floored at
+    /// a fraction of the loudest band so leakage into silent bands stays low.
     level_peak: f32,
     band_peak: f32,
+    band_peaks: [f32; BANDS],
     smoothed: AudioFeatures,
     scratch: Vec<Complex<f32>>,
 }
@@ -61,6 +64,7 @@ impl Analyzer {
             band_bins,
             level_peak: 0.0,
             band_peak: 0.0,
+            band_peaks: [0.0; BANDS],
             smoothed: AudioFeatures::default(),
             scratch: vec![Complex::default(); size],
         }
@@ -84,8 +88,12 @@ impl Analyzer {
         let rms = (tail.iter().map(|s| s * s).sum::<f32>() / n as f32).sqrt();
         let mut raw_bands = [0.0f32; BANDS];
         for (b, &(start, end)) in self.band_bins.iter().enumerate() {
-            let sum: f32 = self.scratch[start..end].iter().map(|c| c.norm()).sum();
-            raw_bands[b] = sum / (end - start) as f32;
+            // Strongest bin, not the mean: wide treble bands would otherwise
+            // dilute a tone over hundreds of bins.
+            raw_bands[b] = self.scratch[start..end]
+                .iter()
+                .map(|c| c.norm())
+                .fold(0.0, f32::max);
         }
 
         // Automatic gain: compare against slowly decaying peaks.
@@ -101,13 +109,20 @@ impl Analyzer {
         };
         let loudest = raw_bands.iter().copied().fold(0.0, f32::max);
         self.band_peak = (self.band_peak * PEAK_DECAY).max(loudest).max(1e-6);
-        let bands = raw_bands.map(|r| {
-            if silent {
+        // A band's reference never drops below this share of the loudest band.
+        const BAND_FLOOR: f32 = 0.05;
+        let mut bands = [0.0f32; BANDS];
+        for (b, out) in bands.iter_mut().enumerate() {
+            self.band_peaks[b] = (self.band_peaks[b] * PEAK_DECAY).max(raw_bands[b]);
+            let reference = self.band_peaks[b]
+                .max(self.band_peak * BAND_FLOOR)
+                .max(1e-6);
+            *out = if silent {
                 0.0
             } else {
-                (r / self.band_peak).clamp(0.0, 1.0)
-            }
-        });
+                (raw_bands[b] / reference).clamp(0.0, 1.0)
+            };
+        }
 
         // Smoothing: fast attack, slow decay.
         let ease = |old: f32, new: f32| {
@@ -198,6 +213,26 @@ mod tests {
             l.level
         );
         assert!(q.level > 0.8);
+    }
+
+    #[test]
+    fn quieter_treble_still_reaches_full_scale() {
+        // Bass 10x louder than treble, as in typical music.
+        let n = 2048;
+        let mix: Vec<f32> = sine(80.0, 0.5, n)
+            .iter()
+            .zip(sine(6_000.0, 0.05, n))
+            .map(|(a, b)| a + b)
+            .collect();
+        let mut a = Analyzer::new(RATE, n);
+        let f = settle(&mut a, &mix);
+        let treble = f.bands[BANDS - 2..].iter().copied().fold(0.0, f32::max);
+        assert!(f.bands[0] > 0.8, "bass {:?}", f.bands);
+        assert!(
+            treble > 0.8,
+            "treble must not be crushed by the bass: {:?}",
+            f.bands
+        );
     }
 
     #[test]

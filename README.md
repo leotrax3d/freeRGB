@@ -35,11 +35,11 @@ no vendor software required.
 | Local API (JSON-RPC over named pipe / Unix socket) | ✅ devices, effects, colour, brightness, profiles, diagnostics |
 | Native GUI (egui) | 🟡 devices with per-device brightness, drag-and-drop canvas layout, all effects with their parameters, profiles |
 | Plugin system | 🟡 stage 1: declarative device descriptions (TOML) – [docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md) |
-| Audio reactivity | ✅ Windows (WASAPI loopback), Linux untested · `freergb audio-meter` |
-| Screen ambience | ✅ Windows (primary monitor, 64×36, ~30 FPS), Linux untested · `freergb screen-probe` |
+| Audio reactivity | ✅ Windows (WASAPI loopback), confirmed live on K70 + fans; Linux untested · `freergb audio-meter` |
+| Screen ambience | ✅ Windows (primary monitor, 64×36, ~30 FPS), confirmed live; Linux untested · `freergb screen-probe` |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
 
-**Numbers:** 11 crates · ~9,400 lines of Rust · 87 automated tests · CI on Windows and Ubuntu.
+**Numbers:** 11 crates · ~9,400 lines of Rust · 88 automated tests · CI on Windows and Ubuntu.
 
 ### Supported hardware
 
