@@ -2,6 +2,8 @@
 //! keeps them deterministic and testable: the same `t` always produces the
 //! same pixels.
 
+pub mod extra;
+
 use freergb_core::{Canvas, Hsv, Rgb};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -16,14 +18,152 @@ pub trait Effect: Send {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EffectSpec {
-    Solid { color: Rgb },
-    RainbowWave { speed: f32, scale: f32 },
-    Breathing { color: Rgb, period_ms: u32 },
+    Solid {
+        color: Rgb,
+    },
+    RainbowWave {
+        speed: f32,
+        scale: f32,
+    },
+    Breathing {
+        color: Rgb,
+        period_ms: u32,
+    },
+    Gradient {
+        from: Rgb,
+        to: Rgb,
+        angle_deg: f32,
+    },
+    ColorCycle {
+        period_ms: u32,
+    },
+    RadialRainbow {
+        speed: f32,
+        scale: f32,
+    },
+    Scanner {
+        color: Rgb,
+        background: Rgb,
+        period_ms: u32,
+        width: f32,
+    },
+    Twinkle {
+        color: Rgb,
+        background: Rgb,
+        density: f32,
+        period_ms: u32,
+    },
+}
+
+fn ms(v: u32) -> Duration {
+    Duration::from_millis(u64::from(v.max(1)))
 }
 
 impl EffectSpec {
+    /// API names of all effects, in display order.
+    pub const NAMES: [&'static str; 8] = [
+        "solid",
+        "rainbow_wave",
+        "breathing",
+        "gradient",
+        "color_cycle",
+        "radial_rainbow",
+        "scanner",
+        "twinkle",
+    ];
+
+    /// A sensible default instance for each name in [`EffectSpec::NAMES`].
+    pub fn default_for(name: &str) -> Option<Self> {
+        let accent = Rgb::new(0, 155, 222);
+        Some(match name {
+            "solid" => EffectSpec::Solid { color: accent },
+            "rainbow_wave" => EffectSpec::RainbowWave {
+                speed: 0.2,
+                scale: 1.0,
+            },
+            "breathing" => EffectSpec::Breathing {
+                color: accent,
+                period_ms: 3000,
+            },
+            "gradient" => EffectSpec::Gradient {
+                from: Rgb::new(255, 0, 128),
+                to: accent,
+                angle_deg: 0.0,
+            },
+            "color_cycle" => EffectSpec::ColorCycle { period_ms: 10_000 },
+            "radial_rainbow" => EffectSpec::RadialRainbow {
+                speed: 0.3,
+                scale: 1.0,
+            },
+            "scanner" => EffectSpec::Scanner {
+                color: Rgb::RED,
+                background: Rgb::BLACK,
+                period_ms: 2000,
+                width: 0.12,
+            },
+            "twinkle" => EffectSpec::Twinkle {
+                color: Rgb::WHITE,
+                background: Rgb::new(0, 0, 40),
+                density: 0.15,
+                period_ms: 1200,
+            },
+            _ => return None,
+        })
+    }
+
+    /// The API name of this effect.
+    pub fn name(&self) -> &'static str {
+        match self {
+            EffectSpec::Solid { .. } => "solid",
+            EffectSpec::RainbowWave { .. } => "rainbow_wave",
+            EffectSpec::Breathing { .. } => "breathing",
+            EffectSpec::Gradient { .. } => "gradient",
+            EffectSpec::ColorCycle { .. } => "color_cycle",
+            EffectSpec::RadialRainbow { .. } => "radial_rainbow",
+            EffectSpec::Scanner { .. } => "scanner",
+            EffectSpec::Twinkle { .. } => "twinkle",
+        }
+    }
+
     pub fn build(&self) -> Box<dyn Effect> {
         match *self {
+            EffectSpec::Gradient {
+                from,
+                to,
+                angle_deg,
+            } => Box::new(extra::Gradient {
+                from,
+                to,
+                angle_deg,
+            }),
+            EffectSpec::ColorCycle { period_ms } => Box::new(extra::ColorCycle {
+                period: ms(period_ms),
+            }),
+            EffectSpec::RadialRainbow { speed, scale } => {
+                Box::new(extra::RadialRainbow { speed, scale })
+            }
+            EffectSpec::Scanner {
+                color,
+                background,
+                period_ms,
+                width,
+            } => Box::new(extra::Scanner {
+                color,
+                background,
+                period: ms(period_ms),
+                width,
+            }),
+            EffectSpec::Twinkle {
+                color,
+                background,
+                density,
+                period_ms,
+            } => Box::new(extra::Twinkle {
+                color,
+                background,
+                density,
+                period: ms(period_ms),
+            }),
             EffectSpec::Solid { color } => Box::new(Solid { color }),
             EffectSpec::RainbowWave { speed, scale } => Box::new(RainbowWave { speed, scale }),
             EffectSpec::Breathing { color, period_ms } => Box::new(Breathing {
@@ -123,6 +263,20 @@ mod tests {
         let mut later = Canvas::new(16, 1);
         spec.build().render(Duration::from_millis(500), &mut later);
         assert_ne!(a, later);
+    }
+
+    #[test]
+    fn every_name_has_a_default_that_round_trips() {
+        for name in EffectSpec::NAMES {
+            let spec = EffectSpec::default_for(name).unwrap();
+            assert_eq!(spec.name(), name);
+            let json = serde_json::to_string(&spec).unwrap();
+            assert!(json.contains(&format!("\"type\":\"{name}\"")), "{json}");
+            assert_eq!(serde_json::from_str::<EffectSpec>(&json).unwrap(), spec);
+            let mut c = Canvas::new(8, 4);
+            spec.build().render(Duration::from_millis(500), &mut c);
+        }
+        assert!(EffectSpec::default_for("nope").is_none());
     }
 
     #[test]

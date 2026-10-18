@@ -98,7 +98,18 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         })),
         "devices.list" => Ok(json!(lock(engine).devices())),
         "diagnostics.get" => Ok(json!(lock(engine).diagnostics())),
-        "effects.list" => Ok(json!(["solid", "rainbow_wave", "breathing"])),
+        "effects.list" => Ok(json!(EffectSpec::NAMES)),
+        "effects.default" => params
+            .get("name")
+            .and_then(Value::as_str)
+            .and_then(EffectSpec::default_for)
+            .map(|s| json!(s))
+            .ok_or_else(|| {
+                invalid_params(format!(
+                    "expected {{\"name\": one of {:?}}}",
+                    EffectSpec::NAMES
+                ))
+            }),
         "effects.get" => Ok(json!(lock(engine).effect())),
         "effects.set" => serde_json::from_value::<EffectSpec>(params)
             .map_err(invalid_params)

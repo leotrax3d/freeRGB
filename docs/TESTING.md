@@ -6,7 +6,7 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
-2026-10-18: 60 tests passing on Windows 11 (Rust 1.99.1). CI (`.github/workflows/ci.yml`) builds and tests on Windows and Ubuntu; Linux hardware access is untested.
+2026-10-18: 69 tests passing on Windows 11 (Rust 1.99.1). CI (`.github/workflows/ci.yml`) builds and tests on Windows and Ubuntu; Linux hardware access is untested.
 
 Categories:
 * **Unit:** core colours/layouts/canvas, effects, report descriptor parser, packet encoding.

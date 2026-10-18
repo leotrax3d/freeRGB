@@ -5,6 +5,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::egui;
+use freergb_core::Rgb;
+use freergb_effects::EffectSpec;
 use serde_json::{json, Value};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
@@ -90,26 +92,17 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum EffectKind {
-    Solid,
-    RainbowWave,
-    Breathing,
-}
-
-impl EffectKind {
-    const ALL: [EffectKind; 3] = [
-        EffectKind::Solid,
-        EffectKind::RainbowWave,
-        EffectKind::Breathing,
-    ];
-
-    fn label(self) -> &'static str {
-        match self {
-            EffectKind::Solid => "Solid colour",
-            EffectKind::RainbowWave => "Rainbow wave",
-            EffectKind::Breathing => "Breathing",
-        }
+fn label(name: &str) -> &'static str {
+    match name {
+        "solid" => "Solid colour",
+        "rainbow_wave" => "Rainbow wave",
+        "breathing" => "Breathing",
+        "gradient" => "Gradient",
+        "color_cycle" => "Colour cycle",
+        "radial_rainbow" => "Radial rainbow",
+        "scanner" => "Scanner",
+        "twinkle" => "Twinkle",
+        _ => "Unknown",
     }
 }
 
@@ -120,11 +113,7 @@ struct App {
     sync_after_generation: Option<u64>,
     profile_name: String,
     selected_profile: Option<String>,
-    kind: EffectKind,
-    color: [u8; 3],
-    speed: f32,
-    scale: f32,
-    period_ms: u32,
+    spec: EffectSpec,
     brightness: f32,
 }
 
@@ -143,11 +132,7 @@ impl App {
             sync_after_generation: Some(0),
             profile_name: String::new(),
             selected_profile: None,
-            kind: EffectKind::RainbowWave,
-            color: [0, 155, 222],
-            speed: 0.2,
-            scale: 1.0,
-            period_ms: 3000,
+            spec: EffectSpec::default_for("rainbow_wave").expect("known effect"),
             brightness: 1.0,
         }
     }
@@ -156,40 +141,10 @@ impl App {
         let _ = self.tx.send(Command { method, params });
     }
 
-    fn effect_spec(&self) -> Value {
-        let [r, g, b] = self.color;
-        match self.kind {
-            EffectKind::Solid => json!({"type": "solid", "color": {"r": r, "g": g, "b": b}}),
-            EffectKind::RainbowWave => {
-                json!({"type": "rainbow_wave", "speed": self.speed, "scale": self.scale})
-            }
-            EffectKind::Breathing => json!({
-                "type": "breathing",
-                "color": {"r": r, "g": g, "b": b},
-                "period_ms": self.period_ms,
-            }),
-        }
-    }
-
-    /// Takes the controls' initial values from the daemon's current state once.
+    /// Takes the controls' values from the daemon's current state.
     fn sync_from(&mut self, effect: &Value, diag: Option<&Value>) {
-        let f = |k: &str| effect.get(k).and_then(Value::as_f64).map(|v| v as f32);
-        if let Some(c) = effect.get("color") {
-            let ch = |k: &str| c.get(k).and_then(Value::as_u64).unwrap_or(0).min(255) as u8;
-            self.color = [ch("r"), ch("g"), ch("b")];
-        }
-        match effect.get("type").and_then(Value::as_str) {
-            Some("solid") => self.kind = EffectKind::Solid,
-            Some("rainbow_wave") => {
-                self.kind = EffectKind::RainbowWave;
-                self.speed = f("speed").unwrap_or(self.speed);
-                self.scale = f("scale").unwrap_or(self.scale);
-            }
-            Some("breathing") => {
-                self.kind = EffectKind::Breathing;
-                self.period_ms = f("period_ms").map_or(self.period_ms, |v| v as u32);
-            }
-            _ => {}
+        if let Ok(spec) = serde_json::from_value::<EffectSpec>(effect.clone()) {
+            self.spec = spec;
         }
         if let Some(b) = diag
             .and_then(|d| d.get("brightness"))
@@ -198,6 +153,102 @@ impl App {
             self.brightness = b as f32;
         }
     }
+}
+
+fn color_edit(ui: &mut egui::Ui, text: &str, c: &mut Rgb) -> bool {
+    let mut arr = c.to_array();
+    let changed = ui
+        .horizontal(|ui| {
+            ui.label(text);
+            ui.color_edit_button_srgb(&mut arr).changed()
+        })
+        .inner;
+    if changed {
+        *c = Rgb::from(arr);
+    }
+    changed
+}
+
+fn period_edit(ui: &mut egui::Ui, ms: &mut u32, range: std::ops::RangeInclusive<u32>) -> bool {
+    ui.add(egui::Slider::new(ms, range).text("period (ms)"))
+        .changed()
+}
+
+/// Parameter controls for the current effect. Returns `true` on any change.
+fn effect_params(ui: &mut egui::Ui, spec: &mut EffectSpec) -> bool {
+    let mut changed = false;
+    match spec {
+        EffectSpec::Solid { color } => {
+            changed |= color_edit(ui, "Colour", color);
+            ui.horizontal(|ui| {
+                for (name, c) in [
+                    ("Red", Rgb::RED),
+                    ("Green", Rgb::GREEN),
+                    ("Blue", Rgb::BLUE),
+                    ("White", Rgb::WHITE),
+                    ("Off", Rgb::BLACK),
+                ] {
+                    if ui.button(name).clicked() {
+                        *color = c;
+                        changed = true;
+                    }
+                }
+            });
+        }
+        EffectSpec::RainbowWave { speed, scale } | EffectSpec::RadialRainbow { speed, scale } => {
+            changed |= ui
+                .add(egui::Slider::new(speed, -2.0..=2.0).text("speed"))
+                .changed();
+            changed |= ui
+                .add(egui::Slider::new(scale, 0.1..=5.0).text("cycles"))
+                .changed();
+        }
+        EffectSpec::Breathing { color, period_ms } => {
+            changed |= color_edit(ui, "Colour", color);
+            changed |= period_edit(ui, period_ms, 500..=10_000);
+        }
+        EffectSpec::Gradient {
+            from,
+            to,
+            angle_deg,
+        } => {
+            changed |= color_edit(ui, "From", from);
+            changed |= color_edit(ui, "To", to);
+            changed |= ui
+                .add(egui::Slider::new(angle_deg, 0.0..=360.0).text("angle (°)"))
+                .changed();
+        }
+        EffectSpec::ColorCycle { period_ms } => {
+            changed |= period_edit(ui, period_ms, 1_000..=60_000);
+        }
+        EffectSpec::Scanner {
+            color,
+            background,
+            period_ms,
+            width,
+        } => {
+            changed |= color_edit(ui, "Colour", color);
+            changed |= color_edit(ui, "Background", background);
+            changed |= period_edit(ui, period_ms, 300..=10_000);
+            changed |= ui
+                .add(egui::Slider::new(width, 0.02..=0.5).text("width"))
+                .changed();
+        }
+        EffectSpec::Twinkle {
+            color,
+            background,
+            density,
+            period_ms,
+        } => {
+            changed |= color_edit(ui, "Colour", color);
+            changed |= color_edit(ui, "Background", background);
+            changed |= ui
+                .add(egui::Slider::new(density, 0.0..=1.0).text("density"))
+                .changed();
+            changed |= period_edit(ui, period_ms, 200..=5_000);
+        }
+    }
+    changed
 }
 
 fn device_row(ui: &mut egui::Ui, d: &Value) {
@@ -298,56 +349,26 @@ impl eframe::App for App {
             ui.add_enabled_ui(connected, |ui| {
                 ui.heading("Effect");
                 let mut changed = false;
+                let current = self.spec.name();
                 egui::ComboBox::from_id_salt("effect")
-                    .selected_text(self.kind.label())
+                    .selected_text(label(current))
                     .show_ui(ui, |ui| {
-                        for k in EffectKind::ALL {
-                            changed |= ui.selectable_value(&mut self.kind, k, k.label()).changed();
-                        }
-                    });
-
-                if matches!(self.kind, EffectKind::Solid | EffectKind::Breathing) {
-                    ui.horizontal(|ui| {
-                        ui.label("Colour");
-                        changed |= ui.color_edit_button_srgb(&mut self.color).changed();
-                        for (name, c) in [
-                            ("Red", [255, 0, 0]),
-                            ("Green", [0, 255, 0]),
-                            ("Blue", [0, 0, 255]),
-                            ("White", [255, 255, 255]),
-                            ("Off", [0, 0, 0]),
-                        ] {
-                            if ui.button(name).clicked() {
-                                self.color = c;
-                                changed = true;
+                        for name in EffectSpec::NAMES {
+                            if ui.selectable_label(name == current, label(name)).clicked()
+                                && name != current
+                            {
+                                if let Some(s) = EffectSpec::default_for(name) {
+                                    self.spec = s;
+                                    changed = true;
+                                }
                             }
                         }
                     });
-                }
-                match self.kind {
-                    EffectKind::RainbowWave => {
-                        changed |= ui
-                            .add(egui::Slider::new(&mut self.speed, -2.0..=2.0).text("speed"))
-                            .changed();
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(&mut self.scale, 0.1..=5.0)
-                                    .text("cycles across canvas"),
-                            )
-                            .changed();
-                    }
-                    EffectKind::Breathing => {
-                        changed |= ui
-                            .add(
-                                egui::Slider::new(&mut self.period_ms, 500..=10_000)
-                                    .text("period (ms)"),
-                            )
-                            .changed();
-                    }
-                    EffectKind::Solid => {}
-                }
+                changed |= effect_params(ui, &mut self.spec);
                 if changed {
-                    self.send("effects.set", self.effect_spec());
+                    if let Ok(v) = serde_json::to_value(&self.spec) {
+                        self.send("effects.set", v);
+                    }
                 }
 
                 ui.separator();

@@ -30,15 +30,15 @@ no vendor software required.
 | Area | State |
 |---|---|
 | RGB core (colours, layouts, canvas, frames) | ✅ done, tested |
-| Effects | ✅ Solid, Rainbow Wave, Breathing |
+| Effects | ✅ 8 built-in: Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Radial Rainbow, Scanner, Twinkle |
 | Background service `freergbd` | ✅ one worker thread per device, reconnect, hot-plug, state + profiles persisted |
 | Local API (JSON-RPC over named pipe / Unix socket) | ✅ devices, effects, colour, brightness, profiles, diagnostics |
-| Native GUI (egui) | 🟡 basic: devices, effect, colour, brightness, profiles |
+| Native GUI (egui) | 🟡 devices, all effects with their parameters, brightness, profiles |
 | Plugin system | ⏳ designed ([docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md)), not implemented |
 | Screen ambience / audio reactivity | ⏳ planned |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
 
-**Numbers:** 9 crates · ~6,600 lines of Rust · 63 automated tests · CI on Windows and Ubuntu.
+**Numbers:** 9 crates · ~6,600 lines of Rust · 69 automated tests · CI on Windows and Ubuntu.
 
 ### Supported hardware
 

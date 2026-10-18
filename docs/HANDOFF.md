@@ -20,17 +20,17 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 |---|---|
 | `freergb-core` | Rgb/Hsv, colour correction, LedLayout, Canvas, Frame |
 | `freergb-device-api` | `HidTransport`, `RgbDevice`, `VirtualDevice`, `MockTransport` |
-| `freergb-effects` | Solid, RainbowWave, Breathing, serializable `EffectSpec` |
+| `freergb-effects` | 8 effects (Solid, RainbowWave, Breathing, Gradient, ColorCycle, RadialRainbow, Scanner, Twinkle), serializable `EffectSpec` with defaults |
 | `freergb-hid` | hidapi discovery/transport, report descriptor parser |
 | `freergb-protocols` | Corsair Bragi adapter (K70 CORE), iCUE LINK hub (probe, lighting, `LinkHubDevice`, `RpmWatchdog`), adapter registry |
 | `freergb-daemon` | engine, JSON-RPC API, IPC, hardware scan; binary `freergbd` |
 | `freergb-cli` | binary `freergb`: `discover`, `demo-virtual`, `bragi …`, `link-probe`, `link-light-test`, `link-restore`, `ctl` |
 | `freergb-client` | blocking JSON-RPC client (used by CLI and GUI) |
-| `freergb-gui` | binary `freergb-gui` (egui): devices, effect, colour, brightness, stop daemon |
+| `freergb-gui` | binary `freergb-gui` (egui): devices, all effects with parameters, brightness, profiles, stop daemon |
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` → 60 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
+`cargo test --workspace` → 69 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions
