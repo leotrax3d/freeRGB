@@ -126,6 +126,25 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 lock(engine).set_effect(EffectSpec::Solid { color });
                 json!(true)
             }),
+        "devices.set_brightness" => {
+            let id = params.get("id").and_then(Value::as_str);
+            let value = params
+                .get("value")
+                .and_then(Value::as_f64)
+                .filter(|v| (0.0..=1.0).contains(v));
+            match (id, value) {
+                (Some(id), Some(v)) => {
+                    if lock(engine).set_device_brightness(id, v as f32) {
+                        Ok(json!(true))
+                    } else {
+                        Err((-32004, format!("no device with id {id:?}")))
+                    }
+                }
+                _ => Err(invalid_params(
+                    "expected {\"id\": \"…\", \"value\": 0.0..=1.0}",
+                )),
+            }
+        }
         "brightness.set" => params
             .get("value")
             .and_then(Value::as_f64)
@@ -203,6 +222,52 @@ mod tests {
         let r = call(&e, r#"{"jsonrpc":"2.0","id":3,"method":"devices.list"}"#);
         assert_eq!(r["result"][0]["info"]["id"], json!("virtual:api-test"));
         assert_eq!(r["result"][0]["status"], json!("Connected"));
+    }
+
+    #[test]
+    fn per_device_brightness() {
+        let mut engine = Engine::new(EffectSpec::Solid { color: Rgb::WHITE }, 30);
+        let dev = VirtualDevice::new("dimmed", LedLayout::strip(1));
+        let log = dev.frame_log();
+        engine.add_device(Box::new(dev));
+        let e: SharedEngine = Arc::new(Mutex::new(engine));
+
+        let r = call(
+            &e,
+            r#"{"id":1,"method":"devices.set_brightness","params":{"id":"virtual:dimmed","value":0.5}}"#,
+        );
+        assert_eq!(r["result"], json!(true));
+        let r = call(
+            &e,
+            r#"{"id":2,"method":"devices.set_brightness","params":{"id":"nope","value":0.5}}"#,
+        );
+        assert_eq!(r["error"]["code"], json!(-32004));
+        let r = call(
+            &e,
+            r#"{"id":3,"method":"devices.set_brightness","params":{"id":"virtual:dimmed","value":2}}"#,
+        );
+        assert_eq!(r["error"]["code"], json!(-32602));
+        assert_eq!(
+            call(&e, r#"{"id":4,"method":"devices.list"}"#)["result"][0]["brightness"],
+            json!(0.5)
+        );
+
+        // Global 0.5 x device 0.5 = 0.25 -> 64.
+        call(
+            &e,
+            r#"{"id":5,"method":"brightness.set","params":{"value":0.5}}"#,
+        );
+        let deadline = Instant::now() + std::time::Duration::from_secs(2);
+        while lock(&e).devices()[0].status != freergb_device_api::DeviceStatus::Connected {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        lock(&e).tick(Instant::now());
+        while log.total() == 0 {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(log.last().unwrap().colors()[0], Rgb::new(64, 64, 64));
     }
 
     #[test]

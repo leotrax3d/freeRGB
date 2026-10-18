@@ -11,6 +11,9 @@ use std::path::{Path, PathBuf};
 pub struct State {
     pub effect: EffectSpec,
     pub brightness: f32,
+    /// Per-device brightness (0..=1) by device id; missing = 1.0.
+    #[serde(default)]
+    pub device_brightness: std::collections::BTreeMap<String, f32>,
 }
 
 impl Default for State {
@@ -21,6 +24,7 @@ impl Default for State {
                 scale: 1.0,
             },
             brightness: 1.0,
+            device_brightness: Default::default(),
         }
     }
 }
@@ -71,6 +75,7 @@ mod tests {
         let s = State {
             effect: EffectSpec::Solid { color: Rgb::GREEN },
             brightness: 0.25,
+            ..Default::default()
         };
         save(&path, &s).unwrap();
         assert_eq!(load(&path), s);

@@ -40,10 +40,12 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
         match rx.recv_timeout(POLL_INTERVAL) {
             Ok(cmd) => {
                 // Coalesce bursts (e.g. slider drags): keep only the newest
-                // command per method.
+                // command per method and target device.
                 let mut pending = vec![cmd];
                 while let Ok(c) = rx.try_recv() {
-                    pending.retain(|p| p.method != c.method);
+                    pending.retain(|p| {
+                        p.method != c.method || p.params.get("id") != c.params.get("id")
+                    });
                     pending.push(c);
                 }
                 for c in pending {
@@ -115,6 +117,8 @@ struct App {
     selected_profile: Option<String>,
     spec: EffectSpec,
     brightness: f32,
+    /// Per-device slider values not yet confirmed by the daemon.
+    device_brightness: std::collections::HashMap<String, f32>,
 }
 
 impl App {
@@ -134,6 +138,7 @@ impl App {
             selected_profile: None,
             spec: EffectSpec::default_for("rainbow_wave").expect("known effect"),
             brightness: 1.0,
+            device_brightness: Default::default(),
         }
     }
 
@@ -251,7 +256,14 @@ fn effect_params(ui: &mut egui::Ui, spec: &mut EffectSpec) -> bool {
     changed
 }
 
-fn device_row(ui: &mut egui::Ui, d: &Value) {
+/// One device card. `local` holds slider values the user changed but the
+/// daemon has not reported back yet. Returns `(id, brightness)` on change.
+fn device_row(
+    ui: &mut egui::Ui,
+    d: &Value,
+    local: &mut std::collections::HashMap<String, f32>,
+) -> Option<(String, f32)> {
+    let mut changed = None;
     let s = |v: &Value, k: &str| v.get(k).and_then(Value::as_str).unwrap_or("?").to_owned();
     let info = d.get("info").cloned().unwrap_or(Value::Null);
     let status = match d.get("status") {
@@ -282,7 +294,25 @@ fn device_row(ui: &mut egui::Ui, d: &Value) {
         if let Some(err) = d.get("last_error").and_then(Value::as_str) {
             ui.colored_label(egui::Color32::from_rgb(230, 90, 90), err);
         }
+        let id = s(&info, "id");
+        let reported = d.get("brightness").and_then(Value::as_f64).unwrap_or(1.0) as f32;
+        if local.get(&id).is_some_and(|v| (v - reported).abs() < 0.005) {
+            local.remove(&id);
+        }
+        let mut b = local.get(&id).copied().unwrap_or(reported);
+        ui.horizontal(|ui| {
+            ui.label("Brightness");
+            if ui
+                .add(egui::Slider::new(&mut b, 0.0..=1.0).show_value(false))
+                .changed()
+            {
+                local.insert(id.clone(), b);
+                changed = Some((id.clone(), b));
+            }
+            ui.label(format!("{:.0} %", b * 100.0));
+        });
     });
+    changed
 }
 
 impl eframe::App for App {
@@ -340,7 +370,9 @@ impl eframe::App for App {
                 }
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     for d in &devices {
-                        device_row(ui, d);
+                        if let Some((id, b)) = device_row(ui, d, &mut self.device_brightness) {
+                            self.send("devices.set_brightness", json!({"id": id, "value": b}));
+                        }
                     }
                 });
             });

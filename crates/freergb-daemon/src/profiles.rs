@@ -125,6 +125,7 @@ mod tests {
         let a = State {
             effect: EffectSpec::Solid { color: Rgb::RED },
             brightness: 0.3,
+            ..Default::default()
         };
         save(&dir, "Zeta", &a).unwrap();
         save(&dir, "Alpha", &State::default()).unwrap();

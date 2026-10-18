@@ -57,6 +57,8 @@ struct Worker {
 pub struct DeviceSummary {
     pub info: DeviceInfo,
     pub status: DeviceStatus,
+    /// Per-device brightness (multiplied with the global brightness).
+    pub brightness: f32,
     pub leds: usize,
     pub frames: u64,
     /// Frames replaced before the device could take them (device slower than the engine).
@@ -87,6 +89,8 @@ pub struct Engine {
     target_fps: u32,
     fps_window: (Instant, u64, f64),
     state_path: Option<PathBuf>,
+    /// Per-device brightness by device id (persisted).
+    device_brightness: std::collections::BTreeMap<String, f32>,
     profiles_dir: Option<PathBuf>,
     retry_interval: Duration,
 }
@@ -217,6 +221,7 @@ impl Engine {
             target_fps: target_fps.clamp(1, 240),
             fps_window: (now, 0, 0.0),
             state_path: None,
+            device_brightness: Default::default(),
             profiles_dir: None,
             retry_interval: RETRY_INTERVAL,
         }
@@ -257,6 +262,7 @@ impl Engine {
     /// retries on failure.
     pub fn add_device(&mut self, dev: Box<dyn RgbDevice>) {
         let id = dev.info().id.clone();
+        let id_str = id.0.clone();
         tracing::info!(device = %id, name = %dev.info().name, "device added");
         let view = Arc::new(Mutex::new(View {
             info: dev.info().clone(),
@@ -287,7 +293,10 @@ impl Engine {
             stop,
             handle: Some(handle),
             region: Region::FULL,
-            correction: ColorCorrection::default(),
+            correction: ColorCorrection {
+                brightness: self.device_brightness.get(&id_str).copied().unwrap_or(1.0),
+                ..ColorCorrection::default()
+            },
         });
     }
 
@@ -297,6 +306,7 @@ impl Engine {
         let s = state::load(&path);
         self.set_effect(s.effect);
         self.brightness = s.brightness.clamp(0.0, 1.0);
+        self.device_brightness = s.device_brightness;
         self.profiles_dir = crate::profiles::dir_for_state(&path);
         self.state_path = Some(path);
         self
@@ -317,21 +327,23 @@ impl Engine {
         state::State {
             effect: self.spec.clone(),
             brightness: self.brightness,
+            device_brightness: self.device_brightness.clone(),
         }
     }
 
     /// Applies a saved state (effect + brightness) and persists it.
     pub fn apply_state(&mut self, s: state::State) {
         self.brightness = s.brightness.clamp(0.0, 1.0);
+        self.device_brightness = s.device_brightness;
+        for w in &mut self.workers {
+            w.correction.brightness = self.device_brightness.get(&w.id.0).copied().unwrap_or(1.0);
+        }
         self.set_effect(s.effect);
     }
 
     fn persist(&self) {
         if let Some(path) = &self.state_path {
-            let s = state::State {
-                effect: self.spec.clone(),
-                brightness: self.brightness,
-            };
+            let s = self.current_state();
             if let Err(e) = state::save(path, &s) {
                 tracing::warn!(path = %path.display(), error = %e, "saving state failed");
             }
@@ -347,6 +359,18 @@ impl Engine {
 
     pub fn effect(&self) -> &EffectSpec {
         &self.spec
+    }
+
+    /// Sets one device's brightness (0..=1). Returns `false` if no such device.
+    pub fn set_device_brightness(&mut self, id: &str, b: f32) -> bool {
+        let b = b.clamp(0.0, 1.0);
+        let Some(w) = self.workers.iter_mut().find(|w| w.id.0 == id) else {
+            return false;
+        };
+        w.correction.brightness = b;
+        self.device_brightness.insert(id.to_owned(), b);
+        self.persist();
+        true
     }
 
     pub fn set_brightness(&mut self, b: f32) {
@@ -403,6 +427,7 @@ impl Engine {
                 DeviceSummary {
                     info: v.info.clone(),
                     status: v.status.clone(),
+                    brightness: w.correction.brightness,
                     leds: v.layout.len(),
                     frames: v.frames,
                     dropped: v.dropped,
