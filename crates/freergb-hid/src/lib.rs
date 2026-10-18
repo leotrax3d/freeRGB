@@ -7,6 +7,20 @@ use descriptor::ReportSizes;
 use freergb_device_api::{HidTransport, TransportError};
 use serde::Serialize;
 use std::ffi::CString;
+use std::sync::{Mutex, MutexGuard};
+
+/// Process-wide gate around every hidapi call.
+///
+/// 2026-10-18: with one worker thread per device, concurrent HID traffic
+/// (hub I/O, hot-plug enumeration) during a K70 CORE transfer left the
+/// keyboard's vendor interface refusing output reports until it was
+/// re-plugged. Single-threaded access never showed this, so all calls are
+/// serialised here. Each critical section is one report (~1-5 ms).
+static HID_IO: Mutex<()> = Mutex::new(());
+
+fn io_gate() -> MutexGuard<'static, ()> {
+    HID_IO.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 /// One HID interface (Windows: top-level collection) as enumerated.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -34,6 +48,7 @@ pub enum HidError {
 
 /// Enumerates all HID interfaces. Read-only.
 pub fn enumerate() -> Result<Vec<HidInterfaceInfo>, HidError> {
+    let _gate = io_gate();
     let api = hidapi::HidApi::new()?;
     let mut v: Vec<_> = api
         .device_list()
@@ -85,6 +100,7 @@ pub struct HidapiTransport {
 impl HidapiTransport {
     /// Opens `info.path` and derives report lengths from the report descriptor.
     pub fn open(info: &HidInterfaceInfo) -> Result<Self, HidError> {
+        let _gate = io_gate();
         let api = hidapi::HidApi::new()?;
         let path =
             CString::new(info.path.clone()).map_err(|e| HidError::NotFound(e.to_string()))?;
@@ -116,10 +132,12 @@ impl HidTransport for HidapiTransport {
         }
         let mut buf = report.to_vec();
         buf.resize(len, 0);
+        let _gate = io_gate();
         self.dev.write(&buf).map_err(io)
     }
 
     fn read_timeout(&mut self, buf: &mut [u8], timeout_ms: i32) -> Result<usize, TransportError> {
+        let _gate = io_gate();
         self.dev.read_timeout(buf, timeout_ms).map_err(io)
     }
 

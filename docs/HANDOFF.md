@@ -12,7 +12,7 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 * Project renamed to freeRGB; private repo `github.com/leotrax3d/FreeRGB`.
 * iCUE LINK hub: read-only probe, sensors, lighting of 3 RX fans + Titan AIO + LCD ring, opt-in
   daemon device with RPM watchdog (15-min soak passed).
-* `freergbd`: render thread, reconnect with back-off, hot-plug rescan, JSON-RPC over a
+* `freergbd`: one worker thread per device behind a global HID gate (hub 52 FPS, K70 19 FPS), reconnect with back-off, hot-plug rescan, JSON-RPC over a
   named pipe / Unix socket, clean release to hardware mode on exit; effect/brightness persisted across restarts.
 
 ## Working components [confirmed]
@@ -30,11 +30,14 @@ service with local API working end-to-end. Phase 9 started: native GUI (egui) ta
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` → 58 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
+`cargo test --workspace` → 60 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (green since 2026-10-18). Hardware on Linux not yet tested.
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions
-* K70 CORE frame rate ~27 FPS with pipelined streaming (device-side processing limits it). All devices share one render loop, so the slowest device caps the others – move to per-device render threads.
+* K70 CORE ~19–22 FPS (acknowledged streaming; device-side processing limits it). Pipelining
+  (27 FPS) is experimental: retest it now that HID access is serialised.
+* Each re-plug of the K70 was needed after a vendor-interface hang; a software reset path
+  (e.g. re-open + mode reset) is not known yet.
 * `1b1c:1bf0` (no USB interface) – origin unknown.
 * Full `key-walk` over all 107 keys not yet visually verified.
 * `freergbd` is not installed as a service/autostart (needs user approval: system change).

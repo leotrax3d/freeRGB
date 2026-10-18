@@ -42,3 +42,8 @@ iCUE LINK hub, 2026-10-18, SignalRGB stopped, each step approved by the user:
    via API, 528 frames each without errors at ~22 FPS; `daemon.shutdown` → both devices read
    back mode 1. Colour on the fans not visually confirmed in this run.
 8. Type 27 identified as iCUE COMMANDER DUO (0 LED channels, per OpenLinkHub database; GPL-3.0, facts only). `link-light-test --seconds 15` with the LX fan as 6th segment (after the LCD ring, Commander DUO skipped): user confirmed the LX fan fully yellow.
+9. Threaded engine (one worker per device), 2026-10-18: without a global HID gate the K70 CORE
+   vendor interface hung after 6–55 s (write `WaitTimedOut`, needed re-plug) – with pipelined
+   *and* with classic streaming. With all hidapi calls serialised: 2 min at target 60 FPS,
+   hub 52.4 FPS, K70 19.1 FPS, no errors; both devices read back mode 1 after shutdown.
+   Pipelined streaming stays experimental (`bragi --pipelined`), untested with the gate.

@@ -19,8 +19,14 @@ freergb-daemon ──┼─ freergb-protocols ── freergb-device-api ── f
   correction, reconnect), JSON-RPC handler, IPC server, hardware scan.
 
 ## Runtime (`freergbd`)
-* Render thread: `Engine::tick` at the target FPS, hot-plug rescan every few seconds.
-  HID I/O is blocking, so it lives on a plain thread.
+* Render thread: `Engine::tick` renders at the target FPS and drops the newest frame into a
+  per-device slot; hot-plug rescan every few seconds.
+* One worker thread per device owns the device (connect, push, back-off retry,
+  disconnect). A slow device skips stale frames (`dropped` counter) instead of slowing the
+  others down.
+* All hidapi calls in the process go through one global gate (`freergb-hid`): concurrent HID
+  traffic during a K70 CORE transfer hung its vendor interface until re-plug (2026-10-18).
+  The gate serialises single reports only, so devices still run at their own pace.
 * Tokio runtime: IPC server; each request runs `api::handle_line` via `spawn_blocking`
   and briefly locks the engine.
 * State: effect and brightness are saved to `%APPDATA%\freeRGB\state.json` (Linux:
