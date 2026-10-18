@@ -91,6 +91,8 @@ cargo run --release -p freergb-gui
 Stopping the service (`ctl daemon.shutdown`, Ctrl+C, or the GUI button) hands every device
 back to its own hardware lighting.
 
+Installing the binaries, Linux udev rules and a systemd user service: [docs/INSTALL.md](docs/INSTALL.md).
+
 ### Command-line tools
 
 | Command | What it does |
@@ -170,7 +172,8 @@ Details: [docs/SECURITY.md](docs/SECURITY.md).
 - [ ] More vendors: ASUS AURA, Razer, Logitech, …
 - [ ] Screen ambience and audio-reactive effects
 - [ ] Effect editor
-- [ ] Hardware testing on Linux, udev rules, packaging
+- [x] Linux udev rules and systemd user unit ([packaging/linux](packaging/linux))
+- [ ] Hardware testing on Linux, packaging
 
 Full roadmap: [docs/ROADMAP.md](docs/ROADMAP.md).
 

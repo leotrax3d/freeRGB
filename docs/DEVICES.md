@@ -53,3 +53,10 @@ iCUE LINK hub, 2026-10-18, SignalRGB stopped, each step approved by the user:
     (28 FPS while the K70 streamed, 46 FPS after it dropped out); mode 1 verified after
     shutdown. **Conclusion: the K70 CORE needs per-packet acknowledgement.** The daemon flag
     was removed again; pipelining remains a research option in `freergb bragi --pipelined`.
+11. 15-min daemon soak, classic streaming, serialised HID (no keepalive yet): hub 47–57 FPS
+    for the full 15 min; K70 19 FPS for ~9.5 min, then the keyboard answered "device error 3
+    (handle closed)", the reopen failed and the interface hung (write `WaitTimedOut`). While the
+    K70 kept failing, its 2-s reconnect attempts (1 s write timeout each) held the HID gate
+    and slowed the hub to ~38 FPS → exponential back-off added. After the user re-plugged
+    the K70 the worker kept using the dead handle → unplugged devices are now dropped and
+    re-added by the hot-plug scan.

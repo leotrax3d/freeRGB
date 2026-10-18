@@ -184,3 +184,16 @@ nearby) → only with explicit approval and a dedicated kernel/driver path; defe
   re-plugging the keyboard fixed it. → Never run both at the same time.
 * Killing SignalRGB leaves the iCUE LINK hub in software mode (observed: mode 2). Use
   `freergb link-restore` to return it to hardware mode (verified by read-back).
+
+## Corsair Bragi – session keepalive and pacing [C for the failure, P for the fix]
+* 15-min daemon soak (2026-10-18, classic streaming, serialised HID): after ~10 min the
+  K70 CORE answered a `StreamEndpoint` with **error 3 (handle closed)** – the keyboard had
+  closed the lighting handle on its own. Reopening it then ended in write timeouts and a
+  hang until re-plug.
+* The SignalRGB plugin pings every 50 s ("Corsair pings every 52 seconds. This will keep the
+  device in software mode.") and re-checks the mode every 5 s. freeRGB never pinged.
+* Since commit `70fe64b` freeRGB does the same (`Keepalive` in `corsair_bragi/device.rs`):
+  ping every 50 s, mode check every 5 s; if the device left software mode it is put back and
+  the lighting handle reopened. It also pauses like the plugin: 10 ms before/after control
+  commands, 3 ms after `WriteEndpoint`, 1 ms after each `StreamEndpoint`.
+* Verification: 20-minute soak, see `DEVICES.md`.

@@ -1,0 +1,28 @@
+# systemd *user* unit for the freeRGB service.
+#
+# Install for the current user (no root needed):
+#
+#   install -Dm0644 freergbd.service ~/.config/systemd/user/freergbd.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now freergbd
+#
+# Requires the udev rules (60-freergb.rules) for hidraw access.
+# Add --enable-link-hub to ExecStart to drive iCUE LINK fans/AIO (experimental).
+
+[Unit]
+Description=freeRGB lighting service
+Documentation=https://github.com/leotrax3d/FreeRGB
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.cargo/bin/freergbd
+# SIGINT triggers the same clean shutdown as Ctrl+C: every device is handed
+# back to hardware lighting before the process exits.
+KillSignal=SIGINT
+TimeoutStopSec=15
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
