@@ -1,5 +1,7 @@
 <div align="center">
-
+<p align="center">
+  <img src="logo.png" alt="free RGB" width="300">
+</p>
 # freeRGB
 
 **Open, lightweight RGB control for Windows and Linux – written in Rust.**
