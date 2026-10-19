@@ -138,6 +138,7 @@ pub enum MacroStep {
     Effect { effect: EffectSpec },
     Text { text: String },
     Key { key: String },
+    Chord { keys: Vec<String> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,6 +166,9 @@ impl MacroDefinition {
                     return Err("invalid brightness".into())
                 }
                 MacroStep::Effect { effect } => effect.validate()?,
+                MacroStep::Chord { keys } => {
+                    chord_plan(keys)?;
+                }
                 MacroStep::Text { text } if text.is_empty() || text.len() > 1024 => {
                     return Err("text needs 1..1024 UTF-8 bytes".into())
                 }
@@ -197,15 +201,128 @@ impl MacroDefinition {
         Ok(())
     }
     pub fn needs_input(&self) -> bool {
-        self.steps
-            .iter()
-            .any(|s| matches!(s, MacroStep::Text { .. } | MacroStep::Key { .. }))
+        self.steps.iter().any(|s| {
+            matches!(
+                s,
+                MacroStep::Text { .. } | MacroStep::Key { .. } | MacroStep::Chord { .. }
+            )
+        })
     }
+}
+
+/// Canonical modifier-first chord. Exactly one ordinary key; no raw OS key codes.
+pub fn chord_plan(keys: &[String]) -> Result<Vec<String>, String> {
+    const MODIFIERS: [&str; 4] = ["ctrl", "alt", "shift", "meta"];
+    if !(2..=5).contains(&keys.len()) {
+        return Err("chord needs 1..4 modifiers and one key".into());
+    }
+    let mut unique = std::collections::BTreeSet::new();
+    let mut ordinary = None;
+    for key in keys {
+        if !unique.insert(key.as_str()) {
+            return Err("duplicate chord key".into());
+        }
+        if MODIFIERS.contains(&key.as_str()) {
+            continue;
+        }
+        let valid = (key.len() == 1
+            && key
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
+            || [
+                "enter",
+                "escape",
+                "tab",
+                "space",
+                "backspace",
+                "up",
+                "down",
+                "left",
+                "right",
+            ]
+            .contains(&key.as_str());
+        if !valid || ordinary.replace(key.clone()).is_some() {
+            return Err("chord needs exactly one supported non-modifier key".into());
+        }
+    }
+    let ordinary = ordinary.ok_or("chord has no non-modifier key")?;
+    let mut plan: Vec<String> = MODIFIERS
+        .into_iter()
+        .filter(|m| unique.contains(m))
+        .map(str::to_owned)
+        .collect();
+    if plan.is_empty() {
+        return Err("chord requires a modifier".into());
+    }
+    plan.push(ordinary);
+    Ok(plan)
+}
+
+/// Attempt release of every attempted press, even after a backend failure.
+/// A failing OS backend cannot guarantee release; callers must report the error.
+pub fn execute_chord(
+    keys: &[String],
+    mut event: impl FnMut(&str, bool) -> Result<(), String>,
+) -> Result<(), String> {
+    let plan = chord_plan(keys)?;
+    let mut attempted = Vec::new();
+    let mut error = None;
+    for key in &plan {
+        attempted.push(key);
+        if let Err(e) = event(key, true) {
+            error = Some(e);
+            break;
+        }
+    }
+    for key in attempted.into_iter().rev() {
+        if let Err(e) = event(key, false) {
+            if error.is_none() {
+                error = Some(e);
+            }
+        }
+    }
+    error.map_or(Ok(()), Err)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn chords_validate_and_always_attempt_modifier_cleanup() {
+        let keys = vec!["c".into(), "ctrl".into()];
+        assert_eq!(chord_plan(&keys).unwrap(), vec!["ctrl", "c"]);
+        let mut events = Vec::new();
+        assert!(execute_chord(&keys, |key, down| {
+            events.push((key.to_owned(), down));
+            if key == "c" && down {
+                Err("simulated input error".into())
+            } else {
+                Ok(())
+            }
+        })
+        .is_err());
+        assert_eq!(
+            events,
+            vec![
+                ("ctrl".into(), true),
+                ("c".into(), true),
+                ("c".into(), false),
+                ("ctrl".into(), false)
+            ]
+        );
+        for bad in [
+            vec!["ctrl".into(), "ctrl".into()],
+            vec!["ctrl".into(), "a".into(), "b".into()],
+            vec!["ctrl".into(), "raw:42".into()],
+        ] {
+            assert!(chord_plan(&bad).is_err());
+        }
+        let definition = MacroDefinition {
+            repeat: 1,
+            steps: vec![MacroStep::Chord { keys }],
+        };
+        assert!(definition.validate().is_ok() && definition.needs_input());
+    }
     #[test]
     fn curve_interpolation_and_fail_safe() {
         let curve = FanCurve::default();

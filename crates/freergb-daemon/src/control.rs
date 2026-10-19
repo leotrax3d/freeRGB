@@ -197,27 +197,53 @@ pub fn input(step: &MacroStep) -> Result<(), String> {
     {
         use enigo::{Direction, Enigo, Key, Keyboard, Settings};
         let mut input = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+        let map_key = |key: &str| -> Result<Key, String> {
+            Ok(match key {
+                "ctrl" => Key::Control,
+                "alt" => Key::Alt,
+                "shift" => Key::Shift,
+                "meta" => Key::Meta,
+                "enter" => Key::Return,
+                "escape" => Key::Escape,
+                "tab" => Key::Tab,
+                "space" => Key::Space,
+                "backspace" => Key::Backspace,
+                "up" => Key::UpArrow,
+                "down" => Key::DownArrow,
+                "left" => Key::LeftArrow,
+                "right" => Key::RightArrow,
+                "media_play_pause" => Key::MediaPlayPause,
+                "volume_up" => Key::VolumeUp,
+                "volume_down" => Key::VolumeDown,
+                "volume_mute" => Key::VolumeMute,
+                single
+                    if single.len() == 1
+                        && single
+                            .bytes()
+                            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()) =>
+                {
+                    Key::Unicode(single.chars().next().unwrap())
+                }
+                _ => return Err("unsupported key".into()),
+            })
+        };
         match step {
+            MacroStep::Chord { keys } => freergb_control::execute_chord(keys, |key, down| {
+                input
+                    .key(
+                        map_key(key)?,
+                        if down {
+                            Direction::Press
+                        } else {
+                            Direction::Release
+                        },
+                    )
+                    .map_err(|e| e.to_string())
+            }),
             MacroStep::Text { text } => input.text(text).map_err(|e| e.to_string()),
-            MacroStep::Key { key } => {
-                let key = match key.as_str() {
-                    "enter" => Key::Return,
-                    "escape" => Key::Escape,
-                    "tab" => Key::Tab,
-                    "space" => Key::Space,
-                    "backspace" => Key::Backspace,
-                    "up" => Key::UpArrow,
-                    "down" => Key::DownArrow,
-                    "left" => Key::LeftArrow,
-                    "right" => Key::RightArrow,
-                    "media_play_pause" => Key::MediaPlayPause,
-                    "volume_up" => Key::VolumeUp,
-                    "volume_down" => Key::VolumeDown,
-                    "volume_mute" => Key::VolumeMute,
-                    _ => return Err("unsupported key".into()),
-                };
-                input.key(key, Direction::Click).map_err(|e| e.to_string())
-            }
+            MacroStep::Key { key } => input
+                .key(map_key(key)?, Direction::Click)
+                .map_err(|e| e.to_string()),
             _ => Ok(()),
         }
     }

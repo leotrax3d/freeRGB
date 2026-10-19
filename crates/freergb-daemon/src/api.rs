@@ -168,6 +168,7 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             })
             .map(|()| json!(true)),
         "diagnostics.get" => Ok(json!(lock(engine).diagnostics())),
+        "diagnostics.export" => Ok(crate::report::create(&lock(engine))),
         "effects.list" => Ok(json!(EffectSpec::NAMES)),
         "effects.default" => params
             .get("name")

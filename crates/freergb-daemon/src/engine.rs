@@ -706,7 +706,7 @@ impl Engine {
                 MacroStep::Color { color } => self.set_effect(EffectSpec::Solid { color }),
                 MacroStep::Brightness { value } => self.set_brightness(value),
                 MacroStep::Effect { effect } => self.set_effect(effect),
-                MacroStep::Text { .. } | MacroStep::Key { .. } => {
+                MacroStep::Text { .. } | MacroStep::Key { .. } | MacroStep::Chord { .. } => {
                     if let Err(error) = crate::control::input(&step) {
                         self.controls.fail(error);
                     }

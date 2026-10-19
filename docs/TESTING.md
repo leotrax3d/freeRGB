@@ -110,3 +110,14 @@ GitHub Package workflow dispatched; artifact runner last observed queued.
 Older CI Windows passed, Ubuntu failed missing PipeWire libraries; CI dependencies
 were corrected, fresh Linux confirmation pending. Do not carry forward an unqualified
 claim that all current Linux checks are green.
+
+## Visual macros / history / diagnostics — 2026-10-19
+
+120 Windows workspace tests pass. Clippy with denied warnings, formatting, release
+build, Inno installer compilation and the real IPC smoke (including redacted report
+export) pass. Regression tests cover failed chord presses with release attempts,
+chord validation/input classification, sensitive macro/custom-device-name exclusion
+from reports, missing/stale history gaps, expiry and capacity during long sample runs.
+Native keys are never injected by tests. GUI controls/graphs compile; automated click
+and actual chord output acceptance remain untested. GitHub Package/Linux results are
+pending runner availability, independent of these local checks.

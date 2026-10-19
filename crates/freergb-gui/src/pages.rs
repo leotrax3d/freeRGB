@@ -21,6 +21,9 @@ enum UpdateCommand {
 }
 
 pub struct Panels {
+    history: super::sensor_history::Histories,
+    history_generation: u64,
+    history_started: std::time::Instant,
     pub page: u8,
     curve: FanCurve,
     curve_name: String,
@@ -170,12 +173,22 @@ impl Default for Panels {
                 }
             }
         });
-        Self { page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
+        Self { history:Default::default(),history_generation:0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
 
 impl Panels {
+    pub fn observe(&mut self, snapshot: &Snapshot) {
+        if snapshot.generation == self.history_generation {
+            return;
+        }
+        self.history_generation = snapshot.generation;
+        self.history.observe(
+            &snapshot.devices,
+            self.history_started.elapsed().as_secs_f64(),
+        );
+    }
     pub fn draw(&mut self, ui: &mut egui::Ui, tx: &mpsc::Sender<Command>, snapshot: &Snapshot) {
         let send = |method, params| {
             let _ = tx.send(Command { method, params });
@@ -231,8 +244,8 @@ impl Panels {
                         ui.horizontal_wrapped(|ui| { for (name, definition) in macros { if ui.button(name).clicked() { self.macro_name = name.clone(); self.macro_json = serde_json::to_string_pretty(definition).unwrap_or_default(); } } });
                     }
                     ui.horizontal(|ui| { ui.label("Name"); ui.text_edit_singleline(&mut self.macro_name); });
-                    ui.label("Steps: color, effect, brightness, delay, text, key. No shell commands or recording.");
-                    ui.add(egui::TextEdit::multiline(&mut self.macro_json).code_editor().desired_rows(14).desired_width(f32::INFINITY));
+                    ui.label("Add, edit and reorder steps. Text, keys and shortcuts target the foreground application.");
+                    super::macro_editor::edit(ui, &mut self.macro_json);
                     let parsed = serde_json::from_str::<freergb_control::MacroDefinition>(&self.macro_json).map_err(|e| e.to_string()).and_then(|m| m.validate().map(|()| m));
                     if let Err(error) = &parsed { ui.colored_label(egui::Color32::LIGHT_RED, error); }
                     ui.horizontal(|ui| {
@@ -266,6 +279,8 @@ impl Panels {
                 }
                 4 => {
                     ui.heading("Monitoring");
+                    if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); }
+                    if let Some(path)=&snapshot.exported_report { ui.label(format!("Report saved: {}",path.display())); }
                     ui.label("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
                     for device in &snapshot.devices {
                         if let Some(sensors) = device["sensors"].as_array().filter(|s| !s.is_empty()) {
@@ -275,6 +290,8 @@ impl Panels {
                                 let value = sensor["value"].as_f64().map_or_else(|| "missing".into(), |v| format!("{v:.0}"));
                                 let text = format!("{}: {} {} · {} ms{}", sensor["name"].as_str().unwrap_or("Sensor"), value, sensor["unit"].as_str().unwrap_or(""), age, if age > 3000 { " · STALE" } else { "" });
                                 ui.label(text);
+                                let key=(device["info"]["id"].as_str().unwrap_or_default().to_owned(),sensor["id"].as_str().unwrap_or_default().to_owned());
+                                if let Some(series)=self.history.series.get(&key) { super::sensor_history::graph(ui,series); }
                             }
                         }
                     }

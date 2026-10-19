@@ -4,6 +4,15 @@
 subsystems, not completion of the full application. Cooling hardware, macro triggers,
 installer acceptance and live update acceptance remain tracked there.
 
+Follow-up completed while GitHub queues:
+- [x] Visual macro step editor and bounded chord steps, with error cleanup tests.
+- [x] Cached sensor histories with stale gaps, expiry and memory bounds.
+- [x] Redacted local diagnostic export, API and GUI save action.
+- [x] 120 Windows tests, release build, installer rebuild and expanded IPC smoke.
+
+Suggested next: profiles by foreground application, global macro triggers, and
+sensor/watchdog notifications. Full product acceptance still follows `PRODUCT_PLAN.md`.
+
 Completed milestone: process-plugin foundation and host hardening.
 This milestone does not imply completion of all hardware/platform goals.
 

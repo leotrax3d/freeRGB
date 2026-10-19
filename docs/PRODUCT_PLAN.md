@@ -7,8 +7,8 @@ any earlier implication that the broad feature roadmap was finished.
 |---|---|---|
 | Lighting | Core, effects, layers/editor, profiles, device workers, K70 and experimental LINK RGB | More devices; long hardware soaks; richer layouts |
 | Cooling | Pure curve model/editor, interpolation, hysteresis, emergency/stale sensor policy, named storage and API | Live sensor publication, reliable fan/pump channel mapping, validated writes, independent watchdog and restore tests |
-| Macros | Named definitions/editor, delay/repeat, RGB/effects/brightness, run/cancel; Windows text and key/media output behind opt-in | Real input acceptance test, global triggers, recording, chords/key mapping, richer visual step editor |
-| Monitoring | Daemon diagnostics and existing LINK watchdog RPM samples with age/stale indicators | CPU/GPU/coolant temperatures, confirmed channel identity and histories |
+| Macros | Visual step editor, advanced JSON, delay/repeat, RGB/effects/brightness, run/cancel; Windows text/key/media/chord output behind opt-in | Real input acceptance test, global triggers, recording, device key mapping |
+| Monitoring | Daemon diagnostics, cached LINK RPM, bounded histories with stale gaps, redacted offline report export | CPU/GPU/coolant temperatures, confirmed channel identity |
 | Windows installer | Inno Setup recipe, build script, launcher, shortcuts, uninstall, optional per-user autostart | Compile/package smoke, sandbox install/upgrade/uninstall acceptance; signing |
 | Updates | Fixed GitHub Release source, stable-version selection, authenticated private access via environment, SHA-256 checks, stage/install UI, opt-in periodic checks/downloads | First published release; live update/rollback test; signing; Linux packages |
 | GitHub | Private origin, CI, package workflow and draft releases for version tags | Run new pipeline, artifact acceptance, branch/release protection and signing policy |

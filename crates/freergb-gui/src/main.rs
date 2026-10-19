@@ -14,11 +14,15 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
+mod diagnostics;
+mod macro_editor;
 mod pages;
+mod sensor_history;
 
 /// Latest state fetched from the daemon.
 #[derive(Default)]
 struct Snapshot {
+    exported_report: Option<std::path::PathBuf>,
     control: Value,
     connected: bool,
     error: Option<String>,
@@ -56,7 +60,24 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                 }
                 for c in pending {
                     // GUI-side shortcut: fetch a saved custom effect and apply it.
-                    let result = if c.method == "gui.apply_custom_effect" {
+                    let result = if c.method == "gui.export_diagnostics" {
+                        match freergb_client::call("diagnostics.export", Value::Null) {
+                            Ok(report) => match diagnostics::save(&report) {
+                                Ok(path) => {
+                                    state
+                                        .lock()
+                                        .unwrap_or_else(|e| e.into_inner())
+                                        .exported_report = Some(path);
+                                    Ok(Value::Bool(true))
+                                }
+                                Err(error) => {
+                                    last_error = Some(error);
+                                    continue;
+                                }
+                            },
+                            Err(error) => Err(error),
+                        }
+                    } else if c.method == "gui.apply_custom_effect" {
                         freergb_client::call("custom_effects.get", c.params)
                             .and_then(|spec| freergb_client::call("effects.set", spec))
                     } else {
@@ -620,6 +641,10 @@ fn layout_editor(
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        {
+            let snapshot = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            self.panels.observe(&snapshot);
+        }
         let (
             connected,
             error,

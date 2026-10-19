@@ -75,6 +75,10 @@ try {
     if ($effect.type -ne 'solid' -or $effect.color.r -ne 1 -or $effect.color.g -ne 2 -or $effect.color.b -ne 3) { throw 'Macro did not run to completion.' }
     Invoke-Rpc 'macros.cancel' | Out-Null
     Write-Output 'PASS: cooling curves, stale-sensor fail-safe, RGB macro scheduling.'
+    $report = Invoke-Rpc 'diagnostics.export'
+    if ($report.report_version -ne 1 -or @($report.devices).Count -lt 1) { throw 'Diagnostic export failed.' }
+    if ($null -ne $report.devices[0].serial -or $null -ne $report.devices[0].id) { throw 'Diagnostic export contains raw device identifiers.' }
+    Write-Output 'PASS: redacted diagnostic export.'
     if ($WithPlugin) {
         function Wait-PluginFrames {
             $deadline = [DateTime]::UtcNow.AddSeconds(10)

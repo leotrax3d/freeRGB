@@ -129,3 +129,21 @@ Hardware results: `DEVICES.md#validation-log`.
   Cached-RPM publication tested with existing hub simulator. No real hardware experiment.
 * README heading was edited externally during work (`freeRGB` → `FreeRGB`); preserve
   that working-tree edit and do not attribute or commit it as agent work.
+
+## Parallel follow-up while GitHub queues — 2026-10-19
+* Visual macro step editor (add/edit/up/down/delete/repeat) with Advanced JSON fallback.
+* `chord` macro steps: canonical modifier order; one ordinary key; all attempted
+  presses released in reverse order, including after backend errors. Tests use a
+  fake input callback, never foreground input. OS input acceptance remains open.
+* GUI histories: at most 128 sensor series × 600 samples; one sample per API snapshot,
+  stale/missing/disconnected samples create gaps, absent devices expire after 60 s.
+  Memory-only, works across tabs while GUI is open; adds no USB reads.
+* `diagnostics.export` returns a redacted report. Monitoring button saves to the
+  per-user diagnostics folder. No serials, raw device IDs/names, paths, raw errors,
+  capture names or macro/profile contents; no upload. See `DIAGNOSTICS.md`.
+* Windows: 120 tests pass, fmt/Clippy, release build and regenerated installer pass.
+  Expanded IPC smoke includes report export plus earlier macro/curve/plugin tests.
+* Package run `39285464153` for `740b5b8` remained queued at the last check. New source
+  changes do not invalidate the already tested local installer. Linux CI still pending.
+* Suggested next: foreground-application profiles, explicit global hotkeys, stale/RPM
+  alerts; actual cooling control still requires channel identification and validation.
