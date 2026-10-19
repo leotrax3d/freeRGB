@@ -16,3 +16,8 @@
    known protocol variants; complex protocols as out-of-process plugins talking to the
    API instead of Rust dylibs (no stable Rust ABI). See `PLUGIN_SYSTEM.md`.
 10. **Project name freeRGB, repo language English.**
+11. **FIFO HID admission (2026-10-19):** retain process-wide serialization but
+    allocate tickets before waiting on a condition variable. A worker cannot
+    reacquire ahead of already queued workers. Guards advance the queue on drop,
+    including unwind. This prevents overtaking, not slow HID calls or OS scheduling
+    delays; hardware throughput improvements require measurement. No new dependency.

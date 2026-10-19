@@ -48,3 +48,15 @@ Precondition: SignalRGB stopped, no `freergbd` running.
 5. `freergbd --enable-link-hub`, `freergb ctl color.set …`, `freergb ctl daemon.shutdown`,
    then `freergb link-probe` must show mode 1.
 Results: `DEVICES.md`.
+
+## Continuation checks — 2026-10-19
+Windows (Rust/Cargo 1.99.1): 97 workspace tests pass, workspace Clippy with
+`-D warnings`, formatting check and workspace release build pass.
+New HID gate tests cover FIFO admission (including owner re-entry), mutual
+exclusion, panic release and ticket-counter wraparound without real hardware.
+
+Run `./scripts/smoke-daemon.ps1` after the release build, with no existing daemon.
+It starts its own hidden daemon with `--no-hardware --virtual-device --no-state`,
+checks the named-pipe API and color round trip, waits for a rendered frame, and
+shuts down its own process. Passed on Windows on 2026-10-19.
+Hardware FPS/soak measurements and Linux validation of this change remain open.

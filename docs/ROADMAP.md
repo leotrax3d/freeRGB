@@ -18,3 +18,7 @@
 Deviation with reason: discovery and the adapter registry were built before the
 daemon because a safe first hardware validation needed them (only known interfaces
 are ever written to).
+
+2026-10-19 continuation: replaced the HID mutex with tested FIFO admission;
+Windows release build and virtual daemon/API smoke test pass. Next hardware task:
+compare simultaneous K70/hub FPS and stability; no performance claim yet.

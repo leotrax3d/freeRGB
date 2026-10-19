@@ -86,3 +86,13 @@ Before hardware tests SignalRGB must be stopped (otherwise concurrent access):
 ## 4. Hardware found on this system [C]
 
 See `DEVICES.md`.
+
+## Environment recheck — 2026-10-19
+[C] This Codex session exposes shell/file/process access but no REA MCP analysis
+commands. The installed REA skill is an instruction package, not evidence of a
+connected server. No REA analysis or new USB capture was performed this cycle.
+[C] The documented SignalRGB plugin-cache directory exists; `Get-Process
+SignalRgb*,freergb*` showed SignalRgb, SignalRgbLauncher and SignalRgbService,
+and no freeRGB process before testing. SignalRGB was left running.
+[C] Cargo reports 1.99.1; local builds and simulated tests work. Current work
+addresses an existing source-level scheduling issue, requiring no binary analysis.

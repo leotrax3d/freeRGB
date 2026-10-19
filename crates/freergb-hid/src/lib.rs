@@ -2,12 +2,13 @@
 //! Linux, no C toolchain dependency for hidapi itself).
 
 pub mod descriptor;
+mod gate;
 
 use descriptor::ReportSizes;
 use freergb_device_api::{HidTransport, TransportError};
+use gate::{FairGate, GateGuard};
 use serde::Serialize;
 use std::ffi::CString;
-use std::sync::{Mutex, MutexGuard};
 
 /// Process-wide gate around every hidapi call.
 ///
@@ -16,10 +17,10 @@ use std::sync::{Mutex, MutexGuard};
 /// keyboard's vendor interface refusing output reports until it was
 /// re-plugged. Single-threaded access never showed this, so all calls are
 /// serialised here. Each critical section is one report (~1-5 ms).
-static HID_IO: Mutex<()> = Mutex::new(());
+static HID_IO: FairGate = FairGate::new();
 
-fn io_gate() -> MutexGuard<'static, ()> {
-    HID_IO.lock().unwrap_or_else(|e| e.into_inner())
+fn io_gate() -> GateGuard<'static> {
+    HID_IO.lock()
 }
 
 /// One HID interface (Windows: top-level collection) as enumerated.
