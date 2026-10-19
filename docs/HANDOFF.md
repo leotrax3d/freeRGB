@@ -1,6 +1,9 @@
 # HANDOFF – current state (2026-10-19)
 
 ## Phase
+Full-product status is now tracked in `PRODUCT_PLAN.md`: live cooling, macro triggers,
+installer acceptance and live updater acceptance are still outstanding. The phase
+summary below refers to the RGB prototype, not a complete SignalRGB replacement.
 Roadmap phases 1–8 done: first real RGB device (K70 CORE) validated, background
 service with local API working end-to-end. Phase 9: native GUI (egui) talks only to the API; declarative and process device plugin foundations implemented. Phase 11 features (profiles, layout editor, audio, screen capture, layered effect editor) are present. Next: hardware soak/platform validation and effect-process plugins.
 
@@ -98,3 +101,31 @@ Hardware results: `DEVICES.md#validation-log`.
   were not automated. Linux example/CI configuration added, no local Linux run.
 * Entry points: `crates/freergb-plugins/src/lib.rs`, its `tests/process.rs`,
   `examples/plugins/`, `Engine::configure_plugins`, `scripts/smoke-daemon.ps1 -WithPlugin`.
+
+## Cooling/macros/distribution continuation — 2026-10-19
+* User expanded scope to cooling, curves, macros, installer, updates and GitHub setup.
+  `PRODUCT_PLAN.md` is the full backlog; do not call the entire product complete.
+* `freergb-control`: curve validation/interpolation/hysteresis and missing/stale
+  sensor fail-safe; bounded macro definitions. No new cooling hardware writes.
+* Daemon `Controls`: named curves/macros, session scheduler, delay/repeat/cancel;
+  Windows text/key output with `--enable-input-macros` only. Input was not physically
+  tested/injected; global triggers/recording/chords remain open.
+* New GUI tabs: Cooling (explicit simulation), Macros, Monitoring, Updates.
+  LINK monitoring reuses watchdog RPM cache, no new USB reads. Sensor identity stays
+  unconfirmed. Sensor age grows even when frames stop.
+* `freergb-update`: fixed GitHub release source, stable semver selection, bounded
+  authenticated download and SHA-256 verification. Optional background checks/downloads;
+  install is user initiated. Private repo has no published release; no live update tested.
+* Windows Inno Setup compiled successfully: `target/dist/freeRGB-0.1.0-windows-x86_64-setup.exe`.
+  Per-user launcher/shortcuts/uninstall, optional login startup. Setup itself was not run.
+  Official Inno 6.7.3 compiler downloaded, Authenticode signature valid (Pyrsys B.V.),
+  installed in user scope at `target/tools/inno` with no icons/tasks. Build log:
+  `target/installer-build.log`. Pass `-Compiler target/tools/inno/ISCC.exe` to build script.
+* Commit `8e76145` pushed; Package run `39284681890` dispatched and last observed queued.
+  CI previous baseline: Windows passed; Linux failed missing PipeWire development
+  packages. Added those and CI concurrency cancellation; new CI result pending.
+* Local Windows: 116 workspace tests pass, Clippy/fmt, debug and release builds,
+  expanded real IPC smoke passes (curves/stale preview/RGB macro/peer crash/restart).
+  Cached-RPM publication tested with existing hub simulator. No real hardware experiment.
+* README heading was edited externally during work (`freeRGB` → `FreeRGB`); preserve
+  that working-tree edit and do not attribute or commit it as agent work.

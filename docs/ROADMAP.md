@@ -27,3 +27,8 @@ Process-plugin milestone: explicit manifests, versioned stdio, fault isolation,
 GUI/API start/stop, virtual Rust reference and Windows IPC smoke coverage implemented.
 Effect/profile validation and bounded API input added. See `WORKLIST.md` for the
 current acceptance checklist and explicit hardware/platform backlog.
+
+Scope expanded by user: cooling, fan curves, macros, monitoring, installer and updates.
+Full plan/status: `PRODUCT_PLAN.md`. Curve simulation, manual macros, cached LINK RPM,
+Windows installer build and release updater foundations exist; actual cooling writes,
+global macro triggers, installation/upgrade acceptance and live updates remain open.

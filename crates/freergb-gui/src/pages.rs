@@ -140,8 +140,11 @@ impl Default for Panels {
                 }
                 let should_download = {
                     let mut view = worker.lock().unwrap_or_else(|e| e.into_inner());
-                    view.busy = false;
-                    automatic && matches!(command, UpdateCommand::Check) && view.update.is_some()
+                    let download = automatic
+                        && matches!(command, UpdateCommand::Check)
+                        && view.update.is_some();
+                    view.busy = download;
+                    download
                 };
                 if should_download {
                     let update = worker
@@ -156,6 +159,7 @@ impl Default for Panels {
                         .join("updates");
                     let result = freergb_update::download(&update, &directory);
                     let mut view = worker.lock().unwrap_or_else(|e| e.into_inner());
+                    view.busy = false;
                     match result {
                         Ok(path) => {
                             view.downloaded = Some(path);
@@ -262,7 +266,18 @@ impl Panels {
                 }
                 4 => {
                     ui.heading("Monitoring");
-                    ui.label("Daemon diagnostics and device throughput. Hardware sensor integration is pending.");
+                    ui.label("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
+                    for device in &snapshot.devices {
+                        if let Some(sensors) = device["sensors"].as_array().filter(|s| !s.is_empty()) {
+                            ui.heading(device["info"]["name"].as_str().unwrap_or("Device"));
+                            for sensor in sensors {
+                                let age = sensor["age_ms"].as_u64().unwrap_or(u64::MAX);
+                                let value = sensor["value"].as_f64().map_or_else(|| "missing".into(), |v| format!("{v:.0}"));
+                                let text = format!("{}: {} {} · {} ms{}", sensor["name"].as_str().unwrap_or("Sensor"), value, sensor["unit"].as_str().unwrap_or(""), age, if age > 3000 { " · STALE" } else { "" });
+                                ui.label(text);
+                            }
+                        }
+                    }
                     if let Some(diagnostics) = &snapshot.diagnostics { ui.monospace(serde_json::to_string_pretty(diagnostics).unwrap_or_default()); }
                 }
                 _ => {}

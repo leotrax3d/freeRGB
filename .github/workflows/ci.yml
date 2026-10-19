@@ -8,6 +8,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: ${{ matrix.os }}
@@ -24,7 +28,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libudev-dev libxkbcommon-dev libwayland-dev \
-            libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev
+            libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
+            libpipewire-0.3-dev libspa-0.2-dev libclang-dev
 
       - uses: dtolnay/rust-toolchain@stable
         with:

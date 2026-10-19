@@ -24,6 +24,14 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `daemon.version` | – | `{api_version, daemon_version}` |
 | `daemon.shutdown` | – | `true`; daemon releases devices and exits |
 | `devices.list` | – | `[{info, status, brightness, region, leds, frames, dropped, last_error}]` |
+| `cooling.status` | – | Hardware-control availability and reason (currently preview only) |
+| `cooling.curves.list` | – | Map of curve names to definitions |
+| `cooling.curves.save` / `cooling.curves.delete` | `{name,curve}` / `{name}` | Validate/store or delete curve |
+| `cooling.preview` | `{curve,temperature_c?,age_ms?}` | `{duty_percent,simulated:true}`; no hardware write |
+| `macros.list` | – | Map of named macro definitions |
+| `macros.save` / `macros.delete` | `{name,definition}` / `{name}` | Validate/store or delete |
+| `macros.run` / `macros.cancel` | `{name}` / – | Start saved definition or cancel subsequent steps |
+| `macros.status` | – | `{running,input_enabled,error}` |
 | `plugins.list` | – | `[{id,name,access,enabled,allowed,status,last_error,frames}]`; status null while stopped or awaiting start/conflict resolution |
 | `plugins.start` / `plugins.stop` | `{"id":"example-strip"}` | `true`; only IDs explicitly configured with `--plugin`; start occurs on next render tick |
 | `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices, conflicts, audio, screen}` – `conflicts` lists other RGB software that is running (hardware is released meanwhile) |
@@ -65,5 +73,12 @@ Profiles live in `profiles/<name>.json` next to the state file. Names: 1–64 ch
 letters, digits, space, `-`, `_` – nothing that could leave the directory.
 
 ## Planned
+
+`devices.list` also contains cached `sensors` entries (`id,name,unit,value,age_ms`).
+LINK publishes the RPM samples already read by its watchdog, with unconfirmed
+channel identities explicitly labelled. No extra transport requests. Age continues
+to increase if frame delivery stops. See `COOLING.md` and `MACROS.md` for validation
+and current execution limits. New cooling/macro validation/storage errors currently
+use `-32602` and an explanatory message.
 `layouts.get|set`,
 `frames.push` (screen ambience / external plugins), event subscription for the GUI.

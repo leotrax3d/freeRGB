@@ -33,6 +33,8 @@ fn guard<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 /// What the engine and the API may see of a device without touching it.
 #[derive(Debug, Clone)]
 struct View {
+    sensors: Vec<freergb_device_api::SensorReading>,
+    sensor_snapshot_at: Instant,
     info: DeviceInfo,
     status: DeviceStatus,
     layout: LedLayout,
@@ -56,6 +58,7 @@ struct Worker {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DeviceSummary {
+    pub sensors: Vec<freergb_device_api::SensorReading>,
     pub info: DeviceInfo,
     pub status: DeviceStatus,
     /// Per-device brightness (multiplied with the global brightness).
@@ -146,6 +149,8 @@ fn run_worker(
         let mut v = guard(view);
         v.status = dev.status();
         v.info = dev.info().clone();
+        v.sensors = dev.sensors();
+        v.sensor_snapshot_at = Instant::now();
         if v.layout != *dev.layout() {
             v.layout = dev.layout().clone();
         }
@@ -196,7 +201,12 @@ fn run_worker(
             DeviceStatus::Connected => {
                 let Some(frame) = frame else { continue };
                 match dev.push_frame(&frame) {
-                    Ok(()) => guard(&view).frames += 1,
+                    Ok(()) => {
+                        let mut view = guard(&view);
+                        view.frames += 1;
+                        view.sensors = dev.sensors();
+                        view.sensor_snapshot_at = Instant::now();
+                    }
                     Err(e) if e.is_gone() => {
                         tracing::info!(device = %dev.info().id, "device unplugged, releasing worker");
                         publish(dev.as_ref(), &view, Some(Some(e.to_string())));
@@ -476,6 +486,8 @@ impl Engine {
         let id_str = id.0.clone();
         tracing::info!(device = %id, name = %dev.info().name, "device added");
         let view = Arc::new(Mutex::new(View {
+            sensors: Vec::new(),
+            sensor_snapshot_at: Instant::now(),
             info: dev.info().clone(),
             status: DeviceStatus::Disconnected,
             layout: dev.layout().clone(),
@@ -747,6 +759,21 @@ impl Engine {
             .map(|w| {
                 let v = guard(&w.view);
                 DeviceSummary {
+                    sensors: v
+                        .sensors
+                        .iter()
+                        .cloned()
+                        .map(|mut sensor| {
+                            sensor.age_ms = sensor.age_ms.saturating_add(
+                                v.sensor_snapshot_at
+                                    .elapsed()
+                                    .as_millis()
+                                    .min(u128::from(u64::MAX))
+                                    as u64,
+                            );
+                            sensor
+                        })
+                        .collect(),
                     info: v.info.clone(),
                     status: v.status.clone(),
                     brightness: w.correction.brightness,

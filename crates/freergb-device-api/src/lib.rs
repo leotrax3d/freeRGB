@@ -60,6 +60,15 @@ pub enum DeviceStatus {
     Faulted(String),
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SensorReading {
+    pub id: String,
+    pub name: String,
+    pub unit: String,
+    pub value: Option<f64>,
+    pub age_ms: u64,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum DeviceError {
     #[error("transport: {0}")]
@@ -76,6 +85,10 @@ pub enum DeviceError {
 
 /// What the engine needs from any RGB device, real or virtual.
 pub trait RgbDevice: Send {
+    /// Cached sensor values only; must not perform transport I/O.
+    fn sensors(&self) -> Vec<SensorReading> {
+        Vec::new()
+    }
     fn info(&self) -> &DeviceInfo;
 
     /// Opens the device and puts it into a state where frames can be pushed.

@@ -91,3 +91,22 @@ transient startup/run delay was established.
 
 The Windows release smoke is added to CI; CI has not been pushed/run for this
 change. No local Linux or real-hardware run, and no automated GUI click test.
+
+## Cooling/macros/distribution — 2026-10-19
+
+Windows: 116 workspace tests pass; Clippy with denied warnings, formatting,
+debug/release builds and the expanded release IPC smoke pass. New coverage includes
+curve interpolation/hysteresis/stale-input policy, macro scheduling/cancel/input gate,
+definition persistence, semver/asset selection and tamper detection. LINK lifecycle
+simulator also verifies cached RPM publication. No test sends keyboard input or new
+cooling commands to real devices.
+
+Installer compilation with official Inno Setup 6.7.3 passed; log
+`target/installer-build.log`, executable/checksum under `target/dist/`. No live
+install/upgrade/uninstall or real updater version transition has been performed.
+New GUI panels compile; interactive clicks are not automatically tested.
+
+GitHub Package workflow dispatched; artifact runner last observed queued.
+Older CI Windows passed, Ubuntu failed missing PipeWire libraries; CI dependencies
+were corrected, fresh Linux confirmation pending. Do not carry forward an unqualified
+claim that all current Linux checks are green.

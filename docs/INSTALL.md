@@ -1,9 +1,17 @@
 # Installation
 
-freeRGB is not packaged yet; you build it from source. Quit SignalRGB, iCUE and other RGB
-software first – two programs driving the same device can lock it up until it is re-plugged.
+The Windows installer can be built locally or through the GitHub Package workflow.
+There is not yet a published release. For actual hardware use, close SignalRGB/iCUE
+first; the daemon also detects common conflicts. Virtual demo mode can run alongside them.
 
 ## Windows 10 / 11
+
+Installer artifact: `target/dist/freeRGB-0.1.0-windows-x86_64-setup.exe` after packaging.
+It installs per user with start-menu entries, a Demo shortcut and an uninstaller.
+Desktop shortcut and login startup are optional; no driver/system service is installed.
+See `UPDATES.md`. Running the installer is a separate user action.
+
+Source build:
 
 Requirements: [Rust](https://rustup.rs/) (stable, MSVC toolchain) and the Visual Studio
 Build Tools with the "Desktop development with C++" workload.
@@ -26,14 +34,15 @@ State and profiles: `%APPDATA%\freeRGB\` (`state.json`, `profiles\`).
 
 ## Linux
 
-Status: builds and passes all tests in CI (Ubuntu); **access to real hardware has not been
-tested yet.** Feedback welcome.
+Status: Linux hardware is untested. An older CI run failed because PipeWire development
+libraries were missing; the dependency list has been corrected and a new result is pending.
 
 Build dependencies (Debian/Ubuntu names):
 
 ```bash
 sudo apt install build-essential pkg-config libudev-dev \
-  libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev
+  libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
+  libpipewire-0.3-dev libspa-0.2-dev libclang-dev
 ```
 
 Build and install:

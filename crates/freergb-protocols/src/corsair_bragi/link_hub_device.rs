@@ -37,6 +37,8 @@ pub struct LinkHubDevice<T: HidTransport> {
     watchdog: RpmWatchdog,
     last_check: Instant,
     tripped: Option<String>,
+    rpm: Vec<Option<u16>>,
+    rpm_read_at: Option<Instant>,
 }
 
 fn proto(e: ProbeError) -> DeviceError {
@@ -70,6 +72,8 @@ impl<T: HidTransport> LinkHubDevice<T> {
             watchdog: RpmWatchdog::new(Vec::new()),
             last_check: Instant::now(),
             tripped: None,
+            rpm: Vec::new(),
+            rpm_read_at: None,
         }
     }
 
@@ -151,7 +155,9 @@ impl<T: HidTransport> LinkHubDevice<T> {
             }
             self.layout = Self::build_layout(&names, &segments);
             self.segments = segments;
-            self.watchdog = RpmWatchdog::new(self.p.rpm());
+            self.rpm = self.p.rpm();
+            self.rpm_read_at = Some(Instant::now());
+            self.watchdog = RpmWatchdog::new(self.rpm.clone());
             self.p
                 .ok(
                     open_endpoint(TARGET_HUB, Handle::Lighting, EP_LIGHTING_CONTROLLER),
@@ -232,6 +238,8 @@ impl<T: HidTransport> RgbDevice for LinkHubDevice<T> {
         if self.last_check.elapsed() >= WATCHDOG_INTERVAL {
             self.last_check = Instant::now();
             let now = self.p.rpm();
+            self.rpm = now.clone();
+            self.rpm_read_at = Some(Instant::now());
             if let Some(msg) = self.watchdog.check(&now) {
                 return Err(self.trip(msg));
             }
@@ -241,6 +249,23 @@ impl<T: HidTransport> RgbDevice for LinkHubDevice<T> {
 
     fn status(&self) -> DeviceStatus {
         self.status.clone()
+    }
+
+    fn sensors(&self) -> Vec<freergb_device_api::SensorReading> {
+        let age_ms = self.rpm_read_at.map_or(u64::MAX, |at| {
+            at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64
+        });
+        self.rpm
+            .iter()
+            .enumerate()
+            .map(|(index, value)| freergb_device_api::SensorReading {
+                id: format!("rpm:{index}"),
+                name: format!("RPM sensor {index} (channel identity unconfirmed)"),
+                unit: "rpm".into(),
+                value: value.map(f64::from),
+                age_ms,
+            })
+            .collect()
     }
 
     fn disconnect(&mut self, final_color: Option<Rgb>) -> Result<(), DeviceError> {

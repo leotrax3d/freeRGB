@@ -947,6 +947,14 @@ mod tests {
         assert_eq!(dev.layout().len(), 86);
         assert_eq!(dev.layout().height, 6);
         assert_eq!(dev.info().firmware.as_deref(), Some("4.1.144"));
+        let sensors = dev.sensors();
+        assert!(!sensors.is_empty());
+        assert!(sensors
+            .iter()
+            .all(|sensor| sensor.unit == "rpm" && sensor.age_ms < 1000));
+        assert!(sensors
+            .iter()
+            .any(|sensor| sensor.value.is_some_and(|v| v > 0.0)));
 
         let mut f = Frame::solid(86, Rgb::BLACK);
         f.colors_mut()[24] = Rgb::new(1, 2, 3); // first LED of the AIO segment
