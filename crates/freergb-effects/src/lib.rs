@@ -204,10 +204,53 @@ impl EffectSpec {
         }
     }
 
-    /// Checks values the type system cannot (layer stacks).
+    /// Checks finite/ranged parameters, including every layer of custom effects.
     pub fn validate(&self) -> Result<(), String> {
+        let range = |name: &str, v: f32, min: f32, max: f32| {
+            if v.is_finite() && (min..=max).contains(&v) {
+                Ok(())
+            } else {
+                Err(format!("{name} must be finite and in {min}..={max}"))
+            }
+        };
+        let period = |v: u32| {
+            if (1..=86_400_000).contains(&v) {
+                Ok(())
+            } else {
+                Err("period_ms must be 1..=86400000".into())
+            }
+        };
         match self {
             EffectSpec::Layers { layers } => layers::validate(layers),
+            EffectSpec::RainbowWave { speed, scale }
+            | EffectSpec::RadialRainbow { speed, scale } => {
+                range("speed", *speed, -100.0, 100.0)?;
+                range("scale", *scale, 0.001, 1000.0)
+            }
+            EffectSpec::Breathing { period_ms, .. } | EffectSpec::ColorCycle { period_ms } => {
+                period(*period_ms)
+            }
+            EffectSpec::Gradient { angle_deg, .. } => {
+                range("angle_deg", *angle_deg, -360_000.0, 360_000.0)
+            }
+            EffectSpec::Scanner {
+                period_ms, width, ..
+            } => {
+                period(*period_ms)?;
+                range("width", *width, 0.001, 1.0)
+            }
+            EffectSpec::Twinkle {
+                period_ms, density, ..
+            } => {
+                period(*period_ms)?;
+                range("density", *density, 0.0, 1.0)
+            }
+            EffectSpec::AudioPulse { sensitivity, .. } => {
+                range("sensitivity", *sensitivity, 0.0, 100.0)
+            }
+            EffectSpec::ScreenAmbience { saturation } => {
+                range("saturation", *saturation, 0.0, 10.0)
+            }
             _ => Ok(()),
         }
     }

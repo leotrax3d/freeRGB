@@ -24,6 +24,8 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `daemon.version` | – | `{api_version, daemon_version}` |
 | `daemon.shutdown` | – | `true`; daemon releases devices and exits |
 | `devices.list` | – | `[{info, status, brightness, region, leds, frames, dropped, last_error}]` |
+| `plugins.list` | – | `[{id,name,access,enabled,allowed,status,last_error,frames}]`; status null while stopped or awaiting start/conflict resolution |
+| `plugins.start` / `plugins.stop` | `{"id":"example-strip"}` | `true`; only IDs explicitly configured with `--plugin`; start occurs on next render tick |
 | `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices, conflicts, audio, screen}` – `conflicts` lists other RGB software that is running (hardware is released meanwhile) |
 | `effects.list` | – | effect names: `solid`, `rainbow_wave`, `breathing`, `gradient`, `color_cycle`, `radial_rainbow`, `scanner`, `twinkle`, `audio_pulse`, `audio_spectrum`, `screen_ambience`, `layers` (audio/screen effects start the respective capture only while active) |
 | `effects.default` | `{"name": "scanner"}` | default `EffectSpec` for that effect (use it as a template for `effects.set`) |
@@ -46,11 +48,22 @@ CLI client: `freergb ctl <method> [params-json]`.
 ## Errors
 `-32700` parse error, `-32600` missing method, `-32601` unknown method,
 `-32602` invalid params (also invalid profile names), `-32004` profile not found,
-`-32003` profiles disabled (`--no-state`), `-32000` storage I/O error.
+`-32003` profiles disabled (`--no-state`), `-32000` storage I/O error,
+`-32005` plugin missing from allowlist or hardware start disabled.
+
+Requests are limited to 262144 bytes including newline. An oversized request receives
+`-32600` with null ID and the connection closes. Invalid UTF-8 or incomplete EOF lines
+also close the connection. Other connections remain usable.
+
+Effect parameters are validated before mutation, including inside layers: speed
+-100..100, scale 0.001..1000, period_ms 1..86400000, angle -360000..360000,
+scanner width 0.001..1, twinkle density 0..1, audio sensitivity 0..100, screen
+saturation 0..10. Floating parameters must be finite. State/profile loads apply
+the same validation, plus brightness and device region validation.
 
 Profiles live in `profiles/<name>.json` next to the state file. Names: 1–64 characters,
 letters, digits, space, `-`, `_` – nothing that could leave the directory.
 
 ## Planned
-`layouts.get|set`, `plugins.list`,
+`layouts.get|set`,
 `frames.push` (screen ambience / external plugins), event subscription for the GUI.

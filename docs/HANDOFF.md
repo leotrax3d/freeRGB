@@ -2,7 +2,7 @@
 
 ## Phase
 Roadmap phases 1–8 done: first real RGB device (K70 CORE) validated, background
-service with local API working end-to-end. Phase 9: native GUI (egui) talks only to the API; declarative device plugins implemented. Phase 11 features (profiles, layout editor, audio, screen capture, layered effect editor) are present. Next: isolated process plugins and hardware soak validation.
+service with local API working end-to-end. Phase 9: native GUI (egui) talks only to the API; declarative and process device plugin foundations implemented. Phase 11 features (profiles, layout editor, audio, screen capture, layered effect editor) are present. Next: hardware soak/platform validation and effect-process plugins.
 
 ## Done
 * Tool/environment inventory (no "Reverse Engineer Anything" MCP server available).
@@ -28,11 +28,12 @@ service with local API working end-to-end. Phase 9: native GUI (egui) talks only
 | `freergb-client` | blocking JSON-RPC client (used by CLI and GUI) |
 | `freergb-audio` | audio analysis (8 log bands, auto gain, smoothing) and system-audio capture (WASAPI loopback) |
 | `freergb-screen` | screen capture of the primary monitor (xcap), downscaled to 64x36 |
-| `freergb-gui` | binary `freergb-gui` (egui): devices + per-device brightness, canvas layout editor, all effects with parameters, profiles, stop daemon |
+| `freergb-gui` | binary `freergb-gui` (egui): devices + per-device brightness, canvas layout editor, all effects with parameters, profiles, plugin start/stop, stop daemon |
+| `freergb-plugins` | explicit native device processes, versioned stdio, timeouts/fault isolation, virtual Rust reference binary |
 
 ## Tests
 `cargo fmt --check`, `cargo clippy --workspace --all-targets -D warnings`,
-`cargo test --workspace` → 97 tests passing locally (Windows); GitHub Actions CI runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (reported green on 2026-10-18, not rechecked this cycle). Hardware on Linux not yet tested.
+Current verification results are in `TESTING.md`. GitHub Actions runs fmt/clippy/test/release build on windows-latest and ubuntu-latest (reported green on 2026-10-18, not rechecked this cycle). Hardware on Linux not yet tested.
 Hardware results: `DEVICES.md#validation-log`.
 
 ## Open issues / questions
@@ -52,7 +53,7 @@ Hardware results: `DEVICES.md#validation-log`.
 
 ## Next tasks
 1. Validate FIFO HID scheduling with simultaneous K70/hub traffic; measure FPS and run a long soak.
-2. Plugin stage 2: out-of-process protocol plugins over the local API.
+2. Extend process device plugins with evidence-backed hardware implementations and effect-process support (neither supplied yet).
 3. iCUE LINK hub: Commander DUO ARGB ports (if any); longer soak (hours) before making `--enable-link-hub` a recommended default.
 4. Test hardware access on a real Linux machine with `packaging/linux/60-freergb.rules` (see `INSTALL.md`).
 5. Linux GUI/capture validation; autostart proposal (system changes still require approval).
@@ -75,4 +76,25 @@ Hardware results: `DEVICES.md#validation-log`.
 * No new hardware validation or Linux run in this cycle. Prior hardware/CI claims
   above are inherited records, not newly reproduced measurements.
 * Entry points for this change: `crates/freergb-hid/src/gate.rs`,
-  `scripts/smoke-daemon.ps1`. Plugin stage 2 remains outstanding.
+  `scripts/smoke-daemon.ps1`. Plugin stage 2 was addressed in the next cycle below.
+
+## Process-plugin milestone — 2026-10-19
+* `WORKLIST.md` tracks the implementation checklist and remaining product backlog.
+* New `freergb-plugins`: validated startup manifests, one process per device,
+  versioned bounded stdio, read/write deadlines, child termination/reaping, retry
+  through existing workers. `freergb-plugin-virtual` is a real Rust child example.
+* `--plugin JSON` is repeatable, explicit native-code trust. `plugins.list/start/stop`
+  manage only configured IDs; GUI controls added. No implicit plugin discovery.
+* `--no-hardware` blocks hardware plugins. At most one hardware plugin; its
+  configuration excludes built-in adapters. Existing RGB-app conflict handling applies.
+* Effect parameters/layers and saved state/profiles validated; local API lines capped
+  at 256 KiB. Invalid profiles do not replace the running effect.
+* Windows integration smoke confirms healthy rendering alongside a crashing plugin,
+  plugin stop/restart, color round trip and clean daemon exit. No leftover daemon or
+  reference-plugin processes observed after the test.
+* Native plugins are not sandboxed; forced kill cannot restore real hardware.
+  No hardware process plugin, effect-process plugin, hot manifest reload, signatures
+  or installation manager is implemented. GUI controls compile; interactive clicks
+  were not automated. Linux example/CI configuration added, no local Linux run.
+* Entry points: `crates/freergb-plugins/src/lib.rs`, its `tests/process.rs`,
+  `examples/plugins/`, `Engine::configure_plugins`, `scripts/smoke-daemon.ps1 -WithPlugin`.

@@ -13,7 +13,7 @@ pub enum ProfileError {
     InvalidName(String),
     #[error("profile {0:?} does not exist")]
     NotFound(String),
-    #[error("profile {0:?} is not valid JSON: {1}")]
+    #[error("profile {0:?} is invalid: {1}")]
     Corrupt(String, String),
     #[error("I/O: {0}")]
     Io(#[from] std::io::Error),
@@ -75,7 +75,7 @@ pub fn load(dir: &Path, name: &str) -> Result<State, ProfileError> {
         std::io::ErrorKind::NotFound => ProfileError::NotFound(name.to_owned()),
         _ => e.into(),
     })?;
-    serde_json::from_str(&text).map_err(|e| ProfileError::Corrupt(name.to_owned(), e.to_string()))
+    State::from_json(&text).map_err(|e| ProfileError::Corrupt(name.to_owned(), e))
 }
 
 pub fn delete(dir: &Path, name: &str) -> Result<(), ProfileError> {
@@ -143,6 +143,20 @@ mod tests {
             load(&dir, "Broken"),
             Err(ProfileError::Corrupt(..))
         ));
+        let invalid = State {
+            brightness: -1.0,
+            ..State::default()
+        };
+        std::fs::write(
+            dir.join("Invalid.json"),
+            serde_json::to_string(&invalid).unwrap(),
+        )
+        .unwrap();
+        assert!(matches!(
+            load(&dir, "Invalid"),
+            Err(ProfileError::Corrupt(..))
+        ));
+        std::fs::remove_file(dir.join("Invalid.json")).unwrap();
 
         delete(&dir, "Zeta").unwrap();
         assert!(matches!(

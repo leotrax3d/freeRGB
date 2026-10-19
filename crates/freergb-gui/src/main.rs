@@ -21,6 +21,7 @@ struct Snapshot {
     connected: bool,
     error: Option<String>,
     devices: Vec<Value>,
+    plugins: Vec<Value>,
     diagnostics: Option<Value>,
     effect: Option<Value>,
     /// `None` when the daemon runs without profile storage (`--no-state`).
@@ -78,6 +79,10 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
         let profiles = freergb_client::call("profiles.list", Value::Null)
             .ok()
             .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
+        let plugins = freergb_client::call("plugins.list", Value::Null)
+            .ok()
+            .and_then(|v| v.as_array().cloned())
+            .unwrap_or_default();
         let custom_effects = freergb_client::call("custom_effects.list", Value::Null)
             .ok()
             .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
@@ -87,6 +92,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                 Ok((devices, diag, effect)) => {
                     s.connected = true;
                     s.devices = devices.as_array().cloned().unwrap_or_default();
+                    s.plugins = plugins;
                     s.diagnostics = Some(diag);
                     s.effect = Some(effect);
                     s.profiles = profiles;
@@ -604,12 +610,23 @@ fn layout_editor(
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let (connected, error, devices, diag, effect, profiles, custom_effects, generation) = {
+        let (
+            connected,
+            error,
+            devices,
+            plugins,
+            diag,
+            effect,
+            profiles,
+            custom_effects,
+            generation,
+        ) = {
             let s = self.state.lock().unwrap_or_else(|e| e.into_inner());
             (
                 s.connected,
                 s.error.clone(),
                 s.devices.clone(),
+                s.plugins.clone(),
                 s.diagnostics.clone(),
                 s.effect.clone(),
                 s.profiles.clone(),
@@ -675,6 +692,44 @@ impl eframe::App for App {
                     for d in &devices {
                         if let Some((id, b)) = device_row(ui, d, &mut self.device_brightness) {
                             self.send("devices.set_brightness", json!({"id": id, "value": b}));
+                        }
+                    }
+                    if !plugins.is_empty() {
+                        ui.separator();
+                        ui.heading("Plugins");
+                        for plugin in &plugins {
+                            let id = plugin["id"].as_str().unwrap_or_default();
+                            ui.push_id(id, |ui| {
+                                ui.label(plugin["name"].as_str().unwrap_or(id));
+                                let enabled = plugin["enabled"].as_bool().unwrap_or(false);
+                                let allowed = plugin["allowed"].as_bool().unwrap_or(false);
+                                if ui
+                                    .add_enabled(
+                                        connected && allowed,
+                                        egui::Button::new(if enabled {
+                                            "Stop plugin"
+                                        } else {
+                                            "Start plugin"
+                                        }),
+                                    )
+                                    .clicked()
+                                {
+                                    self.send(
+                                        if enabled {
+                                            "plugins.stop"
+                                        } else {
+                                            "plugins.start"
+                                        },
+                                        json!({"id": id}),
+                                    );
+                                }
+                                if !allowed {
+                                    ui.small("Hardware disabled for this daemon.");
+                                }
+                                if let Some(error) = plugin["last_error"].as_str() {
+                                    ui.colored_label(egui::Color32::LIGHT_RED, error);
+                                }
+                            });
                         }
                     }
                 });

@@ -60,3 +60,34 @@ It starts its own hidden daemon with `--no-hardware --virtual-device --no-state`
 checks the named-pipe API and color round trip, waits for a rendered frame, and
 shuts down its own process. Passed on Windows on 2026-10-19.
 Hardware FPS/soak measurements and Linux validation of this change remain open.
+
+## Process-plugin milestone — 2026-10-19
+
+Final Windows checks: **109 workspace tests pass**, workspace Clippy with
+`-D warnings`, `cargo fmt --all -- --check`, `cargo build --workspace --release`,
+and `git diff --check` pass. Logs are local in `target/codex-tests.log` and
+`target/codex-release.log` (ignored build artifacts).
+
+`./scripts/smoke-daemon.ps1 -WithPlugin` passed against release binaries:
+real named pipe, virtual rendering, color round trip, two real plugin children,
+one deliberately crashing while the healthy child keeps receiving frames,
+plugin stop/start, daemon shutdown. Process inventory afterward showed no remaining
+`freergbd` or `freergb-plugin-virtual` processes. SignalRGB stayed running;
+tests used `--no-hardware --no-state` and no real devices.
+
+New regressions cover manifest bounds/path resolution/unknown fields, exact RGB
+transfer and reconnect, blocked child stdin, hang/crash/bad version/bad ID/bad JSON/
+oversized replies, hardware-disabled allowlists, invalid saved profiles/effect layers,
+and IPC requests at/above the exact 256 KiB limit.
+
+During development, an IPC test initially waited for EOF without shutting down its
+client write half; fixed the test lifecycle. The profile test's new corrupt fixture
+initially changed its expected directory listing; now cleaned up within the test.
+One process fault test exceeded its 5-second total wall-time check on a workspace
+run; total includes OS startup as well as timed I/O. It now allows 15 seconds for
+the total and separately asserts the timeout error; the actual 500-ms test protocol
+deadline is unchanged. Subsequent full checks passed. No precise cause for the
+transient startup/run delay was established.
+
+The Windows release smoke is added to CI; CI has not been pushed/run for this
+change. No local Linux or real-hardware run, and no automated GUI click test.

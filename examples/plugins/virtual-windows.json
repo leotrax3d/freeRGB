@@ -1,0 +1,18 @@
+{
+  "api_version": 1,
+  "id": "example-strip",
+  "name": "Process plugin strip",
+  "executable": "../../target/release/freergb-plugin-virtual.exe",
+  "access": "virtual",
+  "timeout_ms": 1000,
+  "layout": {
+    "width": 4,
+    "height": 1,
+    "leds": [
+      { "name": "LED 1", "pos": [0, 0] },
+      { "name": "LED 2", "pos": [1, 0] },
+      { "name": "LED 3", "pos": [2, 0] },
+      { "name": "LED 4", "pos": [3, 0] }
+    ]
+  }
+}

@@ -46,6 +46,9 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
     if !conflicts.is_empty() {
         return 0;
     }
+    if lock(engine).has_hardware_plugins() {
+        return 0;
+    }
     let list = match freergb_hid::enumerate() {
         Ok(l) => l,
         Err(e) => {

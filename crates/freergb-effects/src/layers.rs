@@ -97,6 +97,7 @@ pub fn validate(layers: &[Layer]) -> Result<(), String> {
         if matches!(l.effect, EffectSpec::Layers { .. }) {
             return Err(format!("layer {i}: layer effects cannot be nested"));
         }
+        l.effect.validate().map_err(|e| format!("layer {i}: {e}"))?;
         if !(0.0..=1.0).contains(&l.opacity) {
             return Err(format!("layer {i}: opacity must be 0..=1"));
         }
@@ -231,6 +232,40 @@ mod tests {
         assert!(validate(&[Layer::new(solid(Rgb::RED))]).is_ok());
         // Invalid stacks render black instead of panicking.
         assert_eq!(render(vec![]).sample(0.5, 0.5), Rgb::BLACK);
+    }
+
+    #[test]
+    fn parameters_are_validated_inside_layers_too() {
+        let invalid = EffectSpec::Scanner {
+            color: Rgb::RED,
+            background: Rgb::BLACK,
+            period_ms: 0,
+            width: 0.1,
+        };
+        assert!(invalid.validate().is_err());
+        assert!(validate(&[Layer::new(invalid)]).is_err());
+        for name in EffectSpec::NAMES {
+            assert!(
+                EffectSpec::default_for(name).unwrap().validate().is_ok(),
+                "{name}"
+            );
+        }
+        for speed in [f32::NAN, f32::INFINITY, 101.0] {
+            assert!(EffectSpec::RainbowWave { speed, scale: 1.0 }
+                .validate()
+                .is_err());
+        }
+        assert!(EffectSpec::ScreenAmbience { saturation: -1.0 }
+            .validate()
+            .is_err());
+        assert!(EffectSpec::Twinkle {
+            color: Rgb::RED,
+            background: Rgb::BLACK,
+            density: 1.1,
+            period_ms: 1000
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]

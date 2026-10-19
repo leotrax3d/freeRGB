@@ -1,0 +1,17 @@
+[package]
+name = "freergb-plugins"
+description = "Versioned process-isolated RGB device plugins"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+freergb-core.workspace = true
+freergb-device-api.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { version = "1", features = ["rt", "process", "io-util", "time", "net"] }
+
+[lints]
+workspace = true

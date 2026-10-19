@@ -21,3 +21,13 @@
     reacquire ahead of already queued workers. Guards advance the queue on drop,
     including unwind. This prevents overtaking, not slow HID calls or OS scheduling
     delays; hardware throughput improvements require measurement. No new dependency.
+12. **Process plugins use private versioned stdio, not the shared API for frames.**
+    A startup manifest allowlist feeds normal device workers; the local API manages
+    start/stop/status. This avoids Rust ABI compatibility and API session ownership
+    complexity. Existing latest-frame slots and reconnect backoff are reused.
+    Tokio process pipes bound both reads and writes; faulted children are terminated.
+    Native plugin execution is explicit trust, not sandboxing. One hardware plugin
+    excludes built-in adapters until a shared cross-process transport exists.
+13. **Validate saved state as strictly as API input.** Corrupt or semantically invalid
+    startup state falls back with a warning; invalid profiles fail without mutating
+    current state. Layered effects validate every contained effect's parameters.

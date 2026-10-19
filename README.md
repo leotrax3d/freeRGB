@@ -25,7 +25,7 @@ no vendor software required.
 
 ## Project status
 
-*Last updated: 2026-10-18*
+*Last updated: 2026-10-19*
 
 | Area | State |
 |---|---|
@@ -35,12 +35,17 @@ no vendor software required.
 | Background service `freergbd` | ✅ one worker thread per device, reconnect, hot-plug, state + profiles persisted |
 | Local API (JSON-RPC over named pipe / Unix socket) | ✅ devices, effects, colour, brightness, profiles, diagnostics |
 | Native GUI (egui) | 🟡 devices with per-device brightness, drag-and-drop canvas layout, all effects with their parameters, profiles |
-| Plugin system | 🟡 stage 1: declarative device descriptions (TOML) – [docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md) |
+| Plugin system | 🟡 TOML device descriptions + opt-in process device plugins, start/stop GUI/API, Rust virtual reference – [docs/PLUGIN_SYSTEM.md](docs/PLUGIN_SYSTEM.md) |
 | Audio reactivity | ✅ Windows (WASAPI loopback), confirmed live on K70 + fans; Linux untested · `freergb audio-meter` |
 | Screen ambience | ✅ Windows (primary monitor, 64×36, ~30 FPS), confirmed live; Linux untested · `freergb screen-probe` |
 | Linux | 🟡 builds and tests pass in CI; hardware access not yet tested |
 
-**Numbers:** 11 crates · ~9,400 lines of Rust · 94 automated tests · CI on Windows and Ubuntu.
+**Workspace:** 12 crates · Windows/Ubuntu CI configured. Current work and verified
+results: [docs/WORKLIST.md](docs/WORKLIST.md), [docs/TESTING.md](docs/TESTING.md).
+
+Process plugin demo (after a release build):
+`freergbd --no-hardware --no-state --virtual-device --plugin examples/plugins/virtual-windows.json`.
+Use the Linux manifest on Linux. Native plugins are explicitly trusted code, not sandboxed.
 
 ### Supported hardware
 

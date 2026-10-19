@@ -10,6 +10,7 @@ use crate::state;
 use freergb_core::{Canvas, ColorCorrection, Frame, LedLayout, Region};
 use freergb_device_api::{DeviceId, DeviceInfo, DeviceStatus, RgbDevice};
 use freergb_effects::{Effect, EffectSpec};
+use freergb_plugins::{Access, Manifest, ProcessDevice};
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -86,6 +87,7 @@ pub struct Diagnostics {
 }
 
 pub struct Engine {
+    plugins: std::collections::BTreeMap<String, PluginEntry>,
     workers: Vec<Worker>,
     spec: EffectSpec,
     effect: Box<dyn Effect>,
@@ -110,6 +112,25 @@ pub struct Engine {
     /// Screen capture, running only while a screen effect is active.
     screen: Option<freergb_screen::ScreenInput>,
     screen_error: Option<String>,
+}
+
+struct PluginEntry {
+    manifest: Manifest,
+    enabled: bool,
+    allowed: bool,
+    error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PluginSummary {
+    pub id: String,
+    pub name: String,
+    pub access: Access,
+    pub enabled: bool,
+    pub allowed: bool,
+    pub status: Option<DeviceStatus>,
+    pub last_error: Option<String>,
+    pub frames: u64,
 }
 
 /// Body of a device worker thread.
@@ -227,6 +248,7 @@ impl Engine {
     pub fn new(spec: EffectSpec, target_fps: u32) -> Self {
         let now = Instant::now();
         let mut engine = Self {
+            plugins: Default::default(),
             workers: Vec::new(),
             effect: spec.build(),
             spec,
@@ -274,13 +296,142 @@ impl Engine {
         self.conflicts = c;
     }
 
+    /// Register an explicit startup allowlist. No executable path comes from IPC.
+    pub fn configure_plugins(
+        &mut self,
+        manifests: Vec<Manifest>,
+        hardware: bool,
+    ) -> Result<(), String> {
+        if !self.plugins.is_empty() {
+            return Err("plugins already configured".into());
+        }
+        if manifests.len() > 16 {
+            return Err("at most 16 plugins may be configured".into());
+        }
+        if manifests
+            .iter()
+            .filter(|p| p.access == Access::Hardware)
+            .count()
+            > 1
+        {
+            return Err("only one hardware plugin is allowed: cross-process HID serialization is unavailable".into());
+        }
+        let mut entries = std::collections::BTreeMap::new();
+        for manifest in manifests {
+            manifest.validate().map_err(|e| e.to_string())?;
+            let allowed = hardware || manifest.access == Access::Virtual;
+            let id = manifest.id.clone();
+            if entries
+                .insert(
+                    id,
+                    PluginEntry {
+                        manifest,
+                        enabled: allowed,
+                        allowed,
+                        error: None,
+                    },
+                )
+                .is_some()
+            {
+                return Err("duplicate plugin id".into());
+            }
+        }
+        self.plugins = entries;
+        Ok(())
+    }
+
+    /// Hardware plugins run exclusively from built-in adapters: the HID gate is
+    /// process-local and cannot serialize native plugin I/O.
+    pub fn has_hardware_plugins(&self) -> bool {
+        self.plugins
+            .values()
+            .any(|p| p.allowed && p.manifest.access == Access::Hardware)
+    }
+
+    pub fn plugins(&self) -> Vec<PluginSummary> {
+        let devices = self.devices();
+        self.plugins
+            .iter()
+            .map(|(id, p)| {
+                let device = devices.iter().find(|d| d.info.id == p.manifest.device_id());
+                PluginSummary {
+                    id: id.clone(),
+                    name: p.manifest.name.clone(),
+                    access: p.manifest.access,
+                    enabled: p.enabled,
+                    allowed: p.allowed,
+                    status: device.map(|d| d.status.clone()),
+                    last_error: p
+                        .error
+                        .clone()
+                        .or_else(|| device.and_then(|d| d.last_error.clone())),
+                    frames: device.map_or(0, |d| d.frames),
+                }
+            })
+            .collect()
+    }
+
+    pub fn set_plugin_enabled(&mut self, id: &str, enabled: bool) -> Result<(), String> {
+        let plugin = self
+            .plugins
+            .get_mut(id)
+            .ok_or("plugin is not in the startup allowlist")?;
+        if enabled && !plugin.allowed {
+            return Err("hardware plugins disabled by --no-hardware".into());
+        }
+        plugin.enabled = enabled;
+        plugin.error = None;
+        let device_id = plugin.manifest.device_id();
+        if !enabled {
+            if let Some(index) = self.workers.iter().position(|w| w.id == device_id) {
+                let mut worker = self.workers.remove(index);
+                worker.stop.store(true, Ordering::SeqCst);
+                worker.slot.1.notify_one();
+                if let Some(handle) = worker.handle.take() {
+                    let _ = handle.join();
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn sync_plugins(&mut self) {
+        let pending: Vec<_> = self
+            .plugins
+            .values()
+            .filter(|p| {
+                p.enabled
+                    && (p.manifest.access == Access::Virtual || self.conflicts.is_empty())
+                    && !self.has_device(&p.manifest.device_id())
+            })
+            .map(|p| p.manifest.clone())
+            .collect();
+        for manifest in pending {
+            let id = manifest.id.clone();
+            match ProcessDevice::new(manifest) {
+                Ok(device) => self.add_device(Box::new(device)),
+                Err(error) => {
+                    tracing::warn!(%error, "plugin configuration unavailable");
+                    if let Some(plugin) = self.plugins.get_mut(&id) {
+                        plugin.enabled = false;
+                        plugin.error = Some(error.to_string());
+                    }
+                }
+            }
+        }
+    }
+
     /// Stops and removes every real (`hid:`) device; each worker hands its
     /// device back to hardware mode first. Virtual devices stay. The next
     /// hot-plug scan without conflicts adds the hardware again.
     pub fn release_hardware(&mut self) -> usize {
         let (hw, keep): (Vec<Worker>, Vec<Worker>) = std::mem::take(&mut self.workers)
             .into_iter()
-            .partition(|w| w.id.0.starts_with("hid:"));
+            .partition(|w| {
+                w.id.0.starts_with("hid:")
+                    || (w.id.0.starts_with("plugin:")
+                        && guard(&w.view).info.kind != freergb_device_api::DeviceKind::Virtual)
+            });
         self.workers = keep;
         let n = hw.len();
         for w in &hw {
@@ -531,6 +682,7 @@ impl Engine {
     /// Renders one frame at `now` and offers it to every connected device.
     /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
+        self.sync_plugins();
         self.effect.render(
             now.saturating_duration_since(self.effect_start),
             &mut self.canvas,
@@ -854,4 +1006,34 @@ mod tests {
         assert!(e.devices()[1].dropped > 0);
         e.shutdown();
     }
+}
+#[test]
+fn plugin_allowlist_is_atomic_and_no_hardware_is_enforced() {
+    let mut engine = Engine::new(
+        EffectSpec::Solid {
+            color: freergb_core::Rgb::BLACK,
+        },
+        30,
+    );
+    let manifest = Manifest {
+        api_version: 1,
+        id: "blocked".into(),
+        name: "Blocked hardware".into(),
+        executable: std::env::current_exe().unwrap(),
+        args: vec![],
+        access: Access::Hardware,
+        layout: LedLayout::strip(1),
+        timeout_ms: 100,
+    };
+    assert!(engine
+        .configure_plugins(vec![manifest.clone(), manifest.clone()], false)
+        .is_err());
+    assert!(engine.plugins().is_empty());
+    engine.configure_plugins(vec![manifest], false).unwrap();
+    assert!(!engine.plugins()[0].allowed);
+    assert!(engine.set_plugin_enabled("blocked", true).is_err());
+    assert!(engine.set_plugin_enabled("unknown", true).is_err());
+    engine.tick(Instant::now());
+    assert!(engine.devices().is_empty());
+    assert!(!engine.has_hardware_plugins());
 }

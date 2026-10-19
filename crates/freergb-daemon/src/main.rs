@@ -41,6 +41,10 @@ struct Args {
     /// always treated as experimental. See docs/PLUGIN_SYSTEM.md.
     #[arg(long, value_name = "DIR")]
     user_devices: Option<std::path::PathBuf>,
+    /// Explicitly trust and load a native process plugin manifest (repeatable).
+    /// Hardware plugins exclude built-in hardware adapters; --no-hardware blocks them.
+    #[arg(long = "plugin", value_name = "JSON")]
+    plugins: Vec<std::path::PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -57,6 +61,17 @@ fn main() -> Result<()> {
             tracing::info!(path = %path.display(), "state file");
             engine = engine.with_state_file(path);
         }
+    }
+    let manifests = args
+        .plugins
+        .iter()
+        .map(|path| freergb_plugins::Manifest::load(path))
+        .collect::<std::io::Result<Vec<_>>>()?;
+    engine
+        .configure_plugins(manifests, !args.no_hardware)
+        .map_err(anyhow::Error::msg)?;
+    if engine.has_hardware_plugins() {
+        tracing::warn!("hardware process plugins configured: built-in hardware adapters disabled");
     }
     let engine: SharedEngine = Arc::new(Mutex::new(engine));
     if args.virtual_device {

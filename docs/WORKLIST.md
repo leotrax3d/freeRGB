@@ -1,0 +1,23 @@
+# Implementation worklist — 2026-10-19
+
+Completed milestone: process-plugin foundation and host hardening.
+This milestone does not imply completion of all hardware/platform goals.
+
+- [x] Versioned process protocol, validated opt-in manifests, bounded I/O,
+      timeout/crash isolation and child cleanup.
+- [x] Rust example plugin and subprocess integration tests.
+- [x] Daemon integration, plugin diagnostics and lifecycle API; GUI start/stop controls.
+- [x] Effect and persisted-profile validation, including layered effects.
+- [x] Bounded local API input with regression tests.
+- [x] Windows fmt/Clippy/109 tests/release and real IPC smoke checks, including peer crash.
+- [x] Update API/plugin/security/testing/handoff documentation and commit.
+
+Subsequent acceptance/backlog (not silently marked complete):
+- Simultaneous K70/LINK hub FIFO throughput measurement and multi-hour soak.
+- Linux build/GUI/capture verification and real Linux hardware test.
+- Further device protocols only after evidence; no guessed commands.
+- Effect-process plugins and broader hot-load UX after the device-plugin foundation.
+- Service/autostart installation requires approval for system configuration.
+
+Ordinary reversible implementation decisions are autonomous. Firmware, drivers,
+irreversible actions and system-wide changes retain the original approval boundary.

@@ -7,8 +7,11 @@
 
 use crate::{api, SharedEngine};
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::Notify;
+
+/// Includes the terminating newline. Oversized requests close the connection.
+pub const MAX_REQUEST_BYTES: usize = 256 * 1024;
 
 #[cfg(windows)]
 pub const PIPE_NAME: &str = r"\\.\pipe\freergb";
@@ -27,8 +30,26 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let (r, mut w) = tokio::io::split(stream);
-    let mut lines = BufReader::new(r).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
+    let mut reader = BufReader::new(r);
+    loop {
+        let mut bytes = Vec::new();
+        let read = (&mut reader)
+            .take((MAX_REQUEST_BYTES + 1) as u64)
+            .read_until(b'\n', &mut bytes)
+            .await;
+        if read.is_err() || bytes.is_empty() {
+            break;
+        }
+        if bytes.len() > MAX_REQUEST_BYTES {
+            let _ = w.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32600,\"message\":\"request exceeds 262144 bytes\"}}\n").await;
+            break;
+        }
+        if bytes.last() != Some(&b'\n') {
+            break;
+        }
+        let Ok(line) = String::from_utf8(bytes) else {
+            break;
+        };
         if line.trim().is_empty() {
             continue;
         }
@@ -89,6 +110,62 @@ mod tests {
     use freergb_core::Rgb;
     use freergb_effects::EffectSpec;
     use std::sync::Mutex;
+
+    #[tokio::test]
+    async fn oversized_unterminated_request_closes_connection() {
+        let engine = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::RED },
+            30,
+        )));
+        let (client, server) = tokio::io::duplex(4096);
+        let task = tokio::spawn(serve_conn(server, engine, Arc::new(Notify::new())));
+        let (read, mut write) = tokio::io::split(client);
+        let send =
+            tokio::spawn(async move { write.write_all(&vec![b'x'; MAX_REQUEST_BYTES + 1]).await });
+        let mut lines = BufReader::new(read).lines();
+        let response = tokio::time::timeout(std::time::Duration::from_secs(5), lines.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&response).unwrap()["error"]["code"],
+            -32600
+        );
+        assert!(lines.next_line().await.unwrap().is_none());
+        task.await.unwrap();
+        let _ = send.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn exact_limit_request_is_accepted() {
+        let engine = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::RED },
+            30,
+        )));
+        let (client, server) = tokio::io::duplex(4096);
+        let task = tokio::spawn(serve_conn(server, engine, Arc::new(Notify::new())));
+        let (read, mut write) = tokio::io::split(client);
+        let mut bytes = br#"{"id":1,"method":"daemon.version"}"#.to_vec();
+        bytes.resize(MAX_REQUEST_BYTES - 1, b' ');
+        bytes.push(b'\n');
+        let send = tokio::spawn(async move {
+            write.write_all(&bytes).await.unwrap();
+            write.shutdown().await.unwrap();
+        });
+        let mut lines = BufReader::new(read).lines();
+        let response = tokio::time::timeout(std::time::Duration::from_secs(5), lines.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&response).unwrap()["result"]["api_version"],
+            1
+        );
+        send.await.unwrap();
+        task.await.unwrap();
+    }
 
     #[tokio::test]
     async fn line_protocol_over_duplex_stream() {

@@ -43,3 +43,8 @@ jobs:
 
       - name: release build
         run: cargo build --workspace --release
+
+      - name: Windows daemon and process plugin smoke test
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/smoke-daemon.ps1 -WithPlugin

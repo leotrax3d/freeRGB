@@ -33,6 +33,30 @@ impl Default for State {
     }
 }
 
+impl State {
+    pub fn validate(&self) -> Result<(), String> {
+        self.effect.validate()?;
+        if !(0.0..=1.0).contains(&self.brightness)
+            || self
+                .device_brightness
+                .values()
+                .any(|v| !(0.0..=1.0).contains(v))
+        {
+            return Err("brightness must be finite and in 0..=1".into());
+        }
+        if self.device_regions.values().any(|r| !r.is_valid()) {
+            return Err("invalid device region".into());
+        }
+        Ok(())
+    }
+
+    pub fn from_json(text: &str) -> Result<Self, String> {
+        let state: Self = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        state.validate()?;
+        Ok(state)
+    }
+}
+
 pub fn default_path() -> Option<PathBuf> {
     #[cfg(windows)]
     let dir = std::env::var_os("APPDATA").map(|d| PathBuf::from(d).join("freeRGB"));
@@ -47,7 +71,7 @@ pub fn default_path() -> Option<PathBuf> {
 /// Loads state; a missing or unreadable file yields the default (logged).
 pub fn load(path: &Path) -> State {
     match std::fs::read_to_string(path) {
-        Ok(s) => serde_json::from_str(&s).unwrap_or_else(|e| {
+        Ok(s) => State::from_json(&s).unwrap_or_else(|e| {
             tracing::warn!(path = %path.display(), error = %e, "ignoring invalid state file");
             State::default()
         }),
@@ -57,6 +81,9 @@ pub fn load(path: &Path) -> State {
 
 /// Writes atomically (temp file + rename) so a crash never leaves a torn file.
 pub fn save(path: &Path, state: &State) -> std::io::Result<()> {
+    state
+        .validate()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
@@ -69,6 +96,42 @@ pub fn save(path: &Path, state: &State) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use freergb_core::Rgb;
+
+    #[test]
+    fn rejects_semantically_invalid_state_without_overwriting_good_state() {
+        let dir =
+            std::env::temp_dir().join(format!("freergb-state-invalid-{}", std::process::id()));
+        let path = dir.join("state.json");
+        save(&path, &State::default()).unwrap();
+        let mut bad = State {
+            brightness: 1.1,
+            ..State::default()
+        };
+        assert!(save(&path, &bad).is_err());
+        assert_eq!(load(&path), State::default());
+        assert!(State::from_json(&serde_json::to_string(&bad).unwrap()).is_err());
+        bad.brightness = 1.0;
+        bad.device_brightness.insert("test".into(), -1.0);
+        assert!(bad.validate().is_err());
+        bad.device_brightness.clear();
+        bad.effect = EffectSpec::Layers { layers: vec![] };
+        assert!(bad.validate().is_err());
+        std::fs::write(&path, serde_json::to_string(&bad).unwrap()).unwrap();
+        assert_eq!(load(&path), State::default());
+        bad.effect = State::default().effect;
+        bad.device_regions.insert(
+            "test".into(),
+            freergb_core::Region {
+                x: 0.0,
+                y: 0.0,
+                w: 0.0,
+                h: 1.0,
+            },
+        );
+        assert!(bad.validate().is_err());
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(dir).unwrap();
+    }
 
     #[test]
     fn round_trip_and_fallbacks() {

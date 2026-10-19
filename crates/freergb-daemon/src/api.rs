@@ -85,7 +85,7 @@ fn profile_call(
             "profiles are disabled (daemon runs with --no-state)".to_owned(),
         ))?;
     let map_err = |e: ProfileError| match e {
-        ProfileError::InvalidName(_) => (-32602, e.to_string()),
+        ProfileError::InvalidName(_) | ProfileError::Corrupt(..) => (-32602, e.to_string()),
         ProfileError::NotFound(_) => (-32004, e.to_string()),
         _ => (-32000, e.to_string()),
     };
@@ -142,6 +142,17 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             "daemon_version": env!("CARGO_PKG_VERSION"),
         })),
         "devices.list" => Ok(json!(lock(engine).devices())),
+        "plugins.list" => Ok(json!(lock(engine).plugins())),
+        "plugins.start" | "plugins.stop" => params
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| invalid_params("expected plugin id from plugins.list"))
+            .and_then(|id| {
+                lock(engine)
+                    .set_plugin_enabled(id, method == "plugins.start")
+                    .map_err(|e| (-32005, e))
+            })
+            .map(|()| json!(true)),
         "diagnostics.get" => Ok(json!(lock(engine).diagnostics())),
         "effects.list" => Ok(json!(EffectSpec::NAMES)),
         "effects.default" => params
@@ -253,6 +264,35 @@ mod tests {
 
     fn call(e: &SharedEngine, req: &str) -> Value {
         serde_json::from_str(&handle_line(e, req).line).unwrap()
+    }
+
+    #[test]
+    fn invalid_effects_and_unknown_plugins_do_not_mutate_engine() {
+        let initial = EffectSpec::Solid { color: Rgb::GREEN };
+        let e = Arc::new(Mutex::new(Engine::new(initial.clone(), 30)));
+        for spec in [
+            json!({"type":"rainbow_wave", "speed":1e38, "scale":1}),
+            json!({"type":"layers", "layers":[{"effect":{"type":"color_cycle", "period_ms":0}}]}),
+        ] {
+            let req = json!({"id":1,"method":"effects.set","params":spec});
+            assert_eq!(call(&e, &req.to_string())["error"]["code"], -32602);
+            assert_eq!(*lock(&e).effect(), initial);
+        }
+        assert_eq!(
+            call(&e, r#"{"id":2,"method":"plugins.list"}"#)["result"],
+            json!([])
+        );
+        assert_eq!(
+            call(
+                &e,
+                r#"{"id":3,"method":"plugins.start","params":{"id":"not-trusted"}}"#
+            )["error"]["code"],
+            -32005
+        );
+        assert_eq!(
+            call(&e, r#"{"id":4,"method":"plugins.stop","params":{}}"#)["error"]["code"],
+            -32602
+        );
     }
 
     #[test]

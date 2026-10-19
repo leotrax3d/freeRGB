@@ -1288,6 +1288,7 @@ dependencies = [
  "freergb-device-api",
  "freergb-effects",
  "freergb-hid",
+ "freergb-plugins",
  "freergb-protocols",
  "freergb-screen",
  "serde",
@@ -1338,6 +1339,17 @@ dependencies = [
  "serde",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "freergb-plugins"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-device-api",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

@@ -8,7 +8,7 @@ freeRGB splits this into two stages:
 | Stage | What | Status |
 |---|---|---|
 | 1 | **Declarative device descriptions** (TOML): identity, adapter, adapter parameters, LED layout | ✅ implemented |
-| 2 | **Out-of-process protocol plugins** for new protocols, talking to `freergbd` over the local API | ⏳ planned |
+| 2 | **Out-of-process device plugins**, versioned stdio protocol; managed through local API | ✅ foundation implemented; virtual reference tested, hardware plugin validation pending |
 
 ## Stage 1: device descriptions
 
@@ -66,8 +66,89 @@ freergbd --user-devices ~/freergb-devices     # load every *.toml in that direct
 
 Currently supported adapters for descriptions: `corsair-bragi`.
 
-## Stage 2: protocol plugins (planned)
+## Stage 2: process device plugins
 
-Native protocol plugins as separate processes that register devices and receive frames
-through the local API → fault isolation, no Rust ABI issues, any language. Versioning via an
-`api_version` in the plugin manifest; unsigned plugins only with user consent.
+`freergb-plugins` launches one explicitly trusted executable per manifest/device.
+No shared Rust ABI, installation, automatic discovery or network access is needed.
+The child receives initialized layout-order frames from the existing engine, including
+global/device brightness and canvas placement. GUI/device diagnostics work as usual.
+
+Build with `cargo build --workspace --release`, then from the repository root:
+
+```powershell
+./target/release/freergbd.exe --no-hardware --no-state --virtual-device --plugin examples/plugins/virtual-windows.json
+./target/release/freergb.exe ctl plugins.list
+./target/release/freergb.exe ctl plugins.stop '{"id":"example-strip"}'
+./target/release/freergb.exe ctl plugins.start '{"id":"example-strip"}'
+```
+
+Linux uses `examples/plugins/virtual-linux.json` and executables without `.exe`.
+The Linux example is supplied for CI/future validation; it has not been run locally.
+The GUI's Plugins section exposes the same start/stop controls.
+
+### Manifest and trust
+
+See the complete examples under `examples/plugins/`. Required fields:
+`api_version` (1), `id` (1–64 ASCII letters/digits/`-`/`_`), `name`, `executable`,
+`access` (`virtual` or `hardware`), `layout`. Optional `args` defaults to `[]`;
+`timeout_ms` defaults to 1000 and must be 50–5000. Layouts contain 1–4096 LEDs,
+valid positions and unique names. Unknown manifest fields and duplicate plugin IDs
+are rejected before any plugins start. At most 16 manifests are allowed.
+
+Paths resolve relative to the manifest, are canonicalized, and must name a file.
+Commands are launched directly without a shell or PATH lookup; Windows children
+start without a console window. Supplying `--plugin PATH` is an explicit trust
+decision: **native plugins run with the daemon user's privileges and are not
+sandboxed**. They must not spawn descendants. The access field is a declaration,
+not an OS permission boundary. Only use reviewed plugins. No signatures or download
+manager are implemented. Replacing an executable changes the code used on restart.
+
+`--no-hardware` leaves declared hardware plugins disabled and prevents API start.
+At most one hardware plugin is allowed, and its configuration excludes built-in
+hardware adapters for the entire daemon run. This prevents assuming the process-local
+HID gate can serialize another process. SignalRGB/iCUE/OpenRGB conflict detection
+also suspends hardware plugins; virtual plugins continue. No real hardware process
+plugin is shipped or validated yet. A plugin must use only evidence-backed commands
+and handle its own recovery; killing a failed child cannot restore physical hardware.
+
+### Wire protocol version 1
+
+UTF-8 JSON lines over child stdin/stdout; no unsolicited stdout/logging. Stderr is
+discarded to avoid unbounded capture. One outstanding request per device, monotonic
+request IDs, no notifications/batching. Each message including newline is at most
+262144 bytes. Requests:
+
+```json
+{"api_version":1,"id":1,"method":"initialize","params":{"layout":{"width":1,"height":1,"leds":[{"name":"LED 1","pos":[0,0]}]}}}
+{"api_version":1,"id":2,"method":"frame","params":{"colors":[{"r":255,"g":0,"b":0}]}}
+{"api_version":1,"id":3,"method":"shutdown","params":{"final_color":null}}
+```
+
+Successful response to each: `{"api_version":1,"id":1,"result":true}` using the
+request's ID. Failure: `{"api_version":1,"id":1,"error":"reason"}`.
+Initialize must complete before frames; shutdown must restore/release the device
+**before acknowledging**. The host then terminates/reaps the child. EOF must also
+trigger the plugin's own cleanup. `final_color` is null or an RGB object.
+
+The request deadline includes writing, flushing and reading, so a nonreading child
+cannot fill a pipe indefinitely. OS process creation itself is outside that deadline.
+Wrong IDs/versions, invalid JSON, oversized replies, EOF, error replies and timeout
+fault the device and terminate the child. The engine retries with existing exponential
+backoff (2–60 seconds). Stop removes the worker; start re-adds it on the next render
+tick. Cleanup waits up to one second after requesting termination; OS failures and
+uncooperative descendant processes are outside the isolation guarantee.
+
+The lifecycle API only accepts IDs from the startup allowlist; it cannot introduce
+an executable. Enabled state is session-local and is not saved to profiles.
+
+### Reference and tests
+
+`freergb-plugin-virtual` is a Rust reference implementation. Optional `--log PATH`
+records request lines. `--fault` modes are test fixtures (hang, no-read, crash,
+crash-frame, hang-shutdown, malformed, oversized, wrong-id, wrong-version).
+`cargo test -p freergb-plugins` runs real child processes and tests lifecycle,
+exact RGB values, reconnect, frame size checks, malformed manifests and fault handling.
+`scripts/smoke-daemon.ps1 -WithPlugin` covers real Windows IPC and start/stop/restart.
+
+Next stages: hardware protocol plugins after validation; effect-process plugins;
+brokered shared transport; manifest installation/hot reload. These are not implemented.
