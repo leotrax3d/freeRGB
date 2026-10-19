@@ -142,6 +142,20 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             "daemon_version": env!("CARGO_PKG_VERSION"),
         })),
         "devices.list" => Ok(json!(lock(engine).devices())),
+        "cooling.status"
+        | "cooling.curves.list"
+        | "cooling.curves.save"
+        | "cooling.curves.delete"
+        | "cooling.preview"
+        | "macros.list"
+        | "macros.save"
+        | "macros.delete"
+        | "macros.run"
+        | "macros.cancel"
+        | "macros.status" => lock(engine)
+            .controls
+            .call(method, &params)
+            .map_err(invalid_params),
         "plugins.list" => Ok(json!(lock(engine).plugins())),
         "plugins.start" | "plugins.stop" => params
             .get("id")

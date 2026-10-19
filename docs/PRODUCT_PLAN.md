@@ -1,0 +1,32 @@
+# Product completion plan
+
+The RGB prototype is not a complete SignalRGB replacement. This plan supersedes
+any earlier implication that the broad feature roadmap was finished.
+
+| Area | Implemented | Remaining acceptance/work |
+|---|---|---|
+| Lighting | Core, effects, layers/editor, profiles, device workers, K70 and experimental LINK RGB | More devices; long hardware soaks; richer layouts |
+| Cooling | Pure curve model/editor, interpolation, hysteresis, emergency/stale sensor policy, named storage and API | Live sensor publication, reliable fan/pump channel mapping, validated writes, independent watchdog and restore tests |
+| Macros | Named definitions/editor, delay/repeat, RGB/effects/brightness, run/cancel; Windows text and key/media output behind opt-in | Real input acceptance test, global triggers, recording, chords/key mapping, richer visual step editor |
+| Monitoring | Daemon diagnostics page | CPU/GPU/coolant temperatures, fan/pump RPM histories with stale indicators |
+| Windows installer | Inno Setup recipe, build script, launcher, shortcuts, uninstall, optional per-user autostart | Compile/package smoke, sandbox install/upgrade/uninstall acceptance; signing |
+| Updates | Fixed GitHub Release source, stable-version selection, authenticated private access via environment, SHA-256 checks, stage/install UI, opt-in periodic checks/downloads | First published release; live update/rollback test; signing; Linux packages |
+| GitHub | Private origin, CI, package workflow and draft releases for version tags | Run new pipeline, artifact acceptance, branch/release protection and signing policy |
+| Linux | Shared core/IPC; existing CI configuration | New CI result, real hardware, capture/input, packaging |
+
+## Order of remaining work
+
+1. Validate the new build and installer artifact; exercise GUI/API macros/curves.
+2. Expose existing LINK RPM readings and identified temperatures without adding
+   cooling writes; never invent CPU/GPU readings.
+3. Confirm fan/pump mapping and duty command behavior on authorized hardware.
+   Model/pump constraints and independent failsafe must precede enabling a real curve.
+4. Add macro triggers/recording and expand device support from evidence.
+5. Run full installer upgrade/uninstall and authenticated release update tests.
+6. Linux hardware/capture/input and platform packages.
+
+No firmware, driver installation or system-wide service changes are part of these
+ordinary implementation steps. Native input is only enabled by an explicit daemon
+flag and a user-triggered macro, never by a test. The installer is built, not run on
+the user's system automatically. Publishing a release/changing repository visibility
+is separate from preparing the pipeline/artifacts.

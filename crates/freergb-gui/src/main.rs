@@ -14,10 +14,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
+mod pages;
 
 /// Latest state fetched from the daemon.
 #[derive(Default)]
 struct Snapshot {
+    control: Value,
     connected: bool,
     error: Option<String>,
     devices: Vec<Value>,
@@ -86,11 +88,17 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
         let custom_effects = freergb_client::call("custom_effects.list", Value::Null)
             .ok()
             .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
+        let control = json!({
+            "curves": freergb_client::call("cooling.curves.list", Value::Null).unwrap_or(Value::Null),
+            "macros": freergb_client::call("macros.list", Value::Null).unwrap_or(Value::Null),
+            "macro_status": freergb_client::call("macros.status", Value::Null).unwrap_or(Value::Null),
+        });
         {
             let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
             match fetched {
                 Ok((devices, diag, effect)) => {
                     s.connected = true;
+                    s.control = control;
                     s.devices = devices.as_array().cloned().unwrap_or_default();
                     s.plugins = plugins;
                     s.diagnostics = Some(diag);
@@ -133,6 +141,7 @@ fn label(name: &str) -> &'static str {
 }
 
 struct App {
+    panels: pages::Panels,
     state: Arc<Mutex<Snapshot>>,
     tx: Sender<Command>,
     /// Controls are (re)loaded from the first snapshot newer than this.
@@ -159,6 +168,7 @@ impl App {
             .spawn(move || worker(rx, s, ctx))
             .expect("spawn worker thread");
         Self {
+            panels: Default::default(),
             state,
             tx,
             sync_after_generation: Some(0),
@@ -642,6 +652,17 @@ impl eframe::App for App {
         }
 
         egui::TopBottomPanel::top("status").show(ctx, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                for (page, name) in [
+                    (0, "Lighting"),
+                    (1, "Cooling"),
+                    (2, "Macros"),
+                    (4, "Monitoring"),
+                    (3, "Updates"),
+                ] {
+                    ui.selectable_value(&mut self.panels.page, page, name);
+                }
+            });
             ui.horizontal(|ui| {
                 ui.heading("freeRGB");
                 ui.separator();
@@ -736,6 +757,11 @@ impl eframe::App for App {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            if self.panels.page != 0 {
+                let snapshot = self.state.lock().unwrap_or_else(|e| e.into_inner());
+                self.panels.draw(ui, &self.tx, &snapshot);
+                return;
+            }
             ui.add_enabled_ui(connected, |ui| {
                 ui.heading("Effect");
                 let mut changed = false;

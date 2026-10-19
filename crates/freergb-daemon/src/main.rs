@@ -17,6 +17,9 @@ use tokio::sync::Notify;
 #[derive(Parser)]
 #[command(name = "freergbd", version, about = "freeRGB background service")]
 struct Args {
+    /// Allow user-triggered macros to send text/keys to the foreground app.
+    #[arg(long)]
+    enable_input_macros: bool,
     /// Target frames per second.
     #[arg(long, default_value_t = 30)]
     fps: u32,
@@ -67,6 +70,7 @@ fn main() -> Result<()> {
         .iter()
         .map(|path| freergb_plugins::Manifest::load(path))
         .collect::<std::io::Result<Vec<_>>>()?;
+    engine.controls.input_enabled = args.enable_input_macros;
     engine
         .configure_plugins(manifests, !args.no_hardware)
         .map_err(anyhow::Error::msg)?;

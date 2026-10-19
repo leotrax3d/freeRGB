@@ -57,6 +57,24 @@ try {
         Start-Sleep -Milliseconds 50
     } while ([DateTime]::UtcNow -lt $deadline)
     if ($devices[0].frames -le 0) { throw 'Virtual device received no frames.' }
+    $curve = @{points=@(@{temperature_c=25; duty_percent=30},@{temperature_c=75; duty_percent=100}); minimum_percent=25; critical_c=85; hysteresis_c=2}
+    if (-not (Invoke-Rpc 'cooling.curves.save' @{name='Smoke'; curve=$curve})) { throw 'Curve save failed.' }
+    $preview = Invoke-Rpc 'cooling.preview' @{curve=$curve; temperature_c=50; age_ms=0}
+    if ($preview.duty_percent -ne 65 -or -not $preview.simulated) { throw 'Cooling interpolation failed.' }
+    $stale = Invoke-Rpc 'cooling.preview' @{curve=$curve; temperature_c=50; age_ms=3001}
+    if ($stale.duty_percent -ne 100) { throw 'Cooling fail-safe failed.' }
+    $definition = @{repeat=1; steps=@(@{type='delay'; ms=50},@{type='color'; color=@{r=1;g=2;b=3}})}
+    if (-not (Invoke-Rpc 'macros.save' @{name='Smoke'; definition=$definition})) { throw 'Macro save failed.' }
+    if (-not (Invoke-Rpc 'macros.run' @{name='Smoke'})) { throw 'Macro run failed.' }
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $effect = Invoke-Rpc 'effects.get'
+        if ($effect.type -eq 'solid' -and $effect.color.r -eq 1 -and $effect.color.g -eq 2 -and $effect.color.b -eq 3) { break }
+        Start-Sleep -Milliseconds 50
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if ($effect.type -ne 'solid' -or $effect.color.r -ne 1 -or $effect.color.g -ne 2 -or $effect.color.b -ne 3) { throw 'Macro did not run to completion.' }
+    Invoke-Rpc 'macros.cancel' | Out-Null
+    Write-Output 'PASS: cooling curves, stale-sensor fail-safe, RGB macro scheduling.'
     if ($WithPlugin) {
         function Wait-PluginFrames {
             $deadline = [DateTime]::UtcNow.AddSeconds(10)

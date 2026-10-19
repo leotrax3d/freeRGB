@@ -16,6 +16,8 @@ freergb-client.workspace = true
 serde_json.workspace = true
 freergb-core.workspace = true
 freergb-effects.workspace = true
+freergb-control.workspace = true
+freergb-update.workspace = true
 
 [lints]
 workspace = true

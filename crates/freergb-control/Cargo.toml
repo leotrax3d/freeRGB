@@ -1,0 +1,15 @@
+[package]
+name = "freergb-control"
+description = "Cooling curves and bounded macro definitions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+freergb-core.workspace = true
+freergb-effects.workspace = true
+
+[lints]
+workspace = true

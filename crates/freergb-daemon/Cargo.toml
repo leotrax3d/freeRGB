@@ -19,6 +19,7 @@ freergb-hid.workspace = true
 freergb-audio.workspace = true
 freergb-screen.workspace = true
 freergb-plugins.workspace = true
+freergb-control.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -30,3 +31,6 @@ tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macro
 
 [lints]
 workspace = true
+
+[target.'cfg(windows)'.dependencies]
+enigo = "0.6.1"

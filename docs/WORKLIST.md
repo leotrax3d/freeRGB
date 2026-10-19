@@ -1,5 +1,9 @@
 # Implementation worklist — 2026-10-19
 
+**Full product plan:** `PRODUCT_PLAN.md`. The milestones below cover implemented
+subsystems, not completion of the full application. Cooling hardware, macro triggers,
+installer acceptance and live update acceptance remain tracked there.
+
 Completed milestone: process-plugin foundation and host hardening.
 This milestone does not imply completion of all hardware/platform goals.
 

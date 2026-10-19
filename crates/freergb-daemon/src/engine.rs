@@ -87,6 +87,7 @@ pub struct Diagnostics {
 }
 
 pub struct Engine {
+    pub controls: crate::control::Controls,
     plugins: std::collections::BTreeMap<String, PluginEntry>,
     workers: Vec<Worker>,
     spec: EffectSpec,
@@ -248,6 +249,7 @@ impl Engine {
     pub fn new(spec: EffectSpec, target_fps: u32) -> Self {
         let now = Instant::now();
         let mut engine = Self {
+            controls: Default::default(),
             plugins: Default::default(),
             workers: Vec::new(),
             effect: spec.build(),
@@ -516,6 +518,10 @@ impl Engine {
     /// Restores effect and brightness from `path` and saves every later change
     /// there.
     pub fn with_state_file(mut self, path: PathBuf) -> Self {
+        if let Some(parent) = path.parent() {
+            self.controls =
+                crate::control::Controls::default().with_file(parent.join("control.json"));
+        }
         let s = state::load(&path);
         self.set_effect(s.effect);
         self.brightness = s.brightness.clamp(0.0, 1.0);
@@ -682,6 +688,20 @@ impl Engine {
     /// Renders one frame at `now` and offers it to every connected device.
     /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
+        if let Some(step) = self.controls.tick(now) {
+            use freergb_control::MacroStep;
+            match step {
+                MacroStep::Color { color } => self.set_effect(EffectSpec::Solid { color }),
+                MacroStep::Brightness { value } => self.set_brightness(value),
+                MacroStep::Effect { effect } => self.set_effect(effect),
+                MacroStep::Text { .. } | MacroStep::Key { .. } => {
+                    if let Err(error) = crate::control::input(&step) {
+                        self.controls.fail(error);
+                    }
+                }
+                MacroStep::Delay { .. } => {}
+            }
+        }
         self.sync_plugins();
         self.effect.render(
             now.saturating_duration_since(self.effect_start),
