@@ -16,7 +16,7 @@ internal static class BrokerTransport
     internal const string PipeName = "freergb-mainboard-v1";
     internal const int Limit = 262144;
     // GENERIC_WRITE also grants FILE_CREATE_PIPE_INSTANCE. Deliberately omit it.
-    internal const uint ClientRights = 0x00100083;
+    internal const uint ClientRights = 0x00120083;
     internal static readonly string DirectoryPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "freeRGB", "MainboardBroker");
     internal static readonly string ServicePath = Path.Combine(DirectoryPath, "freergb-mainboard-service.exe");
@@ -39,6 +39,59 @@ internal static class BrokerTransport
     private static extern bool CloseHandle(IntPtr handle);
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool CancelIoEx(SafePipeHandle handle, IntPtr overlapped);
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr OpenSCManager(string machine, string database, uint access);
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr OpenService(IntPtr manager, string name, uint access);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool QueryServiceStatusEx(IntPtr service, int level, byte[] status, int size, out int needed);
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool QueryServiceConfig(IntPtr service, IntPtr config, int size, out int needed);
+    [DllImport("advapi32.dll")]
+    private static extern bool CloseServiceHandle(IntPtr handle);
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ServiceConfig
+    {
+        internal uint Type, Start, Error;
+        internal IntPtr Image, Group;
+        internal uint Tag;
+        internal IntPtr Dependencies, Account, Display;
+    }
+
+    internal static bool IsServiceServer(NamedPipeClientStream pipe)
+    {
+        // A standard user may not query a SYSTEM process image. SCM query rights
+        // bind the pipe PID to our actual registered LocalSystem service instead.
+        uint pid;
+        if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out pid)) return false;
+        IntPtr manager = OpenSCManager(null, null, 1); // CONNECT only
+        if (manager == IntPtr.Zero) return false;
+        try
+        {
+            IntPtr service = OpenService(manager, BrokerService.Name, 5); // QUERY_CONFIG | QUERY_STATUS
+            if (service == IntPtr.Zero) return false;
+            try
+            {
+                byte[] status = new byte[36]; int needed;
+                if (!QueryServiceStatusEx(service, 0, status, status.Length, out needed) ||
+                    BitConverter.ToUInt32(status, 4) != 4 || BitConverter.ToUInt32(status, 28) != pid) return false;
+                QueryServiceConfig(service, IntPtr.Zero, 0, out needed);
+                if (needed < Marshal.SizeOf(typeof(ServiceConfig)) || needed > 32768) return false;
+                IntPtr buffer = Marshal.AllocHGlobal(needed);
+                try
+                {
+                    if (!QueryServiceConfig(service, buffer, needed, out needed)) return false;
+                    var config = (ServiceConfig)Marshal.PtrToStructure(buffer, typeof(ServiceConfig));
+                    return config.Type == 16 &&
+                        String.Equals(Marshal.PtrToStringUni(config.Account), "LocalSystem", StringComparison.OrdinalIgnoreCase) &&
+                        String.Equals(Marshal.PtrToStringUni(config.Image), "\"" + ServicePath + "\"", StringComparison.OrdinalIgnoreCase);
+                }
+                finally { Marshal.FreeHGlobal(buffer); }
+            }
+            finally { CloseServiceHandle(service); }
+        }
+        finally { CloseServiceHandle(manager); }
+    }
 
     private static void AwaitIo(Task operation, Stream stream, int timeout)
     {
@@ -72,6 +125,7 @@ internal static class BrokerTransport
     {
         var acl = new PipeSecurity();
         acl.SetAccessRuleProtection(true, false);
+        if (BrokerService.IsSystem()) acl.SetOwner(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null));
         acl.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
         acl.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
         acl.AddAccessRule(new PipeAccessRule(user, (PipeAccessRights)ClientRights, AccessControlType.Allow));
@@ -168,7 +222,9 @@ internal static class BrokerTransport
     {
         using (NamedPipeClientStream pipe = Connect(PipeName))
         {
-            if (!IsExpectedServer(pipe, ServicePath)) throw new InvalidDataException("Untrusted motherboard broker identity.");
+            var owner = (SecurityIdentifier)pipe.GetAccessControl().GetOwner(typeof(SecurityIdentifier));
+            if (!owner.IsWellKnown(WellKnownSidType.LocalSystemSid) || !IsServiceServer(pipe))
+                throw new InvalidDataException("Pipe owner/PID does not match the registered protected LocalSystem broker.");
             // Checking the image path alone is insufficient if that path is writable.
             BrokerService.CheckProtectedPath(ServicePath);
             string directory = DirectoryPath;

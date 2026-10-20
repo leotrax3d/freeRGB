@@ -98,6 +98,7 @@ internal static class BrokerTests
             using (var client = BrokerTransport.Connect(name))
             {
                 Assert(!BrokerTransport.IsExpectedServer(client, BrokerTransport.ServicePath), "Spoofed production server trusted.");
+                Assert(!BrokerTransport.IsServiceServer(client), "Fixture PID was trusted as a registered SYSTEM service.");
                 Assert(BrokerTransport.IsExpectedServer(client, Process.GetCurrentProcess().MainModule.FileName), "Actual fixture identity not recognized.");
                 byte[] request = Encoding.ASCII.GetBytes("snapshot\n"); client.Write(request, 0, request.Length);
                 Assert(BrokerTransport.ReadReply(client, 2000) == Sample, "Pipe response altered.");

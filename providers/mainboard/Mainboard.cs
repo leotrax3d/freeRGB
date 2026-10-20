@@ -101,6 +101,7 @@ internal static class Mainboard
     {
 #if BROKER_FIXTURE_WORKER
         // Compile-time CI substitute only; production builds have no fixture switch.
+        if (!direct) return Empty("faulted", "CI fixture has no direct fallback; the protected broker must answer.");
 #if BROKER_FIXTURE_V2
         int rpm = 901;
 #else
@@ -172,7 +173,8 @@ internal static class Mainboard
                 catch (Exception error)
                 {
                     Exception cause = error is TargetInvocationException && error.InnerException != null ? error.InnerException : error;
-                    json = Json.Serialize(Empty("faulted", "Motherboard provider failed (" + cause.GetType().Name + "). Verify library dependencies, protected broker access and conflicting monitoring software."));
+                    string detail = cause is InvalidDataException ? " " + cause.Message : "";
+                    json = Json.Serialize(Empty("faulted", "Motherboard provider failed (" + cause.GetType().Name + ")." + detail + " Verify library dependencies, protected broker access and conflicting monitoring software."));
                 }
                 if (Encoding.UTF8.GetByteCount(json) >= 262144) json = Json.Serialize(Empty("faulted", "Motherboard snapshot exceeds the message limit."));
                 Console.WriteLine(json);

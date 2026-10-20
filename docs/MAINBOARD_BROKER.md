@@ -43,7 +43,7 @@ The fixed byte-mode endpoint is `\\.\pipe\freergb-mainboard-v1`. The initial han
 uses `FILE_FLAG_FIRST_PIPE_INSTANCE`, rejects remote clients and stays open across
 client reconnects. Losing exclusive ownership fails closed. The protected pipe
 DACL grants SYSTEM/Administrators full control and the configured user only
-`READ_DATA | WRITE_DATA | READ_ATTRIBUTES | SYNCHRONIZE` (`0x00100083`). In particular,
+`READ_DATA | WRITE_DATA | READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE` (`0x00120083`). In particular,
 it does **not** grant generic write / create-pipe-instance rights to that user.
 Everyone/anonymous are not granted access. See Microsoft's
 [pipe access-rights guidance](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights)
@@ -60,9 +60,12 @@ handle; failed cancellation stops the broker. A stalled reader does not extend t
 request deadline by sending one byte at a time. EOF, invalid UTF-8, oversized or
 unterminated replies fail closed; replies are bounded to 256 KiB.
 
-Before sending a request the client checks the server PID's actual image path via
-`GetNamedPipeServerProcessId` / `QueryFullProcessImageName` with limited query rights,
-and verifies that image and its parent installation are protected. An identically
+Before sending a request the client verifies SYSTEM pipe ownership, binds its PID
+via `GetNamedPipeServerProcessId` to the running service reported by SCM, and checks
+SCM's exact quoted image path, own-process type and LocalSystem account. It also
+verifies that image and its parent installation are protected. This works when a
+standard user cannot query the SYSTEM process image directly. The extra pipe
+READ_CONTROL right is only for checking ownership, not modifying its ACL. An identically
 named pipe from another executable is not trusted. No service means the old reader
 prerequisite behavior; access denial, a busy/spoofed server or transport faults do
 not silently bypass the broker. There is no automatic elevation.
