@@ -54,6 +54,11 @@ jobs:
         shell: pwsh
         run: ./scripts/test-mainboard-provider.ps1
 
+      - name: Pinned native control adapter (synthetic callbacks, no driver access)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-mainboard-control.ps1
+
       - name: Windows keyboard helper startup and cleanup (no events recorded)
         if: runner.os == 'Windows'
         shell: pwsh

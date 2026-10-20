@@ -21,6 +21,9 @@ jobs:
       - name: Optional motherboard provider transport (no hardware)
         shell: pwsh
         run: ./scripts/test-mainboard-provider.ps1
+      - name: Pinned native control adapter (synthetic callbacks, no driver access)
+        shell: pwsh
+        run: ./scripts/test-mainboard-control.ps1
       - name: Official prerequisite download and staging acceptance (no installation)
         shell: pwsh
         run: ./scripts/test-mainboard-prerequisites.ps1 -VerifyDownloads

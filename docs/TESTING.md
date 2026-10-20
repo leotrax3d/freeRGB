@@ -334,3 +334,24 @@ the synthetic-only binary is excluded from normal build/installer. This proves
 process independence and decisions, not physical fan speed, a successful register
 write or recovery after the guard itself/driver/OS fails. No service, driver or
 keyboard hook was installed/activated on the development PC.
+
+## Native control adapter candidate
+
+`scripts/test-mainboard-control.ps1` passes in PowerShell7 and Windows
+PowerShell5.1 against the hash-pinned official LHM0.9.6 runtime. Actual Control
+objects use synthetic sensor/settings interfaces and event callbacks only; no
+Computer/SuperIO is constructed or opened. The baseline reproduces the public
+setter's intermediate zero. The adapter tests cover no-zero acquisition, repeated
+duty reassertion, wrong object type, duplicate/unowned/foreign/lost mode rejection,
+finite fan/pump bounds, selected restoration/idempotency, partial acquisition/write
+failure, retained ownership after failed restoration and retry despite cached
+Default mode. These checks do not prove physical register writes or safe RPM.
+
+Production helper/service compile and broker boundary tests pass, including
+rejection by the protected production factory and absence of the test-only factory
+in production compilation. Deployment disk/verified-runtime/rollback tests and
+Inno compile/model pass. No public setter/activation flag was introduced. Existing
+Rust source/API types remain unchanged for this increment. Native recovery during
+driver hangs, authenticated session transport and physical readback are still open.
+See `MAINBOARD_NATIVE_CONTROL.md` for the exact trust boundary and private metadata
+dependency; widening the version check alone is not an upgrade procedure.

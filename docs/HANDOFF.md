@@ -475,3 +475,27 @@ Hardware results: `DEVICES.md#validation-log`.
   and independently usable recovery path; validate driver/native hang/restore
   behavior before exposing live setters. Never use user annotations/preview input
   as hardware authority. Physical sensor identity and channel pairing remain open.
+
+## Inactive version-pinned native control candidate
+
+- NativeControl.cs is compiled into the helper but has no caller/CLI activation.
+  Production CreateProtected requires fixed protected SYSTEM helper/runtime and
+  exact LHM Control0.9.6.0 metadata. Constructor private; ForTest exists only in
+  the separately compiled NATIVE_CONTROL_TESTS acceptance binary.
+- Real LHM Control object tests expose public SetSoftware's intermediate cached
+  zero on mode change, then prove prepared values avoid it. Private metadata is
+  deliberately version-pinned. Identical writes and restoration retries force
+  callback execution even after cached values/modes changed before a failure.
+- One object reservation/owned session; rejects foreign cached Software mode,
+  unowned/duplicate writes, nonfinite/range violations; fans40..100, pumps100 only.
+  Write/acquisition failure attempts selected SetDefault; restoration failure
+  retains reservation and both errors for retry. No global Computer.Close.
+- Tests construct only real Control plus remoting sensor/settings stubs; callbacks
+  are synthetic memory writes. No Computer/SuperIO/service/driver initialization.
+  Local PS7/PS5.1 pass, production helper compilation and broker factory rejection
+  pass. Quick standalone workflow plus CI/Package run this check.
+- Docs MAINBOARD_NATIVE_CONTROL.md; no API/config/GUI/Tauri changes. Service/API
+  still read-only. Native callback return is not physical readback, cached mode
+  cannot prove foreign hardware ownership, object lock does not recover driver
+  hangs. Authenticated session/lease transport and independent usable recovery
+  remain prerequisites to enabling writes. User README/.claude remain untouched.

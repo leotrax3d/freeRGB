@@ -182,3 +182,15 @@ Cooling safety continuation:
 
 These policy/process tests do not enable live motherboard fan control. Existing
 read-only service, channel API fields and both GUIs' ownership boundaries remain.
+
+Native adapter continuation:
+- [x] Pinned actual LHM Control tests without Computer/SuperIO/driver access.
+- [x] Prevent intermediate cached-zero writes during entry to Software mode.
+- [x] Reassert identical duties and retry restoration despite cached failed mode.
+- [x] Owned acquisition/reservation, conservative fan bounds and pump reduction rejection.
+- [x] Partial write/acquisition failure recovery; failed restoration retains ownership.
+- [x] Production factory restricted to protected SYSTEM helper/runtime; test-only
+  factory absent from production compilation and no activation/RPC setter added.
+- [x] Local PowerShell7/5.1 acceptance, helper compilation and broker boundary tests.
+- [ ] Authenticated native session/lease transport, cross-process channel ownership,
+  independent driver-hang recovery and physical readback before enabling control.

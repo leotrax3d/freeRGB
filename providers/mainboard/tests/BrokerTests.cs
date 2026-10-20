@@ -178,6 +178,8 @@ internal static class BrokerTests
     {
         CacheTests(); RequestTests(); PipeTests();
         Reject(delegate { BrokerService.CheckInstallation(true); }, "Unprotected worker startup accepted.");
+        Reject(delegate { NativeControl.CreateProtected(new object(), false); }, "Unprotected native control factory accepted.");
+        Assert(typeof(NativeControl).GetMethod("ForTest", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic) == null, "Test-only native control factory leaked into production compilation.");
         string temporary = Path.GetTempFileName();
         try { Reject(delegate { BrokerService.CheckProtectedPath(temporary); }, "User-writable broker payload accepted."); }
         finally { File.Delete(temporary); }

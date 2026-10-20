@@ -1,0 +1,27 @@
+name: Mainboard native control adapter
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'providers/mainboard/**'
+      - 'scripts/test-mainboard-control.ps1'
+      - 'scripts/test-mainboard-broker.ps1'
+      - 'scripts/build-mainboard-helper.ps1'
+      - 'packaging/windows/mainboard-packages.json'
+      - 'packaging/windows/mainboard-prerequisites.psm1'
+      - '.github/workflows/mainboard-control.yml'
+permissions:
+  contents: read
+jobs:
+  adapter:
+    runs-on: windows-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Real pinned Control object with synthetic callbacks (no hardware open)
+        shell: pwsh
+        run: ./scripts/test-mainboard-control.ps1
+      - name: Protected production factory and broker boundaries (no system changes)
+        shell: pwsh
+        run: ./scripts/test-mainboard-broker.ps1

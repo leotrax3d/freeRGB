@@ -90,6 +90,11 @@ stateless `cooling.calibration.preview` and real process tests against synthetic
 duties. `COOLING_SAFETY.md` specifies their limits. The fixture is not installed;
 the protected service remains read-only and has no production fan watchdog/writer.
 
+`MAINBOARD_NATIVE_CONTROL.md` describes the subsequently added inactive native
+adapter candidate: protected construction, prepared duty transitions and owned
+firmware restoration/retry. Real pinned-library tests replace only native event
+callbacks; they open no hardware and do not validate physical writes or readback.
+
 Both GUIs use `cooling.providers.list`, `cooling.channels.list` and
 `monitoring.sensors.list`; see `LOCAL_API.md`. Motherboard temperatures also join
 the daemon's `cooling.sensors.sources` graph inputs. Classic displays provider

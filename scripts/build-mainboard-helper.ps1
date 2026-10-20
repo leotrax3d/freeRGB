@@ -12,13 +12,14 @@ $source = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/Mainb
 $transport = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BrokerTransport.cs").Path
 $cache = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BrokerCache.cs").Path
 $service = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BrokerService.cs").Path
+$nativeControl = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControl.cs").Path
 $icon = (Resolve-Path -LiteralPath "$PSScriptRoot/../assets/icons/freergb.ico").Path
 $helperOptions = @()
 if ($Mode -ne 'Production') {
     $helperOptions += '/define:BROKER_FIXTURE_WORKER'
     if ($Mode -eq 'FixtureV2') { $helperOptions = @('/define:BROKER_FIXTURE_WORKER;BROKER_FIXTURE_V2') }
 }
-& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $transport $cache $service
+& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $transport $cache $service $nativeControl
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard helper compilation failed.' }
 $reply = & $binary --self-test | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $reply.version -ne 1 -or $reply.status -ne 'missing_library' -or $reply.hardware.Count -ne 0) { throw 'Mainboard helper serialization self-test failed.' }

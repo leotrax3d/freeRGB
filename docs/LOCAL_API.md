@@ -272,3 +272,8 @@ there is no background session. Full duty sequence, acknowledgment/sample timing
 abort conditions and the limited meaning of a floor suggestion are specified in
 `COOLING_SAFETY.md`. Existing `cooling.status` continues to deny hardware writes.
 No setter, GUI-process logic, shared configuration or existing wire type changes.
+
+The version-pinned native control adapter candidate in `MAINBOARD_NATIVE_CONTROL.md`
+adds no callable setter or activation flag. Protected helper construction is gated
+and no production entry point invokes it. Existing provider/channel read-only
+fields, `cooling.status`, API version and configuration formats remain unchanged.
