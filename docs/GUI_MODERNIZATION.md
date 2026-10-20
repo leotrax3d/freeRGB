@@ -427,6 +427,14 @@ rAF-throttled drag sends, lazy views, no runtime CSS-in-JS.
 | **M6** | Packaging: installer ships both GUIs; launcher reads `gui.json` (`"desktop"` / `"classic"`), Start-menu entry "freeRGB Classic"; CI job for the desktop app (Node + Tauri build, frontend tests) | Yes – installer/launcher, small |
 | **M7** | Parity checklist (table §1.3) passed → desktop GUI becomes default; Classic stays supported | Config default only |
 
+Progress (branch `feature/tauri-gui`):
+* **M0 + M1 done** – scaffold, shell, connection/service state, devices (read +
+  per-device brightness), conflicts banner.
+* **M2 done** – effect parameters (schema-driven, ranges checked against daemon
+  bounds by tests), HSV colour picker, global brightness, custom effects
+  (save/apply/delete), profiles (save/load/delete, `--no-state` handled).
+  Application profiles stay in Classic until M5. Layers editor is M3.
+
 Rules during the transition:
 * Classic must build, run and pass its tests after every step.
 * No daemon/API changes are needed for M0–M4. Any later API addition (e.g. events)

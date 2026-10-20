@@ -137,6 +137,3 @@ export function faultMessage(status: DeviceStatus): string | null {
   return typeof status === "object" ? status.Faulted : null;
 }
 
-export function rgbToHex({ r, g, b }: Rgb): string {
-  return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
-}

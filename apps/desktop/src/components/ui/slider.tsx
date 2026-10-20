@@ -8,7 +8,7 @@ export function Slider({ className, ...props }: ComponentProps<typeof SliderPrim
       className={cn("relative flex h-5 w-full touch-none select-none items-center", className)}
       {...props}
     >
-      <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-surface-sunken">
+      <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-white/12">
         <SliderPrimitive.Range className="absolute h-full bg-text" />
       </SliderPrimitive.Track>
       <SliderPrimitive.Thumb

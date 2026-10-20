@@ -94,6 +94,13 @@
   }
 }
 
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }

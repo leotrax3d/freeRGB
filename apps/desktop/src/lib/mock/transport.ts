@@ -78,6 +78,12 @@ export function mockTransport(): Transport {
   let effect = (effectDefaults as Record<string, EffectSpec>).rainbow_wave!;
   let brightness = 0.85;
   const started = Date.now();
+  const profiles = new Map<string, { effect: EffectSpec; brightness: number }>([
+    ["Evening", { effect: (effectDefaults as Record<string, EffectSpec>).breathing!, brightness: 0.4 }],
+    ["Gaming", { effect: (effectDefaults as Record<string, EffectSpec>).radial_rainbow!, brightness: 1 }],
+  ]);
+  const custom = new Map<string, EffectSpec>();
+  const sorted = (m: Map<string, unknown>) => [...m.keys()].sort();
 
   const diagnostics = () => ({
     uptime_s: (Date.now() - started) / 1000,
@@ -96,8 +102,8 @@ export function mockTransport(): Transport {
     devices,
     diagnostics: diagnostics(),
     effect,
-    profiles: ["Evening", "Gaming", "Work"],
-    custom_effects: [],
+    profiles: sorted(profiles),
+    custom_effects: sorted(custom),
     plugins: [],
   });
   const emit = (slice: keyof Slices) => {
@@ -124,6 +130,32 @@ export function mockTransport(): Transport {
           emit("devices");
           return true as T;
         }
+        case "profiles.save":
+          profiles.set(p.name as string, { effect, brightness });
+          emit("profiles");
+          return true as T;
+        case "profiles.load": {
+          const profile = profiles.get(p.name as string);
+          if (!profile) throw new RpcError({ kind: "rpc", code: -32004, message: "profile not found" });
+          ({ effect, brightness } = profile);
+          emit("effect");
+          emit("diagnostics");
+          return true as T;
+        }
+        case "profiles.delete":
+          profiles.delete(p.name as string);
+          emit("profiles");
+          return true as T;
+        case "custom_effects.save":
+          custom.set(p.name as string, p.effect as EffectSpec);
+          emit("custom_effects");
+          return true as T;
+        case "custom_effects.get":
+          return custom.get(p.name as string) as T;
+        case "custom_effects.delete":
+          custom.delete(p.name as string);
+          emit("custom_effects");
+          return true as T;
         case "effects.default":
           return (effectDefaults as Record<string, unknown>)[p.name as string] as T;
         default:

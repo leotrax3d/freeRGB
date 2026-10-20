@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { create } from "zustand";
 import type { OptionalSlice, Slices } from "../api/types";
 import { transport, type Transport } from "../api/transport";
@@ -49,6 +50,12 @@ export function requireSlices(slices: OptionalSlice[]): () => void {
 async function sync() {
   const t = await transport();
   await t.wantSlices([...wanted.keys()]);
+}
+
+/** Keeps the given optional slices polled while the calling component is mounted. */
+export function useSlices(...slices: OptionalSlice[]) {
+  const key = slices.join(",");
+  useEffect(() => requireSlices(key.split(",") as OptionalSlice[]), [key]);
 }
 
 export async function rpc<T = unknown>(method: string, params?: unknown): Promise<T> {

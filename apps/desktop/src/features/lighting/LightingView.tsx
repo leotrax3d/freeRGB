@@ -5,9 +5,12 @@ import { Slider } from "@/components/ui/slider";
 import { EFFECTS, effectLabel, effectPreview } from "@/lib/api/effects";
 import fixtures from "@/lib/api/fixtures/effects.json";
 import type { EffectName, EffectSpec } from "@/lib/api/types";
-import { rpc, useDaemon } from "@/lib/store/daemon";
+import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useDaemonValue } from "@/lib/store/useDaemonValue";
 import { cn } from "@/lib/utils";
+import { CustomEffects } from "./CustomEffects";
+import { Inspector } from "./Inspector";
+import { useCurrentEffect } from "./useEffectDraft";
 
 const DEFAULTS = fixtures as Record<EffectName, EffectSpec>;
 
@@ -42,7 +45,7 @@ function Brightness() {
 }
 
 function NowPlaying() {
-  const effect = useDaemon((s) => s.effect);
+  const effect = useCurrentEffect();
   const devices = useDaemon((s) => s.devices);
   const active = devices?.filter((d) => d.status === "Connected").length ?? 0;
   return (
@@ -105,7 +108,8 @@ const EffectTile = memo(function EffectTile({
 });
 
 export default function LightingView() {
-  const effect = useDaemon((s) => s.effect);
+  useSlices("custom_effects");
+  const effect = useCurrentEffect();
   const [busy, setBusy] = useState<EffectName | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,23 +131,35 @@ export default function LightingView() {
   return (
     <>
       <PageHeader title="Lighting" description="Pick an effect for all devices." actions={<Brightness />} />
-      <NowPlaying />
-      <Section title="Effects" aside={error && <span className="text-caption text-danger-text">{error}</span>}>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-2">
-          {EFFECTS.map(({ name, label }) => (
-            <EffectTile
-              key={name}
-              name={name}
-              label={label}
-              spec={effect?.type === name ? effect : DEFAULTS[name]}
-              active={effect?.type === name}
-              busy={busy !== null}
-              onSelect={select}
-            />
-          ))}
+      {/* Wide: settings beside the effects. Narrow: settings under "Now running". */}
+      <div className="@container">
+        <div className="grid items-start gap-6 [grid-template-areas:'now'_'settings'_'effects'] @3xl:grid-cols-[minmax(0,1fr)_300px] @3xl:[grid-template-areas:'now_settings'_'effects_settings']">
+          <div className="[grid-area:now]">
+            <NowPlaying />
+          </div>
+          <div className="flex min-w-0 flex-col gap-6 [grid-area:effects]">
+            <Section title="Effects" aside={error && <span className="text-caption text-danger-text">{error}</span>}>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+                {EFFECTS.map(({ name, label }) => (
+                  <EffectTile
+                    key={name}
+                    name={name}
+                    label={label}
+                    spec={effect?.type === name ? effect : DEFAULTS[name]}
+                    active={effect?.type === name}
+                    busy={busy !== null}
+                    onSelect={select}
+                  />
+                ))}
+              </div>
+            </Section>
+            <CustomEffects />
+          </div>
+          <div className="[grid-area:settings] @3xl:sticky @3xl:top-0">
+            <Inspector />
+          </div>
         </div>
-        <p className="text-caption text-text-subtle">Effect parameters, custom layers and profiles follow in the next step (M2).</p>
-      </Section>
+      </div>
     </>
   );
 }
