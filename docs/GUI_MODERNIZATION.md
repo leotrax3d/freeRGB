@@ -60,10 +60,13 @@ One worker thread (`main.rs::worker`):
 | Monitoring | **Sensor warning rules** (debounce, hysteresis, acknowledgement) | **GUI process** (`alerts.rs`, `sensor-alerts.json`) |
 | Monitoring | Diagnostics export (redacted report → file) | Daemon builds, GUI saves |
 | Updates | Check / download / install GitHub releases, opt-in periodic checks | **GUI process** (`freergb-update`, `automatic-updates.json`) |
-| In progress on `main` | Custom sensor graphs (`freergb-control::sensors`, `custom_sensors.rs`) | **GUI process** |
+| Cooling | Custom Celsius source graphs (input, offset, mix, time average) | Daemon (`cooling.sensors.get/save/sources/values`, stored in `control.json`, see `CUSTOM_SENSORS.md`) |
 
 The bold rows are the main integration problem: several features are not daemon
-features but logic that runs inside the egui process.
+features but logic that runs inside the egui process. Custom sensors were moved
+into the daemon on `main` (commit `cac3a86`) before this work started, and the
+Classic GUI no longer offers a daemon shutdown action — both GUIs now consume
+the same readings through JSON-RPC.
 
 ### 1.4 Data models used by the GUI
 
@@ -80,7 +83,8 @@ features but logic that runs inside the egui process.
 
 ### 1.5 Configuration files (`%APPDATA%\freeRGB`, `$XDG_CONFIG_HOME/freergb`)
 
-Daemon: `state.json`, `profiles/*.json`, custom effects, curves, macros.
+Daemon: `state.json`, `profiles/*.json`, custom effects, `control.json` (curves,
+macros, custom sensor graph `version: 1`).
 GUI: `application-profiles.json`, `hotkeys.json`, `sensor-alerts.json`,
 `automatic-updates.json`, diagnostic reports. All JSON, all must stay compatible.
 
@@ -91,12 +95,27 @@ GUI: `application-profiles.json`, `hotkeys.json`, `sensor-alerts.json`,
   `freergb-launcher`, CLI; Start-menu/desktop/autostart point at the launcher.
 * Toolchain on this machine: Rust 1.99, Node 24, npm 11, WebView2 runtime present.
 
+### 1.7 Brand and existing web code
+
+* `assets/refined.svg|png` (primary logo): lowercase "free" in `#ECECEC` above
+  three rounded tiles **R `#EF4444` · G `#10A37F` · B `#3B82F6`** with white
+  letters on black, subtle noise texture. Variants: `monochrome`, `light`,
+  `light_no-gradient`. The logo is exactly the spec palette — the tile motif is the
+  visual identity to build on.
+* `website/` is a separate marketing site (React 18, Tailwind 3, shadcn/Radix,
+  lucide, Inter + Manrope from Google Fonts, neutral zinc-like greys). The desktop
+  app does not depend on it and does not share its build; it may share brand
+  assets. Differences on purpose: the desktop app bundles fonts locally (no network)
+  and uses the spec palette instead of the website's neutral HSL tokens.
+* `skills/shadcn/` contains shadcn usage guidance for agents; the desktop app's
+  component work follows it where it does not conflict with this document.
+
 ---
 
 ## 2. Technical challenges
 
-1. **GUI-resident logic.** App profiles, hotkeys, alerts, sensor history, updates and
-   (soon) custom sensors run in the GUI process and are interleaved with egui code.
+1. **GUI-resident logic.** App profiles, hotkeys, alerts, sensor history and updates
+   run in the GUI process and are interleaved with egui code.
    The new GUI must not re-implement them in TypeScript (that would be a second,
    diverging implementation). → Extract the egui-independent parts into a shared
    Rust crate and run them in the Tauri backend (see §3.4).
@@ -119,9 +138,10 @@ GUI: `application-profiles.json`, `hotkeys.json`, `sensor-alerts.json`,
    Cargo workspace for the desktop app (§3.1).
 7. **Window close semantics.** Tauri exits when the last window closes (no tray, no
    hidden window). The app must never call `daemon.shutdown`.
-8. **Ongoing work on `main`.** `main.rs`/`pages.rs` are being changed right now.
-   Extracting shared logic out of `freergb-gui` touches the same files, so that
-   step is scheduled after the current main work lands (§6, M5).
+8. **Ongoing work on `main`.** `main.rs`/`pages.rs` keep changing. Extracting
+   shared logic out of `freergb-gui` touches the same files, so that step is
+   coordinated with `main` (§6, M5). `main` agreed to keep new GUI-side logic
+   egui-free and to announce API/config additions in commit messages.
 9. **Type drift.** TS types mirror Rust serde types. → Contract fixtures generated
    from Rust (`EffectSpec::default_for` for every name, a sample `DeviceSummary`)
    checked by a TS test, instead of a code generator dependency.
@@ -187,6 +207,9 @@ src-tauri:  commands ──▶ command queue + coalescing ──▶ freergb-clie
 * **State** – the poller performs the same queries as egui but:
   * diffs each slice against the previous value and emits only changed slices;
   * runs right after any command (fast feedback) and otherwise every 1 s;
+  * queries view-specific data only while that view is open (the frontend tells
+    the backend which slices it needs, e.g. `cooling.sensors.values` only on
+    Cooling/Monitoring) — fewer daemon calls than the egui worker today;
   * slows to ≥ 5 s when the window is minimized/hidden, resumes on focus;
   * reports connection loss once (`state://connection`), then backs off.
 * **Optimistic UI** – controls keep a local "pending" value until the daemon
@@ -201,7 +224,7 @@ src-tauri:  commands ──▶ command queue + coalescing ──▶ freergb-clie
 ### 3.4 Desktop services (GUI-resident logic)
 
 Step 1 (M5): move the egui-independent parts of `alerts`, `app_profiles`,
-`hotkeys`, `sensor_history`, update scheduling and custom sensors into a new crate
+`hotkeys`, `sensor_history` and update scheduling into a new crate
 `crates/freergb-desktop` (rules, validation, debounce/hysteresis state machines,
 JSON file formats, platform hooks). The egui GUI keeps only its UI code and calls
 the crate → identical behavior and file formats in both GUIs, tests move along.
@@ -248,6 +271,11 @@ the service process) and is deliberately **not** part of this plan.
 graphite surfaces, soft text — so the only saturated colours on screen are the
 user's own lighting colours and a few semantic accents. Calm like a modern chat
 app, but organized around devices and light rather than conversations.
+
+The logo's three rounded R/G/B tiles become the recurring shape language: colour
+swatches, effect previews and device colour chips are rounded "tiles" (radius
+scale below), and the R/G/B trio appears in the sidebar mark and the
+"service unavailable"/empty states — nowhere as decoration on ordinary controls.
 
 ### 4.2 Navigation and layout
 
@@ -394,8 +422,8 @@ rAF-throttled drag sends, lazy views, no runtime CSS-in-JS.
 | **M1** | Read-only: devices, diagnostics, current effect, plugins, conflicts banner | No |
 | **M2** | Lighting control: effects + parameter schema, colour picker, global and per-device brightness, profiles, custom effects; command coalescing ported + tested | No |
 | **M3** | Layout canvas editor, layers editor | No |
-| **M4** | Cooling curves + preview, macros (editor, run/cancel, status), monitoring view (current values), diagnostics export | No |
-| **M5** | Extract `crates/freergb-desktop` from `freergb-gui` (alerts, app profiles, hotkeys, history, updates, custom sensors) → both GUIs use it; automation owner lock | **Yes** – after current `main` GUI work is merged |
+| **M4** | Cooling curves + preview, custom sensor graph editor and live values (`cooling.sensors.*`), macros (editor, run/cancel, status), monitoring view (current values), diagnostics export | No |
+| **M5** | Extract `crates/freergb-desktop` from `freergb-gui` (alerts, app profiles, hotkeys, history, updates) → both GUIs use it; automation owner lock | **Yes** – coordinated with `main` |
 | **M6** | Packaging: installer ships both GUIs; launcher reads `gui.json` (`"desktop"` / `"classic"`), Start-menu entry "freeRGB Classic"; CI job for the desktop app (Node + Tauri build, frontend tests) | Yes – installer/launcher, small |
 | **M7** | Parity checklist (table §1.3) passed → desktop GUI becomes default; Classic stays supported | Config default only |
 
