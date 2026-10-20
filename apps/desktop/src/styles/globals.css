@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+/*
+ * freeRGB design tokens. Single source for colour, radius, type and motion;
+ * see docs/GUI_MODERNIZATION.md §4.4. Base palette = logo palette.
+ */
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-black: #000000;
+  --color-white: #ffffff;
+
+  --color-bg: #000000;
+  --color-surface: #212121;
+  --color-surface-raised: #303030;
+  --color-surface-sunken: #171717;
+  --color-border: rgb(255 255 255 / 0.08);
+  --color-border-strong: rgb(255 255 255 / 0.16);
+
+  --color-text: #ececec;
+  --color-text-muted: #b4b4b4;
+  --color-text-subtle: #8f8f8f;
+  --color-text-disabled: #5d5d5d;
+
+  --color-accent: #10a37f;
+  --color-danger: #ef4444;
+  --color-danger-text: #f87171;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+  --color-info-text: #60a5fa;
+  --color-creative: #a855f7;
+  --color-creative-text: #c084fc;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-title: 16px;
+  --text-title--line-height: 22px;
+  --text-section: 20px;
+  --text-section--line-height: 28px;
+  --text-page: 28px;
+  --text-page--line-height: 34px;
+
+  --radius-chip: 6px;
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-panel: 20px;
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 240ms;
+
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv11", "ss01";
+    user-select: none;
+    cursor: default;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-info);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgb(59 130 246 / 0.35);
+  }
+  /* Native-feeling, unobtrusive scrollbars. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.14) transparent;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
