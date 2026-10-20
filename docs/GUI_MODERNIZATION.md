@@ -433,7 +433,11 @@ Progress (branch `feature/tauri-gui`):
 * **M2 done** – effect parameters (schema-driven, ranges checked against daemon
   bounds by tests), HSV colour picker, global brightness, custom effects
   (save/apply/delete), profiles (save/load/delete, `--no-state` handled).
-  Application profiles stay in Classic until M5. Layers editor is M3.
+  Application profiles stay in Classic until M5.
+* **M3 done** – layout canvas (drag, corner resize, 5 % snapping with Alt to
+  disable, keyboard nudging, numeric sliders) and layer editor (1–8 layers,
+  top-first list, effect/blend/opacity, per-layer parameters, optional region
+  drawn on a mini canvas, reorder/remove).
 
 Rules during the transition:
 * Classic must build, run and pass its tests after every step.

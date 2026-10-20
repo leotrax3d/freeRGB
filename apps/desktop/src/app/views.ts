@@ -30,7 +30,7 @@ const planned = lazy(() => import("@/features/planned/PlannedView"));
 export const VIEWS: readonly ViewDef[] = [
   { id: "lighting", label: "Lighting", icon: Sparkles, component: lazy(() => import("@/features/lighting/LightingView")) },
   { id: "devices", label: "Devices", icon: Cpu, component: lazy(() => import("@/features/devices/DevicesView")) },
-  { id: "layout", label: "Layout", icon: LayoutDashboard, component: planned, planned: "M3" },
+  { id: "layout", label: "Layout", icon: LayoutDashboard, component: lazy(() => import("@/features/layout/LayoutView")) },
   { id: "profiles", label: "Profiles", icon: Layers, component: lazy(() => import("@/features/profiles/ProfilesView")) },
   { id: "cooling", label: "Cooling", icon: Fan, component: planned, planned: "M4" },
   { id: "macros", label: "Macros", icon: Keyboard, component: planned, planned: "M4" },

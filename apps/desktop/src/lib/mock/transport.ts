@@ -7,7 +7,7 @@ import { RpcError } from "../api/transport";
 import type { DeviceSummary, EffectSpec, Slices } from "../api/types";
 import effectDefaults from "../api/fixtures/effects.json";
 
-const devices: DeviceSummary[] = [
+let devices: DeviceSummary[] = [
   {
     info: {
       id: "mock:keyboard",
@@ -126,7 +126,14 @@ export function mockTransport(): Transport {
           return true as T;
         case "devices.set_brightness": {
           const device = devices.find((d) => d.info.id === p.id);
-          if (device) device.brightness = p.value as number;
+          if (device) devices = devices.map((d) => (d === device ? { ...d, brightness: p.value as number } : d));
+          emit("devices");
+          return true as T;
+        }
+        case "devices.set_region": {
+          const device = devices.find((d) => d.info.id === p.id);
+          if (!device) throw new RpcError({ kind: "rpc", code: -32004, message: `no device with id ${String(p.id)}` });
+          devices = devices.map((d) => (d === device ? { ...d, region: { x: p.x as number, y: p.y as number, w: p.w as number, h: p.h as number } } : d));
           emit("devices");
           return true as T;
         }
