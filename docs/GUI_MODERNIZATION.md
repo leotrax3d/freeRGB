@@ -456,7 +456,32 @@ to 5 daemon calls with the last value applied, profiles/custom effects stored,
 curves/macros/sensor graph validation identical to the daemon, macro run,
 diagnostics export, window close exits the app while the daemon keeps running.
 Measured: backend 38 MB and ~0.2 % CPU idle; WebView2 ~270 MB in the debug/dev
-setup — above the 150 MB target, to be re-measured with a release build (M6).
+setup (release numbers below).
+
+### Memory tuning (release build, 2026-10-20)
+
+Task Manager value (private working set of the app plus all WebView2 processes),
+Lighting/Layout view open, virtual device:
+
+| Configuration | Processes | Task Manager | Private bytes |
+|---|---|---|---|
+| Tauri defaults | 7 | 138 MB | 251 MB |
+| + software rendering, GPU stage in browser process | 6 | 94 MB | 168 MB |
+| + network service in process | 5 | 80–83 MB | 124 MB |
+| + background networking, component updates, sync off (shipped) | 5 | **73–78 MB** | 117–121 MB |
+| shipped, window minimized 30 s | 5 | **7–8 MB** | – |
+| shipped, after restore | 5 | 24 MB (grows again on use) | – |
+
+* Flags live in `tauri.conf.json` (`additionalBrowserArgs` replaces wry's
+  defaults, so those are repeated). Software rendering showed no measurable CPU
+  difference against GPU rendering for a 60 fps repaint at 1200×760; very large
+  or 4K windows may cost more CPU and should be re-checked on such displays.
+* Minimizing switches WebView2's `MemoryUsageTargetLevel` to Low
+  (`src-tauri/src/memory.rs`, the crate's only `unsafe` block); restoring
+  shows the first frame after ~120 ms.
+* No effect: renderer process limit, V8 lite mode, low-end device mode,
+  disabling further browser features. The JS heap is ~3 MB; the remaining cost
+  is the WebView2 runtime itself.
 
 Rules during the transition:
 * Classic must build, run and pass its tests after every step.
