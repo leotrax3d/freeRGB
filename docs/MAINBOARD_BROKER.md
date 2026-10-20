@@ -1,8 +1,9 @@
 # Mainboard broker: read-only boundary candidate
 
 Status: implemented and tested as a **service candidate**, not yet installed or
-enabled by Setup. This does not release motherboard fan control or solve the
-remaining protected-deployment work. No API method, GUI setting or API version
+enabled by Setup. A one-shot protected deployment/rollback implementation and
+disposable-runner SCM acceptance harness now exist; activation awaits that
+acceptance. This does not release motherboard fan control. No API method, GUI setting or API version
 changes. The existing optional helper can consume the broker when it is available;
 with no broker it retains its existing direct-reader prerequisite checks.
 
@@ -74,6 +75,50 @@ full identity/value validation remain in effect.
 
 ## Verification and remaining activation work
 
+`BrokerDeployment.cs` adds explicit-consent elevated maintenance, with the fixed
+service image quoted in SCM, LocalSystem/automatic start, a protected installing
+account SID, an administrator-owned exclusive maintenance lock and rejection of
+foreign service registrations/owners. There are no runtime-selected service names
+or target directories. The bootstrap must capture the initiating user's SID before
+UAC (including a different administrator's credential prompt).
+
+The service build embeds the reviewed package manifest and the exact helper
+SHA-256/size. Maintenance validates a pre-elevation hash of its own image, verifies
+the helper against the embedded identity and verifies LHM/notices against the
+embedded manifest. Each source is held read-only without write/delete sharing
+through copying or extraction. It never elevates user-installed LHM DLLs. Runtime
+DLLs are freshly extracted from the pinned official archive into a protected stage.
+Only admins/SYSTEM can modify deployment directories; users can read/execute. New
+files/directories are explicitly owned by Administrators, independent of token
+default-owner policy. Signing of our initial distribution is still outstanding;
+this binding does not turn an unsigned initial download into a trusted publisher.
+
+An existing owned service is stopped and its process is awaited before switching
+directories. The old tree is retained until the new service starts. A failed swap,
+registration or start restores the previous files and prior running state. A failed
+rollback preserves the protected backup and reports administrator repair. Owned
+removal stops/waits/deletes only our service/tree; shared PawnIO/.NET are untouched.
+Maintenance must run from the per-user installer copy, outside the protected tree,
+so it does not lock the files being updated/removed. Recovery after power loss
+between directory renames remains a separate acceptance case; no claim of an
+atomic filesystem/SCM transaction is made.
+
+Protected `installation.json` is version 1: `owner_sid`, `protocol_version:1`,
+`helper_sha256`. It lives under Program Files beside the service, not in the GUI
+configuration directory. It must agree with protected registry owner state. This
+file is never a permission to execute a user-supplied path.
+
+`scripts/test-mainboard-deployment.ps1 [-VerifyRuntime]` exercises disk-backed
+rollback for running/stopped/new installations, stop/swap/start failures, verified
+file immutability, ownership/consent gates and optional real pinned runtime/license
+extraction without SCM/hardware access. `scripts/test-mainboard-service.ps1`
+requires a disposable elevated GitHub Windows runner, refuses an existing broker,
+creates a temporary standard user and tests SCM installation, normal-user readings,
+failed-start rollback, version change, tamper/foreign-owner rejection and removal.
+Its helper is a **compile-time** synthetic worker, not a production runtime switch;
+no LHM hardware code or driver is invoked. Production packaging uses Production
+build mode. Pending runner results are not hardware/SCM acceptance.
+
 `scripts/test-mainboard-broker.ps1` compiles both binaries and a no-hardware fixture
 with the .NET Framework compiler. It exercises real Windows pipes: minimal DACL,
 exclusive ownership, fake server identity rejection, fixed commands, strict reply
@@ -86,8 +131,8 @@ The build generates the service candidate but **the installer does not yet inclu
 or register it**. Before activation, implement and validate all of the following:
 
 * Explicit Setup opt-in describing our own system service, as well as upstream
-  components; a protected elevated deployment using verified upstream bytes.
-* Protected owner/SID state, service identity/image checks, transactional updates,
+  components, wired to the reviewed elevated maintenance after SCM acceptance.
+* Validate protected owner/SID state, service identity/image checks, version updates,
   failure recovery and owned-service removal. Never register an image or load a
   DLL from the user-writable application/cache directories as SYSTEM.
 * Disposable-machine acceptance for SCM startup, reader crash/hang, concurrent

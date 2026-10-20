@@ -1,4 +1,7 @@
-param([string]$OutputDirectory = "$PSScriptRoot/../target/release")
+param(
+    [string]$OutputDirectory = "$PSScriptRoot/../target/release",
+    [ValidateSet('Production','FixtureV1','FixtureV2','FixtureFailStart')][string]$Mode = 'Production'
+)
 $ErrorActionPreference = 'Stop'
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { throw '.NET Framework 4.8 x64 compiler is required.' }
@@ -10,13 +13,25 @@ $transport = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/Br
 $cache = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BrokerCache.cs").Path
 $service = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BrokerService.cs").Path
 $icon = (Resolve-Path -LiteralPath "$PSScriptRoot/../assets/icons/freergb.ico").Path
-& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll "/win32icon:$icon" "/out:$binary" $source $transport $cache $service
+$helperOptions = @()
+if ($Mode -ne 'Production') {
+    $helperOptions += '/define:BROKER_FIXTURE_WORKER'
+    if ($Mode -eq 'FixtureV2') { $helperOptions = @('/define:BROKER_FIXTURE_WORKER;BROKER_FIXTURE_V2') }
+}
+& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $transport $cache $service
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard helper compilation failed.' }
 $reply = & $binary --self-test | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $reply.version -ne 1 -or $reply.status -ne 'missing_library' -or $reply.hardware.Count -ne 0) { throw 'Mainboard helper serialization self-test failed.' }
 Write-Output $binary
-# Build the service candidate, but do not install/start it or ship it as an active component.
+# Maintenance requires explicit consent and elevation; building never installs a service.
 $serviceBinary = Join-Path $outputPath 'freergb-mainboard-service.exe'
-& $compiler /nologo /target:exe /main:BrokerService /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll "/win32icon:$icon" "/out:$serviceBinary" $source $transport $cache $service
+$deployment = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BrokerDeployment.cs").Path
+$manifest = (Resolve-Path -LiteralPath "$PSScriptRoot/../packaging/windows/mainboard-packages.json").Path
+$identity = Join-Path $outputPath 'BrokerBuild.cs'
+$helperHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant()
+[IO.File]::WriteAllText($identity, ('internal static class BrokerBuild {{ internal const long HelperSize = {0}; internal const string HelperSha256 = "{1}"; }}' -f (Get-Item -LiteralPath $binary).Length, $helperHash))
+$serviceDefine = '/define:BROKER_INSTALLER'
+if ($Mode -eq 'FixtureFailStart') { $serviceDefine = '/define:BROKER_INSTALLER;BROKER_FIXTURE_FAIL_START' }
+& $compiler /nologo /target:exe $serviceDefine /main:BrokerService /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/win32icon:$icon" "/out:$serviceBinary" $source $transport $cache $service $deployment $identity
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard broker compilation failed.' }
 Write-Output $serviceBinary

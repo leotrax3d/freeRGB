@@ -99,6 +99,19 @@ internal static class Mainboard
     }
     private static object Snapshot()
     {
+#if BROKER_FIXTURE_WORKER
+        // Compile-time CI substitute only; production builds have no fixture switch.
+#if BROKER_FIXTURE_V2
+        int rpm = 901;
+#else
+        int rpm = 900;
+#endif
+        return Result("ready", "Isolated SCM fixture; no driver or hardware accessed.", new object[] {
+            new { id = "fixture", name = "Fixture", sensors = new object[] {
+                new { id = "rpm", name = "Fixture RPM", kind = "fan", value = rpm, age_ms = 0, control_available = false }
+            } }
+        });
+#else
         if (computer == null)
         {
             var unavailable = Initialize();
@@ -110,6 +123,7 @@ internal static class Mainboard
         foreach (object item in (IEnumerable)Get(computer, "Hardware")) Walk(item, hardware, clock, 0, ref count);
         if (count == 0) return Empty("no_supported_hardware", "No supported motherboard sensor channels were reported; this does not prove no fans are connected.");
         return Result("ready", "Read-only motherboard channels. Fan/header pairing, PWM/DC mode and physical labels are unconfirmed; RGB uses a separate provider.", hardware);
+#endif
     }
     private static int Main(string[] args)
     {

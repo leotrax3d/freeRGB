@@ -25,6 +25,13 @@ jobs:
       - name: Motherboard broker boundary acceptance (no service installation)
         shell: pwsh
         run: ./scripts/test-mainboard-broker.ps1
+      - name: Protected broker deployment transactions (no system changes)
+        shell: pwsh
+        run: ./scripts/test-mainboard-deployment.ps1 -VerifyRuntime
+      - name: Disposable SCM lifecycle with synthetic sensor worker (no driver access)
+        timeout-minutes: 8
+        shell: pwsh
+        run: ./scripts/test-mainboard-service.ps1
       - name: Release binaries
         run: cargo build --workspace --release --locked
       - name: Ensure installer compiler

@@ -1,4 +1,4 @@
-// Deployment is deliberately gated: no service registration or elevation here.
+// Read-only service; elevated installation lives in the one-shot deployment entry.
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -71,15 +71,22 @@ internal sealed class BrokerService : ServiceBase
         foreach (string child in Directory.GetDirectories(directory)) CheckTree(child);
     }
 
+    private static void BeforeStart()
+    {
+#if BROKER_FIXTURE_FAIL_START
+        throw new InvalidOperationException("Intentional SCM acceptance failure; must restore the previous version.");
+#endif
+    }
     protected override void OnStart(string[] args)
     {
+        BeforeStart();
         CheckInstallation(false);
         // Owner comes only from the administrator-protected service registry key.
         SecurityIdentifier user;
         using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + Name + @"\Parameters"))
         {
             string sid = key == null ? null : key.GetValue("AllowedUserSid") as string;
-            if (sid == null || !sid.StartsWith("S-1-5-21-", StringComparison.Ordinal)) throw new InvalidOperationException("Broker owner SID is missing.");
+            if (sid == null || (!sid.StartsWith("S-1-5-21-", StringComparison.Ordinal) && !sid.StartsWith("S-1-12-1-", StringComparison.Ordinal))) throw new InvalidOperationException("Broker owner SID is missing.");
             user = new SecurityIdentifier(sid);
         }
         // Claim the name before starting hardware. A pre-existing pipe fails closed.
@@ -182,7 +189,11 @@ internal sealed class BrokerService : ServiceBase
 
     private static int Main(string[] args)
     {
+#if BROKER_INSTALLER
+        if (args.Length != 0) return BrokerDeployment.Dispatch(args);
+#else
         if (args.Length != 0) return 2;
+#endif
         using (var service = new BrokerService { ServiceName = Name, CanStop = true, AutoLog = true }) ServiceBase.Run(service);
         return 0;
     }
