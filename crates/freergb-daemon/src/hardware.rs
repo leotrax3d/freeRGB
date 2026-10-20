@@ -16,6 +16,10 @@ type DeviceFactory = Box<dyn FnOnce(HidapiTransport, Option<String>) -> Box<dyn 
 
 #[derive(Debug, Clone, Default)]
 pub struct ScanOptions {
+    /// Explicit experimental RGB-only control of known ASUS Aura USB interfaces.
+    pub enable_asus_aura: bool,
+    /// Manual LED count per 5V ARGB header; zero leaves that header out of frames.
+    pub asus_argb_leds: [u16; 4],
     /// Drive the iCUE LINK hub (keeps it in software mode while running).
     pub enable_link_hub: bool,
     /// Device descriptions loaded from the user directory (opt-in, always
@@ -73,6 +77,17 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
         }
         let serial = info.serial.as_deref().unwrap_or("noserial");
         let (id, make): (DeviceId, DeviceFactory) = match m.adapter {
+            "asus-aura-usb" if opts.enable_asus_aura => {
+                let counts = opts.asus_argb_leds;
+                (
+                    DeviceId(format!("hid:0b05:19af:{serial}")),
+                    Box::new(move |transport, serial| {
+                        Box::new(freergb_protocols::asus_aura::AuraDevice::new(
+                            transport, serial, counts,
+                        )) as Box<dyn RgbDevice>
+                    }),
+                )
+            }
             "corsair-bragi" => {
                 let model = BragiModel::for_pid_in(descriptions::builtin(), info.pid)
                     .or_else(|| BragiModel::for_pid_in(&opts.user_devices, info.pid));

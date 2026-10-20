@@ -14,12 +14,39 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::Notify;
 
+fn parse_argb_counts(value: &str) -> Result<[u16; 4], String> {
+    let counts = value
+        .split(',')
+        .map(|item| {
+            item.parse::<u16>()
+                .map_err(|_| "ARGB counts must be integers".to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let counts: [u16; 4] = counts
+        .try_into()
+        .map_err(|_| "exactly four comma-separated ARGB counts are required".to_string())?;
+    if counts.iter().any(|count| *count > 512) {
+        return Err("ARGB counts must be 0..512".into());
+    }
+    Ok(counts)
+}
+
 #[derive(Parser)]
 #[command(name = "freergbd", version, about = "freeRGB background service")]
 struct Args {
+    /// Isolated local endpoint suffix for integration tests, not normal clients.
+    #[cfg(windows)]
+    #[arg(long,hide=true,value_parser=ipc::validate_instance,requires_all=["no_hardware","no_state"])]
+    ipc_instance: Option<String>,
     /// Allow user-triggered macros to send text/keys to the foreground app.
     #[arg(long)]
     enable_input_macros: bool,
+    /// Opt in to experimental ASUS Aura motherboard RGB/ARGB USB control (not fans).
+    #[arg(long)]
+    enable_asus_aura: bool,
+    /// Manual LED counts for four ARGB headers; zero disables that header.
+    #[arg(long, default_value="0,0,0,0", value_parser=parse_argb_counts, requires="enable_asus_aura")]
+    asus_argb_leds: [u16; 4],
     /// Opt in to read-only motherboard sensors using a trusted LHM 0.9.6 directory.
     /// Requires separately installed/running PawnIO; never installs a driver.
     #[arg(long, value_name = "DIR")]
@@ -113,6 +140,8 @@ fn main() -> Result<()> {
         None => Vec::new(),
     };
     let scan_opts = hardware::ScanOptions {
+        enable_asus_aura: args.enable_asus_aura,
+        asus_argb_leds: args.asus_argb_leds,
         enable_link_hub: args.enable_link_hub,
         user_devices: Arc::new(user_devices),
     };
@@ -135,7 +164,11 @@ fn main() -> Result<()> {
     let shutdown = Arc::new(Notify::new());
     rt.block_on(async {
         tokio::select! {
-            r = ipc::serve(engine.clone(), shutdown.clone()) => {
+            r = async {
+                #[cfg(windows)]
+                if let Some(instance) = &args.ipc_instance { return ipc::serve_instance(engine.clone(),shutdown.clone(),instance).await; }
+                ipc::serve(engine.clone(),shutdown.clone()).await
+            } => {
                 if let Err(e) = r { tracing::error!(error = %e, "API server stopped"); }
             }
             _ = shutdown.notified() => tracing::info!("shutdown requested via API"),
@@ -172,6 +205,67 @@ fn render_loop(
         }
         if let Some(rest) = period.checked_sub(t0.elapsed()) {
             std::thread::sleep(rest);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn aura_header_counts_are_explicit_and_bounded_without_opening_hardware() {
+        let defaults = Args::try_parse_from(["freergbd", "--no-hardware"]).unwrap();
+        assert!(!defaults.enable_asus_aura);
+        assert_eq!(defaults.asus_argb_leds, [0; 4]);
+        assert!(Args::try_parse_from(["freergbd", "--asus-argb-leds", "1,2,3,4"]).is_err());
+        for counts in ["513,0,0,0", "-1,0,0,0", "1,2,3", "1,2,3,4,5"] {
+            assert!(
+                Args::try_parse_from([
+                    "freergbd",
+                    "--enable-asus-aura",
+                    "--asus-argb-leds",
+                    counts
+                ])
+                .is_err(),
+                "{counts}"
+            );
+        }
+        assert_eq!(
+            Args::try_parse_from([
+                "freergbd",
+                "--enable-asus-aura",
+                "--asus-argb-leds",
+                "512,12,0,0"
+            ])
+            .unwrap()
+            .asus_argb_leds,
+            [512, 12, 0, 0]
+        );
+    }
+    #[cfg(windows)]
+    #[test]
+    fn isolated_endpoint_requires_no_hardware_and_no_user_state() {
+        assert!(Args::try_parse_from(["freergbd", "--ipc-instance", "test"]).is_err());
+        assert!(
+            Args::try_parse_from(["freergbd", "--no-hardware", "--ipc-instance", "test"]).is_err()
+        );
+        assert!(Args::try_parse_from([
+            "freergbd",
+            "--no-hardware",
+            "--no-state",
+            "--ipc-instance",
+            "test-1"
+        ])
+        .is_ok());
+        for instance in ["", r"..\elsewhere", r"\\remote\pipe", "a b"] {
+            assert!(Args::try_parse_from([
+                "freergbd",
+                "--no-hardware",
+                "--no-state",
+                "--ipc-instance",
+                instance
+            ])
+            .is_err());
         }
     }
 }

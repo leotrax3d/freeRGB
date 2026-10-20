@@ -51,6 +51,11 @@ jobs:
         shell: pwsh
         run: ./scripts/test-mainboard-provider.ps1
 
+      - name: Windows prerequisite installation logic (no system changes)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-mainboard-prerequisites.ps1
+
       - name: release build
         run: cargo build --workspace --release
 

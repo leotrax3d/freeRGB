@@ -205,3 +205,33 @@ Current Windows verification: 155 regular workspace tests plus the separately ru
 ignored provider transport acceptance test passed; fmt, denied-warning Clippy,
 release binaries, virtual IPC/plugin smoke, installer model checks and local Inno
 Setup compilation passed. No actual installer or driver was run on this PC.
+
+
+## Optional prerequisite installation and ASUS Aura RGB
+
+`scripts/test-mainboard-prerequisites.ps1 -VerifyDownloads` passed in PowerShell7
+and Windows PowerShell5.1. It tests explicit-consent rejection, runtime/driver
+presence plans, invalid manifest/hash/unsigned installer rejection, official hashes
+and executable signatures, runtime DLL staging and accompanying license/source
+notices. No upstream installer or driver is executed by these tests. Actual opt-in
+wizard/UAC/manufacturer-install/reboot acceptance remains open.
+
+ASUS mock transport tests cover malformed firmware tables before mode writes,
+20-LED packet chunks, ninth-offset addressing, selected-header layout, allowed RGB
+commands only, frame bounds, spectrum fallback and restore failure ownership.
+Daemon/launcher tests cover explicit flags, exactly four 0..512 manual lengths,
+demo exclusion and bounded/fixed-path installed-state consent. No live ASUS LED
+change or Gen1/Gen2 validation has been performed.
+
+The Windows smoke harness uses a unique `--ipc-instance`, required to combine
+`--no-hardware --no-state`; it can run beside a Tauri preview without sending any
+command to that preview's normal endpoint. Both GUIs/SDK keep the original pipe.
+
+
+Local completion checks: 162 regular Windows tests (161 full workspace plus the
+new isolated-endpoint regression run in the targeted suite), separate ignored
+provider transport acceptance, denied-warning Clippy, release build, isolated
+virtual IPC/plugin smoke, PowerShell5.1/7 prerequisite verification/staging, Inno
+build and installer model checks passed. Tauri preview PID32124 remained running
+on its default endpoint. No personal-machine installer, driver install or live
+ASUS color test was performed.

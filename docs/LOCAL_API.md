@@ -148,3 +148,29 @@ Internal helper replies are bounded to 256 KiB, 64 hardware nodes, 1024 sensors,
 finite and in -100..200 °C, 0..100000 RPM or 0..100 percent respectively. Invalid
 replies fault the provider. These sanity limits are not safe operating limits.
 See `MAINBOARD_SUPPORT.md` for prerequisites, timeouts, lifecycle and limitations.
+
+
+### Motherboard RGB and installer state
+
+No RPC methods or existing wire types change in this increment. An explicitly
+opted-in ASUS `0b05:19af/ff72/00a1` RGB controller appears through the existing
+`devices.list`/layout/effects/brightness APIs as a `LightingController`. Its LED
+layout is discovered during worker connect: fixed slots plus manually configured
+ARGB lengths. CLI activation and bounds (four 0..512 LED counts, supported firmware
+headers, fallback limitations) are in `MAINBOARD_RGB.md`. Normal scanning leaves
+this experimental adapter unopened. No fan-control setter is introduced.
+
+Installer-created `mainboard-provider.json` and `mainboard-install-result.json`
+live in the application installation directory, version 1, documented in
+`MAINBOARD_INSTALLATION.md`. They are not API parameters or GUI config files;
+clients must not execute their paths or interpret them as permission to elevate.
+The existing mainboard provider still reports missing rights/prerequisites through
+its status. API version remains 1; Tauri paths/dependencies are unchanged.
+
+
+For concurrent Windows integration tests only, daemon `--ipc-instance NAME`
+selects `\\.\pipe\freergb-NAME`; NAME is 1..64 ASCII letters/digits/hyphens and
+requires **both** `--no-hardware` and `--no-state`. Normal server/client endpoint,
+DACL, remote-client rejection and API version stay unchanged. This hidden test
+option does not redirect either GUI or the SDK. The smoke harness connects to its
+own random instance and never shuts down a GUI preview's daemon.

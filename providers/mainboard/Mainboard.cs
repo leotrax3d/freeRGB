@@ -44,7 +44,7 @@ internal static class Mainboard
             try { running = driver.Status == ServiceControllerStatus.Running; }
             catch (InvalidOperationException) { }
         }
-        if (!running) return Empty("missing_driver", "PawnIO must be separately installed and running; freeRGB did not install or start it.");
+        if (!running) return Empty("missing_driver", "PawnIO is not running. Use freeRGB Setup's optional mainboard components or check the existing driver installation.");
         using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
         {
             if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))

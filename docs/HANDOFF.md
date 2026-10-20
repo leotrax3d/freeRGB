@@ -298,3 +298,34 @@ Hardware results: `DEVICES.md#validation-log`.
   verification succeeded; candidate RPM/temperature mapping remains unconfirmed.
   A real daemon cache-acceptance harness did not connect to the hub in its deadline;
   it cleaned up and hardware mode was verified. Do not claim live cache acceptance.
+
+
+## Mainboard installer opt-in and ASUS RGB continuation
+
+- Unchecked dedicated Setup page for official LHM0.9.6/PawnIO2.2.0/missing .NET4.8
+  prerequisite installation. Default/silent Setup skips it. Explicit script
+  consent is mandatory; only verified upstream installers are elevated. Driver
+  startup for an existing stopped driver also goes through UAC.
+- New installed-state formats (app directory, NOT APPDATA): version-1
+  mainboard-provider.json and mainboard-install-result.json, plus pinned
+  mainboard-packages.json. See MAINBOARD_INSTALLATION.md. Launcher reads bounded
+  opt-in state/fixed relative runtime path; no new GUI business logic or RPC setters.
+- Downloads pinned by SHA256/size, installers additionally Authenticode/publisher;
+  verified before execution. Copies unmodified runtime DLLs/license/source notices,
+  not the reference GUI. Actual system installers were NOT executed on this PC.
+  Read-only download/staging tests pass under PowerShell7 and Windows PowerShell5.1.
+- Restricted elevated broker remains essential for seamless normal-user fan access.
+  Installer dependency preparation is NOT a completed fan-control feature; helper
+  still reports permission_denied without appropriate reader rights. Never install
+  a privileged service pointing into the user-writable application directory.
+- New experimental ASUS Aura USB RGB backend, explicit launcher/daemon opt-in only,
+  allowlist 0b05:19af/ff72/00a1. Discovered RGB slots + manual four 0..512 ARGB LED
+  lengths; no fan/pump/flash commands. Gen1 is controller-wide, previous Gen1/Gen2
+  and prior effect cannot be restored; documented spectrum fallback, retry ownership.
+  Tests are mock transport, NOT live header/color/Gen1 acceptance. See MAINBOARD_RGB.
+- Existing Tauri preview daemon ran from .claude/worktrees/tauri-gui with virtual
+  hardware. It was left untouched. Smoke now uses a random isolated named-pipe
+  instance, requiring no-hardware/no-state; normal endpoint and clients unchanged.
+- Previous commit 7e91419 passed CI39447281629 on Windows/Linux and Package39447319152
+  including installer lifecycle. New changes need their own subsequent runner result.
+- User README heading change and .claude/ are not ours and remain uncommitted.

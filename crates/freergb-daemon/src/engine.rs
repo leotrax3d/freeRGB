@@ -749,6 +749,11 @@ impl Engine {
                 brightness: w.correction.brightness * brightness,
                 ..w.correction
             };
+            // Some controllers discover their layout on the worker's first
+            // connect. Do not queue an empty frame using the pre-discovery view.
+            if layout.is_empty() {
+                continue;
+            }
             let frame = self
                 .canvas
                 .sample_layout(&layout, w.region)

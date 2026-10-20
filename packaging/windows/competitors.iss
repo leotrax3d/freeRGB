@@ -95,7 +95,7 @@ begin
   end;
 end;
 
-procedure InitializeWizard;
+procedure InitializeCompetitorsWizard;
 begin
   CompetitorPage := CreateInputOptionPage(wpSelectDir, 'Andere RGB-Programme',
     'Optional: Konkurrenzprodukte deinstallieren',
@@ -119,7 +119,7 @@ begin
   CompetitorButton.Enabled := GetArrayLength(Competitors) > 0;
 end;
 
-function ShouldSkipPage(PageID: Integer): Boolean;
+function ShouldSkipCompetitorsPage(PageID: Integer): Boolean;
 begin
   Result := (PageID = CompetitorPage.ID) and ((GetArrayLength(Competitors) = 0) or WizardSilent);
 end;

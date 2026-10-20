@@ -19,6 +19,9 @@ jobs:
       - name: Optional motherboard provider transport (no hardware)
         shell: pwsh
         run: ./scripts/test-mainboard-provider.ps1
+      - name: Official prerequisite download and staging acceptance (no installation)
+        shell: pwsh
+        run: ./scripts/test-mainboard-prerequisites.ps1 -VerifyDownloads
       - name: Release binaries
         run: cargo build --workspace --release --locked
       - name: Ensure installer compiler

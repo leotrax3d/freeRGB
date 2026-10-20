@@ -95,3 +95,16 @@ General motherboard follow-up (user clarification, 2026-10-20):
 Installer full lifecycle run 39374039676 succeeded. Cross-version upgrades and
 interactive manufacturer uninstallers remain unvalidated. Mainboard transport
 fixtures exercise no hardware; they do not establish motherboard support coverage.
+
+
+Mainboard priority continuation:
+- [x] Unchecked Setup opt-in for official LHM/PawnIO/missing .NET prerequisites.
+- [x] Pinned size/hash and signed-publisher checks, UAC cancellation/error/reboot status.
+- [x] Runtime notices/source links and bounded versioned installed-state loading.
+- [x] Initial explicit ASUS RGB/ARGB USB adapter; header table and manual ARGB lengths.
+- [x] Mock RGB protocol/fallback/ownership tests and real download/staging-only tests.
+- [x] Previous commit's CI39447281629 (Windows/Linux) and Package39447319152 passed.
+- [ ] Restricted privileged broker, protected installation/updates and IPC validation.
+- [ ] Isolated real prerequisite installation/UAC/reboot acceptance.
+- [ ] Live ASUS configuration/color/fallback tests and header setup GUI/configuration.
+- [ ] Real mainboard fan writes/calibration/independent watchdog; broader manufacturer support.

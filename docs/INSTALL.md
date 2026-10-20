@@ -11,7 +11,9 @@ It installs per user with an uninstaller. Setup asks independently about Start M
 entries (including Demo), a desktop shortcut and login startup. Start Menu and
 **autostart default on**; desktop defaults off. All options are editable, with previous
 choices retained on upgrades. Deselecting an option removes freeRGB's corresponding
-shortcut/startup entry. No driver/system service is installed. The README logo is
+shortcut/startup entry. Default installation adds no driver/system service. An unchecked optional
+mainboard page can download/install prerequisites after explicit opt-in; see
+`MAINBOARD_INSTALLATION.md`. The README logo is
 used for Setup, installed executables, shortcuts and the GUI window.
 See `UPDATES.md`. Running the installer is a separate user action.
 
@@ -135,10 +137,15 @@ if you want to drop profiles and settings.
 
 Normal installation/startup requires no PawnIO, LHM or additional .NET runtime.
 The experimental Windows motherboard reader is opt-in and currently read-only.
-Setup includes our helper executable, built using the Windows .NET Framework 4.8
-compiler; it does not bundle or install LHM/PawnIO. Advanced users with a trusted
+Setup includes our helper and an unchecked optional page for verified LHM/PawnIO
+and missing .NET 4.8 downloads/installation. It does not bundle upstream installers.
+See `MAINBOARD_INSTALLATION.md`; preparing dependencies does not yet solve the
+normal-user privilege broker or enable real fan control. Advanced users with a trusted
 LHM 0.9.6 runtime, an already-running PawnIO driver and the required rights can use
 `freergb-launcher --mainboard-library "C:\path to\LHM"`. The option is forwarded
 only when starting a new daemon; it does not reconfigure an already-running daemon.
-It is incompatible with `--demo`. No automatic elevation or new autostart setting
-is added. See `MAINBOARD_SUPPORT.md` for limitations and outstanding validation.
+It is incompatible with `--demo`. The launcher itself never requests automatic elevation; an existing successful
+installer opt-in also selects the prepared runtime without editing shortcut targets. See `MAINBOARD_SUPPORT.md` for limitations and outstanding validation.
+
+Experimental driver-free motherboard RGB/ARGB via known ASUS USB interfaces is
+documented in `MAINBOARD_RGB.md`; it requires separate explicit activation.

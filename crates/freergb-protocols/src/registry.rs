@@ -59,7 +59,7 @@ const ENTRIES: &[Entry] = &[
         usage: 0x00A1,
         adapter: "asus-aura-usb",
         name: "ASUS AURA LED Controller",
-        level: SupportLevel::Identified,
+        level: SupportLevel::Experimental,
     },
 ];
 

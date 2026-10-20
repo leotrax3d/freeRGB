@@ -17,10 +17,12 @@ signing, maintenance and hardware-specific validation; it is not a dependency-fr
 shortcut. Linux hwmon is a separate future provider using existing kernel drivers.
 
 The current Windows LHM provider is **optional and experimental**, off by default.
-Neither freeRGB nor Setup downloads, installs, starts or elevates PawnIO. The normal
-installer includes our small helper only, with no LHM/PawnIO binaries. These are
-not a mandatory application dependency. A future guided optional installation
-needs verified distribution/signature terms and explicit user consent.
+Normal/default/silent installation does not install PawnIO. An unchecked Setup
+page now offers verified official prerequisite downloads and installation after
+explicit opt-in, including .NET 4.8 when absent. It includes our small helper and
+bootstrap scripts, not bundled upstream driver installers. See
+`MAINBOARD_INSTALLATION.md` for consent, hashes, signatures, reboot handling,
+installed-state formats and the remaining restricted privilege-broker work.
 
 ## Implemented Windows read-only provider
 
@@ -31,7 +33,9 @@ Windows .NET Framework compiler. The helper requires installed .NET Framework 4.
 Use `freergb-launcher --mainboard-library DIR` for the normal GUI entry point;
 it forwards the option only when starting a new daemon. It does not reconfigure an
 already-running daemon and rejects combination with `--demo`. This is currently
-an advanced backend option; normal shortcuts leave the provider disabled. No new configuration file is written.
+an advanced backend option. Successful installer preparation also writes versioned
+installation state that the launcher reads; normal installation remains disabled.
+No shared GUI config-root file is added.
 The option is rejected with `--no-hardware` and on non-Windows systems.
 
 The helper checks for the library, an already-running PawnIO driver and an elevated
@@ -69,7 +73,8 @@ need confirmation. Missing channels do not establish that no fan is connected.
 indices do **not** establish pairing. `physical_mapping` is `unconfirmed`,
 `electrical_mode` is `unknown`, and `writable` is always false. No pump classification,
 calibration, PWM/DC switching, fan-stop or live curves are enabled. Mainboard
-RGB/ARGB is not provided by LHM and remains a separate hardware-adapter task.
+RGB/ARGB is not provided by LHM; the initial experimental ASUS HID adapter is
+documented in `MAINBOARD_RGB.md`.
 
 Both GUIs use `cooling.providers.list`, `cooling.channels.list` and
 `monitoring.sensors.list`; see `LOCAL_API.md`. Motherboard temperatures also join
@@ -85,7 +90,8 @@ LHM is MPL-2.0, with additional embedded LGPL-2.1 PawnIO.Modules and third-party
 dependencies. Redistribution needs corresponding notices and source availability,
 not an MPL notice alone. Exact minimal runtime closure and all dependency licenses
 still need verification before bundling. Standalone PawnIO Setup redistribution
-terms are not established; do not silently bundle its installer.
+terms are not established; our opt-in bootstrap downloads the unmodified official
+installer directly instead of bundling it. Its own interactive dialogs remain.
 
 Validated: pure snapshot bounds/duplicate/range checks, disabled hardware gate,
 channel separation, no writable capability, expiration and helper compilation/

@@ -48,6 +48,9 @@ Source: "{#BinDir}\freergb-launcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergbd.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-mainboard.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "install-mainboard.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "mainboard-prerequisites.psm1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "mainboard-packages.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; Flags: dontcopy
 Source: "..\..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
@@ -75,6 +78,11 @@ Filename: "{app}\freergb-launcher.exe"; Description: "Launch freeRGB"; Flags: no
 [UninstallRun]
 Filename: "{app}\freergb.exe"; Parameters: "stop-installed-daemon --directory ""{app}"""; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopDaemon"
 
+[UninstallDelete]
+Type: files; Name: "{app}\mainboard-provider.json"
+Type: files; Name: "{app}\mainboard-install-result.json"
+Type: filesandordirs; Name: "{app}\providers\lhm-0.9.6"
+
 [Code]
 function RemoveOwnedAutostart: Boolean;
 var Value: String;
@@ -86,6 +94,28 @@ begin
 end;
 
 #include "competitors.iss"
+#include "mainboard-prerequisites.iss"
+
+procedure InitializeWizard;
+begin
+  InitializeCompetitorsWizard;
+  InitializeMainboardWizard;
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := ShouldSkipCompetitorsPage(PageID) or ((PageID = MainboardPage.ID) and WizardSilent);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then InstallSelectedMainboardComponents;
+end;
+
+function NeedRestart: Boolean;
+begin
+  Result := MainboardRestart;
+end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ExitCode: Integer;

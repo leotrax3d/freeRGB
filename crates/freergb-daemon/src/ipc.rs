@@ -71,19 +71,54 @@ where
 
 #[cfg(windows)]
 pub async fn serve(engine: SharedEngine, shutdown: Arc<Notify>) -> std::io::Result<()> {
+    serve_named(engine, shutdown, PIPE_NAME).await
+}
+
+/// Separate endpoint for hardware-free integration tests alongside a GUI preview.
+/// Normal clients and the public default endpoint remain unchanged.
+#[cfg(windows)]
+pub fn validate_instance(instance: &str) -> Result<String, String> {
+    if instance.is_empty()
+        || instance.len() > 64
+        || !instance
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    {
+        return Err("IPC instance must be 1..64 ASCII letters/digits/hyphens".into());
+    }
+    Ok(instance.into())
+}
+
+#[cfg(windows)]
+pub async fn serve_instance(
+    engine: SharedEngine,
+    shutdown: Arc<Notify>,
+    instance: &str,
+) -> std::io::Result<()> {
+    let instance = validate_instance(instance)
+        .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
+    serve_named(engine, shutdown, &format!(r"\\.\pipe\freergb-{instance}")).await
+}
+
+#[cfg(windows)]
+async fn serve_named(
+    engine: SharedEngine,
+    shutdown: Arc<Notify>,
+    name: &str,
+) -> std::io::Result<()> {
     use tokio::net::windows::named_pipe::ServerOptions;
 
     let mut server = ServerOptions::new()
         .first_pipe_instance(true)
         .reject_remote_clients(true)
-        .create(PIPE_NAME)?;
-    tracing::info!(pipe = PIPE_NAME, "API listening");
+        .create(name)?;
+    tracing::info!(pipe = name, "API listening");
     loop {
         server.connect().await?;
         let client = server;
         server = ServerOptions::new()
             .reject_remote_clients(true)
-            .create(PIPE_NAME)?;
+            .create(name)?;
         tokio::spawn(serve_conn(client, engine.clone(), shutdown.clone()));
     }
 }

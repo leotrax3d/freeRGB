@@ -4,16 +4,14 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-if (Get-Process freergbd -ErrorAction SilentlyContinue) {
-    throw 'Stop the existing daemon before running this isolated smoke test.'
-}
+$instance = 'smoke-' + [guid]::NewGuid().ToString('N')
 $daemon = $null
 $manifestPath = $null
 $faultManifestPath = $null
-$pipe = [System.IO.Pipes.NamedPipeClientStream]::new('.', 'freergb', [System.IO.Pipes.PipeDirection]::InOut)
+$pipe = [System.IO.Pipes.NamedPipeClientStream]::new('.', ('freergb-' + $instance), [System.IO.Pipes.PipeDirection]::InOut)
 try {
     $daemonPath = (Resolve-Path -LiteralPath $Binary).Path
-    $daemonArgs = @('--no-hardware', '--virtual-device', '--no-state')
+    $daemonArgs = @('--no-hardware', '--virtual-device', '--no-state','--ipc-instance',$instance)
     if ($WithPlugin) {
         $pluginPath = (Resolve-Path -LiteralPath (Join-Path (Split-Path $daemonPath) 'freergb-plugin-virtual.exe')).Path
         $manifestPath = Join-Path ([System.IO.Path]::GetTempPath()) ("freergb-smoke-" + [guid]::NewGuid().ToString() + '.json')

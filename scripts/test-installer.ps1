@@ -83,6 +83,10 @@ try {
     Assert-True (Test-Path -LiteralPath "$group/freeRGB.lnk") 'Start Menu should default on.'
     Assert-True (-not (Test-Path -LiteralPath $desktop)) 'Desktop should default off.'
     Assert-True ((Get-Startup) -eq ('"' + (Join-Path $app 'freergb-launcher.exe') + '"')) 'Autostart should default on and quote spaces.'
+    foreach ($file in @('install-mainboard.ps1','mainboard-prerequisites.psm1','mainboard-packages.json')) {
+        Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing optional prerequisite bootstrap file $file"
+    }
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $app 'mainboard-provider.json'))) 'Default/silent setup must not enable optional motherboard access.'
     Assert-True (Test-Path -LiteralPath $uninstallKey) 'Per-user uninstall registration missing.'
     $daemon = Start-Virtual $app
     Install-Test 'upgrade-options-off' 'desktopicon'

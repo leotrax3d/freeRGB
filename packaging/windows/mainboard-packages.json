@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "packages": {
+    "lhm": {"version":"0.9.6","file":"LibreHardwareMonitor.zip","url":"https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/download/v0.9.6/LibreHardwareMonitor.zip","sha256":"086d9f1b5a99e643edc2cfaaac16051685b551e4c5ac0b32a57c58c0e529c001","size":6632626},
+    "pawnio": {"version":"2.2.0","file":"PawnIO_setup.exe","url":"https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe","sha256":"1f519a22e47187f70a1379a48ca604981c4fcf694f4e65b734aaa74a9fba3032","size":3410960,"signer":"namazso.eu"},
+    "dotnet": {"version":"4.8","file":"dotnet48-offline.exe","url":"https://go.microsoft.com/fwlink/?linkid=2088631","sha256":"0a3a390c47e639d0f7fc65b21195fee6b7f65b066f80f70c60fab191d14b7e40","size":121346568,"signer":"Microsoft Corporation"}
+  },
+  "notices": [
+    {"file":"LHM-MPL-2.0.txt","url":"https://raw.githubusercontent.com/LibreHardwareMonitor/LibreHardwareMonitor/v0.9.6/LICENSE","sha256":"1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5","size":16725},
+    {"file":"THIRD-PARTY-NOTICES.txt","url":"https://raw.githubusercontent.com/LibreHardwareMonitor/LibreHardwareMonitor/v0.9.6/THIRD-PARTY-NOTICES.txt","sha256":"a60d5ee62f4d700caff38566f42874d554b8b530437c72804fb28b958cfbda9b","size":25905},
+    {"file":"PawnIO.Modules-LGPL-2.1.txt","url":"https://raw.githubusercontent.com/LibreHardwareMonitor/LibreHardwareMonitor/v0.9.6/LibreHardwareMonitorLib/Resources/PawnIo/COPYING","sha256":"dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551","size":26530},
+    {"file":"PawnIO.Modules-source.txt","url":"https://raw.githubusercontent.com/LibreHardwareMonitor/LibreHardwareMonitor/v0.9.6/LibreHardwareMonitorLib/Resources/PawnIo/README","sha256":"c0933e9986afe65cb8629b2f1f1bf64c765d172f51ca325b0a17037f1fb2e348","size":146}
+  ]
+}
