@@ -51,3 +51,10 @@ Completed follow-up — advisory sensor monitoring:
 - [x] Cross-page banner, acknowledgement and recurrence handling.
 - [x] 132 Windows tests, Clippy/fmt, release smoke and regenerated installer.
 - [ ] Interactive monitoring acceptance with identified real channels.
+
+Completed follow-up — foreground application profiles:
+- [x] Saved Windows executable/profile rules with per-session opt-in.
+- [x] Background foreground detection, stability timer and no repeated loads.
+- [x] Pause/queued-work invalidation, macro deferral and confirmed-load UI sync.
+- [x] 136 Windows tests, Clippy/fmt, release IPC smoke and regenerated installer.
+- [ ] Interactive Windows focus-switch acceptance; Linux support.

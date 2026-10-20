@@ -5,7 +5,7 @@ any earlier implication that the broad feature roadmap was finished.
 
 | Area | Implemented | Remaining acceptance/work |
 |---|---|---|
-| Lighting | Core, effects, layers/editor, profiles, device workers, K70 and experimental LINK RGB | More devices; long hardware soaks; richer layouts |
+| Lighting | Core, effects, layers/editor, profiles, session-opt-in Windows foreground application profile rules, device workers, K70 and experimental LINK RGB | More devices; long hardware soaks; richer layouts; native foreground profile acceptance |
 | Cooling | Pure curve model/editor, interpolation, hysteresis, emergency/stale sensor policy, named storage and API | Live sensor publication, reliable fan/pump channel mapping, validated writes, independent watchdog and restore tests |
 | Macros | Visual step editor, advanced JSON, delay/repeat, RGB/effects/brightness, run/cancel; opt-in Windows text/key/media/chord output and global shortcuts | Native input/hotkey acceptance, recording, device key mapping |
 | Monitoring | Daemon diagnostics, cached LINK RPM, bounded histories with stale gaps, redacted offline report export, persistent local sensor warning rules with debounce/hysteresis and acknowledgement | CPU/GPU/coolant temperatures, confirmed channel identity; GUI acceptance |

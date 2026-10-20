@@ -22,6 +22,7 @@ serde.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 global-hotkey = "0.8"
+active-win-pos-rs = "0.11"
 
 [lints]
 workspace = true

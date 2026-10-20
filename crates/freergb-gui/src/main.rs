@@ -15,6 +15,7 @@ use std::time::Duration;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 mod alerts;
+mod app_profiles;
 mod diagnostics;
 mod hotkeys;
 mod macro_editor;
@@ -38,6 +39,7 @@ struct Snapshot {
     custom_effects: Option<Vec<String>>,
     /// Increments with every successful fetch.
     generation: u64,
+    profile_revision: u64,
 }
 
 /// A call queued by the UI.
@@ -94,6 +96,7 @@ fn optional_query(reachable: &mut bool, method: &str) -> Option<Value> {
 }
 
 fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context) {
+    let mut profile_revision = 0;
     loop {
         let mut last_error = None;
         match rx.recv_timeout(POLL_INTERVAL) {
@@ -112,7 +115,9 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                         continue;
                     }
                     // GUI-side shortcut: fetch a saved custom effect and apply it.
-                    let result = if c.method == "gui.export_diagnostics" {
+                    let result = if c.method == "gui.load_app_profile" {
+                        app_profiles::load_if_current(c.params)
+                    } else if c.method == "gui.export_diagnostics" {
                         match freergb_client::call("diagnostics.export", Value::Null) {
                             Ok(report) => match diagnostics::save(&report) {
                                 Ok(path) => {
@@ -135,6 +140,13 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                     } else {
                         freergb_client::call(c.method, c.params)
                     };
+                    if matches!(c.method, "profiles.load" | "gui.load_app_profile")
+                        && result
+                            .as_ref()
+                            .is_ok_and(|value| value == &Value::Bool(true))
+                    {
+                        profile_revision += 1;
+                    }
                     if let Err(e) = result {
                         let transport_failed =
                             !matches!(e, freergb_client::ClientError::Rpc { .. });
@@ -189,6 +201,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                     s.profiles = profiles;
                     s.custom_effects = custom_effects;
                     s.generation += 1;
+                    s.profile_revision = profile_revision;
                     s.error = last_error;
                 }
                 Err(e) => {
@@ -224,6 +237,8 @@ fn label(name: &str) -> &'static str {
 }
 
 struct App {
+    profile_revision: u64,
+    app_profiles: app_profiles::AppProfiles,
     panels: pages::Panels,
     state: Arc<Mutex<Snapshot>>,
     tx: Sender<Command>,
@@ -251,6 +266,8 @@ impl App {
             .spawn(move || worker(rx, s, ctx))
             .expect("spawn worker thread");
         Self {
+            profile_revision: 0,
+            app_profiles: Default::default(),
             panels: Default::default(),
             state,
             tx,
@@ -708,6 +725,7 @@ impl eframe::App for App {
             let snapshot = self.state.lock().unwrap_or_else(|e| e.into_inner());
             self.panels.observe(&snapshot);
             self.panels.poll_hotkeys(&self.tx, &snapshot);
+            self.app_profiles.poll(&self.tx, &snapshot);
         }
         let (
             connected,
@@ -719,6 +737,7 @@ impl eframe::App for App {
             profiles,
             custom_effects,
             generation,
+            profile_revision,
         ) = {
             let s = self.state.lock().unwrap_or_else(|e| e.into_inner());
             (
@@ -731,8 +750,16 @@ impl eframe::App for App {
                 s.profiles.clone(),
                 s.custom_effects.clone(),
                 s.generation,
+                s.profile_revision,
             )
         };
+        if self.profile_revision != profile_revision {
+            if let Some(effect) = &effect {
+                self.sync_from(effect, diag.as_ref());
+                self.profile_revision = profile_revision;
+                self.sync_after_generation = None;
+            }
+        }
         if let (Some(after), Some(e)) = (self.sync_after_generation, &effect) {
             if generation > after {
                 self.sync_from(e, diag.as_ref());
@@ -741,6 +768,11 @@ impl eframe::App for App {
         }
 
         egui::TopBottomPanel::top("status").show(ctx, |ui| {
+            if self.app_profiles.active()
+                && ui.button("Application profiles active — pause").clicked()
+            {
+                self.app_profiles.disable();
+            }
             let warnings = self.panels.sensor_warnings();
             if warnings > 0
                 && ui
@@ -950,6 +982,7 @@ impl eframe::App for App {
 
                 ui.separator();
                 ui.heading("Profiles");
+                self.app_profiles.ui(ui, profiles.as_deref());
                 match &profiles {
                     None => {
                         ui.label("Profiles are disabled (daemon started with --no-state).");
@@ -982,6 +1015,7 @@ impl eframe::App for App {
                                 .clicked()
                             {
                                 self.send("profiles.load", json!({"name": sel}));
+                                self.app_profiles.disable();
                                 self.sync_after_generation = Some(generation);
                             }
                             if ui

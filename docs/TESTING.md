@@ -144,3 +144,11 @@ unit readings. Tests use cached JSON and simulated time, with no hardware access
 Formatting, denied-warning Clippy, release build, virtual daemon/plugin IPC smoke
 and regenerated Inno installer pass. GUI click and real sensor acceptance remain
 open. This is advisory monitoring only; details in MONITORING.md.
+
+## Foreground application profiles — 2026-10-20
+136 Windows workspace tests pass. Four new tests cover focus stability/rapid changes,
+no repeated load, re-entry, macro deferral, missing focus, executable validation and
+invalidated command rejection. No test reads the real active window or applies a
+profile to hardware. Formatting, Clippy with denied warnings, release build, virtual
+IPC/plugin smoke and installer compilation pass. Actual focus-switch acceptance
+remains open; see APPLICATION_PROFILES.md.

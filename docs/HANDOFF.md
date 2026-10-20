@@ -194,3 +194,24 @@ Hardware results: `DEVICES.md#validation-log`.
   target/alert-release.log, target/alert-smoke.log, target/installer-build.log.
 * GitHub run 39369935576 (82f1211) passed Windows and Ubuntu fmt/Clippy; remainder
   was still running at the last check. Do not claim overall Linux acceptance yet.
+
+## Foreground application profiles — 2026-10-20
+* Windows session-opt-in rules map an executable basename to an existing saved
+  profile. Stable foreground observations for two seconds, once-per-entry loading,
+  no fallback/restore. Manual profile load and the status pause button stop it.
+  Configuration only in application-profiles.json; no activity history.
+* Bounded background detection, at most one poll/second. Adapter uses
+  active-win-pos-rs 0.11.0; only executable basename retained from its native
+  metadata. Linux activation disabled. Native acceptance remains open.
+* API worker checks session ticket, current foreground and macro status before
+  dispatch. Pause invalidates queued work; already dispatched calls may finish.
+  Profile-load acknowledgement revision synchronizes GUI controls after success.
+* 136 Windows tests pass, including focus debounce, no repeated loads, re-entry,
+  running-macro deferral, missing foreground, invalid rules and stale command
+  rejection. Tests do not read actual foreground or write real hardware.
+* fmt/Clippy, release build, virtual IPC/plugin smoke and refreshed installer pass.
+  Logs: target/app-profile-tests.log, target/app-profile-release.log,
+  target/app-profile-smoke.log, target/installer-build.log.
+* CI 39370293062 for previous sensor-warning commit was still running. Earlier
+  39369935576 was canceled by workflow concurrency; no overall Linux success claim.
+  Full behavior and acceptance limits: APPLICATION_PROFILES.md.
