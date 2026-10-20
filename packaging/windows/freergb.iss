@@ -48,7 +48,9 @@ Source: "{#BinDir}\freergb-launcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergbd.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-mainboard.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BinDir}\freergb-mainboard-service.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "install-mainboard.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "remove-mainboard.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "mainboard-prerequisites.psm1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "mainboard-packages.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -110,6 +112,22 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then InstallSelectedMainboardComponents;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var Code: Integer; Parameters: String;
+begin
+  if CurUninstallStep <> usUninstall then Exit;
+  if not RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\freeRGBMainboard') and
+    not DirExists(ExpandConstant('{commonpf64}\freeRGB\MainboardBroker')) then Exit;
+  Parameters := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\remove-mainboard.ps1') +
+    '" -InstallRoot "' + ExpandConstant('{app}') + '" -ConsentToRemove';
+  if UninstallSilent then Parameters := Parameters + ' -Silent';
+  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters,
+    ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code) then
+    RaiseException('Der Mainboard-Dienst konnte nicht entfernt werden. Die Deinstallation wurde vor dem Entfernen der Programmdateien angehalten.');
+  if Code <> 0 then
+    RaiseException('Der Mainboard-Dienst wurde nicht entfernt oder die Administratorabfrage wurde abgebrochen. freeRGB bleibt für einen erneuten Versuch installiert. Details: Program Files\freeRGB\mainboard-maintenance-result.json');
 end;
 
 function NeedRestart: Boolean;

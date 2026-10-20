@@ -252,4 +252,31 @@ The fixture passes in PowerShell 7 and Windows PowerShell 5.1; existing ignored 
 helper transport acceptance also passed and Inno compiled. These are targeted
 checks for this increment, not a new full-workspace/hardware acceptance run.
 CI and Package now run the broker fixture. Protected deployment and actual SCM/
-native-worker lifecycle remain untested and the service is not enabled by Setup.
+native-worker lifecycle were still untested at that stage; see the subsequent
+protected-deployment/SCM acceptance below.
+
+## Protected deployment and SCM acceptance
+
+`scripts/test-mainboard-deployment.ps1 -VerifyRuntime` passes disk-backed install/
+update/rollback cases including failed new start, prior stopped/running state,
+initial install failure, failed stop/swap, wrong hashes and locked verified sources;
+it also extracts the pinned real runtime/notices without loading them. It passed
+in PowerShell7 and Windows PowerShell5.1. Local Inno compilation/model checks,
+consent gates and existing Rust helper transport regression passed.
+
+Mainboard broker run **39469765979 succeeded** on a disposable elevated Windows
+runner: actual SCM install with protected image/DLLs, a separate real standard-user
+process reading through the broker, failed-start byte/state rollback, 900-to-901
+version update, changed-helper rejection, foreign-owner removal rejection and owned
+uninstall. This uses a compile-time synthetic worker, no driver/hardware access.
+The prior run caught a real normal-user identity-query rejection; the corrected
+client authenticates SYSTEM pipe ownership plus SCM service identity instead of
+requiring SYSTEM process-image query rights. A second unauthorized standard-user
+test is added for the next run.
+
+Setup now wires this maintenance to explicit mainboard opt-in. Default/silent
+installer lifecycle also checks no privileged service is created and both
+maintenance/removal helpers are installed/removed. These new final installer
+checks need their own Package result. Actual wizard/UAC/vendor installer/reboot,
+native worker crash/hang, power-loss repair and real motherboard support remain
+unverified. No service/driver was installed on the developer PC.

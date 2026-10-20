@@ -105,7 +105,8 @@ Mainboard priority continuation:
 - [x] Mock RGB protocol/fallback/ownership tests and real download/staging-only tests.
 - [x] Previous commit's CI39447281629 (Windows/Linux) and Package39447319152 passed.
 - [x] Read-only broker service candidate, protected-path startup gate and local IPC tests.
-- [ ] Protected broker installation/updates/removal and real SCM/worker lifecycle validation.
+- [x] Protected broker installation/updates/removal and isolated SCM acceptance with synthetic worker.
+- [ ] Real native worker/driver lifecycle, UAC/reboot and motherboard hardware acceptance.
 - [ ] Isolated real prerequisite installation/UAC/reboot acceptance.
 - [ ] Live ASUS configuration/color/fallback tests and header setup GUI/configuration.
 - [ ] Real mainboard fan writes/calibration/independent watchdog; broader manufacturer support.
@@ -117,6 +118,18 @@ Broker boundary continuation:
 - [x] .NET helper/service compilation and no-hardware tests in PowerShell 7/Windows PowerShell 5.1.
 - [x] Existing Rust helper transport regression and local installer compilation.
 - [x] Commit 0493bd0 passed CI39452690007 and Package39452741550.
-- [ ] Activate the service only after protected deployment and disposable-machine acceptance.
-  No service or driver was installed/started by these tests. Setup still installs
-  prerequisite preparation only; real fan control remains unreleased.
+- [x] Activate the read-only service through Setup opt-in after protected deployment and SCM acceptance.
+  The local boundary tests install no service/driver. Isolated GitHub acceptance
+  installs only our service with a compile-time synthetic reader, not a driver.
+  Real fan control remains unreleased.
+
+Protected service continuation:
+- [x] Embedded helper/archive/notices hashes, immutable source handles and protected staging.
+- [x] Fixed owned SCM image/account, user-scoped pipe, standard-user service authentication.
+- [x] Update/start-failure rollback and owned removal; foreign owner/tampered helper rejection.
+- [x] Mainboard broker run 39469765979 passed real SCM lifecycle and standard-user reads.
+- [x] Setup describes optional automatic system service; UAC only for maintenance/system prerequisites.
+- [x] Interrupted/failed service removal aborts before deleting the maintenance copy; silent mode never requests UAC.
+- [x] Existing API/config formats preserved; protected installation/maintenance state documented.
+- [ ] New final Package/default installer lifecycle result and unauthorized-user extension.
+- [ ] Real wizard/UAC/driver/reboot, native child crash/hang, power-loss repair and hardware coverage.

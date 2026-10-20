@@ -10,6 +10,7 @@ if (-not $ConsentToInstall -and -not $DownloadOnly) { throw 'Explicit prerequisi
 $root = (Resolve-Path -LiteralPath $InstallRoot).Path
 if (-not $DownloadOnly -and -not (Test-Path -LiteralPath (Join-Path $root 'freergbd.exe'))) { throw 'Not a freeRGB installation directory.' }
 if (-not $CacheDirectory) { $CacheDirectory = Join-Path $env:TEMP ('freeRGB-prerequisites-' + [guid]::NewGuid().ToString('N')) }
+$CacheDirectory = [IO.Path]::GetFullPath($CacheDirectory)
 $manifest = Read-MainboardPackages (Join-Path $PSScriptRoot 'mainboard-packages.json')
 $resultPath = Join-Path $root 'mainboard-install-result.json'
 $result = @{version=1;status='failed';restart_required=$false;message='Installation did not complete.'}
@@ -42,11 +43,25 @@ try {
     }
     $libraryRoot = Join-Path $root 'providers\lhm-0.9.6'
     Install-LhmRuntime $libraryArchive $libraryRoot $manifest $CacheDirectory
+    if ($result.restart_required) {
+        $result.status='restart_required';$result.message='Prerequisites require a restart. Restart Windows, then rerun Setup with the mainboard option to install the protected sensor service.'
+        exit 3010
+    }
+    $broker = Join-Path $root 'freergb-mainboard-service.exe'
+    if (-not (Test-Path -LiteralPath $broker -PathType Leaf)) { throw 'Protected broker maintenance executable is missing. Rerun current freeRGB Setup.' }
+    # Capture the original user before UAC, including when another admin supplies credentials.
+    $ownerSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $brokerHash = (Get-FileHash -LiteralPath $broker -Algorithm SHA256).Hash
+    # Quote Windows arguments, including a user-supplied cache ending in a backslash.
+    $quotedCache = '"' + ($CacheDirectory -replace '(\\+)$','$1$1') + '"'
+    $arguments = '--install --consent {0} {1} "{2}" {3}' -f $ownerSid,$brokerHash,$libraryArchive,$quotedCache
+    $maintenance = Start-Process -FilePath $broker -ArgumentList $arguments -WorkingDirectory (Join-Path $env:WINDIR 'System32') -Verb RunAs -WindowStyle Hidden -Wait -PassThru
+    if ($maintenance.ExitCode -ne 0) { throw 'Protected sensor service setup failed or was cancelled. Diagnostic: %ProgramFiles%\freeRGB\mainboard-maintenance-result.json. Existing service rollback is attempted automatically.' }
     # Fixed relative path: neither GUI config nor arbitrary executable arguments.
     $provider = @{version=1;enabled=$true;library='providers/lhm-0.9.6'} | ConvertTo-Json
     [IO.File]::WriteAllText((Join-Path $root 'mainboard-provider.json'),$provider)
     $result.status = if ($result.restart_required) { 'restart_required' } else { 'prepared' }
-    $result.message='Prerequisites prepared. Fan control remains gated; elevated motherboard access and hardware validation may still be required.'
+    $result.message='Protected mainboard sensor service installed. GUI and daemon remain unelevated. Fan control remains gated; physical channel labels and hardware compatibility still require validation.'
     Write-Host $result.message
     if ($result.restart_required) { exit 3010 }
     exit 0

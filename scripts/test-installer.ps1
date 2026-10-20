@@ -77,16 +77,17 @@ function Start-Virtual([string]$Directory) {
 $daemon = $null
 try {
     Install-Test 'fresh-defaults' 'DEFAULT'
-    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','unins000.exe')) {
+    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','unins000.exe')) {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing installed file $file"
     }
     Assert-True (Test-Path -LiteralPath "$group/freeRGB.lnk") 'Start Menu should default on.'
     Assert-True (-not (Test-Path -LiteralPath $desktop)) 'Desktop should default off.'
     Assert-True ((Get-Startup) -eq ('"' + (Join-Path $app 'freergb-launcher.exe') + '"')) 'Autostart should default on and quote spaces.'
-    foreach ($file in @('install-mainboard.ps1','mainboard-prerequisites.psm1','mainboard-packages.json')) {
+    foreach ($file in @('install-mainboard.ps1','remove-mainboard.ps1','mainboard-prerequisites.psm1','mainboard-packages.json')) {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing optional prerequisite bootstrap file $file"
     }
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $app 'mainboard-provider.json'))) 'Default/silent setup must not enable optional motherboard access.'
+    Assert-True (-not (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\freeRGBMainboard')) 'Default/silent setup must not create a privileged service.'
     Assert-True (Test-Path -LiteralPath $uninstallKey) 'Per-user uninstall registration missing.'
     $daemon = Start-Virtual $app
     Install-Test 'upgrade-options-off' 'desktopicon'
@@ -107,7 +108,7 @@ try {
     Invoke-TestProcess "$app/unins000.exe" @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/LOG="{0}"' -f (Join-Path $logs 'uninstall.log')))
     Assert-True ($daemon.WaitForExit(10000) -and $daemon.ExitCode -eq 0) 'Uninstall did not gracefully stop its daemon.'
     $daemon = $null
-    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe')) {
+    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','remove-mainboard.ps1')) {
         Assert-True (-not (Test-Path -LiteralPath (Join-Path $app $file))) "Installed file remains: $file"
     }
     Assert-True (-not (Test-Path -LiteralPath $uninstallKey)) 'Uninstall registry entry remains.'

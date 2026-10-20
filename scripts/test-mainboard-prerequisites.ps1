@@ -18,6 +18,9 @@ $powershell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.
 $gate = Start-Process -FilePath $powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"{0}"' -f $bootstrap),'-InstallRoot',('"{0}"' -f $root)) -WindowStyle Hidden -Wait -PassThru -RedirectStandardError (Join-Path $root 'consent-gate-error.log') -RedirectStandardOutput (Join-Path $root 'consent-gate-output.log')
 Require ($gate.ExitCode -ne 0) 'Bootstrap must reject missing installation consent.'
 Require (-not (Test-Path (Join-Path $root 'mainboard-provider.json'))) 'Missing consent must not create activation state.'
+$removal = (Resolve-Path "$PSScriptRoot/../packaging/windows/remove-mainboard.ps1").Path
+$gate = Start-Process -FilePath $powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"{0}"' -f $removal),'-InstallRoot',('"{0}"' -f $root)) -WindowStyle Hidden -Wait -PassThru -RedirectStandardError (Join-Path $root 'removal-consent-error.log') -RedirectStandardOutput (Join-Path $root 'removal-consent-output.log')
+Require ($gate.ExitCode -ne 0) 'Removal must reject missing consent before inspecting or changing services.'
 $fake = Join-Path $root 'fake.exe'
 [IO.File]::WriteAllText($fake,'Not an executable; must never be launched.')
 $package = [pscustomobject]@{file='fake.exe';size=(Get-Item $fake).Length;sha256=(Get-FileHash $fake).Hash.ToLowerInvariant();signer='Microsoft Corporation';url='https://github.com/unused'}

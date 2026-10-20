@@ -167,11 +167,14 @@ clients must not execute their paths or interpret them as permission to elevate.
 The existing mainboard provider still reports missing rights/prerequisites through
 its status. API version remains 1; Tauri paths/dependencies are unchanged.
 
-The internal read-only broker candidate (`MAINBOARD_BROKER.md`) retains this same
+The internal read-only broker (`MAINBOARD_BROKER.md`) retains this same
 helper envelope and these existing statuses. It adds no RPC methods, setters,
 GUI configuration files or wire fields. Relayed samples retain their original
-age. The service is not yet installed/enabled by Setup; prerequisite opt-in alone
-does not imply normal-user motherboard access.
+age. Setup's mainboard opt-in also deploys the protected sensor service; no GUI
+or daemon elevation is needed for its local cached readings. Provider status
+still reports missing hardware/prerequisites. Protected installation/maintenance
+diagnostic formats are documented in `MAINBOARD_INSTALLATION.md`; no new GUI
+config file or API parameter selects an executable, library or service identity.
 
 
 For concurrent Windows integration tests only, daemon `--ipc-instance NAME`

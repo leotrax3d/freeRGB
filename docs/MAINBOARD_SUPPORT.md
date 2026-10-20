@@ -22,7 +22,7 @@ page now offers verified official prerequisite downloads and installation after
 explicit opt-in, including .NET 4.8 when absent. It includes our small helper and
 bootstrap scripts, not bundled upstream driver installers. See
 `MAINBOARD_INSTALLATION.md` for consent, hashes, signatures, reboot handling,
-installed-state formats and the remaining restricted privilege-broker work.
+installed-state formats and the protected privilege broker.
 
 ## Implemented Windows read-only provider
 
@@ -40,8 +40,8 @@ The option is rejected with `--no-hardware` and on non-Windows systems.
 
 The helper first tries the fixed protected broker endpoint, verifies the server's
 image/protection, and retains measurement age when relaying cached readings. The
-broker is currently a tested service candidate, not installed by Setup; see
-`MAINBOARD_BROKER.md` for its boundary and outstanding deployment/SCM acceptance.
+broker is deployed only through Setup's explicit mainboard opt-in; see
+`MAINBOARD_BROKER.md` for its protected boundary and remaining hardware acceptance.
 With no broker, the direct reader checks for the library, an already-running PawnIO
 driver and an elevated token before opening LHM. It enables **only** motherboard/SuperIO groups. CPU, GPU,
 storage, memory and USB-controller groups remain off. It uses default memory-only

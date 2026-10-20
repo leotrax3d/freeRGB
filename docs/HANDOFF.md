@@ -355,3 +355,38 @@ Hardware results: `DEVICES.md#validation-log`.
 - Previous commit 0493bd0 CI39452690007 and Package39452741550 succeeded. This broker
   increment requires its own subsequent runner result. User README/.claude remain
   untouched.
+
+## Protected service installation/update/removal
+
+- `BrokerDeployment.cs`: one-shot explicit-consent administrator maintenance,
+  fixed Program Files target and service identity, protected account owner marker,
+  exclusive admin lock and version-1 maintenance result. Embedded exact helper
+  SHA/size and upstream package/notices manifest; source streams locked against
+  modification throughout verification/extraction/copy. New protected files have
+  explicit Administrators ownership. No per-user DLL is elevated.
+- Native SCM registration uses quoted fixed image, own-process LocalSystem and
+  automatic service startup. Updates stop/wait for the previous service process,
+  preserve its files and restore old bytes/running state on new-start failure.
+  Foreign registrations/owners and modified helper bytes fail before stopping it.
+  Rollback failure preserves protected backup; abrupt power-loss repair is pending.
+- Run 39469310553 exposed standard-user process-image-query rejection. Fixed
+  authentication binds SYSTEM pipe owner/PID to SCM's running service, exact image,
+  type and account, plus protected image/parents. READ_CONTROL is added solely for
+  owner inspection; client still cannot change ACL or create pipe instances.
+- Standalone Mainboard broker run 39469765979 SUCCESS: actual protected service
+  installation, real standard-user client, failed-start rollback, 900->901 update,
+  tamper/owner rejection and owned removal. Compile-time synthetic worker only;
+  production has no runtime fixture flag, CI client has no native fallback.
+  An additional unauthorized-account test is added for the next runner result.
+- Setup's unchecked mainboard page now explicitly includes our automatic system
+  sensor service. Bootstrap captures original user SID/hash before UAC, including
+  alternate-admin credentials, invokes maintenance from protected System32 CWD,
+  and writes existing activation state only after success. Reboot postpones broker
+  installation until Setup is rerun. App/daemon remain unelevated; no fan writes.
+- Interactive uninstall removes the owned broker before deleting the app's
+  maintenance copy. Cancel/error aborts app removal; silent uninstall refuses UAC
+  when a broker is installed and remains retryable. Shared PawnIO/.NET untouched.
+- Local .NET boundary/deployment/pinned-extraction, PS5/7 consent logic, Rust helper
+  transport, Inno build/model checks passed. Pending new full Package and actual
+  wizard/UAC/driver/reboot/native lifecycle/hardware tests. Protected markers are
+  installation files, not shared GUI config; API/GUI/Tauri paths remain unchanged.

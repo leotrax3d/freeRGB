@@ -1,9 +1,9 @@
-# Mainboard broker: read-only boundary candidate
+# Protected read-only mainboard broker
 
-Status: implemented and tested as a **service candidate**, not yet installed or
-enabled by Setup. A one-shot protected deployment/rollback implementation and
-disposable-runner SCM acceptance harness now exist; activation awaits that
-acceptance. This does not release motherboard fan control. No API method, GUI setting or API version
+Status: read-only service with explicit Setup opt-in. Protected installation,
+standard-user readings, updates, failed-start rollback and removal passed isolated
+SCM acceptance with compile-time synthetic sensors (run 39469765979). This does not
+release motherboard fan control or validate real LHM/PawnIO hardware. No API method, GUI setting or API version
 changes. The existing optional helper can consume the broker when it is available;
 with no broker it retains its existing direct-reader prerequisite checks.
 
@@ -120,7 +120,16 @@ creates a temporary standard user and tests SCM installation, normal-user readin
 failed-start rollback, version change, tamper/foreign-owner rejection and removal.
 Its helper is a **compile-time** synthetic worker, not a production runtime switch;
 no LHM hardware code or driver is invoked. Production packaging uses Production
-build mode. Pending runner results are not hardware/SCM acceptance.
+build mode. That acceptance does not validate real sensor labels or fan controls.
+
+Parent `mainboard-maintenance-result.json` version 1 records `action`, `status`,
+`message`, `updated_at_utc`, protected against user writes and readable for UAC
+failure diagnosis. It and the serialized maintenance lock remain after owned
+service removal. Setup's app-directory installation marker is written only after
+successful maintenance; reboot/cancellation/failure is explicit. Maintenance is
+re-run only with new mainboard opt-in. Interactive uninstall removes the owned
+service first and aborts on UAC cancellation/failure; silent uninstall with a
+broker refuses elevation and preserves a retryable application installation.
 
 `scripts/test-mainboard-broker.ps1` compiles both binaries and a no-hardware fixture
 with the .NET Framework compiler. It exercises real Windows pipes: minimal DACL,
@@ -130,17 +139,15 @@ client, acknowledgment, cache aging and unprotected worker/payload rejection. No
 service is registered, no driver is loaded and no elevation is requested. CI and
 Package run this fixture; the Rust helper transport regression remains separate.
 
-The build generates the service candidate but **the installer does not yet include
-or register it**. Before activation, implement and validate all of the following:
+The installer now includes the maintenance executable and invokes it only through
+explicit mainboard opt-in/UAC. Remaining acceptance:
 
-* Explicit Setup opt-in describing our own system service, as well as upstream
-  components, wired to the reviewed elevated maintenance after SCM acceptance.
-* Validate protected owner/SID state, service identity/image checks, version updates,
-  failure recovery and owned-service removal. Never register an image or load a
-  DLL from the user-writable application/cache directories as SYSTEM.
-* Disposable-machine acceptance for SCM startup, reader crash/hang, concurrent
-  normal-user clients, unauthorized accounts, UAC cancellation, upgrade/rollback
-  and uninstall. Real LHM/PawnIO operation remains unverified here.
+* Real wizard/UAC cancellation, manufacturer driver/.NET dialogs and reboot paths.
+* Native reader crash/hang/exit cleanup, concurrent clients and power-loss repair
+  across directory switches. Fixture reads/SCM success do not establish native
+  hardware lifecycle safety. Never load service code from the writable app/cache.
+* Real LHM/PawnIO enumeration across motherboard families and confirmed physical
+  channel/source labels. No such driver-backed operation was tested on this PC.
 
 Fan/header pairing, PWM/DC mode, safe minimums, calibration, actual writes and an
 independent failsafe remain separate gated work. Motherboard RGB/ARGB uses a

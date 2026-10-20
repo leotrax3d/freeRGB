@@ -2,13 +2,16 @@
 
 The installer has a dedicated, **unchecked** opt-in page. It describes downloads,
 administrator prompts, possible reboot, experimental discovery/readings and the
-fact that real fan control is not yet released. Silent/default installation never
+fact that real fan control is not yet released. It explicitly includes our protected
+LocalSystem sensor service with automatic service startup. Silent/default installation never
 downloads or installs prerequisites. Selecting the option runs the preparation
 after the core application is installed and its old daemon is stopped.
 
 The embedded PowerShell bootstrap requires explicit `-ConsentToInstall`. It runs
-as the installing user and elevates only signed upstream system installers (and
-`sc.exe start PawnIO` for an existing stopped driver) through Windows UAC. It does
+as the installing user and elevates signed upstream system installers (and
+`sc.exe start PawnIO` for an existing stopped driver), then our one-shot broker
+maintenance executable, through Windows UAC. Our own distribution signing remains
+pending. It does
 not elevate the entire GUI/daemon or grant general users access to PawnIO.
 
 Pinned components in `packaging/windows/mainboard-packages.json`, version 1:
@@ -33,6 +36,21 @@ UAC/manufacturer dialogs or non-success exit codes leave the core app usable and
 show an explicit error. Exit codes 3010/1641 are restart-required. PawnIO service
 presence alone is not a verified compatibility or signed-driver acceptance result;
 driver-backed operation still needs validation.
+
+After prerequisites are ready, Setup captures the original user's SID and the
+maintenance image hash **before** UAC. Maintenance verifies/copies its own image,
+the build-bound helper and pinned upstream runtime/notices from immutable held
+source streams. The service image and DLLs live only in protected
+`%ProgramFiles%/freeRGB/MainboardBroker`, never in the writable per-user app/cache.
+It registers `freeRGBMainboard` as an automatic own-process LocalSystem service,
+with the installing user's SID controlling its read-only pipe access. Only the
+fixed protected child loads LHM. GUI and daemon stay unelevated.
+
+Updates selected through the same opt-in stage the new protected files, stop/wait
+for the owned service process, retain old files and start the replacement. Failure
+restores the old files and prior running state. Foreign names, image paths or
+owners fail closed. A failed rollback retains its protected backup and reports
+administrator repair; power-loss recovery between renames is not yet automatic.
 
 LHM's MPL license, upstream third-party notices, embedded PawnIO.Modules LGPL-2.1
 license and source provenance are installed beside its DLLs. Runtime code is
@@ -62,14 +80,24 @@ Normal shortcuts/autostart still target only the launcher. Closing either GUI ne
 stops the daemon. Upgrades without new opt-in preserve previously prepared runtime
 state; they do not rerun prerequisite installation. Uninstall removes our runtime
 and state but **does not uninstall shared PawnIO or .NET** needed by other software.
+When an owned broker is present, interactive uninstall removes it through explicit
+elevated maintenance before deleting the per-user maintenance copy. Cancellation or
+failure aborts uninstall before application files are removed, preserving a retry
+path. Silent uninstall never requests UAC; an installed broker makes it fail with
+an instruction to use interactive removal. The protected parent retains a small
+maintenance lock/diagnostic, not an active service or library. Upgrades without
+new mainboard opt-in leave the existing service build unchanged.
 
-**Remaining privilege work:** stock PawnIO access currently requires elevated
-motherboard-reader rights. Preparing dependencies does not bypass this: the helper
-reports `permission_denied` from a normal token. A restricted elevated broker/service
-candidate and its bounded local transport are implemented (`MAINBOARD_BROKER.md`),
-but protected installation/update/SCM acceptance still need implementation and validation before
-seamless normal-user motherboard operation. Do not install a privileged service
-from the user-writable application directory or elevate the full daemon implicitly.
+Protected installed state (`MAINBOARD_BROKER.md`): `installation.json` version 1
+inside the broker tree (`owner_sid`, `protocol_version`, `helper_sha256`); owner SID
+also lives in its protected HKLM service Parameters key. Parent
+`mainboard-maintenance-result.json` version 1 contains `action` (`install`/`remove`),
+`status` (`success`/`failed`), `message`, `updated_at_utc`. These are installation
+diagnostics, never GUI configuration or permission to execute a supplied path.
+
+**Remaining hardware work:** the broker bridges normal-user requests to the
+privileged reader. Dependency installation or a running service does not establish
+that a particular motherboard is supported or its fan/source labels are correct.
 Real fan writes, calibration and independent failsafe remain separate gated work.
 Motherboard RGB/ARGB HID access can work without these prerequisites; see
 `MAINBOARD_RGB.md` for the initial experimental backend.
@@ -82,5 +110,8 @@ tamper rejection and rejection of unsigned payloads even with a matching hash.
 runtime/notices **without executing any installer or loading any driver**.
 The GitHub Package workflow includes this check. The installer lifecycle test checks
 that default/silent installation deploys bootstrap files but does not create opt-in
-state. Real opt-in wizard/UAC/driver installation and reboot acceptance still need
+state or register a service. Disposable-runner SCM acceptance uses compile-time
+synthetic readings to exercise protected install, a real standard-user client,
+failed-start rollback, update, tamper/owner rejection and removal. Real opt-in
+wizard/UAC/driver installation and reboot acceptance still need
 an isolated Windows machine; none were performed on the developer's PC.
