@@ -1,0 +1,13 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; --background: 0 0% 2.5%; --foreground: 0 0% 98%; --card: 0 0% 7%; --card-foreground: 0 0% 98%; --border: 0 0% 12%; --input: 0 0% 12%; --ring: 0 0% 60%; --primary: 0 0% 92%; --primary-foreground: 0 0% 9%; --secondary: 0 0% 11%; --secondary-foreground: 0 0% 98%; --muted: 0 0% 11%; --muted-foreground: 0 0% 66%; font-synthesis: none; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: #09090b; }
+.bg-grid { background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg,rgba(255,255,255,.035) 1px, transparent 1px); background-size: 52px 52px; }
+.demo-range { appearance: none; height: 6px; border-radius: 999px; background: linear-gradient(90deg,#d946ef,#8b5cf6,#22d3ee); outline: none; }
+.demo-range::-webkit-slider-thumb { appearance: none; width: 17px; height: 17px; border-radius: 50%; background: white; border: 3px solid #18181b; cursor: pointer; }
+.demo-range::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%; background: white; border: 3px solid #18181b; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }

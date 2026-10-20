@@ -3,19 +3,19 @@
   <img src="logo.png" alt="free RGB" width="300">
 </p>
   
-# freeRGB
-
 **Open, lightweight RGB control for Windows and Linux – written in Rust.**
 
 An independent alternative to SignalRGB: a small background service drives your RGB
 hardware directly, a native GUI and a local API control it. No cloud account, no telemetry,
 no vendor software required.
 
-[![CI](https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml/badge.svg)](https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml)
-![Status](https://img.shields.io/badge/status-early%20development-orange)
-![Rust](https://img.shields.io/badge/rust-1.80%2B-blue)
-![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey)
-![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green)
+[![CI](https://img.shields.io/github/actions/workflow/status/leotrax3d/FreeRGB/ci.yml?style=flat-square&label=CI)](https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml)
+![Status](https://img.shields.io/badge/status-early%20development-orange?style=flat-square)
+![Rust](https://img.shields.io/badge/rust-1.80%2B-blue?style=flat-square)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green?style=flat-square)
+[![Downloads](https://img.shields.io/github/downloads/leotrax3d/FreeRGB/total?style=flat-square&color=10A37F&label=Downloads)](https://github.com/leotrax3d/FreeRGB/releases)
+[![Views](https://hits.sh/github.com/leotrax3d/FreeRGB.svg?label=Views&color=10A37F&style=flat-square)](https://github.com/leotrax3d/FreeRGB)
 
 </div>
 
