@@ -31,6 +31,7 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `daemon.shutdown_if` | `{expected_executable:absolute_path}` | `true` and shutdown only for a canonical executable-path match; `false` leaves another copy running; malformed relative/missing paths produce `-32602` |
 | `devices.list` | – | `[{info, status, brightness, region, leds, frames, dropped, last_error}]` |
 | `cooling.status` | – | Hardware-control availability and reason (currently preview only) |
+| `cooling.sensors.get` / `cooling.sensors.save` | – / `{graph:{version:1,nodes:{...}}}` | Read/validate/save the custom Celsius source graph; evaluation and bounded history run in the daemon. See `CUSTOM_SENSORS.md`. |
 | `cooling.curves.list` | – | Map of curve names to definitions |
 | `cooling.curves.save` / `cooling.curves.delete` | `{name,curve}` / `{name}` | Validate/store or delete curve |
 | `cooling.preview` | `{curve,temperature_c?,age_ms?}` | `{duty_percent,simulated:true}`; no hardware write |
@@ -89,3 +90,22 @@ and current execution limits. New cooling/macro validation/storage errors curren
 use `-32602` and an explanatory message.
 `layouts.get|set`,
 `frames.push` (screen ambience / external plugins), event subscription for the GUI.
+
+### Custom sensor readings
+
+`cooling.sensors.sources` (no parameters) returns an object mapping native source
+keys to display labels. Keys are JSON-encoded `[device_id,sensor_id]` strings.
+Only connected cached Celsius sources are included; presence does not guarantee
+a fresh value. It performs no synchronous hardware reads.
+
+`cooling.sensors.values` (no parameters) returns `{now_ms,values:{name:reading}}`.
+Each reading is `{value:number|null,sampled_at_ms:number|null,error:string|null}`.
+Timestamps use the daemon's monotonic sensor epoch, not Unix time. The daemon
+rechecks freshness on every values request; sources older than 3000 ms become
+unavailable. Time averages continue while the GUI is closed. See
+`CUSTOM_SENSORS.md` for all graph bounds, calculations and reset behavior.
+
+`cooling.sensors.save` accepts graph version 1 (omitted version defaults to 1).
+Unsupported versions, invalid graphs and persistence failures return the existing
+invalid-parameters error `-32602`; saved definitions remain unchanged. Empty graphs
+are valid. Methods are additive; existing API types and version remain unchanged.

@@ -21,6 +21,7 @@ enum UpdateCommand {
 }
 
 pub struct Panels {
+    custom_sensors: super::custom_sensors::CustomSensors,
     alerts: super::alerts::Alerts,
     hotkeys: super::hotkeys::Hotkeys,
     history: super::sensor_history::Histories,
@@ -176,7 +177,7 @@ impl Default for Panels {
                 }
             }
         });
-        Self { alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
+        Self { custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
@@ -192,6 +193,7 @@ impl Panels {
         self.hotkeys.active()
     }
     pub fn observe(&mut self, snapshot: &Snapshot) {
+        self.custom_sensors.observe(snapshot);
         let now = self.history_started.elapsed().as_secs_f64();
         if snapshot.generation != self.history_generation {
             self.last_snapshot_s = now;
@@ -254,6 +256,7 @@ impl Panels {
                     ui.label("X: 20–100 °C · Y: 0–100% duty");
                     ui.add(egui::Slider::new(&mut self.temperature, 20.0..=100.0).text("Simulated temperature °C"));
                     ui.label(format!("Target fan output: {:.1}% (preview)", self.curve.duty(Some(self.temperature), 0)));
+                    self.custom_sensors.ui(ui,tx,snapshot,&self.curve);
                 }
                 2 => {
                     ui.heading("Macros");

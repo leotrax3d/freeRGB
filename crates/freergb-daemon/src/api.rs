@@ -143,6 +143,10 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         })),
         "devices.list" => Ok(json!(lock(engine).devices())),
         "cooling.status"
+        | "cooling.sensors.sources"
+        | "cooling.sensors.values"
+        | "cooling.sensors.get"
+        | "cooling.sensors.save"
         | "cooling.curves.list"
         | "cooling.curves.save"
         | "cooling.curves.delete"
