@@ -2,6 +2,7 @@
 use freergb_core::Rgb;
 use freergb_effects::EffectSpec;
 use serde::{Deserialize, Serialize};
+pub mod sensors;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

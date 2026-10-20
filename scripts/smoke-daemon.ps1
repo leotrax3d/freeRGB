@@ -59,6 +59,12 @@ try {
     } while ([DateTime]::UtcNow -lt $deadline)
     if ($devices[0].frames -le 0) { throw 'Virtual device received no frames.' }
     $curve = @{points=@(@{temperature_c=25; duty_percent=30},@{temperature_c=75; duty_percent=100}); minimum_percent=25; critical_c=85; hysteresis_c=2}
+    $sensorGraph = @{version=1;nodes=@{input=@{type='input';source='explicit-unavailable-test-source'};adjusted=@{type='offset';source='input';amount=2;proportional=$false}}}
+    if (-not (Invoke-Rpc 'cooling.sensors.save' @{graph=$sensorGraph})) { throw 'Custom sensor save failed.' }
+    $sensorValues = Invoke-Rpc 'cooling.sensors.values'
+    if ($null -ne $sensorValues.values.adjusted.value) { throw 'Missing source became a fabricated reading.' }
+    $storedGraph = Invoke-Rpc 'cooling.sensors.get'
+    if ($storedGraph.nodes.adjusted.amount -ne 2 -or $storedGraph.nodes.input.source -ne 'explicit-unavailable-test-source') { throw 'Custom sensor round trip failed.' }
     if (-not (Invoke-Rpc 'cooling.curves.save' @{name='Smoke'; curve=$curve})) { throw 'Curve save failed.' }
     $preview = Invoke-Rpc 'cooling.preview' @{curve=$curve; temperature_c=50; age_ms=0}
     if ($preview.duty_percent -ne 65 -or -not $preview.simulated) { throw 'Cooling interpolation failed.' }

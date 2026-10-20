@@ -16,6 +16,7 @@ use std::time::Duration;
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 mod alerts;
 mod app_profiles;
+mod custom_sensors;
 mod diagnostics;
 mod hotkeys;
 mod macro_editor;
@@ -181,6 +182,9 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             "curves": get("cooling.curves.list").unwrap_or(Value::Null),
             "macros": get("macros.list").unwrap_or(Value::Null),
             "macro_status": get("macros.status").unwrap_or(Value::Null),
+            "sensor_sources": get("cooling.sensors.sources").unwrap_or(Value::Null),
+            "sensor_values": get("cooling.sensors.values").unwrap_or(Value::Null),
+            "sensor_graph": get("cooling.sensors.get").unwrap_or(Value::Null),
         });
         if !reachable && fetched.is_ok() {
             fetched = Err(freergb_client::ClientError::Io(std::io::Error::new(
@@ -1044,13 +1048,6 @@ impl eframe::App for App {
                     }
                 }
 
-                ui.separator();
-                if ui
-                    .button("Stop daemon (devices return to hardware lighting)")
-                    .clicked()
-                {
-                    self.send("daemon.shutdown", Value::Null);
-                }
             });
         });
     }

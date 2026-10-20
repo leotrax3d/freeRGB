@@ -700,6 +700,8 @@ impl Engine {
     /// Renders one frame at `now` and offers it to every connected device.
     /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
+        self.controls
+            .refresh_sensors(&serde_json::json!(self.devices()));
         if let Some(step) = self.controls.tick(now) {
             use freergb_control::MacroStep;
             match step {

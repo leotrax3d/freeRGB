@@ -11,6 +11,8 @@ use std::time::{Duration, Instant};
 struct Library {
     curves: BTreeMap<String, FanCurve>,
     macros: BTreeMap<String, MacroDefinition>,
+    #[serde(default)]
+    sensors: freergb_control::sensors::SensorGraph,
 }
 
 struct Job {
@@ -23,6 +25,10 @@ struct Job {
 #[derive(Default)]
 pub struct Controls {
     library: Library,
+    sensor_evaluator: freergb_control::sensors::SensorEvaluator,
+    sensor_epoch: Option<Instant>,
+    sensor_inputs: BTreeMap<String, freergb_control::sensors::InputSample>,
+    sensor_sources: BTreeMap<String, String>,
     path: Option<PathBuf>,
     job: Option<Job>,
     pub input_enabled: bool,
@@ -30,12 +36,65 @@ pub struct Controls {
 }
 
 impl Controls {
+    pub fn refresh_sensors(&mut self, devices: &Value) {
+        let now = self.sensor_now();
+        self.sensor_inputs.clear();
+        self.sensor_sources.clear();
+        for device in devices.as_array().into_iter().flatten() {
+            if device["status"] != "Connected" {
+                continue;
+            }
+            let Some(id) = device["info"]["id"].as_str() else {
+                continue;
+            };
+            for sensor in device["sensors"].as_array().into_iter().flatten() {
+                if sensor["unit"] != "°C" && sensor["unit"] != "C" {
+                    continue;
+                }
+                let (Some(sensor_id), Some(age)) =
+                    (sensor["id"].as_str(), sensor["age_ms"].as_u64())
+                else {
+                    continue;
+                };
+                let key = serde_json::to_string(&(id, sensor_id)).unwrap_or_default();
+                self.sensor_sources.insert(
+                    key.clone(),
+                    format!(
+                        "{} / {}",
+                        device["info"]["name"].as_str().unwrap_or(id),
+                        sensor["name"].as_str().unwrap_or(sensor_id)
+                    ),
+                );
+                if age <= now {
+                    self.sensor_inputs.insert(
+                        key,
+                        freergb_control::sensors::InputSample {
+                            value: sensor["value"].as_f64(),
+                            sampled_at_ms: now - age,
+                        },
+                    );
+                }
+            }
+        }
+        let _ = self
+            .sensor_evaluator
+            .evaluate(&self.library.sensors, &self.sensor_inputs, now);
+    }
+    fn sensor_now(&mut self) -> u64 {
+        self.sensor_epoch
+            .get_or_insert_with(Instant::now)
+            .elapsed()
+            .as_millis()
+            .min(u128::from(u64::MAX)) as u64
+    }
+
     pub fn with_file(mut self, path: PathBuf) -> Self {
         match std::fs::read_to_string(&path) {
             Ok(text) => match serde_json::from_str::<Library>(&text) {
                 Ok(library)
                     if library.curves.len() <= 64
                         && library.macros.len() <= 64
+                        && library.sensors.validate().is_ok()
                         && library.curves.iter().all(|(n, c)| {
                             crate::profiles::validate_name(n).is_ok() && c.validate().is_ok()
                         })
@@ -73,6 +132,29 @@ impl Controls {
     }
 
     pub fn call(&mut self, method: &str, params: &Value) -> Result<Value, String> {
+        if method == "cooling.sensors.sources" {
+            return Ok(json!(self.sensor_sources));
+        }
+        if method == "cooling.sensors.values" {
+            let now = self.sensor_now();
+            let values =
+                self.sensor_evaluator
+                    .evaluate(&self.library.sensors, &self.sensor_inputs, now)?;
+            return Ok(json!({"now_ms": now, "values": values}));
+        }
+        if method == "cooling.sensors.get" {
+            return Ok(json!(self.library.sensors));
+        }
+        if method == "cooling.sensors.save" {
+            let graph: freergb_control::sensors::SensorGraph =
+                serde_json::from_value(params["graph"].clone()).map_err(|e| e.to_string())?;
+            graph.validate()?;
+            let mut library = self.library.clone();
+            library.sensors = graph;
+            self.save(&library)?;
+            self.library = library;
+            return Ok(json!(true));
+        }
         if method == "cooling.status" {
             return Ok(
                 json!({"hardware_control":false,"reason":"Cooling write commands are not hardware-validated. Curve preview only.","error":self.error}),
@@ -257,6 +339,76 @@ pub fn input(step: &MacroStep) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn custom_sensor_graph_persists_and_invalid_updates_leave_saved_state_unchanged() {
+        let directory =
+            std::env::temp_dir().join(format!("freergb-sensor-graph-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("control.json");
+        std::fs::write(&path, r#"{"curves":{},"macros":{}}"#).unwrap();
+        let mut controls = Controls::default().with_file(path.clone());
+        assert_eq!(
+            controls.call("cooling.sensors.get", &Value::Null).unwrap(),
+            json!({"version":1,"nodes":{}})
+        );
+        let graph = json!({"version":1,"nodes":{"hub":{"type":"input","source":"native-id"},"hot":{"type":"offset","source":"hub","amount":2.0,"proportional":false}}});
+        controls
+            .call("cooling.sensors.save", &json!({"graph":graph}))
+            .unwrap();
+        let before = std::fs::read(&path).unwrap();
+        assert!(controls.call("cooling.sensors.save",&json!({"graph":{"nodes":{"bad":{"type":"offset","source":"bad","amount":0.0,"proportional":false}}}})).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(
+            Controls::default()
+                .with_file(path.clone())
+                .call("cooling.sensors.get", &Value::Null)
+                .unwrap(),
+            graph
+        );
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(directory).unwrap();
+    }
+    #[test]
+    fn sensor_values_expire_without_gui_or_new_hardware_reads() {
+        let mut controls = Controls {
+            sensor_epoch: Some(Instant::now() - Duration::from_secs(10)),
+            ..Default::default()
+        };
+        let key = serde_json::to_string(&("board", "cpu")).unwrap();
+        controls
+            .call(
+                "cooling.sensors.save",
+                &json!({"graph":{"nodes":{"cpu":{"type":"input","source":key}}}}),
+            )
+            .unwrap();
+        controls.refresh_sensors(&json!([{"status":"Connected","info":{"id":"board","name":"Board"},"sensors":[{"id":"cpu","name":"CPU","unit":"C","value":42.0,"age_ms":0}]}]));
+        assert_eq!(
+            controls
+                .call("cooling.sensors.values", &Value::Null)
+                .unwrap()["values"]["cpu"]["value"],
+            42.0
+        );
+        for input in controls.sensor_inputs.values_mut() {
+            input.sampled_at_ms -= 4000;
+        }
+        assert!(controls
+            .call("cooling.sensors.values", &Value::Null)
+            .unwrap()["values"]["cpu"]["value"]
+            .is_null());
+        assert!(controls
+            .call(
+                "cooling.sensors.save",
+                &json!({"graph":{"version":2,"nodes":{}}})
+            )
+            .is_err());
+        controls.refresh_sensors(&json!([]));
+        assert_eq!(
+            controls
+                .call("cooling.sensors.sources", &Value::Null)
+                .unwrap(),
+            json!({})
+        );
+    }
     #[test]
     fn macro_scheduler_delay_cancel_and_input_gate() {
         let mut controls = Controls::default();
