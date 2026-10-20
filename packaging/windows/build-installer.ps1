@@ -6,7 +6,7 @@ if (-not $Compiler) {
 }
 if (-not $Compiler) { throw 'Inno Setup compiler not found. Pass -Compiler PATH or build using the GitHub Package workflow.' }
 $binPath = (Resolve-Path -LiteralPath $BinDir).Path
-& "$PSScriptRoot/../../scripts/build-mainboard-helper.ps1" -OutputDirectory $binPath
+& "$PSScriptRoot/../../scripts/build-mainboard-helper.ps1" -OutputDirectory $binPath -Mode Production
 $outputPath = [System.IO.Path]::GetFullPath($OutputDir)
 New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
 $metadata = cargo metadata --format-version 1 --no-deps | ConvertFrom-Json
