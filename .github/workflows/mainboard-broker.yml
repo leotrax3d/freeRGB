@@ -1,0 +1,36 @@
+name: Mainboard broker
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'providers/mainboard/**'
+      - 'scripts/*mainboard*.ps1'
+      - 'packaging/windows/mainboard-packages.json'
+      - '.github/workflows/mainboard-broker.yml'
+permissions:
+  contents: read
+jobs:
+  protected-service:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Local IPC boundary without hardware
+        shell: pwsh
+        run: ./scripts/test-mainboard-broker.ps1
+      - name: Deployment transactions and pinned runtime extraction
+        shell: pwsh
+        run: ./scripts/test-mainboard-deployment.ps1 -VerifyRuntime
+      - name: Isolated SCM, standard-user reads, upgrade and rollback
+        timeout-minutes: 8
+        shell: pwsh
+        run: ./scripts/test-mainboard-service.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mainboard-broker-acceptance
+          path: |
+            target/mainboard-service-acceptance/*.json
+            target/mainboard-service-acceptance/*.err
+          if-no-files-found: ignore

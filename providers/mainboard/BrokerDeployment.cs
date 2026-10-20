@@ -337,6 +337,25 @@ internal static class BrokerDeployment
         else { registration.ValidateOwner(); registration.Stop(); registration.Remove(); }
         if (Directory.Exists(BrokerTransport.DirectoryPath)) DeleteProtectedTree(BrokerTransport.DirectoryPath);
     }
+    private static void Report(string action, string status, string message)
+    {
+        string parent = Path.GetDirectoryName(BrokerTransport.DirectoryPath);
+        if (!Directory.Exists(parent)) return;
+        BrokerService.CheckProtectedPath(parent);
+        string target = Path.Combine(parent, "mainboard-maintenance-result.json");
+        if (File.Exists(target)) BrokerService.CheckProtectedPath(target);
+        string temporary = Path.Combine(parent, "maintenance-result-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(temporary, new JavaScriptSerializer().Serialize(new {
+                version = 1, action = action, status = status, message = message, updated_at_utc = DateTime.UtcNow.ToString("o")
+            }));
+            var acl = File.GetAccessControl(temporary);
+            acl.SetOwner(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null)); File.SetAccessControl(temporary, acl);
+            if (File.Exists(target)) File.Replace(temporary, target, null); else File.Move(temporary, target);
+        }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
     internal static int Dispatch(string[] args)
     {
         bool install = args.Length == 6 && args[0] == "--install" && args[1] == "--consent";
@@ -364,10 +383,17 @@ internal static class BrokerDeployment
                 }
                 BrokerService.CheckProtectedPath(maintenance.Name);
                 if (install) Install(sid, args[3], args[4], args[5]); else Remove(sid);
+                Report(install ? "install" : "remove", "success", "Owned broker maintenance completed; fan writes remain disabled.");
             }
             Console.WriteLine(install ? "Protected mainboard broker installed and running. Fan writes remain disabled." : "Owned mainboard broker removed. Shared PawnIO and .NET are unchanged.");
             return 0;
         }
-        catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine(error.Message);
+            try { Report(install ? "install" : "remove", "failed", error.Message); }
+            catch (Exception reportError) { Console.Error.WriteLine("Could not save maintenance diagnostic: " + reportError.GetType().Name); }
+            return 1;
+        }
     }
 }
