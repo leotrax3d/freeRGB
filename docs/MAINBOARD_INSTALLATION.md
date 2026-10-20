@@ -83,8 +83,9 @@ and state but **does not uninstall shared PawnIO or .NET** needed by other softw
 When an owned broker is present, interactive uninstall removes it through explicit
 elevated maintenance before deleting the per-user maintenance copy. Cancellation or
 failure aborts uninstall before application files are removed, preserving a retry
-path. Silent uninstall never requests UAC; an installed broker makes it fail with
-an instruction to use interactive removal. The protected parent retains a small
+path. Silent uninstall never requests UAC; it can remove the owned broker when
+already elevated, otherwise it aborts with an instruction to use interactive
+removal. The protected parent retains a small
 maintenance lock/diagnostic, not an active service or library. Upgrades without
 new mainboard opt-in leave the existing service build unchanged.
 

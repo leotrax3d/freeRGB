@@ -75,6 +75,7 @@ function Start-Virtual([string]$Directory) {
     throw 'Virtual daemon did not become ready.'
 }
 $daemon = $null
+$fixtureBrokerInstalled = $false
 try {
     Install-Test 'fresh-defaults' 'DEFAULT'
     foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','unins000.exe')) {
@@ -104,6 +105,20 @@ try {
     Assert-True ($LASTEXITCODE -eq 0 -and $daemon.WaitForExit(10000)) 'Unrelated test daemon cleanup failed.'
     $daemon = $null
     Assert-True (-not (Test-Path -LiteralPath $desktop)) 'Deselected desktop shortcut remains.'
+    # Real uninstall hook with an owned synthetic service; never load hardware/driver code.
+    Assert-True (-not (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\freeRGBMainboard')) 'An unrelated broker exists before installer acceptance.'
+    $fixtureDirectory = Join-Path $root 'synthetic broker maintenance'
+    & "$PSScriptRoot/build-mainboard-helper.ps1" -OutputDirectory $fixtureDirectory -Mode FixtureV1
+    $maintenance = Join-Path $fixtureDirectory 'freergb-mainboard-service.exe'
+    $manifest = Get-Content -LiteralPath "$workspace/packaging/windows/mainboard-packages.json" -Raw | ConvertFrom-Json
+    $cache = Join-Path $workspace 'target/prerequisite-tests/downloads'
+    $archive = Join-Path $cache $manifest.packages.lhm.file
+    $ownerSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $hash = (Get-FileHash -LiteralPath $maintenance).Hash
+    & $maintenance --install --consent $ownerSid $hash $archive $cache
+    Assert-True ($LASTEXITCODE -eq 0) 'Owned synthetic broker installation failed.'
+    $fixtureBrokerInstalled = $true
+    Assert-True (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\freeRGBMainboard') 'Synthetic broker not registered.'
     $daemon = Start-Virtual $app
     Invoke-TestProcess "$app/unins000.exe" @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/LOG="{0}"' -f (Join-Path $logs 'uninstall.log')))
     Assert-True ($daemon.WaitForExit(10000) -and $daemon.ExitCode -eq 0) 'Uninstall did not gracefully stop its daemon.'
@@ -112,10 +127,15 @@ try {
         Assert-True (-not (Test-Path -LiteralPath (Join-Path $app $file))) "Installed file remains: $file"
     }
     Assert-True (-not (Test-Path -LiteralPath $uninstallKey)) 'Uninstall registry entry remains.'
+    Assert-True (-not (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\freeRGBMainboard')) 'Uninstall did not remove its owned broker registration.'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'freeRGB/MainboardBroker'))) 'Uninstall did not remove owned protected broker files.'
     Assert-True ($null -eq (Get-Startup)) 'Startup entry remains after uninstall.'
     Assert-True (-not (Test-Path -LiteralPath "$group/freeRGB.lnk")) 'Start Menu shortcut remains after uninstall.'
     Assert-True ((Get-Content -LiteralPath $sentinel -Raw) -eq 'preserve user data') 'Uninstall deleted profiles.'
     'PASS: per-user install, default tasks, reinstall/upgrade path, option removal, scoped shutdown, uninstall and preserved profiles.' | Tee-Object -FilePath "$logs/lifecycle-result.txt"
 } finally {
     if ($null -ne $daemon -and -not $daemon.HasExited) { Stop-Process -Id $daemon.Id -ErrorAction SilentlyContinue }
+    if ($fixtureBrokerInstalled -and (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\freeRGBMainboard')) {
+        & $maintenance --remove --consent $ownerSid
+    }
 }

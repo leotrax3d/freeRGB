@@ -2,7 +2,8 @@
 
 Status: read-only service with explicit Setup opt-in. Protected installation,
 standard-user readings, updates, failed-start rollback and removal passed isolated
-SCM acceptance with compile-time synthetic sensors (run 39469765979). This does not
+SCM acceptance with compile-time synthetic sensors (run 39469765979); run 39470499850
+also passes unauthorized-account denial and isolated child-crash recovery. This does not
 release motherboard fan control or validate real LHM/PawnIO hardware. No API method, GUI setting or API version
 changes. The existing optional helper can consume the broker when it is available;
 with no broker it retains its existing direct-reader prerequisite checks.
@@ -128,8 +129,10 @@ failure diagnosis. It and the serialized maintenance lock remain after owned
 service removal. Setup's app-directory installation marker is written only after
 successful maintenance; reboot/cancellation/failure is explicit. Maintenance is
 re-run only with new mainboard opt-in. Interactive uninstall removes the owned
-service first and aborts on UAC cancellation/failure; silent uninstall with a
-broker refuses elevation and preserves a retryable application installation.
+service first and aborts on UAC cancellation/failure; silent uninstall uses an
+already elevated owner token or refuses to prompt and preserves a retryable
+application installation. Default installer acceptance also exercises this real
+uninstall hook with a synthetic protected service and an already elevated token.
 
 `scripts/test-mainboard-broker.ps1` compiles both binaries and a no-hardware fixture
 with the .NET Framework compiler. It exercises real Windows pipes: minimal DACL,

@@ -131,5 +131,6 @@ Protected service continuation:
 - [x] Setup describes optional automatic system service; UAC only for maintenance/system prerequisites.
 - [x] Interrupted/failed service removal aborts before deleting the maintenance copy; silent mode never requests UAC.
 - [x] Existing API/config formats preserved; protected installation/maintenance state documented.
-- [ ] New final Package/default installer lifecycle result and unauthorized-user extension.
+- [x] Run 39470499850: unauthorized standard-user denial and isolated child-crash recovery.
+- [ ] Final Package/default installer lifecycle result, including owned-service removal hook.
 - [ ] Real wizard/UAC/driver/reboot, native child crash/hang, power-loss repair and hardware coverage.

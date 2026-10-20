@@ -377,7 +377,8 @@ Hardware results: `DEVICES.md#validation-log`.
   installation, real standard-user client, failed-start rollback, 900->901 update,
   tamper/owner rejection and owned removal. Compile-time synthetic worker only;
   production has no runtime fixture flag, CI client has no native fallback.
-  An additional unauthorized-account test is added for the next runner result.
+  Run 39470499850 additionally passed unauthorized-account denial and replacement
+  of the crashed synthetic child without restarting the service process.
 - Setup's unchecked mainboard page now explicitly includes our automatic system
   sensor service. Bootstrap captures original user SID/hash before UAC, including
   alternate-admin credentials, invokes maintenance from protected System32 CWD,
@@ -385,7 +386,9 @@ Hardware results: `DEVICES.md#validation-log`.
   installation until Setup is rerun. App/daemon remain unelevated; no fan writes.
 - Interactive uninstall removes the owned broker before deleting the app's
   maintenance copy. Cancel/error aborts app removal; silent uninstall refuses UAC
-  when a broker is installed and remains retryable. Shared PawnIO/.NET untouched.
+  when elevation is missing and remains retryable. An already elevated owner can
+  remove it silently; Package now tests the actual Inno removal hook with an owned
+  synthetic service. Shared PawnIO/.NET untouched.
 - Local .NET boundary/deployment/pinned-extraction, PS5/7 consent logic, Rust helper
   transport, Inno build/model checks passed. Pending new full Package and actual
   wizard/UAC/driver/reboot/native lifecycle/hardware tests. Protected markers are

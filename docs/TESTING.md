@@ -272,7 +272,8 @@ uninstall. This uses a compile-time synthetic worker, no driver/hardware access.
 The prior run caught a real normal-user identity-query rejection; the corrected
 client authenticates SYSTEM pipe ownership plus SCM service identity instead of
 requiring SYSTEM process-image query rights. A second unauthorized standard-user
-test is added for the next run.
+test and isolated synthetic-child crash/restart also passed in run 39470499850,
+without restarting the service process.
 
 Setup now wires this maintenance to explicit mainboard opt-in. Default/silent
 installer lifecycle also checks no privileged service is created and both
