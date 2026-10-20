@@ -8,6 +8,11 @@ Implemented in `crates/freergb-daemon/src/{api,ipc}.rs`, API version **1**.
 * **Linux/Unix:** socket `$XDG_RUNTIME_DIR/freergb.sock` (fallback: temp dir), mode `0600`.
 * No network listener.
 
+The bundled blocking client caps requests at 256 KiB, replies at 16 MiB, and uses
+a 3-second total connect/write/flush/read deadline. Windows busy pipes are retried
+inside that deadline. Reply version/ID and result/error structure are validated.
+Async callers must use `spawn_blocking` for the blocking API.
+
 ## Protocol
 JSON-RPC 2.0, one request per line, one response per line (UTF-8, `\n`).
 

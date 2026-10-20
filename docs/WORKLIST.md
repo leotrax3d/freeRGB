@@ -34,3 +34,13 @@ Subsequent acceptance/backlog (not silently marked complete):
 
 Ordinary reversible implementation decisions are autonomous. Firmware, drivers,
 irreversible actions and system-wide changes retain the original approval boundary.
+
+Completed follow-up — 2026-10-20:
+- [x] Bounded IPC client with total deadline and malformed-response tests.
+- [x] Session-opt-in Windows macro hotkeys and reserved cancellation shortcut.
+- [x] Preserve queued action order; stop refreshes after connection failure.
+- [x] 128 Windows tests, Clippy/fmt, release IPC smoke and regenerated installer.
+- [x] Verify successful GitHub Package artifact; add missing Ubuntu ALSA dependency.
+
+Remaining acceptance: native hotkeys/input, installer lifecycle, live updater,
+Linux runner confirmation and identified/validated cooling hardware channels.

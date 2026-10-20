@@ -21,6 +21,7 @@ enum UpdateCommand {
 }
 
 pub struct Panels {
+    hotkeys: super::hotkeys::Hotkeys,
     history: super::sensor_history::Histories,
     history_generation: u64,
     history_started: std::time::Instant,
@@ -35,7 +36,7 @@ pub struct Panels {
     message: Option<String>,
 }
 
-fn config_root() -> Option<PathBuf> {
+pub(super) fn config_root() -> Option<PathBuf> {
     #[cfg(windows)]
     {
         std::env::var_os("APPDATA").map(|p| PathBuf::from(p).join("freeRGB"))
@@ -173,12 +174,18 @@ impl Default for Panels {
                 }
             }
         });
-        Self { history:Default::default(),history_generation:0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
+        Self { hotkeys:Default::default(),history:Default::default(),history_generation:0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
 
 impl Panels {
+    pub fn poll_hotkeys(&mut self, tx: &mpsc::Sender<Command>, snapshot: &Snapshot) {
+        self.hotkeys.poll(tx, snapshot);
+    }
+    pub fn hotkeys_active(&self) -> bool {
+        self.hotkeys.active()
+    }
     pub fn observe(&mut self, snapshot: &Snapshot) {
         if snapshot.generation == self.history_generation {
             return;
@@ -236,6 +243,7 @@ impl Panels {
                 }
                 2 => {
                     ui.heading("Macros");
+                    self.hotkeys.ui(ui,snapshot);
                     let running = &snapshot.control["macro_status"];
                     ui.label(format!("Running: {}", running["running"].as_str().unwrap_or("none")));
                     if !running["input_enabled"].as_bool().unwrap_or(false) { ui.label("RGB macros enabled. Text/keys require daemon --enable-input-macros (Windows)."); }

@@ -42,7 +42,7 @@ Build dependencies (Debian/Ubuntu names):
 ```bash
 sudo apt install build-essential pkg-config libudev-dev \
   libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
-  libpipewire-0.3-dev libspa-0.2-dev libclang-dev
+  libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev
 ```
 
 Build and install:

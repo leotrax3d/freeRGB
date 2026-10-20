@@ -15,6 +15,7 @@ use std::time::Duration;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 mod diagnostics;
+mod hotkeys;
 mod macro_editor;
 mod pages;
 mod sensor_history;
@@ -44,6 +45,53 @@ struct Command {
     params: Value,
 }
 
+fn is_setter(method: &str) -> bool {
+    matches!(
+        method,
+        "brightness.set"
+            | "color.set"
+            | "effects.set"
+            | "devices.set_region"
+            | "devices.set_brightness"
+    )
+}
+
+/// Slider writes can merge only after the most recent action/query barrier.
+/// Save/run/cancel actions retain their original ordering and parameters.
+fn push_command(pending: &mut Vec<Command>, command: Command) {
+    if is_setter(command.method) {
+        let start = pending
+            .iter()
+            .rposition(|p| !is_setter(p.method))
+            .map_or(0, |index| index + 1);
+        let mut index = start;
+        while index < pending.len() {
+            if pending[index].method == command.method
+                && pending[index].params.get("id") == command.params.get("id")
+            {
+                pending.remove(index);
+            } else {
+                index += 1;
+            }
+        }
+    }
+    pending.push(command);
+}
+
+fn optional_query(reachable: &mut bool, method: &str) -> Option<Value> {
+    if !*reachable {
+        return None;
+    }
+    match freergb_client::call(method, Value::Null) {
+        Ok(value) => Some(value),
+        Err(freergb_client::ClientError::Rpc { .. }) => None,
+        Err(_) => {
+            *reachable = false;
+            None
+        }
+    }
+}
+
 fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context) {
     loop {
         let mut last_error = None;
@@ -53,12 +101,15 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                 // command per method and target device.
                 let mut pending = vec![cmd];
                 while let Ok(c) = rx.try_recv() {
-                    pending.retain(|p| {
-                        p.method != c.method || p.params.get("id") != c.params.get("id")
-                    });
-                    pending.push(c);
+                    push_command(&mut pending, c);
                 }
                 for c in pending {
+                    if c.method == "macros.run"
+                        && !state.lock().unwrap_or_else(|e| e.into_inner()).connected
+                    {
+                        last_error = Some("Macro discarded: daemon is disconnected".into());
+                        continue;
+                    }
                     // GUI-side shortcut: fetch a saved custom effect and apply it.
                     let result = if c.method == "gui.export_diagnostics" {
                         match freergb_client::call("diagnostics.export", Value::Null) {
@@ -84,7 +135,12 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                         freergb_client::call(c.method, c.params)
                     };
                     if let Err(e) = result {
+                        let transport_failed =
+                            !matches!(e, freergb_client::ClientError::Rpc { .. });
                         last_error = Some(e.to_string());
+                        if transport_failed {
+                            break;
+                        }
                     }
                 }
             }
@@ -92,28 +148,33 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             Err(RecvTimeoutError::Disconnected) => return,
         }
 
-        let fetched = (|| -> Result<_, freergb_client::ClientError> {
+        let mut fetched = (|| -> Result<_, freergb_client::ClientError> {
             Ok((
                 freergb_client::call("devices.list", Value::Null)?,
                 freergb_client::call("diagnostics.get", Value::Null)?,
                 freergb_client::call("effects.get", Value::Null)?,
             ))
         })();
-        let profiles = freergb_client::call("profiles.list", Value::Null)
-            .ok()
-            .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
-        let plugins = freergb_client::call("plugins.list", Value::Null)
-            .ok()
+        let mut reachable = fetched.is_ok();
+        let mut get = |method| optional_query(&mut reachable, method);
+        let profiles =
+            get("profiles.list").and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
+        let plugins = get("plugins.list")
             .and_then(|v| v.as_array().cloned())
             .unwrap_or_default();
-        let custom_effects = freergb_client::call("custom_effects.list", Value::Null)
-            .ok()
-            .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
+        let custom_effects =
+            get("custom_effects.list").and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
         let control = json!({
-            "curves": freergb_client::call("cooling.curves.list", Value::Null).unwrap_or(Value::Null),
-            "macros": freergb_client::call("macros.list", Value::Null).unwrap_or(Value::Null),
-            "macro_status": freergb_client::call("macros.status", Value::Null).unwrap_or(Value::Null),
+            "curves": get("cooling.curves.list").unwrap_or(Value::Null),
+            "macros": get("macros.list").unwrap_or(Value::Null),
+            "macro_status": get("macros.status").unwrap_or(Value::Null),
         });
+        if !reachable && fetched.is_ok() {
+            fetched = Err(freergb_client::ClientError::Io(std::io::Error::new(
+                std::io::ErrorKind::ConnectionAborted,
+                "connection lost while refreshing daemon state",
+            )));
+        }
         {
             let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
             match fetched {
@@ -644,6 +705,7 @@ impl eframe::App for App {
         {
             let snapshot = self.state.lock().unwrap_or_else(|e| e.into_inner());
             self.panels.observe(&snapshot);
+            self.panels.poll_hotkeys(&self.tx, &snapshot);
         }
         let (
             connected,
@@ -677,6 +739,12 @@ impl eframe::App for App {
         }
 
         egui::TopBottomPanel::top("status").show(ctx, |ui| {
+            if self.panels.hotkeys_active() {
+                ui.colored_label(
+                    egui::Color32::LIGHT_GREEN,
+                    "Global macro shortcuts active · Ctrl+Shift+F11 cancels",
+                );
+            }
             ui.horizontal_wrapped(|ui| {
                 for (page, name) in [
                     (0, "Lighting"),
@@ -956,4 +1024,71 @@ fn main() -> eframe::Result {
         options,
         Box::new(|cc| Ok(Box::new(App::new(cc)))),
     )
+}
+
+#[cfg(test)]
+mod command_tests {
+    use super::*;
+    #[test]
+    fn save_actions_are_barriers_and_macro_actions_are_never_coalesced() {
+        let mut pending = Vec::new();
+        push_command(
+            &mut pending,
+            Command {
+                method: "brightness.set",
+                params: json!({"value":0.2}),
+            },
+        );
+        push_command(
+            &mut pending,
+            Command {
+                method: "profiles.save",
+                params: json!({"name":"Dim"}),
+            },
+        );
+        push_command(
+            &mut pending,
+            Command {
+                method: "brightness.set",
+                params: json!({"value":0.8}),
+            },
+        );
+        assert_eq!(pending.len(), 3);
+        assert_eq!(pending[0].params["value"], 0.2);
+        assert_eq!(pending[1].method, "profiles.save");
+        push_command(
+            &mut pending,
+            Command {
+                method: "macros.run",
+                params: json!({"name":"A"}),
+            },
+        );
+        push_command(
+            &mut pending,
+            Command {
+                method: "macros.run",
+                params: json!({"name":"B"}),
+            },
+        );
+        assert_eq!(pending.len(), 5);
+        assert_eq!(pending[3].params["name"], "A");
+        assert_eq!(pending[4].params["name"], "B");
+    }
+    #[test]
+    fn slider_bursts_merge_per_device_after_the_last_action() {
+        let mut pending = Vec::new();
+        for (id, value) in [("left", 0.1), ("right", 0.2), ("left", 0.9)] {
+            push_command(
+                &mut pending,
+                Command {
+                    method: "devices.set_brightness",
+                    params: json!({"id":id,"value":value}),
+                },
+            );
+        }
+        assert_eq!(pending.len(), 2);
+        assert_eq!(pending[0].params["id"], "right");
+        assert_eq!(pending[1].params["id"], "left");
+        assert_eq!(pending[1].params["value"], 0.9);
+    }
 }

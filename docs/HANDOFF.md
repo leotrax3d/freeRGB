@@ -147,3 +147,32 @@ Hardware results: `DEVICES.md#validation-log`.
   changes do not invalidate the already tested local installer. Linux CI still pending.
 * Suggested next: foreground-application profiles, explicit global hotkeys, stale/RPM
   alerts; actual cooling control still requires channel identification and validation.
+
+## Client deadline follow-up — 2026-10-19
+* Bundled IPC client now has a 3-second total deadline, bounded request/reply sizes,
+  strict reply envelope checks and retry of busy Windows pipes. It remains a blocking
+  public API, implemented using a private current-thread Tokio runtime. Async callers
+  must use `spawn_blocking`. This keeps a stalled daemon from hanging the GUI worker
+  forever; multiple queued GUI calls may still delay a full refresh.
+* Tests cover silent and nonreading peers, oversized unterminated replies, bad IDs
+  and ambiguous replies, plus a real Windows named pipe whose server never replies.
+
+## Session hotkeys and client resilience — 2026-10-20
+* Global Windows macro hotkeys: explicit session opt-in, saved bindings, visible
+  activation, reserved Ctrl+Shift+F11 cancel, registration rollback and disconnect
+  deactivation. No key recording. Native keyboard acceptance remains pending.
+* GUI preserves macro/profile action order; only slider setters after the last
+  action barrier coalesce. Offline macro starts are discarded; transport failures
+  stop the command batch and subsequent optional refreshes. RPC feature errors do
+  not prevent other optional queries. API calls have a three-second deadline.
+* 128 Windows tests, fmt/Clippy, release build, expanded IPC smoke and installer
+  build pass. Logs: target/hotkey-tests.log, target/hotkey-release.log,
+  target/hotkey-smoke.log, target/installer-build.log.
+* Package run 39285464153 (740b5b8) succeeded. Downloaded artifact SHA256 verified:
+  07ac2baebcc74d7333f591e8ddf70835ed5d96e8df6282657a8add1bb82164d4.
+  It predates this local installer. No published release/live update acceptance.
+* Remote user README/logo commits were fast-forwarded. Preserve the remaining
+  unstaged README capitalization edit. A safety stash remains after conflict
+  resolution; README is resolved and unstaged.
+* Ubuntu CI on a5e55c9 failed missing alsa.pc; added libasound2-dev to CI and
+  installation docs. New Linux result pending.

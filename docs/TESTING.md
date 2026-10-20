@@ -121,3 +121,18 @@ from reports, missing/stale history gaps, expiry and capacity during long sample
 Native keys are never injected by tests. GUI controls/graphs compile; automated click
 and actual chord output acceptance remain untested. GitHub Package/Linux results are
 pending runner availability, independent of these local checks.
+
+## Global hotkeys and resilient client — 2026-10-20
+
+128 Windows workspace tests pass, formatting and Clippy with denied warnings pass.
+Release build, virtual-device IPC smoke (including plugin crash recovery, curves,
+RGB macros and diagnostic export) and Inno installer compilation pass.
+Client regressions include a silent real Windows named pipe and bounded replies.
+Hotkey tests validate bindings and registration rollback through a fake backend;
+queue tests preserve action order while coalescing slider changes per device.
+No native hotkey registration, foreground keyboard input or GUI clicks are tested.
+No real cooling writes or product install/upgrade/uninstall were performed.
+
+GitHub Package run 39285464153 for 740b5b8 completed successfully; its downloaded
+installer checksum was verified. Later Ubuntu CI exposed missing ALSA development
+headers; libasound2-dev is now included, pending a fresh runner result.

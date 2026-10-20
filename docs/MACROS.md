@@ -2,8 +2,8 @@
 
 The daemon manages named macro definitions in `control.json` next to saved state.
 GUI: Macros tab, visual step editor with add/edit/reorder/delete and advanced JSON,
-save/run/cancel/delete. Current triggers are explicit
-GUI/API requests; recording and global hotkeys are not implemented.
+save/run/cancel/delete. Triggers are GUI/API requests and session-opt-in global
+shortcuts on Windows. Recording is not implemented.
 
 ```json
 {"repeat":1,"steps":[{"type":"color","color":{"r":255,"g":0,"b":0}},{"type":"delay","ms":1000},{"type":"brightness","value":0.5}]}
@@ -27,3 +27,22 @@ Windows text/key injection uses Enigo 0.6.1 and requires daemon
 `--enable-input-macros`. It sends to the foreground application. Add a delay to
 switch focus before execution. Tests never inject real input. Linux text/key
 execution is currently rejected; RGB macros work through the shared engine.
+
+## Global shortcuts (Windows)
+
+In Macros → Global macro shortcuts, add a binding to an existing saved macro,
+save the bindings and explicitly enable them for the current GUI session.
+Each binding uses Ctrl plus Alt and/or Shift with F6–F10. Ctrl+Shift+F11 is reserved
+for macro cancellation. Duplicate/reserved bindings and missing macro names are rejected;
+an OS registration conflict rolls back the partial registration. Debounce is 500 ms.
+
+Bindings are saved in the per-user `hotkeys.json`; activation is never persisted.
+The GUI shows a persistent active indicator. Closing it unregisters the shortcuts;
+daemon disconnect also disables them and requires explicit reactivation. Deleting
+a bound macro disables shortcut handling when that shortcut is next encountered.
+Text/key output still requires the daemon opt-in flag. Hotkeys do not record keys.
+
+The native manager is created on the GUI event-loop thread using global-hotkey 0.8:
+https://docs.rs/global-hotkey/0.8.0/global_hotkey/
+Backend registration and actual shortcut events require manual Windows acceptance;
+automated tests use a fake registration backend and never grab real shortcuts.

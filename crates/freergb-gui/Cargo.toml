@@ -18,6 +18,10 @@ freergb-core.workspace = true
 freergb-effects.workspace = true
 freergb-control.workspace = true
 freergb-update.workspace = true
+serde.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+global-hotkey = "0.8"
 
 [lints]
 workspace = true
