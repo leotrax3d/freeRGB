@@ -15,6 +15,7 @@ no vendor software required.
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green?style=flat-square)
 [![Downloads](https://img.shields.io/github/downloads/leotrax3d/FreeRGB/total?style=flat-square&color=10A37F&label=Downloads)](https://github.com/leotrax3d/FreeRGB/releases)
+[![Views](https://hits.sh/github.com/leotrax3d/FreeRGB.svg?label=Views&color=10A37F&style=flat-square)](https://github.com/leotrax3d/FreeRGB)
 
 </div>
 
