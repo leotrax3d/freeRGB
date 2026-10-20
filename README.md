@@ -1,6 +1,6 @@
 <div align="center">
 
-# freeRGB
+# FreeRGB
 
 **Open, lightweight RGB control for Windows and Linux – written in Rust.**
 
