@@ -12,7 +12,7 @@ internal static class NativeSessionTransport
 #if NATIVE_CONTROL_TESTS
     internal static void RunForTest(NamedPipeServerStream pipe, NativeControlSession session) { Run(pipe, session); }
 #else
-    internal static void RunProtected(NamedPipeServerStream pipe, NativeControl port)
+    internal static void RunProtected(NamedPipeServerStream pipe, JournaledNativeControl port)
     {
         BrokerService.CheckInstallation(true);
         if (pipe == null || !pipe.IsConnected) throw new InvalidOperationException("Connected protected worker pipe required.");

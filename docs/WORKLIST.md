@@ -209,3 +209,16 @@ Native-session continuation:
 
 Prior native-adapter Package39479651725 SUCCESS, including full installer lifecycle;
 native quick workflow39479651926 and broker39479651985 also succeeded.
+
+Recovery continuation while CI ran:
+- [x] Native-session CI39481729897, broker39481729758 (real service-client identity)
+  and native quick39481729523 succeeded.
+- [x] Protected bounded version-1 write-ahead intent outside versioned runtime;
+  flushed before native I/O, no low duty replay, exact-ID completion after release.
+- [x] Journaled port required by production session/transport factory signatures.
+- [x] Process-crash test: killed worker leaves intent and restart cannot reacquire.
+- [x] Disk failure, restore failure, clear retry, corrupt/oversized state and real
+  LHM/synthetic journal-session-adapter tests in PS7/PS5.1.
+- [ ] Fresh SCM proof of protected journal/mutex and denied standard-user write.
+- [ ] Automatic checked recovery/readback, multi-channel format/ownership and active
+  session coordination with upgrade/uninstall before enabling live fan control.

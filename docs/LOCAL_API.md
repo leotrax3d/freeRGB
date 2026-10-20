@@ -283,3 +283,10 @@ also adds no public RPC method or activation flag. Its single-use tickets, lease
 and protected service-client identity are internal to the native worker design;
 they must not be exposed through either GUI. Production helper still serves only
 snapshots and no production caller invokes the candidate.
+
+The write-ahead recovery candidate adds protected metadata
+`%ProgramFiles%\freeRGB\mainboard-control-recovery.json` version 1, documented in
+`MAINBOARD_CONTROL_RECOVERY.md`. This is privileged runtime state, not a shared
+GUI configuration or public RPC parameter. No API method/field/error code or
+activation flag changes. Production session factory now requires the journaled
+port; the whole candidate remains unreachable from the snapshot CLI/service.

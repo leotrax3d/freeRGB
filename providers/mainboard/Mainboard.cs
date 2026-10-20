@@ -21,6 +21,9 @@ internal static class Mainboard
 #if BROKER_FIXTURE_CLIENT_AUTH
     private static bool fixtureAuthStarted;
     private static volatile bool fixtureClientAuthenticated;
+#if BROKER_FIXTURE_WORKER
+    private static bool fixtureJournalVerified;
+#endif
     private static void StartFixtureAuth()
     {
         if (fixtureAuthStarted) return;
@@ -129,7 +132,18 @@ internal static class Mainboard
         if (!direct) return Empty("faulted", "CI fixture has no direct fallback; the protected broker must answer.");
 #if BROKER_FIXTURE_CLIENT_AUTH
         StartFixtureAuth();
-        string fixtureMessage = fixtureClientAuthenticated ? "service_client_authenticated" : "service_client_auth_pending";
+        if (!fixtureJournalVerified)
+        {
+            using (var journal = NativeControlJournal.CreateProtected())
+            {
+                string id = journal.Reserve(new NativeControlIdentity("/fixture/board","/fixture/control/7",false));
+                if ((string)journal.Pending()["id"] != id) throw new InvalidOperationException("Protected journal persistence failed.");
+                journal.Complete(id);
+                if (journal.Pending() != null) throw new InvalidOperationException("Protected journal clearing failed.");
+            }
+            fixtureJournalVerified = true;
+        }
+        string fixtureMessage = fixtureClientAuthenticated ? "service_client_authenticated;journal_verified" : "service_client_auth_pending";
 #else
         string fixtureMessage = "Isolated SCM fixture; no driver or hardware accessed.";
 #endif

@@ -19,6 +19,11 @@ Messages contain no device selector, executable/library path, register or shell
 argument. Future activation still needs verified channel selection and a protected
 service-to-worker pipe lifecycle; these factories are not an external listener.
 
+The subsequent journal bridge is mandatory in the production session/transport
+factory signatures. It records intent before acquisition and retains unresolved
+state across worker death; see MAINBOARD_CONTROL_RECOVERY.md. No production caller
+activates the chain yet.
+
 ## Private version-1 exchange
 
 Each server reply has `version:1`, random 128-bit `session` and `ticket` hex strings,

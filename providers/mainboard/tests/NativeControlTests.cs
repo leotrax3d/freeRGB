@@ -52,8 +52,18 @@ internal static class NativeControlTests
     {
         Type identifier = library.GetType("LibreHardwareMonitor.Hardware.Identifier", true);
         object id = Activator.CreateInstance(identifier, new object[] { new[] { "synthetic", "control", "7" } });
+        object boardId = Activator.CreateInstance(identifier, new object[] { new[] { "synthetic", "board" } });
+        object control = null;
+        object hardware = new InterfaceStub(library.GetType("LibreHardwareMonitor.Hardware.IHardware", true), delegate(IMethodCallMessage call) {
+            if (call.MethodName == "get_Identifier") return boardId;
+            if (call.MethodName == "get_HardwareType") return Enum.Parse(library.GetType("LibreHardwareMonitor.Hardware.HardwareType",true),"SuperIO");
+            throw new InvalidOperationException("Unexpected hardware operation: " + call.MethodName);
+        }).GetTransparentProxy();
         object sensor = new InterfaceStub(library.GetType("LibreHardwareMonitor.Hardware.ISensor", true), delegate(IMethodCallMessage call) {
             if (call.MethodName == "get_Identifier") return id;
+            if (call.MethodName == "get_Hardware") return hardware;
+            if (call.MethodName == "get_Control") return control;
+            if (call.MethodName == "get_SensorType") return Enum.Parse(library.GetType("LibreHardwareMonitor.Hardware.SensorType",true),"Control");
             throw new InvalidOperationException("Unexpected sensor operation: " + call.MethodName);
         }).GetTransparentProxy();
         object settings = new InterfaceStub(library.GetType("LibreHardwareMonitor.Hardware.ISettings", true), delegate(IMethodCallMessage call) {
@@ -62,7 +72,7 @@ internal static class NativeControlTests
             throw new InvalidOperationException("Unexpected settings operation: " + call.MethodName);
         }).GetTransparentProxy();
         Type type = library.GetType("LibreHardwareMonitor.Hardware.Control", true);
-        object control = Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new object[] { sensor, settings, 0f, 100f }, null);
+        control = Activator.CreateInstance(type, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new object[] { sensor, settings, 0f, 100f }, null);
         foreach (string name in new[] { "ControlModeChanged", "SoftwareControlValueChanged" })
         {
             EventInfo change = type.GetEvent(name, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -142,6 +152,7 @@ internal static class NativeControlTests
     }
     private static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--journal-child") { NativeJournalTests.Child(args[1]); return 0; }
         if (args.Length != 1) return 2;
         string directory = Path.GetFullPath(args[0]);
         AppDomain.CurrentDomain.AssemblyResolve += delegate(object sender, ResolveEventArgs request) {
@@ -153,6 +164,7 @@ internal static class NativeControlTests
         library = Assembly.LoadFrom(Path.Combine(directory,"LibreHardwareMonitorLib.dll"));
         Run();
         NativeSessionTests.Run();
+        NativeJournalTests.Run(delegate(ControlSink sink) { return NativeControl.ForTest(Create(sink),false); });
         Console.WriteLine("PASS: real pinned LHM Control ordering, no-zero acquisition, ownership, pump limits, failed writes and repeated firmware recovery. Synthetic callbacks only; no hardware opened.");
         return 0;
     }

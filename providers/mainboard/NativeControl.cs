@@ -63,6 +63,18 @@ internal sealed class NativeControl : INativeControlPort
     void INativeControlPort.Acquire() { Acquire(); }
     void INativeControlPort.SetDuty(float percent) { SetDuty(percent); }
     void INativeControlPort.Release() { Release(); }
+    internal NativeControlIdentity Identity()
+    {
+        object sensor = control.GetType().GetProperty("Sensor").GetValue(control,null);
+        Type sensorType = sensor.GetType();
+        object hardware = sensorType.GetProperty("Hardware").GetValue(sensor,null);
+        if (sensorType.GetProperty("SensorType").GetValue(sensor,null).ToString() != "Control" ||
+            hardware.GetType().GetProperty("HardwareType").GetValue(hardware,null).ToString() != "SuperIO" ||
+            !Object.ReferenceEquals(sensorType.GetProperty("Control").GetValue(sensor,null),control))
+            throw new InvalidOperationException("Native journal identity is not the selected SuperIO control.");
+        return new NativeControlIdentity(hardware.GetType().GetProperty("Identifier").GetValue(hardware,null).ToString(),
+            sensorType.GetProperty("Identifier").GetValue(sensor,null).ToString(),floor == 100);
+    }
     private int Mode { get { return Convert.ToInt32(mode.GetValue(control, null)); } }
     private static Exception Cause(Exception error) { return error is TargetInvocationException && error.InnerException != null ? error.InnerException : error; }
 

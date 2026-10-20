@@ -181,8 +181,11 @@ internal static class BrokerTests
         Reject(delegate { NativeControl.CreateProtected(new object(), false); }, "Unprotected native control factory accepted.");
         Reject(delegate { NativeControlSession.CreateProtected(null); }, "Unprotected native session factory accepted.");
         Reject(delegate { NativeSessionTransport.RunProtected(null, null); }, "Unprotected native transport accepted.");
+        Reject(delegate { NativeControlJournal.CreateProtected(); }, "Unprotected native journal factory accepted.");
+        Reject(delegate { JournaledNativeControl.CreateProtected(null,null); }, "Unprotected journaled port accepted.");
         Assert(typeof(NativeControl).GetMethod("ForTest", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic) == null, "Test-only native control factory leaked into production compilation.");
         Assert(typeof(NativeControlSession).GetMethod("ForTest", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic) == null && typeof(NativeSessionTransport).GetMethod("RunForTest", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic) == null,"Native session test entry leaked into production compilation.");
+        Assert(typeof(NativeControlJournal).GetMethod("ForTest",System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic) == null,"Test-directory journal factory leaked into production compilation.");
         string temporary = Path.GetTempFileName();
         try { Reject(delegate { BrokerService.CheckProtectedPath(temporary); }, "User-writable broker payload accepted."); }
         finally { File.Delete(temporary); }

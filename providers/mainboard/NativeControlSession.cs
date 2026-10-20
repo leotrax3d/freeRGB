@@ -50,7 +50,7 @@ internal sealed class NativeControlSession
 #if NATIVE_CONTROL_TESTS
     internal static NativeControlSession ForTest(INativeControlPort port, Func<long> clock) { return new NativeControlSession(port, clock); }
 #else
-    internal static NativeControlSession CreateProtected(NativeControl port)
+    internal static NativeControlSession CreateProtected(JournaledNativeControl port)
     {
         BrokerService.CheckInstallation(true);
         var timer = Stopwatch.StartNew();

@@ -372,3 +372,23 @@ no SCM service/driver is installed locally. Prior native adapter Package39479651
 and quick/broker workflows39479651926/39479651985 succeeded. No test proves physical
 fan speed or recovery from a blocked native driver. Scope/limits and private
 protocol are documented in MAINBOARD_NATIVE_SESSION.md.
+
+Native-session CI39481729897, quick39481729523 and broker39481729758 subsequently
+passed. The broker run includes the actual registered SYSTEM service-client proof.
+
+## Write-ahead recovery candidate
+
+Local PS7/PS5.1 tests pass disk-backed ordering before native acquisition,
+unresolved-channel rejection, failed writes/partial acquisition/restoration,
+failed clear with I/O-free retry and corrupt/oversized journal refusal. A real
+synthetic worker process is killed after flushing its intent: a restarted instance
+refuses acquisition before I/O. Real pinned LHM Control callbacks also run through
+journal/session/adapter/emergency/release. Production factories/test-entry gates,
+helper build, deployment/runtime/rollback and Inno compile/model pass.
+
+New disposable SCM acceptance additionally checks the protected SYSTEM journal
+and mutex, plus a real standard-user attempt to alter the journal. That fresh
+runner result is pending. No service/driver was installed locally. These tests do
+not establish physical readback, power-loss safety, recovery after a native driver
+hang or coordination with active-session upgrade/uninstall. Those gaps keep the
+candidate inactive; see MAINBOARD_CONTROL_RECOVERY.md.

@@ -15,13 +15,15 @@ $service = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/Brok
 $nativeControl = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControl.cs").Path
 $nativeSession = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControlSession.cs").Path
 $nativeTransport = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeSessionTransport.cs").Path
+$nativeJournal = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControlJournal.cs").Path
+$journaledControl = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/JournaledNativeControl.cs").Path
 $icon = (Resolve-Path -LiteralPath "$PSScriptRoot/../assets/icons/freergb.ico").Path
 $helperOptions = @()
 if ($Mode -ne 'Production') {
     $helperOptions += '/define:BROKER_FIXTURE_WORKER;BROKER_FIXTURE_CLIENT_AUTH'
     if ($Mode -eq 'FixtureV2') { $helperOptions = @('/define:BROKER_FIXTURE_WORKER;BROKER_FIXTURE_V2;BROKER_FIXTURE_CLIENT_AUTH') }
 }
-& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $transport $cache $service $nativeControl $nativeSession $nativeTransport
+& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $transport $cache $service $nativeControl $nativeSession $nativeTransport $nativeJournal $journaledControl
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard helper compilation failed.' }
 $reply = & $binary --self-test | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $reply.version -ne 1 -or $reply.status -ne 'missing_library' -or $reply.hardware.Count -ne 0) { throw 'Mainboard helper serialization self-test failed.' }

@@ -44,7 +44,7 @@ function Snapshot([int]$expected,[pscredential]$As = $credential,[switch]$Expect
         Require ($process.ExitCode -eq 0) 'Standard-user reader failed.'
         $reply = Get-Content -LiteralPath $output -Raw | ConvertFrom-Json
         if ($ExpectDenied) { Require ($reply.status -eq 'faulted' -and $reply.hardware.Count -eq 0) 'Unauthorized account read the broker.'; return }
-        if ($reply.status -eq 'ready' -and $reply.hardware[0].sensors[0].value -eq $expected -and $reply.message -eq 'service_client_authenticated') { return }
+        if ($reply.status -eq 'ready' -and $reply.hardware[0].sensors[0].value -eq $expected -and $reply.message -eq 'service_client_authenticated;journal_verified') { return }
         Start-Sleep -Milliseconds 250
     } while ([DateTime]::UtcNow -lt $deadline)
     throw "Standard-user broker did not return expected fixture value $expected. Last reply: $($reply | ConvertTo-Json -Depth 8 -Compress)"
@@ -60,6 +60,12 @@ try {
     & "$PSScriptRoot/build-mainboard-helper.ps1" -OutputDirectory $v2 -Mode FixtureV2
     & "$PSScriptRoot/build-mainboard-helper.ps1" -OutputDirectory $bad -Mode FixtureFailStart
     Install $v1 $true; Snapshot 900
+    $journalPath = Join-Path (Split-Path -Parent $protected) 'mainboard-control-recovery.json'
+    $beforeJournal = [IO.File]::ReadAllText($journalPath)
+    $probeScript = Join-Path $root 'journal-permission-probe.ps1'
+    [IO.File]::WriteAllText($probeScript,'param([string]$Journal) try { [IO.File]::WriteAllText($Journal,"unexpected-user-write"); exit 1 } catch [UnauthorizedAccessException] { exit 0 }')
+    $probe = Start-Process -FilePath (Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe') -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"{0}"' -f $probeScript),'-Journal',('"{0}"' -f $journalPath)) -WorkingDirectory $root -Credential $credential -WindowStyle Hidden -Wait -PassThru
+    Require ($probe.ExitCode -eq 0 -and [IO.File]::ReadAllText($journalPath) -eq $beforeJournal) 'Standard user modified the protected control journal.'
     $foreignName = 'frgb' + [guid]::NewGuid().ToString('N').Substring(0,12)
     $foreignPassword = ConvertTo-SecureString ([guid]::NewGuid().ToString('N') + '!aA9') -AsPlainText -Force
     $foreign = New-LocalUser -Name $foreignName -Password $foreignPassword -AccountNeverExpires

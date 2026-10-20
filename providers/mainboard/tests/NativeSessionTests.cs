@@ -15,11 +15,13 @@ internal sealed class SessionPort : INativeControlPort
     private bool owned, seenLow;
     internal readonly ManualResetEvent Fallback = new ManualResetEvent(false);
     internal bool FailHundred;
+    internal bool FailAcquire, FailRelease;
+    internal Action BeforeAcquire;
     internal Action<int> AfterWrite;
     public int Floor { get; set; }
     public bool Owned { get { lock (gate) return owned; } }
     internal int[] Writes { get { lock (gate) return writes.ToArray(); } }
-    public void Acquire() { lock (gate) { if (owned) throw new InvalidOperationException(); owned = true; writes.Add(100); } }
+    public void Acquire() { lock (gate) { if (owned) throw new InvalidOperationException(); if (BeforeAcquire != null) BeforeAcquire(); owned = true; writes.Add(100); if (FailAcquire) throw new InvalidOperationException("Partial synthetic acquisition."); } }
     public void SetDuty(float percent)
     {
         lock (gate)
@@ -31,7 +33,7 @@ internal sealed class SessionPort : INativeControlPort
             if (AfterWrite != null) AfterWrite((int)percent);
         }
     }
-    public void Release() { lock (gate) { writes.Add(-1); owned = false; } }
+    public void Release() { lock (gate) { if (!owned) return; if (FailRelease) throw new InvalidOperationException("Synthetic restore failed."); writes.Add(-1); owned = false; } }
 }
 internal static class NativeSessionTests
 {

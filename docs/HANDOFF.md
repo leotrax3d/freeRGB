@@ -523,3 +523,28 @@ Hardware results: `DEVICES.md#validation-log`.
   still block object locks: crash journal, worker recovery and physical readback
   remain prerequisites. Do not call this an operational hardware emergency system.
 - Previous Package39479651725, native quick39479651926 and broker39479651985 passed.
+
+## Write-ahead native recovery candidate
+
+- NativeControlJournal: fixed protected parent path (ProgramFiles/freeRGB/
+  mainboard-control-recovery.json), version1 single pending reservation (id, pinned
+  backend, exact native SuperIO hardware/sensor IDs, pump flag). 16KiB bounds,
+  strict shape/text/version, SYS/Admin-only global mutex/path checks; atomic
+  same-directory flushed write/replace. No low duty or session token persisted.
+- JournaledNativeControl required by production session/transport factories.
+  Reserve/flush before native Acquire; duties do not write journal. Release native
+  first, then clear exact intent. Failures retain pending record; failed durable
+  clear can retry without another native call. Any pending intent blocks another
+  channel/startup; no automatic reacquisition/cleanup or recovery claim.
+- Tests pass PS7/PS5.1: write-before-I/O, failed writes/restores/clear, malformed/
+  oversized state, killed real worker process -> restart refusal, real LHM Control
+  + synthetic hardware/settings through journal/session/native fallback/release.
+  SCM fixture now verifies protected SYSTEM journal/mutex and a real standard-user
+  write denial; new runner result pending. Never installed services/drivers locally.
+- Native-session CI39481729897 / broker39481729758 / quick39481729523 passed prior
+  increment. Broker result includes actual service-to-worker SYSTEM token proof.
+- Docs MAINBOARD_CONTROL_RECOVERY.md/LOCAL_API; privileged metadata, no shared GUI
+  config/API setter/activation. Still no production listener or CLI entry. Current
+  journal permits one pending control only; multi-channel ownership is open.
+  Supervisor recovery/readback and maintenance coordination remain mandatory.
+  File flush/replace is not proof of OS/power-loss/native-driver-hang recovery.
