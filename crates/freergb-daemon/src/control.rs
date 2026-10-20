@@ -132,6 +132,11 @@ impl Controls {
     }
 
     pub fn call(&mut self, method: &str, params: &Value) -> Result<Value, String> {
+        if method == "cooling.calibration.preview" {
+            let request: freergb_control::calibration::CalibrationPreviewRequest =
+                serde_json::from_value(params.clone()).map_err(|e| e.to_string())?;
+            return serde_json::to_value(request.run()?).map_err(|e| e.to_string());
+        }
         if method == "cooling.sensors.sources" {
             return Ok(json!(self.sensor_sources));
         }

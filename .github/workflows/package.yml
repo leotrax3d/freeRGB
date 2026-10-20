@@ -16,6 +16,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Tests
         run: cargo test --workspace --locked
+      - name: Isolated cooling watchdog process tests (synthetic duties only)
+        run: cargo test -p freergb-daemon --features cooling-fixture --test cooling_guard_process --locked
       - name: Optional motherboard provider transport (no hardware)
         shell: pwsh
         run: ./scripts/test-mainboard-provider.ps1

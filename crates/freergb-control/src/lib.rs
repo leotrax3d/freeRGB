@@ -2,7 +2,9 @@
 use freergb_core::Rgb;
 use freergb_effects::EffectSpec;
 use serde::{Deserialize, Serialize};
+pub mod calibration;
 pub mod channels;
+pub mod cooling_safety;
 pub mod sensors;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

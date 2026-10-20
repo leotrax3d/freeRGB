@@ -162,3 +162,23 @@ Keyboard a180dcd: release IPC smoke, Inno compilation/model and workspace Clippy
 passed locally; updated native hook lifecycle run39475875921 succeeded.
 Complete CI39475875790 and Package39475877313 were dispatched; check their final
 results separately from the subsequent channel assignment changes.
+
+Cooling safety continuation:
+- [x] Keyboard Package39475877313 passed full release/IPC/installer acceptance.
+- [x] Channel annotation CI39476917007 passed Windows and Linux.
+- [x] Channel annotation Package39476933684 passed full installer/release acceptance.
+- [x] Pure fan response state machine: bounded 100/80/60/40% steps, fresh independent
+  samples, applied-command acknowledgment, timing/temperature/stall aborts.
+- [x] Pumps excluded; no result until acknowledged 100% restoration, no physical
+  mapping/operating-floor claim inferred from response alone.
+- [x] Pure expiring duty lease with monotonic issue times, anti-replay and latched
+  100% request on expiry/stop/clock fault; no hardware writer added.
+- [x] Separate real process/synthetic sink tests for hung/killed producer and
+  oversized input; feature-gated fixture excluded from normal build/installer.
+- [x] API: cooling.calibration.preview, stateless bounded synthetic trace; no new config.
+- [ ] Production independent watchdog/writer integration, authenticated sessions,
+  sensor/stall supervision and physical fallback/readback verification.
+- [ ] Real fan calibration/restore, driver hangs, service/OS crash and hardware coverage.
+
+These policy/process tests do not enable live motherboard fan control. Existing
+read-only service, channel API fields and both GUIs' ownership boundaries remain.

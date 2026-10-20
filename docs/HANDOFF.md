@@ -449,3 +449,29 @@ Hardware results: `DEVICES.md#validation-log`.
   release compilation, no-hardware release IPC smoke (including annotation round
   trip) and Inno model tests passed. No personal-system service/driver/hook was
   installed or activated. Real native writes/calibration remain open.
+
+## Cooling safety policies and independent process fixture
+
+- freergb-control::calibration implements a bounded fan-only response experiment,
+  100/80/60/40%, matching applied-step acks, 2s settling/five spaced fresh samples,
+  bounded stage/session, temperature/stall/time/clock aborts and acknowledged 100%
+  restoration. Response is not physical identity or a measured startup threshold;
+  hardware_verified is false. Pumps rejected. No result exposed before restoration.
+- freergb-control::cooling_safety has a separately-clocked monotonic lease policy,
+  strict issue/sequence/age/floor checks, expiry based on issue time, latched 100%
+  request on expiry/stop/clock fault. Separate renewal and calibration counters.
+  This is not yet a hardware-capable production watchdog. No native/service writes.
+- API: cooling.calibration.preview, bounded/stateless synthetic input/output;
+  docs LOCAL_API.md and COOLING_SAFETY.md. No config, GUI-process logic, setter list
+  or Tauri path/dependency changes. Existing read-only provider/status stays intact.
+- Test-only cooling-fixture feature builds a synthetic sink binary. Real separate
+  producer/guard processes prove fallback decisions despite producer hang/death,
+  plus bounded oversized-input behavior. Windows local tests pass; CI/Package run
+  them on both CI OSes/Windows Package. Normal builds/installer exclude fixture.
+  default-run=freergbd preserves cargo run behavior despite the optional binary.
+- Prior keyboard Package39475877313 SUCCESS; channel CI39476917007 SUCCESS.
+  Channel Package39476933684 also SUCCESS, including installer lifecycle acceptance.
+- Next: integrate a protected authenticated control session with a native writer
+  and independently usable recovery path; validate driver/native hang/restore
+  behavior before exposing live setters. Never use user annotations/preview input
+  as hardware authority. Physical sensor identity and channel pairing remain open.

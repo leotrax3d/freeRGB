@@ -312,3 +312,25 @@ Updated keyboard helper lifecycle run39475875921 passed on disposable Windows,
 including the final capture timestamp implementation. Full combined CI/Package
 results for each commit must be checked independently; native hook cleanup is
 not a substitute for real typing-to-LED or fan-header hardware validation.
+
+## Bounded calibration and independent-process policy acceptance
+
+Keyboard Package39475877313 and channel annotation CI39476917007 /
+Package39476933684 succeeded. The latter covers both CI OSes and the complete
+Windows installer/release lifecycle for the preceding increment.
+
+The new cooling policies pass full workspace tests and targeted fan response,
+late/missing acknowledgment, stale/repeated sensor acquisition, stall/temperature,
+unstable/constant RPM, reversed-clock and final-restoration fault tests. Results
+cannot be reported before acknowledged full-speed restoration. Denied-warning
+workspace Clippy with all features, release build, release IPC smoke (including
+the new stateless calibration preview) and Inno compilation/model passed locally.
+
+Three actual-process integration tests pass on Windows with feature
+`cooling-fixture`: a hung producer remains alive while the separate guard requests
+simulated 100%, killing the producer causes EOF/full-speed fallback, and a 513-byte
+record without newline cannot block the guard. CI/Package run these explicitly;
+the synthetic-only binary is excluded from normal build/installer. This proves
+process independence and decisions, not physical fan speed, a successful register
+write or recovery after the guard itself/driver/OS fails. No service, driver or
+keyboard hook was installed/activated on the development PC.

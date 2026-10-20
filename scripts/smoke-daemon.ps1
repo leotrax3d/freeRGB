@@ -57,6 +57,8 @@ try {
     } while ([DateTime]::UtcNow -lt $deadline)
     if ($devices[0].frames -le 0) { throw 'Virtual device received no frames.' }
     $curve = @{points=@(@{temperature_c=25; duty_percent=30},@{temperature_c=75; duty_percent=100}); minimum_percent=25; critical_c=85; hysteresis_c=2}
+    $calibration = Invoke-Rpc 'cooling.calibration.preview' @{role='fan';critical_c=85;samples=@(@{at_ms=0;applied_sequence=1;rpm=0;rpm_age_ms=0;temperature_c=40;temperature_age_ms=0})}
+    if (-not $calibration.simulated -or $calibration.hardware_control -or $calibration.final_output.phase -ne 'restoring' -or $calibration.final_output.duty_percent -ne 100) { throw 'Calibration policy failed to request simulated stall recovery.' }
     $sensorGraph = @{version=1;nodes=@{input=@{type='input';source='explicit-unavailable-test-source'};adjusted=@{type='offset';source='input';amount=2;proportional=$false}}}
     if (-not (Invoke-Rpc 'cooling.sensors.save' @{graph=$sensorGraph})) { throw 'Custom sensor save failed.' }
     $sensorValues = Invoke-Rpc 'cooling.sensors.values'

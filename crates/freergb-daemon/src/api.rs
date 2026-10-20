@@ -196,6 +196,7 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         | "cooling.curves.save"
         | "cooling.curves.delete"
         | "cooling.preview"
+        | "cooling.calibration.preview"
         | "macros.list"
         | "macros.save"
         | "macros.delete"
@@ -411,6 +412,24 @@ mod tests {
         invalid["bindings"][0]["header"] = json!("");
         assert_eq!(call(&e, &request(invalid))["error"]["code"], -32602);
         assert_eq!(call(&e, read)["result"], current);
+        assert!(!lock(&e).mainboard.summary().control_enabled);
+    }
+
+    #[test]
+    fn calibration_preview_remains_stateless_and_pumps_are_excluded() {
+        let e = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::BLACK },
+            30,
+        )));
+        let request = |role| {
+            json!({"id":1,"method":"cooling.calibration.preview","params":{"role":role,"critical_c":85,"samples":[{"at_ms":0,"applied_sequence":1,"rpm":0,"rpm_age_ms":0,"temperature_c":40,"temperature_age_ms":0}]}}).to_string()
+        };
+        let out = call(&e, &request("fan"))["result"].clone();
+        assert_eq!(out["simulated"], true);
+        assert_eq!(out["hardware_control"], false);
+        assert_eq!(out["final_output"]["phase"], "restoring");
+        assert_eq!(out["final_output"]["duty_percent"], 100);
+        assert_eq!(call(&e, &request("pump"))["error"]["code"], -32602);
         assert!(!lock(&e).mainboard.summary().control_enabled);
     }
 

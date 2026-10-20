@@ -46,6 +46,9 @@ jobs:
       - name: test
         run: cargo test --workspace
 
+      - name: Isolated cooling watchdog process tests (synthetic duties only)
+        run: cargo test -p freergb-daemon --features cooling-fixture --test cooling_guard_process --locked
+
       - name: Windows optional motherboard helper (no hardware access)
         if: runner.os == 'Windows'
         shell: pwsh

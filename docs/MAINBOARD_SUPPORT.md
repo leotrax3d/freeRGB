@@ -85,6 +85,11 @@ electrical mode and explicit control/RPM pairings through `cooling.bindings.*`.
 These never change the above hardware fields or establish physical verification.
 Persistence, offline/stale states and limits: `COOLING_CHANNEL_BINDINGS.md`.
 
+Bounded fan-response and expiring-lease policies now exist as pure logic, with a
+stateless `cooling.calibration.preview` and real process tests against synthetic
+duties. `COOLING_SAFETY.md` specifies their limits. The fixture is not installed;
+the protected service remains read-only and has no production fan watchdog/writer.
+
 Both GUIs use `cooling.providers.list`, `cooling.channels.list` and
 `monitoring.sensors.list`; see `LOCAL_API.md`. Motherboard temperatures also join
 the daemon's `cooling.sensors.sources` graph inputs. Classic displays provider

@@ -249,3 +249,26 @@ calibrate hardware, change PWM/DC or alter existing channel fields. Daemon-owned
 `cooling-channel-bindings.json` version 1, startup failures, full schema and state
 precedence are documented in `COOLING_CHANNEL_BINDINGS.md`. Under `--no-state`
 saves are in-memory only. Classic uses explicit Save; no new `is_setter()` entry.
+
+### Fan calibration policy preview (additive, API version 1)
+
+`cooling.calibration.preview` takes `{role:"fan",critical_c:number,samples:[]}`.
+Role `pump` is explicitly rejected; critical temperature must be finite 40..100
+Celsius. Each sample has required unsigned `at_ms`, `rpm_age_ms`,
+`temperature_age_ms`; optional nullable `applied_sequence:u64`, `rpm:number`,
+`temperature_c:number`. Maximum 512 samples, each `at_ms` <=61001, relative to
+initial time 0. Unknown fields are ignored. Invalid types/limits/role/critical
+temperature return `-32602`. Sensor range/freshness faults and reversed clocks
+instead produce simulated restoration/failure output. No sensor input is treated
+as a live measurement and no sample or result is persisted.
+
+Returns `{initial,trace,final_output,simulated:true,hardware_control:false}`. Each
+output has `phase`, `sequence`, `duty_percent`, nullable `reason`, nullable `result`.
+Phases: `applying`, `settling`, `sampling`, `restoring`, `completed`, `aborted`,
+`restoration_failed`. Result (only after successful restoration):
+`{response_observed:bool,lowest_tested_percent:40,suggested_floor_percent:50|null,
+hardware_verified:false}`. Empty/truncated traces remain initial/incomplete;
+there is no background session. Full duty sequence, acknowledgment/sample timing,
+abort conditions and the limited meaning of a floor suggestion are specified in
+`COOLING_SAFETY.md`. Existing `cooling.status` continues to deny hardware writes.
+No setter, GUI-process logic, shared configuration or existing wire type changes.
