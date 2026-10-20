@@ -79,3 +79,19 @@ Ordered stage 1 — cooling telemetry:
 
 While waiting for hardware availability: corrected installer harness Start Menu
 expectation from uploaded runner evidence; full lifecycle rerun pending.
+
+
+General motherboard follow-up (user clarification, 2026-10-20):
+- [x] Keep fan power/PWM/DC separate from motherboard RGB/ARGB providers.
+- [x] Optional read-only Windows LHM helper, isolated process and bounded replies.
+- [x] Provider prerequisites/status, separate RPM/control candidates, no implicit pairing.
+- [x] Additive provider/channel/all-sensor APIs and daemon custom graph integration.
+- [x] Classic displays cached state only; no new GUI business logic/config files.
+- [ ] Driver-backed runtime validation across motherboard families; verified source labels.
+- [ ] Native OS alternatives and optional prerequisite distribution/licensing.
+- [ ] Independent failsafe, validated writes and calibration; motherboard RGB headers.
+- [ ] Guided optional setup in both GUIs; no mandatory external driver or silent install.
+
+Installer full lifecycle run 39374039676 succeeded. Cross-version upgrades and
+interactive manufacturer uninstallers remain unvalidated. Mainboard transport
+fixtures exercise no hardware; they do not establish motherboard support coverage.

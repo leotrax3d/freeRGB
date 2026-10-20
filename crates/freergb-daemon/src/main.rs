@@ -20,6 +20,10 @@ struct Args {
     /// Allow user-triggered macros to send text/keys to the foreground app.
     #[arg(long)]
     enable_input_macros: bool,
+    /// Opt in to read-only motherboard sensors using a trusted LHM 0.9.6 directory.
+    /// Requires separately installed/running PawnIO; never installs a driver.
+    #[arg(long, value_name = "DIR")]
+    mainboard_library: Option<std::path::PathBuf>,
     /// Target frames per second.
     #[arg(long, default_value_t = 30)]
     fps: u32,
@@ -59,6 +63,17 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let mut engine = Engine::new(state::State::default().effect, args.fps);
+    if let Some(library) = &args.mainboard_library {
+        let executable = std::env::current_exe()?;
+        let helper = executable
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("daemon directory unavailable"))?
+            .join("freergb-mainboard.exe");
+        engine
+            .mainboard
+            .start(helper, library.clone(), !args.no_hardware)
+            .map_err(anyhow::Error::msg)?;
+    }
     if !args.no_state {
         if let Some(path) = state::default_path() {
             tracing::info!(path = %path.display(), "state file");

@@ -69,3 +69,20 @@ No guessed control packets, CPU/GPU readings, automatic activation or fan/pump
 stop commands are part of this stage. The six-stage user order remains cooling,
 installer, updates, macros, monitoring, then RGB/profiles. Later stages are not
 marked complete while this gate is open.
+
+
+## Later read-only live evidence (2026-10-20)
+
+With user permission, SignalRGB GUI/launcher were closed. Its service was left
+unchanged. A known `link-restore` operation returned the hub to hardware mode; a
+short `link-probe --software-window --raw` returned fresh RPM/temperature tables,
+and a separate subsequent probe verified mode 1. No duty/calibration commands
+were sent. Numbers remain candidate channels, not confirmed pump/coolant labels.
+Evidence is retained locally in ignored `target/cooling-evidence/`.
+
+A subsequent daemon-cache acceptance harness timed out waiting for the hub to
+connect. It stopped its own daemon and verified hardware mode on cleanup; it did
+not establish successful live cached sensor API acceptance. Physical correlation,
+independent supervisor, write validation and broad motherboard coverage remain
+open. The general motherboard requirement is tracked in `MAINBOARD_SUPPORT.md`;
+this short LINK test is not a substitute for it.

@@ -220,6 +220,20 @@ impl Panels {
             match self.page {
                 1 => {
                     ui.heading("Cooling / fan curves");
+                    ui.collapsing("Motherboard providers and channels", |ui| {
+                        if let Some(providers) = snapshot.control["cooling_providers"].as_array() {
+                            for provider in providers {
+                                ui.label(format!("{}: {}", provider["name"].as_str().unwrap_or("Provider"), provider["status"].as_str().unwrap_or("unavailable")));
+                                ui.small(provider["message"].as_str().unwrap_or(""));
+                            }
+                        }
+                        if let Some(channels) = snapshot.control["cooling_channels"].as_array() {
+                            for channel in channels {
+                                ui.label(format!("{} · {} · {} {} · read only", channel["name"].as_str().unwrap_or("Channel"), channel["kind"].as_str().unwrap_or(""), channel["reading"]["value"], channel["reading"]["unit"].as_str().unwrap_or("")));
+                            }
+                        }
+                        ui.small("Header/control pairing and PWM/DC mode require verification. RGB/ARGB is a separate connection.");
+                    });
                     ui.colored_label(egui::Color32::YELLOW, "Simulation — real fan/pump writes are not validated yet.");
                     ui.label("Edit, save and preview a temperature curve. Missing or stale sensors select 100% duty.");
                     ui.horizontal(|ui| { ui.label("Name"); ui.text_edit_singleline(&mut self.curve_name); });
@@ -308,6 +322,12 @@ impl Panels {
                     if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); }
                     if let Some(path)=&snapshot.exported_report { ui.label(format!("Report saved: {}",path.display())); }
                     ui.label("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
+                    if let Some(entries) = snapshot.control["monitoring_sensors"].as_array() {
+                        for entry in entries.iter().filter(|entry| entry["provider"] == "mainboard.lhm") {
+                            let sensor = &entry["sensor"];
+                            ui.label(format!("{} / {}: {} {} · {} ms", entry["device_name"].as_str().unwrap_or("Mainboard"), sensor["name"].as_str().unwrap_or("Sensor"), sensor["value"], sensor["unit"].as_str().unwrap_or(""), sensor["age_ms"]));
+                        }
+                    }
                     for device in &snapshot.devices {
                         if let Some(sensors) = device["sensors"].as_array().filter(|s| !s.is_empty()) {
                             ui.heading(device["info"]["name"].as_str().unwrap_or("Device"));

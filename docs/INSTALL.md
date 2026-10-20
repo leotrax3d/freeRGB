@@ -53,11 +53,13 @@ cargo install --path crates/freergb-cli      # freergb
 cargo install --path crates/freergb-gui      # freergb-gui
 ```
 
-Run `freergbd` (add `--enable-link-hub` for iCUE LINK fans/AIO), then `freergb-gui` or
-`freergb ctl …`. No administrator rights are needed for USB HID devices.
+Run `freergb-launcher` (or `freergb-launcher --demo` for the virtual demo).
+The launcher starts the daemon when needed and opens the GUI. No administrator
+rights are needed for supported USB HID devices. For backend development the daemon
+also accepts `--enable-link-hub` for experimental LINK RGB.
 
 For source installations, autostart is not set up automatically. To start the service at logon, create a shortcut to
-`%USERPROFILE%\.cargo\bin\freergbd.exe` in `shell:startup`.
+`%USERPROFILE%\.cargo\bin\freergb-launcher.exe` in `shell:startup`.
 
 State and profiles: `%APPDATA%\freeRGB\` (`state.json`, `profiles\`).
 
@@ -71,7 +73,7 @@ Build dependencies (Debian/Ubuntu names):
 ```bash
 sudo apt install build-essential pkg-config libudev-dev \
   libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
-  libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev
+  libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev
 ```
 
 Build and install:
@@ -127,3 +129,16 @@ Linux: remove `/etc/udev/rules.d/60-freergb.rules` and the user unit. Windows so
 installations: remove your startup shortcut. Installer installations: use Windows
 Settings → Apps → freeRGB → Uninstall. Delete the state directory separately only
 if you want to drop profiles and settings.
+
+
+## Optional motherboard backend
+
+Normal installation/startup requires no PawnIO, LHM or additional .NET runtime.
+The experimental Windows motherboard reader is opt-in and currently read-only.
+Setup includes our helper executable, built using the Windows .NET Framework 4.8
+compiler; it does not bundle or install LHM/PawnIO. Advanced users with a trusted
+LHM 0.9.6 runtime, an already-running PawnIO driver and the required rights can use
+`freergb-launcher --mainboard-library "C:\path to\LHM"`. The option is forwarded
+only when starting a new daemon; it does not reconfigure an already-running daemon.
+It is incompatible with `--demo`. No automatic elevation or new autostart setting
+is added. See `MAINBOARD_SUPPORT.md` for limitations and outstanding validation.

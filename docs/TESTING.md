@@ -177,3 +177,31 @@ Package run 39371595581 reached actual fresh installation on its runner, then fa
 because the harness expected a custom Start Menu group. Logs prove installation
 created the configured freeRGB group and startup entry. Harness expectation fixed;
 remaining reinstall/uninstall/profile preservation results require a new run.
+
+
+## Custom graphs and optional motherboard process provider — 2026-10-20
+
+Pure graph evaluation, versioned persistence, rejection without mutation and
+request-time stale handling are tested independently of egui. The provider's
+snapshot validation rejects unknown protocol/status/kinds, duplicate identities,
+oversized inventories/messages and out-of-range/nonfinite data. RPM and control
+channels remain distinct, unpaired, unknown electrical mode and never writable.
+
+Run `./scripts/test-mainboard-provider.ps1` on Windows for the ignored process
+acceptance test. It compiles our own helper plus synthetic no-hardware fixture,
+then tests actual stdin/stdout framing, missing-runtime status, valid data,
+malformed/oversized replies, early exit, 10-second initial deadline and bounded
+cleanup, including cancellation during an active native request. Temporary paths contain spaces and Rust's extended Windows prefix.
+LHM is never loaded by this test; no driver or hardware is opened.
+
+Real library/driver-backed enumeration across mainboards and safe cleanup still
+require hardware validation. In particular stock LHM Close requests control resets;
+our read-only process does not call it. Do not equate process-fixture success with
+verified hardware support. The virtual API smoke checks disabled-provider status,
+empty channel inventory and missing custom-source values.
+
+
+Current Windows verification: 155 regular workspace tests plus the separately run
+ignored provider transport acceptance test passed; fmt, denied-warning Clippy,
+release binaries, virtual IPC/plugin smoke, installer model checks and local Inno
+Setup compilation passed. No actual installer or driver was run on this PC.

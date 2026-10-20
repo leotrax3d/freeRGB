@@ -91,6 +91,8 @@ pub struct Diagnostics {
 
 pub struct Engine {
     pub controls: crate::control::Controls,
+    pub mainboard: crate::mainboard::MainboardProvider,
+    sensor_refresh_at: Option<Instant>,
     plugins: std::collections::BTreeMap<String, PluginEntry>,
     workers: Vec<Worker>,
     spec: EffectSpec,
@@ -260,6 +262,8 @@ impl Engine {
         let now = Instant::now();
         let mut engine = Self {
             controls: Default::default(),
+            mainboard: Default::default(),
+            sensor_refresh_at: None,
             plugins: Default::default(),
             workers: Vec::new(),
             effect: spec.build(),
@@ -700,8 +704,18 @@ impl Engine {
     /// Renders one frame at `now` and offers it to every connected device.
     /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
-        self.controls
-            .refresh_sensors(&serde_json::json!(self.devices()));
+        if self.sensor_refresh_at.map_or(true, |at| {
+            now.saturating_duration_since(at) >= Duration::from_secs(1)
+        }) {
+            self.sensor_refresh_at = Some(now);
+            let mut devices = serde_json::json!(self.devices());
+            for entry in self.mainboard.sensors() {
+                devices.as_array_mut().unwrap().push(serde_json::json!({
+                    "status":"Connected", "info":{"id":entry.device_id,"name":entry.device_name}, "sensors":[entry.sensor]
+                }));
+            }
+            self.controls.refresh_sensors(&devices);
+        }
         if let Some(step) = self.controls.tick(now) {
             use freergb_control::MacroStep;
             match step {
@@ -787,6 +801,25 @@ impl Engine {
                 }
             })
             .collect()
+    }
+
+    /// All cached sensor providers, without introducing non-RGB devices into devices.list.
+    pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
+        let mut entries = self.mainboard.sensors();
+        for device in self.devices() {
+            for mut sensor in device.sensors {
+                if device.status != DeviceStatus::Connected {
+                    sensor.value = None;
+                }
+                entries.push(crate::mainboard::SensorEntry {
+                    provider: "device",
+                    device_id: device.info.id.0.clone(),
+                    device_name: device.info.name.clone(),
+                    sensor,
+                });
+            }
+        }
+        entries
     }
 
     pub fn diagnostics(&self) -> Diagnostics {

@@ -16,6 +16,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Tests
         run: cargo test --workspace --locked
+      - name: Optional motherboard provider transport (no hardware)
+        shell: pwsh
+        run: ./scripts/test-mainboard-provider.ps1
       - name: Release binaries
         run: cargo build --workspace --release --locked
       - name: Ensure installer compiler

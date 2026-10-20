@@ -10,6 +10,7 @@ pub mod custom_effects;
 pub mod engine;
 pub mod hardware;
 pub mod ipc;
+pub mod mainboard;
 pub mod profiles;
 pub mod report;
 pub mod state;

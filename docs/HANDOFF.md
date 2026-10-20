@@ -271,3 +271,30 @@ Hardware results: `DEVICES.md#validation-log`.
   Uploaded log shows successful creation under Programs/freeRGB and autostart.
   Corrected the harness to test that actual configured group; fresh run pending.
   Do not describe the remaining lifecycle as accepted yet.
+
+
+## General mainboard provider and GUI compatibility — 2026-10-20
+
+- User clarified general motherboard fan power/PWM/DC plus separate RGB/ARGB
+  coverage for future users. Prefer native OS APIs; no mandatory external driver.
+  Writing our own kernel driver still requires signing/installation/maintenance.
+- Custom Celsius graph evaluation/history now runs in daemon/control, not egui.
+  Additive get/save/sources/values API, version-1 graph in existing control.json;
+  GUI daemon-shutdown action removed. Tauri paths and shared API types unchanged.
+- Optional isolated Windows LHM0.9.6 reader: provider/channel/sensor cache APIs,
+  fixed read-only capabilities, unconfirmed physical mapping/PWM/DC mode. Includes
+  our helper only in Setup. LHM/PawnIO not bundled, installed, started or elevated.
+- Launcher forwards explicit --mainboard-library only when starting a new daemon;
+  demo rejects it. Existing normal shortcuts/startup remain launcher-based.
+- IMPORTANT: stock LHM SuperIO Close requests fan-control resets. Dedicated helper
+  never acquires software fan control and exits without invoking Computer.Close;
+  Windows reclaims process handles/memory. Native behavior still needs validation.
+- Hardware-independent transport tests cover missing library, synthetic ready,
+  malformed/oversized replies, early exit, hang/deadline and bounded process cleanup.
+  No driver-backed LHM live scan, fan write or calibration was performed.
+- Package run 39374039676 succeeded, superseding the previous failed Start Menu
+  assertion. Cross-version update/signing/vendor-uninstaller acceptance remain open.
+- Fresh short LINK read-only probe with software window and subsequent mode-1
+  verification succeeded; candidate RPM/temperature mapping remains unconfirmed.
+  A real daemon cache-acceptance harness did not connect to the hub in its deadline;
+  it cleaned up and hardware mode was verified. Do not claim live cache acceptance.

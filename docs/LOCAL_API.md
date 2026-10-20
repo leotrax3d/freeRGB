@@ -109,3 +109,42 @@ unavailable. Time averages continue while the GUI is closed. See
 Unsupported versions, invalid graphs and persistence failures return the existing
 invalid-parameters error `-32602`; saved definitions remain unchanged. Empty graphs
 are valid. Methods are additive; existing API types and version remain unchanged.
+
+### Optional motherboard provider (additive)
+
+All three methods take no parameters (extra parameters are ignored, like the other
+list getters), read caches only and never start a provider, request elevation,
+install/start a driver or issue hardware writes:
+
+* `cooling.providers.list` returns an array of provider summaries. Currently this
+  covers the optional `mainboard.lhm` provider, including when disabled; it is not
+  an exhaustive list of existing RGB/HID adapters. Fields: `id`, `name`, `status`,
+  `message`, `read_only:true`, `control_enabled:false`, `rgb_supported:false`,
+  `age_ms:number|null`. Status values: `disabled`, `starting`, `ready`,
+  `missing_library`, `missing_driver`, `permission_denied`, `no_supported_hardware`,
+  `faulted`, `stale`. `age_ms` is elapsed time since the cached request began.
+* `cooling.channels.list` returns cached mainboard fan-RPM and control-percentage
+  channels. Each item: `provider`, `id`, `device_id`, `name`, `kind` (`fan` or
+  `control`), `reading` (unchanged `SensorReading` shape), `control_available:bool`,
+  `writable:false`, `physical_mapping:"unconfirmed"`, `electrical_mode:"unknown"`.
+  `id` is a JSON-encoded `[native_hardware_id,native_sensor_id]` string. A control
+  object does not establish safe writes or pairing with an RPM sensor. No setter
+  is exposed. Missing/unavailable providers return an empty array.
+* `monitoring.sensors.list` returns cached readings across existing RGB devices and
+  the optional provider. Each item: `provider` (`device` or `mainboard.lhm`),
+  `device_id`, `device_name`, `sensor` (unchanged `SensorReading`). Native mainboard
+  device IDs are prefixed `mainboard.lhm:`; sensor IDs retain upstream identity.
+  Supported mainboard units are `°C`, `RPM`, `%`. Disconnected existing RGB devices
+  return null sensor values. Mainboard readings older than 5000 ms return null
+  values with their increasing age; faults clear the mainboard inventory. Existing
+  `devices.list`, `SensorReading` and `Diagnostics` are unchanged.
+
+Mainboard Celsius readings also join `cooling.sensors.sources` and derived graph
+inputs; the graph's stricter 3000 ms freshness bound still applies. API version
+remains 1. There are no new method-specific error codes; startup/prerequisite
+failures are represented in provider status, not fabricated sensor readings.
+Internal helper replies are bounded to 256 KiB, 64 hardware nodes, 1024 sensors,
+512-byte nonempty IDs/names and unique hardware/sensor identities. Values must be
+finite and in -100..200 °C, 0..100000 RPM or 0..100 percent respectively. Invalid
+replies fault the provider. These sanity limits are not safe operating limits.
+See `MAINBOARD_SUPPORT.md` for prerequisites, timeouts, lifecycle and limitations.

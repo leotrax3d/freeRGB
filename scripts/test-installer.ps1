@@ -77,7 +77,7 @@ function Start-Virtual([string]$Directory) {
 $daemon = $null
 try {
     Install-Test 'fresh-defaults' 'DEFAULT'
-    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','unins000.exe')) {
+    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','unins000.exe')) {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing installed file $file"
     }
     Assert-True (Test-Path -LiteralPath "$group/freeRGB.lnk") 'Start Menu should default on.'
@@ -103,7 +103,7 @@ try {
     Invoke-TestProcess "$app/unins000.exe" @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/LOG="{0}"' -f (Join-Path $logs 'uninstall.log')))
     Assert-True ($daemon.WaitForExit(10000) -and $daemon.ExitCode -eq 0) 'Uninstall did not gracefully stop its daemon.'
     $daemon = $null
-    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe')) {
+    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe')) {
         Assert-True (-not (Test-Path -LiteralPath (Join-Path $app $file))) "Installed file remains: $file"
     }
     Assert-True (-not (Test-Path -LiteralPath $uninstallKey)) 'Uninstall registry entry remains.'

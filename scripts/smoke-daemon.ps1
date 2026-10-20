@@ -64,6 +64,10 @@ try {
     $sensorValues = Invoke-Rpc 'cooling.sensors.values'
     if ($null -ne $sensorValues.values.adjusted.value) { throw 'Missing source became a fabricated reading.' }
     $storedGraph = Invoke-Rpc 'cooling.sensors.get'
+    $providers = @(Invoke-Rpc 'cooling.providers.list')
+    if ($providers.Count -ne 1 -or $providers[0].status -ne 'disabled' -or $providers[0].control_enabled) { throw 'Optional motherboard provider unexpectedly enabled.' }
+    if (@(Invoke-Rpc 'cooling.channels.list').Count -ne 0) { throw 'Disabled provider fabricated channels.' }
+    $null = Invoke-Rpc 'monitoring.sensors.list'
     if ($storedGraph.nodes.adjusted.amount -ne 2 -or $storedGraph.nodes.input.source -ne 'explicit-unavailable-test-source') { throw 'Custom sensor round trip failed.' }
     if (-not (Invoke-Rpc 'cooling.curves.save' @{name='Smoke'; curve=$curve})) { throw 'Curve save failed.' }
     $preview = Invoke-Rpc 'cooling.preview' @{curve=$curve; temperature_c=50; age_ms=0}

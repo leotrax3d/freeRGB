@@ -185,6 +185,9 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             "sensor_sources": get("cooling.sensors.sources").unwrap_or(Value::Null),
             "sensor_values": get("cooling.sensors.values").unwrap_or(Value::Null),
             "sensor_graph": get("cooling.sensors.get").unwrap_or(Value::Null),
+            "cooling_providers": get("cooling.providers.list").unwrap_or(Value::Null),
+            "cooling_channels": get("cooling.channels.list").unwrap_or(Value::Null),
+            "monitoring_sensors": get("monitoring.sensors.list").unwrap_or(Value::Null),
         });
         if !reachable && fetched.is_ok() {
             fetched = Err(freergb_client::ClientError::Io(std::io::Error::new(

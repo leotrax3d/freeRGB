@@ -47,6 +47,7 @@ Name: autostart; Description: "freeRGB bei der Windows-Anmeldung starten"; Group
 Source: "{#BinDir}\freergb-launcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergbd.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BinDir}\freergb-mainboard.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; Flags: dontcopy
 Source: "..\..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion

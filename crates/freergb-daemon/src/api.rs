@@ -142,6 +142,9 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             "daemon_version": env!("CARGO_PKG_VERSION"),
         })),
         "devices.list" => Ok(json!(lock(engine).devices())),
+        "monitoring.sensors.list" => Ok(json!(lock(engine).monitoring_sensors())),
+        "cooling.providers.list" => Ok(json!([lock(engine).mainboard.summary()])),
+        "cooling.channels.list" => Ok(json!(lock(engine).mainboard.channels())),
         "cooling.status"
         | "cooling.sensors.sources"
         | "cooling.sensors.values"
