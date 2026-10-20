@@ -31,6 +31,9 @@ pub const OPTIONAL: &[(&str, &str)] = &[
     ("macros", "macros.list"),
     ("macro_status", "macros.status"),
     ("sensor_values", "cooling.sensors.values"),
+    ("sensor_graph", "cooling.sensors.get"),
+    ("sensor_sources", "cooling.sensors.sources"),
+    ("cooling_status", "cooling.status"),
 ];
 
 #[derive(Clone, Serialize, PartialEq, Debug)]

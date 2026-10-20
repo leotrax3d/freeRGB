@@ -13,6 +13,8 @@ export interface Transport {
   subscribe(listener: SliceListener): Promise<() => void>;
   wantSlices(slices: OptionalSlice[]): Promise<void>;
   startService(): Promise<void>;
+  /** Saves the redacted diagnostics report; resolves to the file path. */
+  exportDiagnostics(): Promise<string>;
 }
 
 export class RpcError extends Error {
@@ -49,6 +51,7 @@ async function tauriTransport(): Promise<Transport> {
     },
     wantSlices: (slices) => invoke("want_slices", { slices }),
     startService: () => invoke("start_service"),
+    exportDiagnostics: () => invoke<string>("export_diagnostics"),
   };
 }
 

@@ -8,6 +8,7 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   clearScreen: false,
+  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? "dev") },
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },

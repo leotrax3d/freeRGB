@@ -5,6 +5,7 @@ import { EmptyState, StatusDot, type Tone } from "@/components/status";
 import { Slider } from "@/components/ui/slider";
 import { deviceStatus, faultMessage, type DeviceKind, type DeviceSummary } from "@/lib/api/types";
 import { useDaemon } from "@/lib/store/daemon";
+import { num } from "@/lib/format";
 import { useDaemonValue } from "@/lib/store/useDaemonValue";
 
 const KINDS: Record<DeviceKind, { label: string; icon: LucideIcon }> = {
@@ -73,9 +74,9 @@ const DeviceCard = memo(function DeviceCard({ device }: { device: DeviceSummary 
       </header>
       <dl className="grid grid-cols-3 gap-2 text-caption">
         {[
-          ["LEDs", device.leds.toLocaleString()],
-          ["Frames", device.frames.toLocaleString()],
-          ["Dropped", device.dropped.toLocaleString()],
+          ["LEDs", num(device.leds)],
+          ["Frames", num(device.frames)],
+          ["Dropped", num(device.dropped)],
         ].map(([label, value]) => (
           <div key={label} className="flex flex-col gap-0.5 rounded-chip bg-surface px-2.5 py-1.5">
             <dt className="text-text-subtle">{label}</dt>
@@ -89,7 +90,7 @@ const DeviceCard = memo(function DeviceCard({ device }: { device: DeviceSummary 
             <li key={s.id} className="flex justify-between gap-3">
               <span className="truncate text-text-muted">{s.name}</span>
               <span className="text-text tabular">
-                {s.value === null ? "—" : `${s.value.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${s.unit}`}
+                {s.value === null ? "—" : `${num(s.value, 1)} ${s.unit}`}
               </span>
             </li>
           ))}

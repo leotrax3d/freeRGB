@@ -438,6 +438,25 @@ Progress (branch `feature/tauri-gui`):
   disable, keyboard nudging, numeric sliders) and layer editor (1–8 layers,
   top-first list, effect/blend/opacity, per-layer parameters, optional region
   drawn on a mini canvas, reorder/remove).
+* **M4 done** – Cooling (curve editor with draggable points, limits, daemon-
+  simulated preview; custom temperature source graph editor with live values),
+  Macros (step editor for all step types, repeat, save/run/stop, status),
+  Monitoring (service stats, device sensors with staleness, custom sources,
+  diagnostics export to the same folder as Classic), Settings (plugins
+  start/stop, about). Client-side rules mirror `FanCurve::validate`,
+  `MacroDefinition::validate`, `chord_plan` and sensor node names; checked
+  against the real daemon.
+* Remaining for parity (M5): application profiles, global hotkeys, sensor
+  history graphs, warning rules, updates.
+
+End-to-end check (2026-10-20, debug build, `freergbd --no-hardware
+--virtual-device` with an isolated `APPDATA`): connection, effect/brightness
+writes, error propagation, `daemon.shutdown` blocked, 60-write burst coalesced
+to 5 daemon calls with the last value applied, profiles/custom effects stored,
+curves/macros/sensor graph validation identical to the daemon, macro run,
+diagnostics export, window close exits the app while the daemon keeps running.
+Measured: backend 38 MB and ~0.2 % CPU idle; WebView2 ~270 MB in the debug/dev
+setup — above the 150 MB target, to be re-measured with a release build (M6).
 
 Rules during the transition:
 * Classic must build, run and pass its tests after every step.

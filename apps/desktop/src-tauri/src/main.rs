@@ -4,6 +4,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod diagnostics;
 mod poller;
 mod queue;
 
@@ -68,6 +69,17 @@ fn want_slices(slices: Vec<String>, state: tauri::State<'_, AppState>) {
     let _ = state.wake.lock().unwrap_or_else(|e| e.into_inner()).send(());
 }
 
+/// Fetches the daemon's redacted report and saves it; returns the file path.
+#[tauri::command]
+async fn export_diagnostics() -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let report = freergb_client::call("diagnostics.export", Value::Null).map_err(|e| e.to_string())?;
+        diagnostics::save(&report).map(|path| path.display().to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Starts `freergbd` from the application directory (or `FREERGB_DAEMON`),
 /// like `freergb-launcher` does. Never stops a running daemon.
 #[tauri::command]
@@ -101,7 +113,7 @@ fn main() {
             wake: Mutex::new(wake_tx.clone()),
             shared: shared.clone(),
         })
-        .invoke_handler(tauri::generate_handler![rpc, snapshot, want_slices, start_service])
+        .invoke_handler(tauri::generate_handler![rpc, snapshot, want_slices, start_service, export_diagnostics])
         .setup(move |app| {
             let handle = app.handle().clone();
             std::thread::Builder::new()

@@ -1,0 +1,81 @@
+import { Download, Puzzle } from "lucide-react";
+import { PageHeader, Section } from "@/components/page";
+import { StatusDot } from "@/components/status";
+import { Button } from "@/components/ui/button";
+import { deviceStatus } from "@/lib/api/types";
+import { num } from "@/lib/format";
+import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
+import { useAction } from "@/lib/store/useAction";
+
+function Plugins() {
+  const plugins = useDaemon((s) => s.plugins);
+  const { pending, error, run } = useAction();
+  return (
+    <Section title="Plugins" aside={error && <span className="text-caption text-danger-text">{error}</span>}>
+      {!plugins?.length ? (
+        <p className="text-small text-text-subtle">
+          No plugins are configured. Plugins are enabled when the service starts (<code className="font-mono text-caption">--plugin</code>);
+          see docs/PLUGIN_SYSTEM.md.
+        </p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-card bg-surface-sunken">
+          {plugins.map((p) => {
+            const state = p.status ? deviceStatus(p.status) : null;
+            return (
+              <li key={p.id} className="flex items-center gap-4 px-4 py-3">
+                <Puzzle className="size-4 text-text-subtle" aria-hidden />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-body">{p.name}</span>
+                  <span className="text-caption text-text-subtle">
+                    {p.id} · {p.access === "hardware" ? "Hardware access" : "Virtual"} · {num(p.frames)} frames
+                  </span>
+                  {p.last_error && <span className="text-caption text-danger-text">{p.last_error}</span>}
+                </div>
+                <StatusDot
+                  tone={state === "connected" ? "ok" : state === "faulted" ? "error" : "idle"}
+                  label={p.enabled ? (state === "connected" ? "Running" : state === "faulted" ? "Error" : "Starting…") : "Stopped"}
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!p.allowed || pending !== null}
+                  title={p.allowed ? undefined : "Not allowed by the service configuration"}
+                  onClick={() => run(p.id, () => rpc(p.enabled ? "plugins.stop" : "plugins.start", { id: p.id }))}
+                >
+                  {p.enabled ? "Stop" : "Start"}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Section>
+  );
+}
+
+export default function SettingsView() {
+  useSlices("plugins");
+  const connection = useDaemon((s) => s.connection);
+  return (
+    <>
+      <PageHeader title="Settings" />
+      <Plugins />
+      <Section title="Updates">
+        <div className="flex items-start gap-3 rounded-card border border-border px-4 py-3 text-small text-text-muted">
+          <Download className="mt-0.5 size-4 shrink-0 text-text-subtle" aria-hidden />
+          <span>Update checks and installation still run in freeRGB Classic. They move here with the shared desktop logic (M5).</span>
+        </div>
+      </Section>
+      <Section title="About">
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-small">
+          <dt className="text-text-subtle">App</dt>
+          <dd>freeRGB desktop {__APP_VERSION__}</dd>
+          <dt className="text-text-subtle">Service</dt>
+          <dd>{connection?.daemon_version ? `freergbd ${connection.daemon_version} · API ${connection.api_version}` : "not connected"}</dd>
+          <dt className="text-text-subtle">Classic</dt>
+          <dd className="text-text-muted">freeRGB Classic stays available for low-resource PCs; both apps control the same service and share all settings.</dd>
+        </dl>
+      </Section>
+    </>
+  );
+}

@@ -1,6 +1,8 @@
 // TypeScript mirror of the daemon's serde types (docs/LOCAL_API.md).
 // Field names and tags must match Rust exactly; fixtures in types.test.ts guard this.
 
+import type { CoolingStatus, FanCurve, MacroDefinition, MacroStatus, SensorGraph, SensorValues } from "./control";
+
 export interface Rgb {
   r: number;
   g: number;
@@ -121,7 +123,26 @@ export interface Slices {
   /** null while the daemon runs without storage (`--no-state`). */
   profiles: string[] | null;
   custom_effects: string[] | null;
-  plugins: unknown[] | null;
+  plugins: PluginSummary[] | null;
+  curves: Record<string, FanCurve> | null;
+  macros: Record<string, MacroDefinition> | null;
+  macro_status: MacroStatus | null;
+  sensor_values: SensorValues | null;
+  sensor_graph: SensorGraph | null;
+  /** Native Celsius source key → display label. */
+  sensor_sources: Record<string, string> | null;
+  cooling_status: CoolingStatus | null;
+}
+
+export interface PluginSummary {
+  id: string;
+  name: string;
+  access: "virtual" | "hardware";
+  enabled: boolean;
+  allowed: boolean;
+  status: DeviceStatus | null;
+  last_error: string | null;
+  frames: number;
 }
 
 export type SliceName = keyof Slices;

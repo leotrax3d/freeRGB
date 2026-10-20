@@ -4,6 +4,7 @@
 
 import type { SliceListener, Transport } from "../api/transport";
 import { RpcError } from "../api/transport";
+import { DEFAULT_CURVE, type FanCurve, type MacroDefinition, type SensorGraph } from "../api/control";
 import type { DeviceSummary, EffectSpec, Slices } from "../api/types";
 import effectDefaults from "../api/fixtures/effects.json";
 
@@ -84,6 +85,11 @@ export function mockTransport(): Transport {
   ]);
   const custom = new Map<string, EffectSpec>();
   const sorted = (m: Map<string, unknown>) => [...m.keys()].sort();
+  const curves: Record<string, FanCurve> = { Quiet: DEFAULT_CURVE };
+  const macros: Record<string, MacroDefinition> = {
+    Flash: { repeat: 2, steps: [{ type: "color", color: { r: 255, g: 0, b: 0 } }, { type: "delay", ms: 300 }, { type: "brightness", value: 0.7 }] },
+  };
+  let graph: SensorGraph = { version: 1, nodes: { coolant: { type: "input", source: "[\"mock:link\",\"temperature:4\"]" } } };
 
   const diagnostics = () => ({
     uptime_s: (Date.now() - started) / 1000,
@@ -105,6 +111,16 @@ export function mockTransport(): Transport {
     profiles: sorted(profiles),
     custom_effects: sorted(custom),
     plugins: [],
+    curves: { ...curves },
+    macros: { ...macros },
+    macro_status: { running: null, input_enabled: false, error: null },
+    cooling_status: { hardware_control: false, reason: "Mock data: nothing is written.", error: null },
+    sensor_graph: graph,
+    sensor_sources: { "[\"mock:link\",\"temperature:4\"]": "iCUE LINK hub (mock) / Coolant (mock)" },
+    sensor_values: {
+      now_ms: Date.now() - started,
+      values: Object.fromEntries(Object.keys(graph.nodes).map((n) => [n, { value: 31.5, sampled_at_ms: 0, error: null }])),
+    },
   });
   const emit = (slice: keyof Slices) => {
     const value = slices()[slice];
@@ -163,6 +179,44 @@ export function mockTransport(): Transport {
           custom.delete(p.name as string);
           emit("custom_effects");
           return true as T;
+        case "cooling.preview": {
+          const c = p.curve as FanCurve;
+          const t = p.temperature_c as number;
+          const pts = c.points;
+          let duty = t >= c.critical_c ? 100 : pts[pts.length - 1]!.duty_percent;
+          if (t <= pts[0]!.temperature_c) duty = pts[0]!.duty_percent;
+          for (let i = 1; i < pts.length && t < c.critical_c; i++) {
+            const a = pts[i - 1]!, b = pts[i]!;
+            if (t > a.temperature_c && t <= b.temperature_c) {
+              duty = a.duty_percent + ((t - a.temperature_c) / (b.temperature_c - a.temperature_c)) * (b.duty_percent - a.duty_percent);
+              break;
+            }
+          }
+          return { duty_percent: duty, simulated: true } as T;
+        }
+        case "cooling.curves.save":
+          curves[p.name as string] = p.curve as FanCurve;
+          emit("curves");
+          return true as T;
+        case "cooling.curves.delete":
+          delete curves[p.name as string];
+          emit("curves");
+          return true as T;
+        case "macros.save":
+          macros[p.name as string] = p.definition as MacroDefinition;
+          emit("macros");
+          return true as T;
+        case "macros.delete":
+          delete macros[p.name as string];
+          emit("macros");
+          return true as T;
+        case "macros.run":
+        case "macros.cancel":
+          return true as T;
+        case "cooling.sensors.save":
+          graph = (p.graph as SensorGraph);
+          emit("sensor_graph");
+          return true as T;
         case "effects.default":
           return (effectDefaults as Record<string, unknown>)[p.name as string] as T;
         default:
@@ -180,5 +234,8 @@ export function mockTransport(): Transport {
     },
     wantSlices: async () => {},
     startService: async () => {},
+    exportDiagnostics: async () => {
+      throw new Error("Not available with mock data");
+    },
   };
 }
