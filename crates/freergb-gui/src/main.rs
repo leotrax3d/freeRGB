@@ -19,6 +19,7 @@ mod app_profiles;
 mod custom_sensors;
 mod diagnostics;
 mod hotkeys;
+mod keyboard_reactive;
 mod macro_editor;
 mod pages;
 mod sensor_history;
@@ -179,6 +180,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
         let custom_effects =
             get("custom_effects.list").and_then(|v| serde_json::from_value::<Vec<String>>(v).ok());
         let control = json!({
+            "keyboard_reactive": get("keyboard.reactive.get").unwrap_or(Value::Null),
             "curves": get("cooling.curves.list").unwrap_or(Value::Null),
             "macros": get("macros.list").unwrap_or(Value::Null),
             "macro_status": get("macros.status").unwrap_or(Value::Null),
@@ -244,6 +246,7 @@ fn label(name: &str) -> &'static str {
 }
 
 struct App {
+    keyboard_panel: keyboard_reactive::KeyboardPanel,
     profile_revision: u64,
     app_profiles: app_profiles::AppProfiles,
     panels: pages::Panels,
@@ -276,6 +279,7 @@ impl App {
             profile_revision: 0,
             app_profiles: Default::default(),
             panels: Default::default(),
+            keyboard_panel: Default::default(),
             state,
             tx,
             sync_after_generation: Some(0),
@@ -968,6 +972,11 @@ impl eframe::App for App {
                     });
                 }
 
+                ui.separator();
+                ui.collapsing("Keyboard reactions", |ui| {
+                    let snapshot = self.state.lock().unwrap_or_else(|e|e.into_inner());
+                    self.keyboard_panel.show(ui, &snapshot, &self.tx)
+                });
                 ui.separator();
                 ui.heading("Brightness");
                 let r =

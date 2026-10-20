@@ -281,3 +281,18 @@ maintenance/removal helpers are installed/removed. These new final installer
 checks need their own Package result. Actual wizard/UAC/vendor installer/reboot,
 native worker crash/hang, power-loss repair and real motherboard support remain
 unverified. No service/driver was installed on the developer PC.
+
+## Keyboard reactions
+
+169 workspace tests passed for the integrated keyboard overlay. Targeted tests
+also cover stale events buffered in the input pipe, future capture timestamps,
+handshake/version bounds, ISO/ANSI mapping, base-effect preservation, brightness,
+failed persistence and immediate runtime disable. Denied-warning workspace Clippy
+and release compilation passed. Local native helper checks use `--self-test`
+only and do not register a keyboard hook. Disposable Windows run 39474499240
+passed actual hook startup and immediate stdin-EOF cleanup without recording
+events. Complete-feature CI/Package and real typing-to-LED checks remain pending.
+
+Package39470839127 passed the prior installer changes, including the actual
+owned mainboard-service uninstall hook; it supersedes the pending Package note
+above. It does not validate real driver/hardware behavior.

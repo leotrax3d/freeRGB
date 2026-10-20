@@ -25,6 +25,9 @@ jobs:
       - name: Motherboard broker boundary acceptance (no service installation)
         shell: pwsh
         run: ./scripts/test-mainboard-broker.ps1
+      - name: Keyboard input helper startup and cleanup (no events recorded)
+        shell: pwsh
+        run: ./scripts/test-keyboard-helper.ps1 -CaptureLifecycle
       - name: Protected broker deployment transactions (no system changes)
         shell: pwsh
         run: ./scripts/test-mainboard-deployment.ps1 -VerifyRuntime

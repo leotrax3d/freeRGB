@@ -71,6 +71,8 @@ struct RawLed {
     x: u16,
     y: u16,
     wire: u16,
+    #[serde(default)]
+    key_usage: Option<u16>,
 }
 
 /// A validated device description.
@@ -89,6 +91,8 @@ pub struct DeviceDescription {
     pub layout: LedLayout,
     /// Wire index per layout LED, in layout order.
     pub wire_map: Vec<u16>,
+    /// Explicit USB keyboard page usage -> layout index. Never a wire index.
+    pub key_map: std::collections::BTreeMap<u16, usize>,
     /// Where it came from (`builtin:…` or a file path).
     pub source: String,
 }
@@ -160,7 +164,16 @@ impl DeviceDescription {
         }
 
         let mut wires = HashSet::new();
-        for l in &raw.layout.leds {
+        let mut key_map = std::collections::BTreeMap::new();
+        for (index, l) in raw.layout.leds.iter().enumerate() {
+            if let Some(usage) = l.key_usage {
+                if kind != DeviceKind::Keyboard
+                    || !((4..=0x73).contains(&usage) || (0xe0..=0xe7).contains(&usage))
+                    || key_map.insert(usage, index).is_some()
+                {
+                    return Err(invalid("invalid/duplicate keyboard key_usage".into()));
+                }
+            }
             if !wires.insert(l.wire) {
                 return Err(invalid(format!(
                     "wire index {} used twice (LED {:?})",
@@ -195,6 +208,7 @@ impl DeviceDescription {
             usage: raw.device.usage,
             bragi: raw.bragi,
             wire_map: raw.layout.leds.iter().map(|l| l.wire).collect(),
+            key_map,
             layout,
             source: source_name.to_owned(),
         })
@@ -292,6 +306,15 @@ mod tests {
         assert_eq!(wire("\\"), 49);
         assert_eq!(wire("Left Ctrl"), 105);
         assert_eq!(wire("Fn"), 122);
+        assert_eq!(
+            k70.key_map[&0xe0],
+            k70.layout.index_of("Left Ctrl").unwrap()
+        );
+        assert_eq!(k70.key_map[&4], k70.layout.index_of("A").unwrap());
+        assert!(!k70
+            .key_map
+            .values()
+            .any(|&i| k70.layout.leds[i].name == "Fn"));
         let cells: HashSet<_> = k70.layout.leds.iter().map(|l| l.pos).collect();
         assert_eq!(cells.len(), 107, "grid cells unique");
         assert_eq!(BragiModelCheck::wire_led_count(k70), 123);

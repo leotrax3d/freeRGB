@@ -33,6 +33,7 @@ fn guard<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 /// What the engine and the API may see of a device without touching it.
 #[derive(Debug, Clone)]
 struct View {
+    key_map: std::collections::BTreeMap<u16, usize>,
     sensors: Vec<freergb_device_api::SensorReading>,
     sensor_snapshot_at: Instant,
     info: DeviceInfo,
@@ -90,6 +91,7 @@ pub struct Diagnostics {
 }
 
 pub struct Engine {
+    pub keyboard: crate::keyboard::KeyboardReactive,
     pub controls: crate::control::Controls,
     pub mainboard: crate::mainboard::MainboardProvider,
     sensor_refresh_at: Option<Instant>,
@@ -149,7 +151,11 @@ fn run_worker(
 ) {
     let publish = |dev: &dyn RgbDevice, view: &Mutex<View>, err: Option<Option<String>>| {
         let mut v = guard(view);
-        v.status = dev.status();
+        let status = dev.status();
+        if v.status != status || v.layout != *dev.layout() {
+            v.key_map = dev.key_map();
+        }
+        v.status = status;
         v.info = dev.info().clone();
         v.sensors = dev.sensors();
         v.sensor_snapshot_at = Instant::now();
@@ -261,6 +267,7 @@ impl Engine {
     pub fn new(spec: EffectSpec, target_fps: u32) -> Self {
         let now = Instant::now();
         let mut engine = Self {
+            keyboard: Default::default(),
             controls: Default::default(),
             mainboard: Default::default(),
             sensor_refresh_at: None,
@@ -490,6 +497,7 @@ impl Engine {
         let id_str = id.0.clone();
         tracing::info!(device = %id, name = %dev.info().name, "device added");
         let view = Arc::new(Mutex::new(View {
+            key_map: dev.key_map(),
             sensors: Vec::new(),
             sensor_snapshot_at: Instant::now(),
             info: dev.info().clone(),
@@ -537,6 +545,8 @@ impl Engine {
         if let Some(parent) = path.parent() {
             self.controls =
                 crate::control::Controls::default().with_file(parent.join("control.json"));
+            self.keyboard =
+                std::mem::take(&mut self.keyboard).with_file(parent.join("keyboard-reactive.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);
@@ -704,6 +714,15 @@ impl Engine {
     /// Renders one frame at `now` and offers it to every connected device.
     /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
+        let has_keyboard = self.conflicts.is_empty()
+            && self.workers.iter().any(|w| {
+                let view = guard(&w.view);
+                view.status == DeviceStatus::Connected
+                    && view.info.kind == freergb_device_api::DeviceKind::Keyboard
+                    && !view.key_map.is_empty()
+                    && self.keyboard.config.devices.contains(&w.id.0)
+            });
+        self.keyboard.tick(has_keyboard);
         if self.sensor_refresh_at.map_or(true, |at| {
             now.saturating_duration_since(at) >= Duration::from_secs(1)
         }) {
@@ -738,12 +757,12 @@ impl Engine {
         let brightness = self.brightness;
 
         for w in &self.workers {
-            let layout = {
+            let (layout, key_map) = {
                 let v = guard(&w.view);
                 if v.status != DeviceStatus::Connected {
                     continue;
                 }
-                v.layout.clone()
+                (v.layout.clone(), v.key_map.clone())
             };
             let corr = ColorCorrection {
                 brightness: w.correction.brightness * brightness,
@@ -754,10 +773,9 @@ impl Engine {
             if layout.is_empty() {
                 continue;
             }
-            let frame = self
-                .canvas
-                .sample_layout(&layout, w.region)
-                .corrected(&corr);
+            let mut frame = self.canvas.sample_layout(&layout, w.region);
+            self.keyboard.apply(&w.id.0, &key_map, &mut frame);
+            let frame = frame.corrected(&corr);
             let (lock, cv) = &*w.slot;
             if guard(lock).replace(frame).is_some() {
                 guard(&w.view).dropped += 1;
@@ -808,6 +826,17 @@ impl Engine {
             .collect()
     }
 
+    pub fn keyboard_reactive(&self) -> serde_json::Value {
+        let devices: Vec<_> = self.workers.iter().filter_map(|worker| {
+            let view = guard(&worker.view);
+            (view.info.kind == freergb_device_api::DeviceKind::Keyboard).then(|| serde_json::json!({
+                "id":worker.id.0,"name":view.info.name,"connected":view.status == DeviceStatus::Connected,
+                "keys":view.key_map,"layout":view.layout,
+            }))
+        }).collect();
+        serde_json::json!({"config":self.keyboard.config,"status":self.keyboard.status(),"devices":devices})
+    }
+
     /// All cached sensor providers, without introducing non-RGB devices into devices.list.
     pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
         let mut entries = self.mainboard.sensors();
@@ -853,6 +882,7 @@ impl Engine {
     /// Stops every worker; each releases its device back to hardware mode.
     /// Waits until all workers have finished.
     pub fn shutdown(&mut self) {
+        self.keyboard.stop();
         for w in &self.workers {
             w.stop.store(true, Ordering::SeqCst);
             w.slot.1.notify_one();
@@ -911,6 +941,70 @@ mod tests {
         assert_eq!(e.devices()[0].frames, 2);
         e.shutdown();
         assert_eq!(e.devices()[0].status, DeviceStatus::Disconnected);
+    }
+
+    #[test]
+    fn keyboard_overlay_targets_keys_respects_brightness_and_returns_to_base() {
+        struct Keyboard {
+            inner: VirtualDevice,
+            info: DeviceInfo,
+        }
+        impl RgbDevice for Keyboard {
+            fn info(&self) -> &DeviceInfo {
+                &self.info
+            }
+            fn key_map(&self) -> std::collections::BTreeMap<u16, usize> {
+                [(4, 0), (5, 1)].into()
+            }
+            fn layout(&self) -> &LedLayout {
+                self.inner.layout()
+            }
+            fn connect(&mut self) -> Result<(), DeviceError> {
+                self.inner.connect()
+            }
+            fn push_frame(&mut self, frame: &Frame) -> Result<(), DeviceError> {
+                self.inner.push_frame(frame)
+            }
+            fn status(&self) -> DeviceStatus {
+                self.inner.status()
+            }
+            fn disconnect(&mut self, color: Option<Rgb>) -> Result<(), DeviceError> {
+                self.inner.disconnect(color)
+            }
+        }
+        let inner = VirtualDevice::new("keyboard", LedLayout::strip(2));
+        let log = inner.frame_log();
+        let mut info = inner.info().clone();
+        info.kind = freergb_device_api::DeviceKind::Keyboard;
+        let mut e = Engine::new(EffectSpec::Solid { color: Rgb::BLUE }, 30);
+        e.keyboard
+            .configure(freergb_effects::keyboard::ReactiveConfig {
+                fade_ms: 50,
+                color: Rgb::RED,
+                devices: [info.id.0.clone()].into(),
+                ..Default::default()
+            })
+            .unwrap();
+        e.add_device(Box::new(Keyboard { inner, info }));
+        assert!(wait_until(
+            || e.devices()[0].status == DeviceStatus::Connected
+        ));
+        e.keyboard.preview(4).unwrap();
+        e.tick(Instant::now());
+        assert!(wait_until(|| log.total() == 1));
+        let frame = log.last().unwrap();
+        assert!(frame.colors()[0].r > 0);
+        assert_eq!(frame.colors()[1], Rgb::BLUE);
+        assert_eq!(e.keyboard.status()["state"], "disabled"); // Preview installs no input hook.
+        e.set_brightness(0.0);
+        e.tick(Instant::now());
+        assert!(wait_until(|| log.total() == 2));
+        assert_eq!(log.last().unwrap(), Frame::solid(2, Rgb::BLACK));
+        std::thread::sleep(Duration::from_millis(60));
+        e.set_brightness(1.0);
+        e.tick(Instant::now());
+        assert!(wait_until(|| log.total() == 3));
+        assert_eq!(log.last().unwrap(), Frame::solid(2, Rgb::BLUE));
     }
 
     /// Fails the first `fail_connects` connects; optionally sleeps per frame.

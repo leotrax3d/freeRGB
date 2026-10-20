@@ -48,6 +48,14 @@ Validation (on load and with `freergb validate-device <file>`): known adapter, k
 support level; at least one product id; adapter parameters present; every LED inside the
 grid; unique LED names and grid cells; unique wire indices; unknown keys are rejected.
 
+Keyboard LEDs may additionally declare `key_usage = N`, an explicit USB keyboard
+page usage (4..115 or 224..231). Usages must be unique and may appear only on a
+`kind = "keyboard"` description. It maps the key to that LED's **layout** index,
+independently of `wire`. Omitted mappings remain unsupported, never guessed from
+names/wire indices. Existing descriptions without this optional field remain
+valid. The built-in K70 CORE mapping handles Corsair modifier remaps separately;
+Fn and the unverified ABNT-specific key remain unmapped. See `KEYBOARD_REACTIVE.md`.
+
 ### User descriptions (opt-in)
 
 ```bash

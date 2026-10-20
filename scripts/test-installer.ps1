@@ -78,7 +78,7 @@ $daemon = $null
 $fixtureBrokerInstalled = $false
 try {
     Install-Test 'fresh-defaults' 'DEFAULT'
-    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','unins000.exe')) {
+    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','freergb-keyboard-input.exe','unins000.exe')) {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing installed file $file"
     }
     Assert-True (Test-Path -LiteralPath "$group/freeRGB.lnk") 'Start Menu should default on.'
@@ -88,6 +88,8 @@ try {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing optional prerequisite bootstrap file $file"
     }
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $app 'mainboard-provider.json'))) 'Default/silent setup must not enable optional motherboard access.'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $config 'keyboard-reactive.json'))) 'Default setup must not enable keyboard capture.'
+    Assert-True (-not (Get-Process freergb-keyboard-input -ErrorAction SilentlyContinue)) 'Default setup unexpectedly started keyboard input capture.'
     Assert-True (-not (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\freeRGBMainboard')) 'Default/silent setup must not create a privileged service.'
     Assert-True (Test-Path -LiteralPath $uninstallKey) 'Per-user uninstall registration missing.'
     $daemon = Start-Virtual $app
@@ -123,7 +125,7 @@ try {
     Invoke-TestProcess "$app/unins000.exe" @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/LOG="{0}"' -f (Join-Path $logs 'uninstall.log')))
     Assert-True ($daemon.WaitForExit(10000) -and $daemon.ExitCode -eq 0) 'Uninstall did not gracefully stop its daemon.'
     $daemon = $null
-    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','remove-mainboard.ps1')) {
+    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','freergb-keyboard-input.exe','remove-mainboard.ps1')) {
         Assert-True (-not (Test-Path -LiteralPath (Join-Path $app $file))) "Installed file remains: $file"
     }
     Assert-True (-not (Test-Path -LiteralPath $uninstallKey)) 'Uninstall registry entry remains.'

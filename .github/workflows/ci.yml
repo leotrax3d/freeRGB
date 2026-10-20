@@ -51,6 +51,11 @@ jobs:
         shell: pwsh
         run: ./scripts/test-mainboard-provider.ps1
 
+      - name: Windows keyboard helper startup and cleanup (no events recorded)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-keyboard-helper.ps1 -CaptureLifecycle
+
       - name: Windows prerequisite installation logic (no system changes)
         if: runner.os == 'Windows'
         shell: pwsh

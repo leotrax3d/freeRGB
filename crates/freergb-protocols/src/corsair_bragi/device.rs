@@ -75,6 +75,7 @@ pub struct BragiModel {
     pub kind: DeviceKind,
     pub layout: LedLayout,
     pub wire_map: Vec<u16>,
+    pub key_map: std::collections::BTreeMap<u16, usize>,
     /// Number of LED slots on the wire (max wire index + 1).
     pub wire_led_count: usize,
     /// Continuation packets need the `0x08` target bit and are acknowledged.
@@ -109,6 +110,7 @@ impl BragiModel {
             kind: d.kind,
             layout: d.layout.clone(),
             wire_map: d.wire_map.clone(),
+            key_map: d.key_map.clone(),
             wire_led_count,
             stream_ack: params.stream_ack,
             // Pipelining gave 26-27 FPS on the K70 CORE but hung its vendor
@@ -553,6 +555,9 @@ impl<T: HidTransport> BragiDevice<T> {
 }
 
 impl<T: HidTransport> RgbDevice for BragiDevice<T> {
+    fn key_map(&self) -> std::collections::BTreeMap<u16, usize> {
+        self.model.key_map.clone()
+    }
     fn info(&self) -> &DeviceInfo {
         &self.info
     }

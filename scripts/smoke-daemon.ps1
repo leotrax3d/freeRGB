@@ -66,6 +66,15 @@ try {
     if ($providers.Count -ne 1 -or $providers[0].status -ne 'disabled' -or $providers[0].control_enabled) { throw 'Optional motherboard provider unexpectedly enabled.' }
     if (@(Invoke-Rpc 'cooling.channels.list').Count -ne 0) { throw 'Disabled provider fabricated channels.' }
     $null = Invoke-Rpc 'monitoring.sensors.list'
+    $keyboard = Invoke-Rpc 'keyboard.reactive.get'
+    if ($keyboard.config.enabled -or $keyboard.status.records_text) { throw 'Keyboard capture should default off without recording text.' }
+    $keyboard.config.enabled = $true
+    $keyboard.config.devices = @('virtual:virtual-strip')
+    if (-not (Invoke-Rpc 'keyboard.reactive.configure' @{config=$keyboard.config})) { throw 'Keyboard configuration failed.' }
+    if ((Invoke-Rpc 'keyboard.reactive.get').status.state -ne 'blocked_no_hardware') { throw 'No-hardware mode allowed input capture.' }
+    if (-not (Invoke-Rpc 'keyboard.reactive.preview' @{usage=4})) { throw 'Keyboard preview enqueue failed.' }
+    $disabled = Invoke-Rpc 'keyboard.reactive.disable'
+    if (-not $disabled.stopped -or $disabled.persisted) { throw 'No-state keyboard stop failed.' }
     if ($storedGraph.nodes.adjusted.amount -ne 2 -or $storedGraph.nodes.input.source -ne 'explicit-unavailable-test-source') { throw 'Custom sensor round trip failed.' }
     if (-not (Invoke-Rpc 'cooling.curves.save' @{name='Smoke'; curve=$curve})) { throw 'Curve save failed.' }
     $preview = Invoke-Rpc 'cooling.preview' @{curve=$curve; temperature_c=50; age_ms=0}

@@ -393,3 +393,34 @@ Hardware results: `DEVICES.md#validation-log`.
   transport, Inno build/model checks passed. Pending new full Package and actual
   wizard/UAC/driver/reboot/native lifecycle/hardware tests. Protected markers are
   installation files, not shared GUI config; API/GUI/Tauri paths remain unchanged.
+
+## Keyboard reactions added while the package build ran
+
+- User requested a pressed-key lighting reaction. Daemon now overlays color/fade
+  only on explicit USB usage -> layout-index mappings, before device/global color
+  correction. Existing EffectSpec variants, DeviceSummary and other shared types
+  stay unchanged. K70 CORE mapping is explicit in TOML (`key_usage` optional for
+  old user descriptions), with modifier remaps and ISO/ANSI choice. Fn/ABNT-specific
+  unverified key omitted. Input from all local keyboards is mirrored to selected
+  targets; no physical source-device attribution is claimed.
+- Own per-user .NET4.x helper observes Windows physical scan positions, not typed
+  characters. Nonblocking 256-event callback queue, injected inputs excluded,
+  no disk/network, private bounded stdout/heartbeat. Parent EOF unhooks/exits.
+  Input never reaches the privileged mainboard service. No global hook enabled
+  locally during tests. Native hook startup/EOF acceptance run39474499240 passed
+  on disposable Windows. Final minor cleanup is retested by the new feature CI.
+- `freergb-effects::keyboard` has GUI-free config, scan mapping and bounded fading;
+  daemon keyboard manager owns storage/native lifecycle, async cleanup and cache.
+  --no-hardware prevents capture; explicit preview works without it. Stop/disable
+  clears runtime even on persistence failure. Config defaults off, requires a
+  selected connected keyboard with known key mapping, survives GUI close when
+  explicitly enabled. Linux capture remains unsupported; portable preview works.
+- API: keyboard.reactive.get/configure/preview/disable; Config: version-1
+  keyboard-reactive.json beside state.json, max128KiB. Docs KEYBOARD_REACTIVE.md,
+  LOCAL_API.md and PLUGIN_SYSTEM.md. Classic only edits/presents/sends RPC, with
+  Apply-only sliders, so no new is_setter entry. No Tauri path/dependency changes.
+- Prior protected-mainboard Package39470839127 SUCCESS, including real installer
+  hook removal of a synthetic service. New keyboard feature still needs its own
+  full release/IPC/installer/CI acceptance and actual typing-to-LED hardware test.
+- Mainboard cooling mapping/control/failsafe remains pending; do not claim actual
+  motherboard fan duty writes have been released. User README/.claude untouched.

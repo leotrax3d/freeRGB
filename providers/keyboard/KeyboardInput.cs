@@ -9,7 +9,7 @@ using System.Threading;
 
 internal static class KeyboardInput
 {
-    private sealed class Event { internal int Scan; internal bool Extended; internal long At; }
+    private sealed class Event { internal int Scan; internal bool Extended; internal long At, UnixMs; }
     private static readonly BlockingCollection<Event> Queue = new BlockingCollection<Event>(256);
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
     private static readonly Hook Callback = OnKey;
@@ -49,7 +49,7 @@ internal static class KeyboardInput
             bool extended = (flags & 1) != 0;
             if (Marshal.ReadInt32(data, 0) == 0x13) { scan = 0xe1; extended = false; } // Pause's E1 sequence, not Num Lock.
             if ((flags & 0x12) == 0 && scan > 0 && scan <= 255)
-                Enqueue(new Event { Scan = scan, Extended = extended, At = Clock.ElapsedMilliseconds });
+                Enqueue(new Event { Scan = scan, Extended = extended, At = Clock.ElapsedMilliseconds, UnixMs = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond - 62135596800000L });
         }
         return CallNextHookEx(hook, code, message, data);
     }
@@ -69,7 +69,7 @@ internal static class KeyboardInput
                     long age = Clock.ElapsedMilliseconds - item.At;
                     if (age > 250) continue; // Never replay a backlog after a blocked reader.
                     Console.WriteLine("{\"version\":1,\"kind\":\"press\",\"scan_code\":" + item.Scan +
-                        ",\"extended\":" + (item.Extended ? "true" : "false") + ",\"age_ms\":" + age + "}");
+                        ",\"extended\":" + (item.Extended ? "true" : "false") + ",\"age_ms\":" + age + ",\"observed_unix_ms\":" + item.UnixMs + "}");
                 }
                 Console.Out.Flush();
             }
@@ -87,7 +87,7 @@ internal static class KeyboardInput
         hook = SetWindowsHookEx(13, Callback, GetModuleHandle(null), 0);
         if (hook == IntPtr.Zero) return 3;
         var writer = new Thread(WriteEvents) { IsBackground = true };
-        var stop = new Thread(delegate() { Console.ReadLine(); Stop(); }) { IsBackground = true };
+        var stop = new Thread(delegate() { try { Console.ReadLine(); } catch (IOException) { } finally { Stop(); } }) { IsBackground = true };
         try
         {
             writer.Start(); stop.Start();

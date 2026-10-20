@@ -132,5 +132,19 @@ Protected service continuation:
 - [x] Interrupted/failed service removal aborts before deleting the maintenance copy; silent mode never requests UAC.
 - [x] Existing API/config formats preserved; protected installation/maintenance state documented.
 - [x] Run 39470499850: unauthorized standard-user denial and isolated child-crash recovery.
-- [ ] Final Package/default installer lifecycle result, including owned-service removal hook.
+- [x] Package39470839127 passed, including the actual owned-service removal hook.
 - [ ] Real wizard/UAC/driver/reboot, native child crash/hang, power-loss repair and hardware coverage.
+
+Keyboard interaction continuation (user request):
+- [x] Daemon-owned per-key glow/fade overlay over any base effect; brightness preserved.
+- [x] Explicit K70 CORE USB key/LED map, ISO/ANSI position handling and modifier remaps.
+- [x] Optional per-user Windows input helper; no text conversion, event files or input RPC.
+- [x] Bounded input queues/age, no-hardware gate, injected-input exclusion and EOF cleanup.
+- [x] API: keyboard.reactive.get/configure/preview/disable; existing API types/version unchanged.
+- [x] Config: version-1 daemon-owned keyboard-reactive.json; Classic is a thin RPC editor.
+- [x] Pure protocol/fade/mapping, virtual frame/brightness, persistence/failure and API tests.
+- [x] Native keyboard helper startup/EOF cleanup run39474499240 passed on disposable Windows.
+- [ ] Real typing-to-LED acceptance, additional keyboards/layouts, Linux input support.
+- [ ] Fresh combined release IPC/installer and CI results for the complete feature.
+Mainboard fan/header mapping, validated control and independent failsafe remain
+the next cooling work; keyboard support does not enable fan writes.

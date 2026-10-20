@@ -142,6 +142,28 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             "daemon_version": env!("CARGO_PKG_VERSION"),
         })),
         "devices.list" => Ok(json!(lock(engine).devices())),
+        "keyboard.reactive.get" => Ok(lock(engine).keyboard_reactive()),
+        "keyboard.reactive.disable" => Ok(lock(engine).keyboard.disable()),
+        "keyboard.reactive.configure" => serde_json::from_value(params["config"].clone())
+            .map_err(invalid_params)
+            .and_then(|config| {
+                lock(engine)
+                    .keyboard
+                    .configure(config)
+                    .map(|()| json!(true))
+                    .map_err(invalid_params)
+            }),
+        "keyboard.reactive.preview" => params["usage"]
+            .as_u64()
+            .and_then(|v| u16::try_from(v).ok())
+            .ok_or_else(|| invalid_params("expected USB keyboard usage"))
+            .and_then(|usage| {
+                lock(engine)
+                    .keyboard
+                    .preview(usage)
+                    .map(|()| json!(true))
+                    .map_err(invalid_params)
+            }),
         "monitoring.sensors.list" => Ok(json!(lock(engine).monitoring_sensors())),
         "cooling.providers.list" => Ok(json!([lock(engine).mainboard.summary()])),
         "cooling.channels.list" => Ok(json!(lock(engine).mainboard.channels())),
@@ -342,6 +364,44 @@ mod tests {
 
     fn call(e: &SharedEngine, req: &str) -> Value {
         serde_json::from_str(&handle_line(e, req).line).unwrap()
+    }
+
+    #[test]
+    fn keyboard_api_is_additive_and_preview_never_enables_capture() {
+        let e = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::BLUE },
+            30,
+        )));
+        let r = call(&e, r#"{"id":1,"method":"keyboard.reactive.get"}"#);
+        assert_eq!(r["result"]["config"]["enabled"], false);
+        assert_eq!(
+            call(
+                &e,
+                r#"{"id":2,"method":"keyboard.reactive.preview","params":{"usage":4}}"#
+            )["result"],
+            true
+        );
+        assert_eq!(
+            call(
+                &e,
+                r#"{"id":3,"method":"keyboard.reactive.preview","params":{"usage":65535}}"#
+            )["error"]["code"],
+            -32602
+        );
+        assert_eq!(
+            call(
+                &e,
+                r#"{"id":4,"method":"keyboard.reactive.configure","params":{"config":{}}}"#
+            )["error"]["code"],
+            -32602
+        );
+        let r = call(&e, r#"{"id":5,"method":"keyboard.reactive.disable"}"#);
+        assert_eq!(
+            r["result"],
+            json!({"stopped":true,"persisted":false,"error":null})
+        );
+        assert_eq!(lock(&e).keyboard.status()["state"], "disabled");
+        assert_eq!(lock(&e).effect(), &EffectSpec::Solid { color: Rgb::BLUE });
     }
 
     #[test]

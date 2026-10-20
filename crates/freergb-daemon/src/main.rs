@@ -90,6 +90,7 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let mut engine = Engine::new(state::State::default().effect, args.fps);
+    engine.keyboard.capture_allowed = !args.no_hardware;
     if let Some(library) = &args.mainboard_library {
         let executable = std::env::current_exe()?;
         let helper = executable

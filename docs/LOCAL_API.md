@@ -183,3 +183,42 @@ requires **both** `--no-hardware` and `--no-state`. Normal server/client endpoin
 DACL, remote-client rejection and API version stay unchanged. This hidden test
 option does not redirect either GUI or the SDK. The smoke harness connects to its
 own random instance and never shuts down a GUI preview's daemon.
+
+### Keyboard reactions (additive, API version 1)
+
+* `keyboard.reactive.get` takes no parameters and returns `{config,status,devices}`.
+  It reads caches only. `devices` contains keyboard objects with `id`, `name`,
+  `connected:bool`, `keys` (USB keyboard usage decimal string -> layout LED index)
+  and the existing `LedLayout` shape as `layout`. An empty key map means no verified
+  key/LED mapping, not a promise of support. Existing `devices.list` is unchanged.
+* `keyboard.reactive.configure` takes `{config:ReactiveConfig}` and returns `true`
+  after validation and saving. Config: `version:1` (default if omitted),
+  `enabled:bool`, `color:Rgb`, `fade_ms:50..5000`, `iso:bool`, `devices:string[]`.
+  Other fields are required; unknown config fields are ignored. At most 64 unique
+  nonempty IDs, each <=1024 UTF-8 bytes/no control characters; serialized config
+  <=128 KiB. Unsupported versions/types/bounds and save failures return `-32602`;
+  old configuration remains active on configure failure. Unknown/disconnected
+  target IDs may be saved but do not start capture without a mapped connected
+  keyboard. No native I/O or hook runs in the RPC handler.
+* `keyboard.reactive.preview` takes `{usage:u16}` and returns `true` for USB keyboard
+  page usages 4..115 or 224..231. Other values/types return `-32602`. It enqueues a
+  short lighting pulse on configured targets without enabling input capture. A
+  successful enqueue does not guarantee that a target is connected/mapped. No
+  base effect or configuration is changed.
+* `keyboard.reactive.disable` takes no parameters and returns
+  `{stopped:true,persisted:bool,error:string|null}`. It immediately clears runtime
+  input/pulses even if saving fails. `persisted` is false under `--no-state` or
+  a write failure; an error explains a failed save, and next startup may still
+  load the previously enabled file. No new RPC error code is introduced.
+
+`status` includes `state`, `error:string|null`, `scope`, `records_text:false`.
+States: `disabled`, `no_targets`, `blocked_no_hardware`, `unsupported_platform`,
+`waiting_for_keyboard`, `starting`, `listening`, `faulted`, `stopped`. Capture is
+off by default, Windows-only, per-user, and combines all local keyboards while
+lighting only selected targets. `--no-hardware` blocks native input capture;
+preview remains available. Input events are not exposed through RPC or stored.
+Daemon-owned `keyboard-reactive.json` version 1 and all lifecycle/limitations are
+documented in `KEYBOARD_REACTIVE.md`. No GUI business logic, `EffectSpec`,
+`DeviceSummary`, `DeviceStatus`, `Diagnostics` or `SensorReading` change. Classic
+edits sliders locally and sends configure on Apply; no new slider setter is added
+to `is_setter()`.

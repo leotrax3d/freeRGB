@@ -4,6 +4,7 @@
 
 pub mod audio;
 pub mod extra;
+pub mod keyboard;
 pub mod layers;
 pub mod screen;
 

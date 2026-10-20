@@ -85,6 +85,11 @@ pub enum DeviceError {
 
 /// What the engine needs from any RGB device, real or virtual.
 pub trait RgbDevice: Send {
+    /// Cached USB keyboard usage -> layout LED index; empty when unknown.
+    /// Must never infer these indices from RGB wire positions or perform I/O.
+    fn key_map(&self) -> std::collections::BTreeMap<u16, usize> {
+        Default::default()
+    }
     /// Cached sensor values only; must not perform transport I/O.
     fn sensors(&self) -> Vec<SensorReading> {
         Vec::new()

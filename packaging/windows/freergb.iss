@@ -48,6 +48,7 @@ Source: "{#BinDir}\freergb-launcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergbd.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-mainboard.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BinDir}\freergb-keyboard-input.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-mainboard-service.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "install-mainboard.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "remove-mainboard.ps1"; DestDir: "{app}"; Flags: ignoreversion
