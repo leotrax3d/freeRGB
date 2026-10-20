@@ -3,7 +3,7 @@
   <img src="logo.png" alt="free RGB" width="300">
 </p>
   
-# freeRGB
+# FreeRGB
 
 **Open, lightweight RGB control for Windows and Linux – written in Rust.**
 
