@@ -1,0 +1,20 @@
+name: Keyboard input helper
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'providers/keyboard/**'
+      - 'scripts/*keyboard*.ps1'
+      - '.github/workflows/keyboard-input.yml'
+permissions:
+  contents: read
+jobs:
+  lifecycle:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build, install native hook, immediately release on EOF
+        timeout-minutes: 2
+        shell: pwsh
+        run: ./scripts/test-keyboard-helper.ps1 -CaptureLifecycle
