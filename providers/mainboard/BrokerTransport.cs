@@ -32,11 +32,15 @@ internal static class BrokerTransport
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetNamedPipeServerProcessId(SafePipeHandle pipe, out uint process);
     [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetNamedPipeClientProcessId(SafePipeHandle pipe, out uint process);
+    [DllImport("kernel32.dll", SetLastError = true)]
     private static extern IntPtr OpenProcess(uint access, bool inherit, uint process);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool QueryFullProcessImageName(IntPtr process, uint flags, StringBuilder path, ref uint size);
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(IntPtr handle);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool CancelIoEx(SafePipeHandle handle, IntPtr overlapped);
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -63,7 +67,29 @@ internal static class BrokerTransport
         // A standard user may not query a SYSTEM process image. SCM query rights
         // bind the pipe PID to our actual registered LocalSystem service instead.
         uint pid;
-        if (!GetNamedPipeServerProcessId(pipe.SafePipeHandle, out pid)) return false;
+        return GetNamedPipeServerProcessId(pipe.SafePipeHandle, out pid) && IsRegisteredServicePid(pid);
+    }
+
+    internal static bool IsServiceClient(NamedPipeServerStream pipe)
+    {
+        uint pid;
+        if (!GetNamedPipeClientProcessId(pipe.SafePipeHandle, out pid) || !IsRegisteredServicePid(pid)) return false;
+        // The worker is SYSTEM and can query its service parent. Verify the
+        // peer token too, rather than relying on a possibly recycled SCM PID.
+        IntPtr process = OpenProcess(0x1000, false, pid);
+        if (process == IntPtr.Zero) return false;
+        try
+        {
+            IntPtr token;
+            if (!OpenProcessToken(process, 8, out token)) return false;
+            try { using (var identity = new WindowsIdentity(token)) return identity.User.IsWellKnown(WellKnownSidType.LocalSystemSid); }
+            finally { CloseHandle(token); }
+        }
+        finally { CloseHandle(process); }
+    }
+
+    private static bool IsRegisteredServicePid(uint pid)
+    {
         IntPtr manager = OpenSCManager(null, null, 1); // CONNECT only
         if (manager == IntPtr.Zero) return false;
         try
@@ -193,15 +219,21 @@ internal static class BrokerTransport
 
     internal static string ReadReply(Stream stream, int timeout)
     {
+        return ReadRecord(stream, timeout, Limit);
+    }
+
+    internal static string ReadRecord(Stream stream, int timeout, int limit)
+    {
+        if (limit < 1 || limit > Limit) throw new ArgumentOutOfRangeException("limit");
         var clock = Stopwatch.StartNew();
         using (var bytes = new MemoryStream())
         {
             byte[] buffer = new byte[1024];
-            while (bytes.Length < Limit)
+            while (bytes.Length < limit)
             {
                 int remaining = timeout - checked((int)clock.ElapsedMilliseconds);
                 if (remaining <= 0) throw new TimeoutException("Broker reply timed out.");
-                var read = stream.ReadAsync(buffer, 0, Math.Min(buffer.Length, Limit - (int)bytes.Length));
+                var read = stream.ReadAsync(buffer, 0, Math.Min(buffer.Length, limit - (int)bytes.Length));
                 AwaitIo(read, stream, remaining);
                 int count = read.Result;
                 if (count == 0) throw new EndOfStreamException();

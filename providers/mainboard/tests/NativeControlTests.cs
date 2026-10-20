@@ -130,6 +130,15 @@ internal static class NativeControlTests
         writer.Acquire(); writeSink.FailSoftware = true;
         Reject(delegate { writer.SetDuty(60); },"Failed duty write was reported successful.");
         Assert(!writer.Owned && writeSink.Writes.Count == 2 && writeSink.Writes[1] == null,"Failed duty did not attempt owned firmware restoration.");
+
+        var sessionSink = new ControlSink();
+        var sessionPort = NativeControl.ForTest(Create(sessionSink),false);
+        long now = 0;
+        var session = NativeControlSession.ForTest(sessionPort,delegate { return now; });
+        session.Execute(NativeSessionTests.Command(session.View(),"set",40));
+        now = 1000;
+        Assert(!session.Poll() && sessionPort.Owned && sessionSink.Writes.Count == 3 && sessionSink.Writes[0] == 100 && sessionSink.Writes[1] == 40 && sessionSink.Writes[2] == 100,"Session lease did not drive the real pinned Control adapter fallback correctly.");
+        sessionPort.Release();
     }
     private static int Main(string[] args)
     {
@@ -143,6 +152,7 @@ internal static class NativeControlTests
         };
         library = Assembly.LoadFrom(Path.Combine(directory,"LibreHardwareMonitorLib.dll"));
         Run();
+        NativeSessionTests.Run();
         Console.WriteLine("PASS: real pinned LHM Control ordering, no-zero acquisition, ownership, pump limits, failed writes and repeated firmware recovery. Synthetic callbacks only; no hardware opened.");
         return 0;
     }

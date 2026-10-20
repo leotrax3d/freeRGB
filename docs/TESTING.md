@@ -355,3 +355,20 @@ Rust source/API types remain unchanged for this increment. Native recovery durin
 driver hangs, authenticated session transport and physical readback are still open.
 See `MAINBOARD_NATIVE_CONTROL.md` for the exact trust boundary and private metadata
 dependency; widening the version check alone is not an upgrade procedure.
+
+## Private native-session candidate
+
+Local PS7/PS5.1 acceptance passes one-use ticket/counter/shape validation, delayed
+and replayed request rejection, server-clock expiry, late completed write fallback,
+pump bounds, failed recovery, explicit close and real-LHM synthetic 100/40/100
+integration. Real named pipes test stalled input, disconnect and an oversized
+unterminated record; fallback occurs independently of the longer input wait and
+does not silently release the reservation. Protected production factories reject
+unprotected processes; test factories/runners are absent from production builds.
+
+The new SCM fixture additionally requires real registered service-to-worker client
+PID/config/SYSTEM-token proof. Its fresh disposable GitHub result is pending;
+no SCM service/driver is installed locally. Prior native adapter Package39479651725
+and quick/broker workflows39479651926/39479651985 succeeded. No test proves physical
+fan speed or recovery from a blocked native driver. Scope/limits and private
+protocol are documented in MAINBOARD_NATIVE_SESSION.md.

@@ -44,7 +44,7 @@ function Snapshot([int]$expected,[pscredential]$As = $credential,[switch]$Expect
         Require ($process.ExitCode -eq 0) 'Standard-user reader failed.'
         $reply = Get-Content -LiteralPath $output -Raw | ConvertFrom-Json
         if ($ExpectDenied) { Require ($reply.status -eq 'faulted' -and $reply.hardware.Count -eq 0) 'Unauthorized account read the broker.'; return }
-        if ($reply.status -eq 'ready' -and $reply.hardware[0].sensors[0].value -eq $expected) { return }
+        if ($reply.status -eq 'ready' -and $reply.hardware[0].sensors[0].value -eq $expected -and $reply.message -eq 'service_client_authenticated') { return }
         Start-Sleep -Milliseconds 250
     } while ([DateTime]::UtcNow -lt $deadline)
     throw "Standard-user broker did not return expected fixture value $expected. Last reply: $($reply | ConvertTo-Json -Depth 8 -Compress)"

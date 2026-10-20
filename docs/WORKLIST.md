@@ -194,3 +194,18 @@ Native adapter continuation:
 - [x] Local PowerShell7/5.1 acceptance, helper compilation and broker boundary tests.
 - [ ] Authenticated native session/lease transport, cross-process channel ownership,
   independent driver-hang recovery and physical readback before enabling control.
+
+Native-session continuation:
+- [x] Fixed-port candidate with random per-session/one-use server-issued tickets,
+  exact counters/types/shapes, bounded records and server-clock lease deadlines.
+- [x] Private worker factory checks protected SYSTEM helper, SYSTEM pipe ownership,
+  registered service PID/config and actual SYSTEM peer token before acquisition.
+- [x] Lease/watchdog -> native adapter integration using real LHM/synthetic callbacks.
+- [x] Real private pipe tests: waiting client, disconnect, oversized data, latched
+  fallback, explicit close and failed recovery; production test entry points absent.
+- [ ] Fresh disposable SCM proof of registered service-to-worker client identity.
+- [ ] Protected crash journal, worker recovery/readback and physical channel
+  verification before production activation. No public setter has been enabled.
+
+Prior native-adapter Package39479651725 SUCCESS, including full installer lifecycle;
+native quick workflow39479651926 and broker39479651985 also succeeded.

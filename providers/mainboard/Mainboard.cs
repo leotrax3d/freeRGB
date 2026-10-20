@@ -18,6 +18,31 @@ internal static class Mainboard
     private static object computer;
     private static string library;
     private static bool direct;
+#if BROKER_FIXTURE_CLIENT_AUTH
+    private static bool fixtureAuthStarted;
+    private static volatile bool fixtureClientAuthenticated;
+    private static void StartFixtureAuth()
+    {
+        if (fixtureAuthStarted) return;
+        fixtureAuthStarted = true;
+        var pipe = BrokerTransport.CreateServer("freergb-native-auth-fixture-" + Process.GetCurrentProcess().Id,
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null));
+        var thread = new System.Threading.Thread(delegate() {
+            using (pipe)
+            {
+                try
+                {
+                    pipe.WaitForConnection();
+                    fixtureClientAuthenticated = BrokerTransport.IsServiceClient(pipe) && BrokerTransport.ReadSnapshotRequest(pipe);
+                    BrokerTransport.Write(pipe, Encoding.ASCII.GetBytes(fixtureClientAuthenticated ? "authenticated\n" : "denied\n"));
+                    BrokerTransport.ReadAcknowledgment(pipe);
+                }
+                catch { fixtureClientAuthenticated = false; }
+            }
+        }) { IsBackground = true };
+        thread.Start();
+    }
+#endif
 
     private static object Get(object target, string name)
     {
@@ -102,12 +127,18 @@ internal static class Mainboard
 #if BROKER_FIXTURE_WORKER
         // Compile-time CI substitute only; production builds have no fixture switch.
         if (!direct) return Empty("faulted", "CI fixture has no direct fallback; the protected broker must answer.");
+#if BROKER_FIXTURE_CLIENT_AUTH
+        StartFixtureAuth();
+        string fixtureMessage = fixtureClientAuthenticated ? "service_client_authenticated" : "service_client_auth_pending";
+#else
+        string fixtureMessage = "Isolated SCM fixture; no driver or hardware accessed.";
+#endif
 #if BROKER_FIXTURE_V2
         int rpm = 901;
 #else
         int rpm = 900;
 #endif
-        return Result("ready", "Isolated SCM fixture; no driver or hardware accessed.", new object[] {
+        return Result("ready", fixtureMessage, new object[] {
             new { id = "fixture", name = "Fixture", sensors = new object[] {
                 new { id = "rpm", name = "Fixture RPM", kind = "fan", value = rpm, age_ms = 0, control_available = false }
             } }

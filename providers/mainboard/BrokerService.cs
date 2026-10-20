@@ -117,6 +117,20 @@ internal sealed class BrokerService : ServiceBase
                             long began = BrokerCache.Now;
                             child.StandardInput.WriteLine("snapshot"); child.StandardInput.Flush();
                             cache.Store(BrokerTransport.ReadReply(child.StandardOutput.BaseStream, first ? 10000 : 3000), began);
+#if BROKER_FIXTURE_CLIENT_AUTH
+                            if (first)
+                            {
+                                using (var proof = BrokerTransport.Connect("freergb-native-auth-fixture-" + child.Id))
+                                {
+                                    var owner = (SecurityIdentifier)proof.GetAccessControl().GetOwner(typeof(SecurityIdentifier));
+                                    if (!owner.IsWellKnown(WellKnownSidType.LocalSystemSid) || !BrokerTransport.IsExpectedServer(proof,start.FileName))
+                                        throw new InvalidOperationException("Synthetic worker identity failed.");
+                                    BrokerTransport.Write(proof,Encoding.ASCII.GetBytes("snapshot\n"));
+                                    if (BrokerTransport.ReadReply(proof,2000) != "authenticated") throw new InvalidOperationException("Registered service client authentication failed.");
+                                    BrokerTransport.Write(proof,new byte[] { 6 });
+                                }
+                            }
+#endif
                             first = false;
                             if (stop.WaitOne(1000)) return;
                         }

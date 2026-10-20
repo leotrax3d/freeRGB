@@ -277,3 +277,9 @@ The version-pinned native control adapter candidate in `MAINBOARD_NATIVE_CONTROL
 adds no callable setter or activation flag. Protected helper construction is gated
 and no production entry point invokes it. Existing provider/channel read-only
 fields, `cooling.status`, API version and configuration formats remain unchanged.
+
+The later private session/worker pipe candidate (`MAINBOARD_NATIVE_SESSION.md`)
+also adds no public RPC method or activation flag. Its single-use tickets, lease
+and protected service-client identity are internal to the native worker design;
+they must not be exposed through either GUI. Production helper still serves only
+snapshots and no production caller invokes the candidate.

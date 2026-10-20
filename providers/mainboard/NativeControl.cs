@@ -5,7 +5,7 @@ using System.Reflection;
 using System.IO;
 using System.Runtime.CompilerServices;
 
-internal sealed class NativeControl
+internal sealed class NativeControl : INativeControlPort
 {
     private sealed class Reservation { internal readonly object Gate = new object(); internal NativeControl Owner; }
     private static readonly ConditionalWeakTable<object, Reservation> Reservations = new ConditionalWeakTable<object, Reservation>();
@@ -58,6 +58,11 @@ internal sealed class NativeControl
 #endif
 
     internal bool Owned { get { lock (reservation.Gate) return owned; } }
+    int INativeControlPort.Floor { get { return floor; } }
+    bool INativeControlPort.Owned { get { return Owned; } }
+    void INativeControlPort.Acquire() { Acquire(); }
+    void INativeControlPort.SetDuty(float percent) { SetDuty(percent); }
+    void INativeControlPort.Release() { Release(); }
     private int Mode { get { return Convert.ToInt32(mode.GetValue(control, null)); } }
     private static Exception Cause(Exception error) { return error is TargetInvocationException && error.InnerException != null ? error.InnerException : error; }
 

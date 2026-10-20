@@ -499,3 +499,27 @@ Hardware results: `DEVICES.md#validation-log`.
   cannot prove foreign hardware ownership, object lock does not recover driver
   hangs. Authenticated session/lease transport and independent usable recovery
   remain prerequisites to enabling writes. User README/.claude remain untouched.
+
+## Private native-session candidate (still inactive)
+
+- NativeControlSession fixed port; session/ticket random128-bit, ticket single-use
+  <=250ms, counter exact+1, 1s lease from ticket issue time, no client clocks/paths.
+  Malformed/late/replay/EOF/clock failure latches 100%; retains recovery ownership.
+  Native callback completing late cannot mint another ticket. Explicit valid close
+  requests100 then selected firmware restoration; failures remain visible.
+- NativeSessionTransport uses bounded2048-byte private pipe records and a dedicated
+  25ms watchdog independent of blocked input. Production factory authenticates
+  protected SYSTEM worker, SYSTEM pipe owner, registered service PID/config and
+  SYSTEM peer process token before acquisition. Test runners are compile-time only.
+- BrokerTransport shares the old SCM identity check; read-only client authentication
+  is unchanged. Adds stricter worker-side service-client authentication and a
+  bounded ReadRecord helper; existing ReadReply limit/semantics remain unchanged.
+- Local PS7/PS5.1 native/policy/real-pipe and real-LHM synthetic fallback tests pass.
+  Production factory/test-symbol gates and helper compile pass. New SCM fixtures
+  verify actual service-to-worker client identity and require the proof in standard
+  user reads. No local SCM/driver installation. Fresh GitHub SCM result pending.
+- Docs MAINBOARD_NATIVE_SESSION.md/LOCAL_API. No public API setter/config/GUI/Tauri
+  changes. No production listener/entry invokes session code. Native hangs can
+  still block object locks: crash journal, worker recovery and physical readback
+  remain prerequisites. Do not call this an operational hardware emergency system.
+- Previous Package39479651725, native quick39479651926 and broker39479651985 passed.
