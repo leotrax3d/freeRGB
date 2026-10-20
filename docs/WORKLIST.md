@@ -148,3 +148,17 @@ Keyboard interaction continuation (user request):
 - [ ] Fresh combined release IPC/installer and CI results for the complete feature.
 Mainboard fan/header mapping, validated control and independent failsafe remain
 the next cooling work; keyboard support does not enable fan writes.
+
+Channel assignment continuation:
+- [x] Pure bounded channel annotation model in freergb-control::channels.
+- [x] Explicit control/RPM/device identities; duplicate outputs/RPM/header rejection.
+- [x] API: cooling.bindings.get/save; Config: cooling-channel-bindings.json v1.
+- [x] Classic RPC-only editor for header, fan/pump role, reported mode and optional RPM.
+- [x] Offline/stale/identity/kind resolution without changing existing channel fields.
+- [x] Failed persistence preserves active state; annotations never grant write authority.
+- [ ] Physical pairing/calibration and independent watchdog before hardware writes.
+
+Keyboard a180dcd: release IPC smoke, Inno compilation/model and workspace Clippy
+passed locally; updated native hook lifecycle run39475875921 succeeded.
+Complete CI39475875790 and Package39475877313 were dispatched; check their final
+results separately from the subsequent channel assignment changes.

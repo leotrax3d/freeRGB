@@ -222,3 +222,30 @@ documented in `KEYBOARD_REACTIVE.md`. No GUI business logic, `EffectSpec`,
 `DeviceSummary`, `DeviceStatus`, `Diagnostics` or `SensorReading` change. Classic
 edits sliders locally and sends configure on Apply; no new slider setter is added
 to `is_setter()`.
+
+### Motherboard channel annotations (additive, API version 1)
+
+* `cooling.bindings.get` has no parameters and returns
+  `{config,assignments,error:string|null,persistence_enabled:bool}`. Config is
+  `{version:1,bindings:ChannelBinding[]}`. Each assignment contains `control_id`,
+  `state` (`unavailable`, `identity_mismatch`, `incompatible_channel`, `stale`,
+  `user_assigned`), `hardware_verified:false`, `writable:false`.
+* `cooling.bindings.save` takes `{config}` and replaces the complete set, returning
+  `true`. Each binding has `provider:"mainboard.lhm"`, `device_id`, `control_id`,
+  optional nullable `tachometer_id`, `header`, `role:"fan"|"pump"`, and optional
+  `electrical_mode:"unknown"|"pwm"|"dc"` (default `unknown`). Unknown fields are
+  ignored. Version and other fields are required. Maximum 128 bindings/256 KiB;
+  nonblank device ID <=1024 UTF-8 bytes, channel IDs <=4096, trimmed nonempty header
+  <=64 bytes; all text rejects control characters. Controls and assigned RPM
+  channels are unique per provider, header names unique per device using Unicode
+  lowercase. Control and RPM must match the specified device and advertised kinds/
+  capability in cached inventory. Missing/stale references may be saved offline.
+  Invalid input or available identity/kind/capability conflicts: `-32602`;
+  persistence failure: `-32000`. Either leaves active configuration unchanged.
+
+Get resolves cached readings only; missing values/age >3000 ms yield `stale`
+after identity/kind/availability checks. User annotations never enable writes,
+calibrate hardware, change PWM/DC or alter existing channel fields. Daemon-owned
+`cooling-channel-bindings.json` version 1, startup failures, full schema and state
+precedence are documented in `COOLING_CHANNEL_BINDINGS.md`. Under `--no-state`
+saves are in-memory only. Classic uses explicit Save; no new `is_setter()` entry.

@@ -4,6 +4,7 @@
 //! so they can be tested without hardware or sockets.
 
 pub mod api;
+pub mod channel_bindings;
 pub mod conflicts;
 pub mod control;
 pub mod custom_effects;

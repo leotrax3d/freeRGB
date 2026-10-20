@@ -167,6 +167,26 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         "monitoring.sensors.list" => Ok(json!(lock(engine).monitoring_sensors())),
         "cooling.providers.list" => Ok(json!([lock(engine).mainboard.summary()])),
         "cooling.channels.list" => Ok(json!(lock(engine).mainboard.channels())),
+        "cooling.bindings.get" => {
+            let engine = lock(engine);
+            Ok(engine.channel_bindings.view(&engine.mainboard.channels()))
+        }
+        "cooling.bindings.save" => serde_json::from_value(params["config"].clone())
+            .map_err(invalid_params)
+            .and_then(|config| {
+                let mut engine = lock(engine);
+                let channels = engine.mainboard.channels();
+                engine
+                    .channel_bindings
+                    .save(config, &channels)
+                    .map(|()| json!(true))
+                    .map_err(|e| match e {
+                        crate::channel_bindings::SaveError::Invalid(message) => {
+                            invalid_params(message)
+                        }
+                        crate::channel_bindings::SaveError::Io(message) => (-32000, message),
+                    })
+            }),
         "cooling.status"
         | "cooling.sensors.sources"
         | "cooling.sensors.values"
@@ -364,6 +384,34 @@ mod tests {
 
     fn call(e: &SharedEngine, req: &str) -> Value {
         serde_json::from_str(&handle_line(e, req).line).unwrap()
+    }
+
+    #[test]
+    fn channel_annotations_do_not_enable_hardware_and_invalid_saves_preserve_state() {
+        let e = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::BLACK },
+            30,
+        )));
+        let read = r#"{"id":1,"method":"cooling.bindings.get"}"#;
+        let initial = call(&e, read)["result"].clone();
+        assert_eq!(initial["config"], json!({"version":1,"bindings":[]}));
+        let config = json!({"version":1,"bindings":[{
+            "provider":"mainboard.lhm","device_id":"board","control_id":"pwm-7",
+            "tachometer_id":"rpm-2","header":"CPU_FAN","role":"fan","electrical_mode":"pwm"
+        }]});
+        let request = |config| {
+            json!({"id":2,"method":"cooling.bindings.save","params":{"config":config}}).to_string()
+        };
+        assert_eq!(call(&e, &request(config.clone()))["result"], true);
+        let current = call(&e, read)["result"].clone();
+        assert_eq!(current["assignments"][0]["state"], "unavailable");
+        assert_eq!(current["assignments"][0]["hardware_verified"], false);
+        assert_eq!(current["assignments"][0]["writable"], false);
+        let mut invalid = config;
+        invalid["bindings"][0]["header"] = json!("");
+        assert_eq!(call(&e, &request(invalid))["error"]["code"], -32602);
+        assert_eq!(call(&e, read)["result"], current);
+        assert!(!lock(&e).mainboard.summary().control_enabled);
     }
 
     #[test]

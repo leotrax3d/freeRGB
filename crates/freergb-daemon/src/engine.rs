@@ -91,6 +91,7 @@ pub struct Diagnostics {
 }
 
 pub struct Engine {
+    pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
     pub controls: crate::control::Controls,
     pub mainboard: crate::mainboard::MainboardProvider,
@@ -267,6 +268,7 @@ impl Engine {
     pub fn new(spec: EffectSpec, target_fps: u32) -> Self {
         let now = Instant::now();
         let mut engine = Self {
+            channel_bindings: Default::default(),
             keyboard: Default::default(),
             controls: Default::default(),
             mainboard: Default::default(),
@@ -547,6 +549,8 @@ impl Engine {
                 crate::control::Controls::default().with_file(parent.join("control.json"));
             self.keyboard =
                 std::mem::take(&mut self.keyboard).with_file(parent.join("keyboard-reactive.json"));
+            self.channel_bindings = std::mem::take(&mut self.channel_bindings)
+                .with_file(parent.join("cooling-channel-bindings.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);

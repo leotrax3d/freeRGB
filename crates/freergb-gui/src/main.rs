@@ -16,6 +16,7 @@ use std::time::Duration;
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 mod alerts;
 mod app_profiles;
+mod channel_bindings;
 mod custom_sensors;
 mod diagnostics;
 mod hotkeys;
@@ -189,6 +190,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             "sensor_graph": get("cooling.sensors.get").unwrap_or(Value::Null),
             "cooling_providers": get("cooling.providers.list").unwrap_or(Value::Null),
             "cooling_channels": get("cooling.channels.list").unwrap_or(Value::Null),
+            "channel_bindings": get("cooling.bindings.get").unwrap_or(Value::Null),
             "monitoring_sensors": get("monitoring.sensors.list").unwrap_or(Value::Null),
         });
         if !reachable && fetched.is_ok() {

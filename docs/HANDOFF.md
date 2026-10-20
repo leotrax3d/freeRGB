@@ -424,3 +424,28 @@ Hardware results: `DEVICES.md#validation-log`.
   full release/IPC/installer/CI acceptance and actual typing-to-LED hardware test.
 - Mainboard cooling mapping/control/failsafe remains pending; do not claim actual
   motherboard fan duty writes have been released. User README/.claude untouched.
+
+## Explicit motherboard channel annotations
+
+- API: cooling.bindings.get/save. Config: daemon-owned
+  cooling-channel-bindings.json v1 beside state.json; 128 entries/256KiB, bounded
+  startup read, temp-file replacement and failed-save state preservation.
+- Pure validation/resolution in freergb-control::channels. Explicit control and
+  optional RPM channel must match the chosen device/kind/capability. No index/name
+  pairing. Each output/RPM and lowercased header per device is unique. Missing
+  references can be stored offline; cached reads yield unavailable/identity_mismatch/
+  incompatible_channel/stale/user_assigned. No state ever marks hardware verified
+  or writable; existing cooling.channels.list fields are unchanged.
+- Classic Cooling page editor uses RPC only; no new GUI config/business logic,
+  no slider setter addition and no Tauri path/dependency edits. Docs/schema:
+  COOLING_CHANNEL_BINDINGS.md and LOCAL_API.md.
+- Keyboard a180dcd passed local release IPC, Inno compile/model, Clippy and native
+  hook lifecycle run39475875921; full CI39475875790/Package39475877313 dispatched.
+  Channel annotations are a later increment and need their own validation result.
+- Next hardware-control step: calibration state/ownership plus an independent
+  watchdog/restore contract, then validated native writes; annotations are not
+  evidence that a physical header or sensor is correctly paired.
+- Local validation: 173 workspace tests, denied-warning workspace Clippy, complete
+  release compilation, no-hardware release IPC smoke (including annotation round
+  trip) and Inno model tests passed. No personal-system service/driver/hook was
+  installed or activated. Real native writes/calibration remain open.

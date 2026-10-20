@@ -21,6 +21,7 @@ enum UpdateCommand {
 }
 
 pub struct Panels {
+    channel_bindings: super::channel_bindings::BindingsPanel,
     custom_sensors: super::custom_sensors::CustomSensors,
     alerts: super::alerts::Alerts,
     hotkeys: super::hotkeys::Hotkeys,
@@ -177,7 +178,7 @@ impl Default for Panels {
                 }
             }
         });
-        Self { custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
+        Self { channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
@@ -220,6 +221,9 @@ impl Panels {
             match self.page {
                 1 => {
                     ui.heading("Cooling / fan curves");
+                    ui.collapsing("Motherboard channel assignments", |ui| {
+                        self.channel_bindings.show(ui, snapshot, tx);
+                    });
                     ui.collapsing("Motherboard providers and channels", |ui| {
                         if let Some(providers) = snapshot.control["cooling_providers"].as_array() {
                             for provider in providers {

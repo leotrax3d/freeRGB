@@ -65,6 +65,13 @@ try {
     $providers = @(Invoke-Rpc 'cooling.providers.list')
     if ($providers.Count -ne 1 -or $providers[0].status -ne 'disabled' -or $providers[0].control_enabled) { throw 'Optional motherboard provider unexpectedly enabled.' }
     if (@(Invoke-Rpc 'cooling.channels.list').Count -ne 0) { throw 'Disabled provider fabricated channels.' }
+    $bindings = Invoke-Rpc 'cooling.bindings.get'
+    if ($bindings.config.version -ne 1 -or $bindings.persistence_enabled -or @($bindings.config.bindings).Count -ne 0) { throw 'Unexpected default channel bindings.' }
+    $bindings.config.bindings = @(@{provider='mainboard.lhm';device_id='offline-board';control_id='offline-control';tachometer_id=$null;header='CPU_FAN';role='fan';electrical_mode='unknown'})
+    if (-not (Invoke-Rpc 'cooling.bindings.save' @{config=$bindings.config})) { throw 'Offline channel annotation failed.' }
+    $bindings = Invoke-Rpc 'cooling.bindings.get'
+    if ($bindings.assignments[0].state -ne 'unavailable' -or $bindings.assignments[0].hardware_verified -or $bindings.assignments[0].writable) { throw 'Annotation implied hardware verification or write permission.' }
+    if (-not (Invoke-Rpc 'cooling.bindings.save' @{config=@{version=1;bindings=@()}})) { throw 'Clearing channel annotations failed.' }
     $null = Invoke-Rpc 'monitoring.sensors.list'
     $keyboard = Invoke-Rpc 'keyboard.reactive.get'
     if ($keyboard.config.enabled -or $keyboard.status.records_text) { throw 'Keyboard capture should default off without recording text.' }

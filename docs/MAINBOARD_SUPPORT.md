@@ -80,6 +80,11 @@ calibration, PWM/DC switching, fan-stop or live curves are enabled. Mainboard
 RGB/ARGB is not provided by LHM; the initial experimental ASUS HID adapter is
 documented in `MAINBOARD_RGB.md`.
 
+Users can separately annotate header names, intended fan/pump roles, reported
+electrical mode and explicit control/RPM pairings through `cooling.bindings.*`.
+These never change the above hardware fields or establish physical verification.
+Persistence, offline/stale states and limits: `COOLING_CHANNEL_BINDINGS.md`.
+
 Both GUIs use `cooling.providers.list`, `cooling.channels.list` and
 `monitoring.sensors.list`; see `LOCAL_API.md`. Motherboard temperatures also join
 the daemon's `cooling.sensors.sources` graph inputs. Classic displays provider

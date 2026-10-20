@@ -296,3 +296,19 @@ events. Complete-feature CI/Package and real typing-to-LED checks remain pending
 Package39470839127 passed the prior installer changes, including the actual
 owned mainboard-service uninstall hook; it supersedes the pending Package note
 above. It does not validate real driver/hardware behavior.
+
+## Motherboard channel annotations
+
+173 workspace tests passed after adding control/RPM/header annotations, including
+duplicate assignment rejection, identity/kind conflicts, stale/offline resolution,
+bounded storage failure behavior and additive RPC behavior. Workspace Clippy with
+denied warnings and the complete release build passed. The release IPC smoke
+checks an offline assignment remains unavailable/unverified/nonwritable and can
+be cleared under `--no-hardware --no-state`. It also covers the existing keyboard,
+curves, macro, virtual rendering and process-plugin paths. Inno model tests passed.
+These tests exercise no real fan writes, driver installation or keyboard capture.
+
+Updated keyboard helper lifecycle run39475875921 passed on disposable Windows,
+including the final capture timestamp implementation. Full combined CI/Package
+results for each commit must be checked independently; native hook cleanup is
+not a substitute for real typing-to-LED or fan-header hardware validation.
