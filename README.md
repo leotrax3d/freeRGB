@@ -3,8 +3,6 @@
   <img src="logo.png" alt="free RGB" width="300">
 </p>
   
-# freeRGB
-
 **Open, lightweight RGB control for Windows and Linux – written in Rust.**
 
 An independent alternative to SignalRGB: a small background service drives your RGB
