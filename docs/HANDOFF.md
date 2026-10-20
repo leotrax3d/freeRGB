@@ -244,3 +244,30 @@ Hardware results: `DEVICES.md#validation-log`.
   unrelated-daemon preservation and uninstall with saved-profile sentinel on an
   ephemeral Windows runner. Runner result is required before claiming acceptance;
   cross-version update, GUI wizard/vendor dialogs and signing remain untested.
+
+## Ordered stage 1 — LINK cooling telemetry — 2026-10-20
+* User requested cooling → installer → updates → macros → monitoring → RGB/profiles.
+  Stage 1 is not complete. SignalRGB and launcher remained running at the last
+  process inventory. User said they would close them and report back; that closure
+  has not yet been confirmed. No live USB probe, duty write or mode change was run.
+* Strict type/length/count telemetry decoding; signed tenths Celsius, bounded
+  plausibility, cached temperature publication alongside RPM. Failed temperature
+  reads preserve sample age. Candidate slot+1 child labels remain unconfirmed.
+* Require spinning baseline before software session. Hardware ownership tracked
+  separately from connection status; failed restores retried during disconnect/drop;
+  never restore a foreign software session. This is cooperative cleanup, NOT an
+  independent watchdog process. Cooling API remains simulation-only.
+* Evidence and remaining live gates in COOLING_VALIDATION.md. Upstream protocol
+  facts pinned to OpenLinkHub c8c1d2a99a56aa1d907e43137d127c2048f41ba5; installed
+  plugin hash recorded there. No REA server used and no GPL code copied.
+* 143 Windows tests, fmt/Clippy, release build, virtual IPC/plugin smoke and Inno
+  installer build pass. New tests cover malformed telemetry, signed/invalid temps,
+  no I/O from cache reads, temperature failures without lost RPM protection,
+  failed-restore retry/drop and foreign-session preservation.
+* Logs: target/cooling-tests.log, target/cooling-release.log,
+  target/cooling-smoke.log, target/installer-build.log.
+* Package run 39371595581 failed a harness assertion: it expected a custom Start
+  Menu group, but setup uses its configured default with the group page disabled.
+  Uploaded log shows successful creation under Programs/freeRGB and autostart.
+  Corrected the harness to test that actual configured group; fresh run pending.
+  Do not describe the remaining lifecycle as accepted yet.

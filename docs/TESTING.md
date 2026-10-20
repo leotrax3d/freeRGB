@@ -164,3 +164,16 @@ No actual product install or third-party uninstall ran on this personal machine.
 The Package workflow now performs lifecycle acceptance on a fresh Windows runner;
 its new result remains pending. Same-version reinstall/upgrade-path testing does
 not establish cross-version updater or interactive vendor-uninstaller acceptance.
+
+## LINK telemetry and restore ownership — 2026-10-20
+143 Windows workspace tests pass, including six new regressions for strict table
+validation, signed and implausible temperatures, cache-only reads/failed-read age,
+RPM watchdog operation without temperatures, restoration retries/drop and foreign
+session preservation. Formatting, denied-warning Clippy, release build, virtual
+IPC/plugin smoke and Inno packaging pass. New temperature polling is simulator-tested,
+not live-tested. No cooling writes and no independent process watchdog implemented.
+
+Package run 39371595581 reached actual fresh installation on its runner, then failed
+because the harness expected a custom Start Menu group. Logs prove installation
+created the configured freeRGB group and startup entry. Harness expectation fixed;
+remaining reinstall/uninstall/profile preservation results require a new run.

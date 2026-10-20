@@ -67,3 +67,15 @@ Completed follow-up — installer:
 - [x] 137 Windows tests, Pascal model tests, fmt/Clippy, release smoke and installer.
 - [x] Ephemeral-runner install/reinstall/uninstall/profile-preservation harness.
 - [ ] Fresh lifecycle runner result, wizard/vendor interaction and cross-version update.
+
+Ordered stage 1 — cooling telemetry:
+- [x] Strict cached LINK temperatures and explicit unconfirmed child candidates.
+- [x] Malformed-data rejection, cache freshness and RPM watchdog regression tests.
+- [x] Session ownership and retry/drop restoration without touching foreign sessions.
+- [x] 143 Windows tests, fmt/Clippy, release IPC smoke and regenerated installer.
+- [ ] SignalRGB closed; fresh live sensor probe and physical/source correlation.
+- [ ] Separate process failsafe and bounded duty-command hardware validation.
+- [ ] Validated live curve binding. Stage 1 remains open; later stages not complete.
+
+While waiting for hardware availability: corrected installer harness Start Menu
+expectation from uploaded runner evidence; full lifecycle rerun pending.

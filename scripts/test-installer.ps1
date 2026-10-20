@@ -45,7 +45,7 @@ Assert-True (-not (Get-Process freergbd -ErrorAction SilentlyContinue)) 'A daemo
 Assert-True ($null -eq (Get-ItemProperty -LiteralPath $runKey -Name freeRGB -ErrorAction SilentlyContinue)) 'Existing startup registration must not be touched.'
 $root = Join-Path ([System.IO.Path]::GetFullPath($env:RUNNER_TEMP)) ('freeRGB Installer ' + [guid]::NewGuid().ToString('N'))
 $app = Join-Path $root 'installed app'
-$groupName = 'freeRGB Installer CI'
+$groupName = 'freeRGB'
 $group = Join-Path ([Environment]::GetFolderPath('Programs')) $groupName
 $desktop = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'freeRGB.lnk'
 Assert-True (-not (Test-Path -LiteralPath $desktop)) 'An existing desktop shortcut must not be touched.'
@@ -56,7 +56,7 @@ New-Item -ItemType Directory -Path "$config/profiles" -Force | Out-Null
 $sentinel = Join-Path $config 'profiles/InstallerSentinel.json'
 [System.IO.File]::WriteAllText($sentinel, 'preserve user data')
 function Install-Test([string]$Name, [string]$Tasks) {
-    $arguments = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/DIR="{0}"' -f $app),('/GROUP="{0}"' -f $groupName),('/LOG="{0}"' -f (Join-Path $logs "$Name.log")))
+    $arguments = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/DIR="{0}"' -f $app),('/LOG="{0}"' -f (Join-Path $logs "$Name.log")))
     if ($Tasks -ne 'DEFAULT') { $arguments += "/TASKS=$Tasks" }
     Invoke-TestProcess $Installer $arguments
     Assert-True ((Get-Content -LiteralPath $sentinel -Raw) -eq 'preserve user data') 'Setup changed user profiles.'

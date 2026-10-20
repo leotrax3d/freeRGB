@@ -1,8 +1,13 @@
 # Monitoring and sensor warnings
 
-The Monitoring page displays cached device readings and bounded in-memory histories.
+The Monitoring page displays cached device RPM/temperature readings and bounded in-memory histories.
 No invented CPU/GPU values or additional USB polling are used. LINK channel identity
 is not yet confirmed; identify the physical channel before interpreting its value.
+Temperature acquisition uses the already supported endpoint while the opt-in LINK
+device owns its software session; the normal two-second watchdog cycle refreshes
+its cache. Failed reads do not refresh timestamps. Packet types and full declared
+tables are checked before use. Live acceptance remains pending; see
+`COOLING_VALIDATION.md`. Candidate child names are not confirmed coolant/fan mapping.
 
 Under each sensor, **Configure sensor warning** adds a local rule. Open **Sensor
 warnings** to choose a minimum, maximum and hysteresis in the sensor's displayed

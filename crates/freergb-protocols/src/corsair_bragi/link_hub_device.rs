@@ -14,7 +14,7 @@
 
 use super::link_hub::{
     close_handle, encode_lighting, known_lighting_prefix, lighting_packets, open_endpoint,
-    parse_child_list, ping, LinkHubProbe, ProbeError, RpmWatchdog, EP_CHILD_DEVICES,
+    parse_child_list, ping, ChildDevice, LinkHubProbe, ProbeError, RpmWatchdog, EP_CHILD_DEVICES,
     EP_LIGHTING_CONTROLLER, TARGET_HUB,
 };
 use super::packet::{Command, Handle, Mode, Property};
@@ -39,6 +39,10 @@ pub struct LinkHubDevice<T: HidTransport> {
     tripped: Option<String>,
     rpm: Vec<Option<u16>>,
     rpm_read_at: Option<Instant>,
+    temperatures: Vec<Option<f64>>,
+    temperatures_read_at: Option<Instant>,
+    hardware_owned: bool,
+    children: Vec<ChildDevice>,
 }
 
 fn proto(e: ProbeError) -> DeviceError {
@@ -74,6 +78,10 @@ impl<T: HidTransport> LinkHubDevice<T> {
             tripped: None,
             rpm: Vec::new(),
             rpm_read_at: None,
+            temperatures: Vec::new(),
+            temperatures_read_at: None,
+            hardware_owned: false,
+            children: Vec::new(),
         }
     }
 
@@ -99,6 +107,9 @@ impl<T: HidTransport> LinkHubDevice<T> {
 
     /// Returns to hardware mode; retried and verified.
     fn restore_hardware(&mut self) -> Result<(), DeviceError> {
+        if !self.hardware_owned {
+            return Ok(());
+        }
         let _ = self.p.ok(
             close_handle(TARGET_HUB, Handle::Lighting),
             Command::CloseHandle,
@@ -107,6 +118,7 @@ impl<T: HidTransport> LinkHubDevice<T> {
             if self.p.set_mode(Mode::Hardware).is_ok()
                 && self.p.property(Property::Mode).ok() == Some(Mode::Hardware as u32)
             {
+                self.hardware_owned = false;
                 return Ok(());
             }
             std::thread::sleep(Duration::from_millis(50));
@@ -132,7 +144,11 @@ impl<T: HidTransport> LinkHubDevice<T> {
             (fw >> 16) & 0xFF
         ));
 
-        self.p.set_mode(Mode::Software).map_err(proto)?;
+        self.hardware_owned = true;
+        if let Err(error) = self.p.set_mode(Mode::Software) {
+            let _ = self.restore_hardware();
+            return Err(proto(error));
+        }
         let result = (|| -> Result<(), DeviceError> {
             let data = self.p.read_endpoint(EP_CHILD_DEVICES).map_err(proto)?;
             let children =
@@ -155,9 +171,23 @@ impl<T: HidTransport> LinkHubDevice<T> {
             }
             self.layout = Self::build_layout(&names, &segments);
             self.segments = segments;
+            self.children = children;
             self.rpm = self.p.rpm();
             self.rpm_read_at = Some(Instant::now());
+            if !self.rpm.iter().flatten().any(|rpm| *rpm > 300) {
+                return Err(DeviceError::Refused(
+                    "no valid spinning RPM baseline; refusing an unmonitored software session"
+                        .into(),
+                ));
+            }
             self.watchdog = RpmWatchdog::new(self.rpm.clone());
+            // Optional telemetry must not stop the RPM watchdog or falsify freshness.
+            self.temperatures.clear();
+            self.temperatures_read_at = None;
+            if let Ok(values) = self.p.temperatures() {
+                self.temperatures = values;
+                self.temperatures_read_at = Some(Instant::now());
+            }
             self.p
                 .ok(
                     open_endpoint(TARGET_HUB, Handle::Lighting, EP_LIGHTING_CONTROLLER),
@@ -182,6 +212,34 @@ impl<T: HidTransport> LinkHubDevice<T> {
         match restored {
             Ok(()) => DeviceError::Refused(format!("watchdog: {reason}")),
             Err(e) => DeviceError::Protocol(format!("watchdog: {reason}; restore failed: {e}")),
+        }
+    }
+
+    pub(super) fn refresh_telemetry(&mut self) -> Result<(), DeviceError> {
+        let now = self.p.rpm();
+        self.rpm = now.clone();
+        self.rpm_read_at = Some(Instant::now());
+        if let Some(msg) = self.watchdog.check(&now) {
+            return Err(self.trip(msg));
+        }
+        if let Ok(values) = self.p.temperatures() {
+            self.temperatures = values;
+            self.temperatures_read_at = Some(Instant::now());
+        }
+        Ok(())
+    }
+
+    fn sensor_name(&self, index: usize, kind: &str) -> String {
+        let candidate = index
+            .checked_sub(1)
+            .and_then(|slot| self.children.iter().find(|child| child.slot == slot));
+        match candidate {
+            Some(child) => format!(
+                "{kind} {index} — candidate {} slot {} (physical identity unconfirmed)",
+                child.model_name().unwrap_or("unknown child"),
+                child.slot
+            ),
+            None => format!("{kind} {index} (channel identity unconfirmed)"),
         }
     }
 }
@@ -237,12 +295,7 @@ impl<T: HidTransport> RgbDevice for LinkHubDevice<T> {
 
         if self.last_check.elapsed() >= WATCHDOG_INTERVAL {
             self.last_check = Instant::now();
-            let now = self.p.rpm();
-            self.rpm = now.clone();
-            self.rpm_read_at = Some(Instant::now());
-            if let Some(msg) = self.watchdog.check(&now) {
-                return Err(self.trip(msg));
-            }
+            self.refresh_telemetry()?;
         }
         Ok(())
     }
@@ -255,21 +308,35 @@ impl<T: HidTransport> RgbDevice for LinkHubDevice<T> {
         let age_ms = self.rpm_read_at.map_or(u64::MAX, |at| {
             at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64
         });
-        self.rpm
+        let mut readings: Vec<_> = self
+            .rpm
             .iter()
             .enumerate()
             .map(|(index, value)| freergb_device_api::SensorReading {
                 id: format!("rpm:{index}"),
-                name: format!("RPM sensor {index} (channel identity unconfirmed)"),
+                name: self.sensor_name(index, "RPM sensor"),
                 unit: "rpm".into(),
                 value: value.map(f64::from),
                 age_ms,
             })
-            .collect()
+            .collect();
+        let temperature_age = self.temperatures_read_at.map_or(u64::MAX, |at| {
+            at.elapsed().as_millis().min(u128::from(u64::MAX)) as u64
+        });
+        readings.extend(self.temperatures.iter().enumerate().map(|(index, value)| {
+            freergb_device_api::SensorReading {
+                id: format!("temperature:{index}"),
+                name: self.sensor_name(index, "Temperature sensor"),
+                unit: "°C".into(),
+                value: *value,
+                age_ms: temperature_age,
+            }
+        }));
+        readings
     }
 
     fn disconnect(&mut self, final_color: Option<Rgb>) -> Result<(), DeviceError> {
-        if self.status != DeviceStatus::Connected {
+        if !self.hardware_owned {
             return Ok(());
         }
         if let Some(c) = final_color {
@@ -278,5 +345,13 @@ impl<T: HidTransport> RgbDevice for LinkHubDevice<T> {
         let r = self.restore_hardware();
         self.status = DeviceStatus::Disconnected;
         r
+    }
+}
+
+impl<T: HidTransport> Drop for LinkHubDevice<T> {
+    fn drop(&mut self) {
+        if let Err(error) = self.restore_hardware() {
+            tracing::error!(%error, "hub hardware-mode restore failed during cleanup");
+        }
     }
 }

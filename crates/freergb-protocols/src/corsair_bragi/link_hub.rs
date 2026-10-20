@@ -162,7 +162,8 @@ pub fn parse_child_list(data: &[u8]) -> Result<Vec<ChildDevice>, ChildListError>
 }
 
 /// Parses `[type_lo, type_hi, count, (status, lo, hi) * count]` into raw
-/// 16-bit values. Used for fan RPM (data type 0x06) and temperatures (data
+/// 16-bit values. Legacy unchecked decoder; live telemetry uses
+/// [`checked_sensor_values`] instead. Fan RPM type is 0x25 and temperatures (data
 /// type 0x10, value in 0.1 °C). Entries with status != 0 are reported as
 /// `None` (probable meaning: sensor absent).
 pub fn parse_sensor_values(data: &[u8]) -> Vec<Option<u16>> {
@@ -173,6 +174,42 @@ pub fn parse_sensor_values(data: &[u8]) -> Vec<Option<u16>> {
         .map_while(|i| data.get(3 + i * 3..6 + i * 3))
         .map(|e| (e[0] == 0).then(|| u16::from_le_bytes([e[1], e[2]])))
         .collect()
+}
+
+/// Strict LINK telemetry decoder. Never publishes a partial or wrong-type table.
+/// Headers 0x25 (RPM) and 0x10 (tenths Celsius) were observed on this hub.
+pub fn checked_sensor_values(data: &[u8], data_type: u16) -> Result<Vec<Option<u16>>, String> {
+    if data.len() < 3 {
+        return Err("sensor table has no complete header".into());
+    }
+    let actual = u16::from_le_bytes([data[0], data[1]]);
+    if actual != data_type {
+        return Err(format!(
+            "sensor type {actual:#06x}, expected {data_type:#06x}"
+        ));
+    }
+    let count = usize::from(data[2]);
+    if data.len() < 3 + count * 3 {
+        return Err("truncated sensor table".into());
+    }
+    Ok(data[3..3 + count * 3]
+        .chunks_exact(3)
+        .map(|entry| (entry[0] == 0).then(|| u16::from_le_bytes([entry[1], entry[2]])))
+        .collect())
+}
+
+pub fn checked_temperatures(data: &[u8]) -> Result<Vec<Option<f64>>, String> {
+    checked_sensor_values(data, 0x10).map(|values| {
+        values
+            .into_iter()
+            .map(|raw| {
+                raw.and_then(|raw| {
+                    let value = f64::from(raw as i16) / 10.0;
+                    (-20.0..=125.0).contains(&value).then_some(value)
+                })
+            })
+            .collect()
+    })
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -360,17 +397,13 @@ impl<T: HidTransport> LinkHubProbe<T> {
             .and_then(|d| parse_child_list(&d).map_err(|e| e.to_string()));
         let fan_rpm = self
             .read_endpoint(EP_FAN_RPM)
-            .map(|d| parse_sensor_values(&d))
-            .map_err(|e| e.to_string());
+            .map_err(|e| e.to_string())
+            .and_then(|d| checked_sensor_values(&d, 0x25));
         let temperatures_c = self
             .read_endpoint(EP_TEMPERATURES)
-            .map(|d| {
-                parse_sensor_values(&d)
-                    .into_iter()
-                    .map(|v| v.map(|t| f32::from(t) / 10.0))
-                    .collect()
-            })
-            .map_err(|e| e.to_string());
+            .map_err(|e| e.to_string())
+            .and_then(|d| checked_temperatures(&d))
+            .map(|d| d.into_iter().map(|v| v.map(|t| t as f32)).collect());
 
         let id = (|| -> Result<_, ProbeError> {
             Ok((
@@ -516,7 +549,7 @@ impl RpmWatchdog {
             let bad = n.map_or(true, |n| n < b / 2);
             if bad {
                 any_bad = true;
-                self.strikes[i] += 1;
+                self.strikes[i] = self.strikes[i].saturating_add(1);
                 if self.strikes[i] >= Self::STRIKES_TO_ALARM && alarm.is_none() {
                     alarm = Some(format!(
                         "rpm sensor {i}: {} bad samples in a row (start {b}, now {n:?})",
@@ -528,7 +561,7 @@ impl RpmWatchdog {
             }
         }
         if any_bad {
-            self.glitches += 1;
+            self.glitches = self.glitches.saturating_add(1);
             self.last_bad = Some(now.to_vec());
         }
         alarm
@@ -552,8 +585,15 @@ pub struct LightingTestReport {
 impl<T: HidTransport> LinkHubProbe<T> {
     pub(super) fn rpm(&mut self) -> Vec<Option<u16>> {
         self.read_endpoint(EP_FAN_RPM)
-            .map(|d| parse_sensor_values(&d))
+            .map_err(|e| e.to_string())
+            .and_then(|d| checked_sensor_values(&d, 0x25))
             .unwrap_or_default()
+    }
+
+    pub(super) fn temperatures(&mut self) -> Result<Vec<Option<f64>>, String> {
+        self.read_endpoint(EP_TEMPERATURES)
+            .map_err(|e| e.to_string())
+            .and_then(|d| checked_temperatures(&d))
     }
 
     /// Shows `color_for(segment_index)` on the known chain prefix for
@@ -652,6 +692,46 @@ impl<T: HidTransport> LinkHubProbe<T> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn strict_telemetry_rejects_wrong_types_and_partial_tables() {
+        assert!(checked_sensor_values(&[0x10, 0, 1, 0, 44, 1], 0x25).is_err());
+        assert!(checked_sensor_values(&[0x25, 0, 2, 0, 44, 1], 0x25).is_err());
+        assert!(checked_sensor_values(&[0x25, 0], 0x25).is_err());
+        assert_eq!(
+            checked_sensor_values(&[0x25, 0, 2, 0, 0, 0, 2, 44, 1], 0x25).unwrap(),
+            vec![Some(0), None]
+        );
+        assert_eq!(
+            checked_sensor_values(&[0x10, 0, 0, 0, 0], 0x10).unwrap(),
+            Vec::<Option<u16>>::new()
+        );
+    }
+
+    #[test]
+    fn temperatures_are_signed_tenths_and_implausible_readings_are_unavailable() {
+        let minus_ten = (-100i16).to_le_bytes();
+        let payload = [
+            0x10,
+            0,
+            4,
+            0,
+            minus_ten[0],
+            minus_ten[1],
+            0,
+            0x2c,
+            1,
+            0,
+            0xff,
+            0x7f,
+            1,
+            0,
+            0,
+        ];
+        assert_eq!(
+            checked_temperatures(&payload).unwrap(),
+            vec![Some(-10.0), Some(30.0), None, None]
+        );
+    }
     use super::*;
 
     fn slot(t: u8, sub: u8, id: &str) -> Vec<u8> {
@@ -721,6 +801,9 @@ mod tests {
     struct SimHub {
         mode: std::sync::Arc<std::sync::Mutex<u8>>,
         broken_temps: bool,
+        temperature_failure: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        traffic: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        fail_restores: std::sync::Arc<std::sync::atomic::AtomicUsize>,
         /// Declared payload length of the last lighting write and bytes received.
         lighting: std::sync::Arc<std::sync::Mutex<(usize, usize, Vec<u8>)>>,
         /// Pump RPM reported at sensor index 4.
@@ -731,6 +814,7 @@ mod tests {
         let mut open: [Option<u8>; 3] = [None; 3];
         *s.pump_rpm.lock().unwrap() = 1700;
         freergb_device_api::mock::MockTransport::new(513, 513, move |r| {
+            s.traffic.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let (target, cmd, a, b) = (r[2], r[3], r[4], r[5]);
             let mut m = s.mode.lock().unwrap();
             if cmd == 0x07 {
@@ -762,13 +846,22 @@ mod tests {
                 }
                 0x01 => {
                     assert_eq!(a, 0x03, "only the mode may be written");
-                    *m = r[6];
+                    if r[6] == 1 && s.fail_restores.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+                        s.fail_restores
+                            .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                        resp[3] = 3;
+                    } else {
+                        *m = r[6];
+                    }
                 }
                 0x09 => resp[3] = if open[usize::from(a)].is_some() { 0 } else { 3 },
                 0x05 => open[usize::from(b)] = None,
                 0x0D => {
                     if *m != 2
-                        || (s.broken_temps && b == EP_TEMPERATURES)
+                        || ((s.broken_temps
+                            || s.temperature_failure
+                                .load(std::sync::atomic::Ordering::SeqCst))
+                            && b == EP_TEMPERATURES)
                         || open[usize::from(a)].is_some()
                     {
                         resp[3] = 3;
@@ -951,7 +1044,10 @@ mod tests {
         assert!(!sensors.is_empty());
         assert!(sensors
             .iter()
-            .all(|sensor| sensor.unit == "rpm" && sensor.age_ms < 1000));
+            .all(|sensor| matches!(sensor.unit.as_str(), "rpm" | "°C") && sensor.age_ms < 1000));
+        assert!(sensors
+            .iter()
+            .any(|sensor| sensor.id == "temperature:0" && sensor.value == Some(30.0)));
         assert!(sensors
             .iter()
             .any(|sensor| sensor.value.is_some_and(|v| v > 0.0)));
@@ -965,6 +1061,122 @@ mod tests {
         dev.disconnect(None).unwrap();
         assert_eq!(dev.status(), DeviceStatus::Disconnected);
         assert_eq!(*sim.mode.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn temperature_cache_is_read_only_and_failure_does_not_refresh_old_data() {
+        use super::super::link_hub_device::LinkHubDevice;
+        use freergb_device_api::RgbDevice;
+        use std::sync::atomic::Ordering;
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 1;
+        let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), None);
+        dev.connect().unwrap();
+        let traffic = sim.traffic.load(Ordering::SeqCst);
+        for _ in 0..20 {
+            assert!(dev
+                .sensors()
+                .iter()
+                .any(|s| s.id == "temperature:0" && s.value == Some(30.0)));
+        }
+        assert_eq!(
+            sim.traffic.load(Ordering::SeqCst),
+            traffic,
+            "GUI/cache reads must not perform USB I/O"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(15));
+        sim.temperature_failure.store(true, Ordering::SeqCst);
+        dev.refresh_telemetry().unwrap();
+        let readings = dev.sensors();
+        let temperature = readings.iter().find(|s| s.id == "temperature:0").unwrap();
+        assert_eq!(temperature.value, Some(30.0));
+        assert!(
+            temperature.age_ms >= 15,
+            "failed read must not renew freshness"
+        );
+        assert!(readings
+            .iter()
+            .any(|s| s.unit == "rpm" && s.value.is_some()));
+        sim.temperature_failure.store(false, Ordering::SeqCst);
+        dev.refresh_telemetry().unwrap();
+        assert!(dev
+            .sensors()
+            .iter()
+            .any(|s| s.id == "temperature:0" && s.age_ms < 1000));
+        dev.disconnect(None).unwrap();
+        assert_eq!(*sim.mode.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn missing_temperature_endpoint_does_not_disable_rpm_watchdog() {
+        use super::super::link_hub_device::LinkHubDevice;
+        use freergb_device_api::RgbDevice;
+        let sim = SimHub {
+            broken_temps: true,
+            ..SimHub::default()
+        };
+        *sim.mode.lock().unwrap() = 1;
+        let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), None);
+        dev.connect().unwrap();
+        assert!(dev.sensors().iter().all(|s| s.unit == "rpm"));
+        *sim.pump_rpm.lock().unwrap() = 100;
+        dev.refresh_telemetry().unwrap();
+        assert!(dev.refresh_telemetry().is_err());
+        assert_eq!(*sim.mode.lock().unwrap(), 1);
+        assert!(dev.connect().is_err());
+    }
+
+    #[test]
+    fn disconnect_retries_a_failed_restore_and_drop_releases_owned_sessions() {
+        use super::super::link_hub_device::LinkHubDevice;
+        use freergb_device_api::RgbDevice;
+        use std::sync::atomic::Ordering;
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 1;
+        let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), None);
+        dev.connect().unwrap();
+        sim.fail_restores.store(3, Ordering::SeqCst);
+        *sim.pump_rpm.lock().unwrap() = 100;
+        dev.refresh_telemetry().unwrap();
+        assert!(dev.refresh_telemetry().is_err());
+        assert_eq!(
+            *sim.mode.lock().unwrap(),
+            2,
+            "failed restoration is not reported as success"
+        );
+        dev.disconnect(None).unwrap();
+        assert_eq!(*sim.mode.lock().unwrap(), 1);
+        let traffic = sim.traffic.load(Ordering::SeqCst);
+        drop(dev);
+        assert_eq!(
+            sim.traffic.load(Ordering::SeqCst),
+            traffic,
+            "released sessions must not be touched again"
+        );
+        let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), None);
+        dev.connect().unwrap();
+        drop(dev);
+        assert_eq!(
+            *sim.mode.lock().unwrap(),
+            1,
+            "normal Rust drop restores the owned session"
+        );
+    }
+
+    #[test]
+    fn failed_connect_and_drop_do_not_restore_another_programs_session() {
+        use super::super::link_hub_device::LinkHubDevice;
+        use freergb_device_api::RgbDevice;
+        use std::sync::atomic::Ordering;
+        let sim = SimHub::default();
+        *sim.mode.lock().unwrap() = 2;
+        let mut dev = LinkHubDevice::new(sim_hub_full(sim.clone()), None);
+        assert!(dev.connect().is_err());
+        let traffic = sim.traffic.load(Ordering::SeqCst);
+        dev.disconnect(None).unwrap();
+        drop(dev);
+        assert_eq!(*sim.mode.lock().unwrap(), 2);
+        assert_eq!(sim.traffic.load(Ordering::SeqCst), traffic);
     }
 
     #[test]
