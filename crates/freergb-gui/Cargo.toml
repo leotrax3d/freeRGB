@@ -20,6 +20,9 @@ freergb-control.workspace = true
 freergb-update.workspace = true
 serde.workspace = true
 
+[build-dependencies]
+winresource = "0.1"
+
 [target.'cfg(windows)'.dependencies]
 global-hotkey = "0.8"
 active-win-pos-rs = "0.11"

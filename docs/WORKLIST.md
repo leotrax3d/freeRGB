@@ -58,3 +58,12 @@ Completed follow-up — foreground application profiles:
 - [x] Pause/queued-work invalidation, macro deferral and confirmed-load UI sync.
 - [x] 136 Windows tests, Clippy/fmt, release IPC smoke and regenerated installer.
 - [ ] Interactive Windows focus-switch acceptance; Linux support.
+
+Completed follow-up — installer:
+- [x] Independent Start Menu, desktop and startup choices; startup defaults ON.
+- [x] Optional manufacturer uninstallers for recognized RGB products, all unchecked.
+- [x] README project icon in Setup, application executables and GUI window.
+- [x] Scoped graceful shutdown; leave daemons from other directories alone.
+- [x] 137 Windows tests, Pascal model tests, fmt/Clippy, release smoke and installer.
+- [x] Ephemeral-runner install/reinstall/uninstall/profile-preservation harness.
+- [ ] Fresh lifecycle runner result, wizard/vendor interaction and cross-version update.

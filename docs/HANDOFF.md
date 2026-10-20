@@ -215,3 +215,32 @@ Hardware results: `DEVICES.md#validation-log`.
 * CI 39370293062 for previous sensor-warning commit was still running. Earlier
   39369935576 was canceled by workflow concurrency; no overall Linux success claim.
   Full behavior and acceptance limits: APPLICATION_PROFILES.md.
+
+## Installer choices, competitor uninstallers and project icon — 2026-10-20
+* Setup asks separately about Start Menu, desktop and startup. Start Menu and
+  autostart default ON at the user's explicit request; desktop defaults OFF.
+  Existing task choices survive upgrades; deselection removes owned entries.
+* Optional competitor page scans registered app entries in HKCU/HKLM 32/64 views.
+  Supported families: SignalRGB, Razer Synapse/Chroma/Central, Corsair iCUE,
+  OpenRGB and Logitech G HUB. Everything unchecked. Only explicit button + confirmed
+  product list starts registered manufacturer uninstallers. Next/silent setup do
+  not uninstall anything. No actual vendor uninstaller was run during development.
+* Strict executable/argument splitting, no shell/PATH/script fallback; ambiguous
+  entries direct users to Windows Apps. MSI /I is converted to /X. Entries are
+  reread before execution and duplicate registrations are suppressed.
+* README logo converted without redesign to ICO (16–256) and PNG. Shared Windows
+  resources embedded in CLI, daemon, launcher and GUI; window and Setup icons use
+  the same asset. Regenerate with scripts/build-icons.py (Pillow). Resource extraction
+  from local release executables verified the project icon.
+* New daemon.shutdown_if accepts expected_executable; only a canonical path match
+  permits shutdown. Installer helper stop-installed-daemon --directory PATH uses
+  it for upgrade/uninstall, preserving other checkouts. Old daemons must be stopped
+  manually. Profile/config directory is never removed by setup/uninstall.
+* 137 Windows tests, fmt/Clippy, release build, guarded IPC/plugin smoke, Inno
+  compilation and compiler-built Pascal model tests pass. No product install on
+  the personal computer. Model harness exits before installing and never runs an
+  uninstaller. Full lifecycle script refuses local personal-machine execution.
+* Package workflow now runs fresh install, same-version upgrade path/task removal,
+  unrelated-daemon preservation and uninstall with saved-profile sentinel on an
+  ephemeral Windows runner. Runner result is required before claiming acceptance;
+  cross-version update, GUI wizard/vendor dialogs and signing remain untested.

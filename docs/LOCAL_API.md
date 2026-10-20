@@ -28,6 +28,7 @@ CLI client: `freergb ctl <method> [params-json]`.
 |---|---|---|
 | `daemon.version` | – | `{api_version, daemon_version}` |
 | `daemon.shutdown` | – | `true`; daemon releases devices and exits |
+| `daemon.shutdown_if` | `{expected_executable:absolute_path}` | `true` and shutdown only for a canonical executable-path match; `false` leaves another copy running; malformed relative/missing paths produce `-32602` |
 | `devices.list` | – | `[{info, status, brightness, region, leds, frames, dropped, last_error}]` |
 | `cooling.status` | – | Hardware-control availability and reason (currently preview only) |
 | `cooling.curves.list` | – | Map of curve names to definitions |

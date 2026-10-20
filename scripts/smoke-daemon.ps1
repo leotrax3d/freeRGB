@@ -43,6 +43,7 @@ try {
     }
     $version = Invoke-Rpc 'daemon.version'
     if ($version.api_version -ne 1) { throw 'Unexpected API version.' }
+    if (Invoke-Rpc 'daemon.shutdown_if' @{expected_executable=[System.Environment]::ProcessPath}) { throw 'Guard stopped a daemon from a different executable.' }
     $devices = @(Invoke-Rpc 'devices.list')
     if (@($devices | Where-Object { $_.info.id -eq 'virtual:virtual-strip' }).Count -ne 1) { throw 'Expected the built-in virtual strip.' }
     if (-not (Invoke-Rpc 'color.set' @{color='#123456'})) { throw 'Color update failed.' }
@@ -110,7 +111,7 @@ try {
         Wait-PluginFrames
         Write-Output 'PASS: process plugin registration, frames, peer-crash isolation, stop, restart.'
     }
-    if (-not (Invoke-Rpc 'daemon.shutdown')) { throw 'Shutdown rejected.' }
+    if (-not (Invoke-Rpc 'daemon.shutdown_if' @{expected_executable=$daemonPath})) { throw 'Guarded shutdown rejected.' }
     if (-not $daemon.WaitForExit(10000)) { throw 'Daemon did not stop.' }
     if ($daemon.ExitCode -ne 0) { throw "Daemon exit code: $($daemon.ExitCode)" }
     Write-Output 'PASS: named-pipe API, virtual rendering, color round trip, clean shutdown.'

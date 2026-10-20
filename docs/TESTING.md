@@ -152,3 +152,15 @@ invalidated command rejection. No test reads the real active window or applies a
 profile to hardware. Formatting, Clippy with denied warnings, release build, virtual
 IPC/plugin smoke and installer compilation pass. Actual focus-switch acceptance
 remains open; see APPLICATION_PROFILES.md.
+
+## Installer hardening — 2026-10-20
+137 Windows workspace tests, fmt/Clippy, release build and guarded IPC/plugin smoke
+pass. The guarded shutdown regression checks current executable, a different path
+and malformed relative input. Inno Setup compiles with German/English resources and
+the project icon. The compiled Pascal harness verifies supported/unrelated product
+names, publishers, quoted paths, MSI /I→/X, ambiguous paths and shell/script rejection;
+it exits during initialization, before installation. PowerShell harness parses.
+No actual product install or third-party uninstall ran on this personal machine.
+The Package workflow now performs lifecycle acceptance on a fresh Windows runner;
+its new result remains pending. Same-version reinstall/upgrade-path testing does
+not establish cross-version updater or interactive vendor-uninstaller acceptance.

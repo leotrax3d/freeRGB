@@ -23,6 +23,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// Installer helper: gracefully stop only the daemon from this directory.
+    StopInstalledDaemon {
+        #[arg(long)]
+        directory: std::path::PathBuf,
+    },
     /// List HID interfaces and matching adapters (read-only).
     Discover {
         #[arg(long)]
@@ -167,6 +172,42 @@ fn main() -> Result<()> {
             bragi(cmd, pid, pipelined)
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
+        Cmd::StopInstalledDaemon { directory } => {
+            let expected = directory.join(if cfg!(windows) {
+                "freergbd.exe"
+            } else {
+                "freergbd"
+            });
+            if !expected.is_absolute() {
+                bail!("installation directory must be absolute");
+            }
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                match freergb_client::call(
+                    "daemon.shutdown_if",
+                    serde_json::json!({"expected_executable":expected}),
+                ) {
+                    Ok(serde_json::Value::Bool(false)) => break,
+                    Ok(serde_json::Value::Bool(true)) => {
+                        if Instant::now() >= deadline {
+                            bail!("daemon did not stop; close freeRGB before continuing setup");
+                        }
+                        std::thread::sleep(Duration::from_millis(150));
+                    }
+                    Err(freergb_client::ClientError::Connect(error))
+                        if matches!(
+                            error.kind(),
+                            std::io::ErrorKind::NotFound | std::io::ErrorKind::ConnectionRefused
+                        ) =>
+                    {
+                        break
+                    }
+                    Err(error) => return Err(error.into()),
+                    Ok(_) => bail!("unexpected daemon shutdown response"),
+                }
+            }
+            Ok(())
+        }
         Cmd::LinkLightTest { seconds } => link_light_test(seconds),
         Cmd::ScreenProbe { seconds } => {
             let input = freergb_screen::ScreenInput::start_primary(30)?;

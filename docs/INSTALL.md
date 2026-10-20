@@ -7,9 +7,38 @@ first; the daemon also detects common conflicts. Virtual demo mode can run along
 ## Windows 10 / 11
 
 Installer artifact: `target/dist/freeRGB-0.1.0-windows-x86_64-setup.exe` after packaging.
-It installs per user with start-menu entries, a Demo shortcut and an uninstaller.
-Desktop shortcut and login startup are optional; no driver/system service is installed.
+It installs per user with an uninstaller. Setup asks independently about Start Menu
+entries (including Demo), a desktop shortcut and login startup. Start Menu and
+**autostart default on**; desktop defaults off. All options are editable, with previous
+choices retained on upgrades. Deselecting an option removes freeRGB's corresponding
+shortcut/startup entry. No driver/system service is installed. The README logo is
+used for Setup, installed executables, shortcuts and the GUI window.
 See `UPDATES.md`. Running the installer is a separate user action.
+
+An optional **Andere RGB-Programme** page lists recognized installed SignalRGB,
+Razer Synapse/Chroma/Central, Corsair iCUE, OpenRGB and Logitech G HUB entries.
+Everything is unchecked. Select products and click the explicit uninstaller button,
+then confirm the list to start their registered manufacturer uninstallers. **Next**
+alone never uninstalls anything, and silent setup never runs these uninstallers.
+Manufacturer dialogs may require administrator approval or a restart. Unsupported
+or ambiguous entries can be removed through Windows Settings → Apps. Setup does
+not delete third-party files, drivers or registry leftovers itself. Actual vendor
+uninstall acceptance has not been performed.
+
+Upgrade/uninstall requests graceful shutdown only if the daemon's canonical
+executable path matches the installed copy. Other checkouts are left running.
+Older daemons without this guarded API must be stopped manually before upgrading.
+Close the GUI when prompted by Windows/Setup; no forced process termination is
+added. Uninstall preserves `%APPDATA%\freeRGB` (profiles, curves, macros and settings).
+
+`scripts/test-installer.ps1 -ModelOnly -Compiler PATH` checks product recognition
+and uninstall command parsing without installing anything. The Package workflow
+also runs an install/reinstall/uninstall lifecycle on an ephemeral Windows runner,
+including task defaults/removal, graceful scoped shutdown and preserved profile
+data. Personal machines are explicitly refused for that lifecycle test. Logs are
+uploaded as a separate artifact. A passing runner result is required before claiming
+full installer lifecycle acceptance. This is same-version upgrade-path testing;
+cross-version update, signing and vendor-uninstaller interaction remain separate.
 
 Source build:
 
@@ -27,7 +56,7 @@ cargo install --path crates/freergb-gui      # freergb-gui
 Run `freergbd` (add `--enable-link-hub` for iCUE LINK fans/AIO), then `freergb-gui` or
 `freergb ctl …`. No administrator rights are needed for USB HID devices.
 
-Autostart is not set up automatically. To start the service at logon, create a shortcut to
+For source installations, autostart is not set up automatically. To start the service at logon, create a shortcut to
 `%USERPROFILE%\.cargo\bin\freergbd.exe` in `shell:startup`.
 
 State and profiles: `%APPDATA%\freeRGB\` (`state.json`, `profiles\`).
@@ -94,5 +123,7 @@ API socket: `$XDG_RUNTIME_DIR/freergb.sock`.
 cargo uninstall freergb-daemon freergb-cli freergb-gui
 ```
 
-Linux: remove `/etc/udev/rules.d/60-freergb.rules` and the user unit. Windows: remove the
-startup shortcut. Delete the state directory if you want to drop profiles.
+Linux: remove `/etc/udev/rules.d/60-freergb.rules` and the user unit. Windows source
+installations: remove your startup shortcut. Installer installations: use Windows
+Settings → Apps → freeRGB → Uninstall. Delete the state directory separately only
+if you want to drop profiles and settings.

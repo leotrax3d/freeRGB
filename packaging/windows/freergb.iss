@@ -16,6 +16,9 @@ AppPublisher=freeRGB contributors
 AppPublisherURL=https://github.com/leotrax3d/FreeRGB
 DefaultDirName={localappdata}\Programs\freeRGB
 DefaultGroupName=freeRGB
+DisableDirPage=no
+DisableProgramGroupPage=yes
+UsePreviousTasks=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -28,40 +31,70 @@ WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
+SetupIconFile=..\..\assets\icons\freergb.ico
 UninstallDisplayIcon={app}\freergb-gui.exe
 
+[Languages]
+Name: deutsch; MessagesFile: "compiler:Languages\German.isl"
+Name: english; MessagesFile: "compiler:Default.isl"
+
 [Tasks]
-Name: desktopicon; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
-Name: autostart; Description: "Start freeRGB when I sign in"; GroupDescription: "Startup:"; Flags: unchecked
+Name: startmenu; Description: "Startmenü-Verknüpfungen erstellen"; GroupDescription: "Verknüpfungen:"
+Name: desktopicon; Description: "Desktop-Verknüpfung erstellen"; GroupDescription: "Verknüpfungen:"; Flags: unchecked
+Name: autostart; Description: "freeRGB bei der Windows-Anmeldung starten"; GroupDescription: "Autostart:"
 
 [Files]
 Source: "{#BinDir}\freergb-launcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergbd.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BinDir}\freergb.exe"; Flags: dontcopy
 Source: "..\..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\freeRGB"; Filename: "{app}\freergb-launcher.exe"
-Name: "{group}\freeRGB Demo"; Filename: "{app}\freergb-launcher.exe"; Parameters: "--demo"
-Name: "{group}\Uninstall freeRGB"; Filename: "{uninstallexe}"
+Name: "{group}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; Tasks: startmenu
+Name: "{group}\freeRGB Demo"; Filename: "{app}\freergb-launcher.exe"; Parameters: "--demo"; Tasks: startmenu
+Name: "{group}\Uninstall freeRGB"; Filename: "{uninstallexe}"; Tasks: startmenu
 Name: "{autodesktop}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "freeRGB"; ValueData: """{app}\freergb-launcher.exe"""; Tasks: autostart; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "freeRGB"; Flags: deletevalue; Check: RemoveOwnedAutostart
+
+[InstallDelete]
+Type: files; Name: "{group}\freeRGB.lnk"; Check: not WizardIsTaskSelected('startmenu')
+Type: files; Name: "{group}\freeRGB Demo.lnk"; Check: not WizardIsTaskSelected('startmenu')
+Type: files; Name: "{group}\Uninstall freeRGB.lnk"; Check: not WizardIsTaskSelected('startmenu')
+Type: files; Name: "{autodesktop}\freeRGB.lnk"; Check: not WizardIsTaskSelected('desktopicon')
 
 [Run]
 Filename: "{app}\freergb-launcher.exe"; Description: "Launch freeRGB"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{app}\freergb.exe"; Parameters: "ctl daemon.shutdown"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopDaemon"
+Filename: "{app}\freergb.exe"; Parameters: "stop-installed-daemon --directory ""{app}"""; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopDaemon"
 
 [Code]
+function RemoveOwnedAutostart: Boolean;
+var Value: String;
+begin
+  Result := False;
+  if not WizardIsTaskSelected('autostart') then
+    if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'freeRGB', Value) then
+      Result := CompareText(Value, '"' + ExpandConstant('{app}\freergb-launcher.exe') + '"') = 0;
+end;
+
+#include "competitors.iss"
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ExitCode: Integer;
 begin
   Result := '';
-  if FileExists(ExpandConstant('{app}\freergb.exe')) then
-    Exec(ExpandConstant('{app}\freergb.exe'), 'ctl daemon.shutdown', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  if FileExists(ExpandConstant('{app}\freergbd.exe')) then begin
+    ExtractTemporaryFile('freergb.exe');
+    if not Exec(ExpandConstant('{tmp}\freergb.exe'), 'stop-installed-daemon --directory "' + ExpandConstant('{app}') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+      Result := 'freeRGB konnte nicht geprüft werden. Bitte GUI und Daemon schließen.'
+    else if ExitCode <> 0 then
+      Result := 'Bitte freeRGB schließen und den Daemon beenden, dann erneut versuchen. Ältere Daemons müssen manuell geschlossen werden.';
+  end;
 end;

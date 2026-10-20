@@ -32,5 +32,8 @@ tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macro
 [lints]
 workspace = true
 
+[build-dependencies]
+winresource = "0.1"
+
 [target.'cfg(windows)'.dependencies]
 enigo = "0.6.1"

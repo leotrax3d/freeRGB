@@ -1060,6 +1060,12 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("freeRGB")
+            .with_icon(
+                eframe::icon_data::from_png_bytes(include_bytes!(
+                    "../../../assets/icons/freergb.png"
+                ))
+                .expect("embedded project icon"),
+            )
             .with_inner_size([760.0, 460.0]),
         ..Default::default()
     };

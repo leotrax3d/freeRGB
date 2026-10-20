@@ -255,6 +255,37 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             shutdown = true;
             Ok(json!(true))
         }
+        "daemon.shutdown_if" => {
+            if let Some(expected) = params["expected_executable"]
+                .as_str()
+                .filter(|p| std::path::Path::new(p).is_absolute())
+            {
+                let expected = std::path::Path::new(expected).canonicalize().ok();
+                let actual = std::env::current_exe()
+                    .ok()
+                    .and_then(|p| p.canonicalize().ok());
+                shutdown = match (expected, actual) {
+                    (Some(expected), Some(actual)) => {
+                        #[cfg(windows)]
+                        {
+                            expected.to_string_lossy().to_lowercase()
+                                == actual.to_string_lossy().to_lowercase()
+                        }
+                        #[cfg(not(windows))]
+                        {
+                            expected == actual
+                        }
+                    }
+                    _ => false,
+                };
+                Ok(json!(shutdown))
+            } else {
+                Err((
+                    -32602,
+                    "expected_executable must be an absolute path".into(),
+                ))
+            }
+        }
         other => Err((-32601, format!("method not found: {other}"))),
     };
 
@@ -270,6 +301,31 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn guarded_shutdown_requires_the_actual_executable() {
+        let e: SharedEngine = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::BLACK },
+            30,
+        )));
+        let current = std::env::current_exe().unwrap();
+        for (expected, stop) in [
+            (current.clone(), true),
+            (current.parent().unwrap().to_path_buf(), false),
+        ] {
+            let reply = handle_line(&e, &json!({"id":1,"method":"daemon.shutdown_if","params":{"expected_executable":expected}}).to_string());
+            assert_eq!(reply.shutdown, stop);
+            assert_eq!(
+                serde_json::from_str::<Value>(&reply.line).unwrap()["result"],
+                json!(stop)
+            );
+        }
+        let reply = handle_line(
+            &e,
+            r#"{"id":1,"method":"daemon.shutdown_if","params":{"expected_executable":"relative.exe"}}"#,
+        );
+        assert!(!reply.shutdown);
+        assert!(reply.line.contains("-32602"));
+    }
     use super::*;
     use crate::engine::Engine;
     use freergb_core::LedLayout;
