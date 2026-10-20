@@ -22,6 +22,9 @@ jobs:
       - name: Official prerequisite download and staging acceptance (no installation)
         shell: pwsh
         run: ./scripts/test-mainboard-prerequisites.ps1 -VerifyDownloads
+      - name: Motherboard broker boundary acceptance (no service installation)
+        shell: pwsh
+        run: ./scripts/test-mainboard-broker.ps1
       - name: Release binaries
         run: cargo build --workspace --release --locked
       - name: Ensure installer compiler

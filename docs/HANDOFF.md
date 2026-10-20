@@ -329,3 +329,29 @@ Hardware results: `DEVICES.md#validation-log`.
 - Previous commit 7e91419 passed CI39447281629 on Windows/Linux and Package39447319152
   including installer lifecycle. New changes need their own subsequent runner result.
 - User README heading change and .claude/ are not ours and remain uncommitted.
+
+## Read-only broker boundary candidate
+
+- `providers/mainboard/BrokerService.cs`, `BrokerTransport.cs`, `BrokerCache.cs`:
+  LocalSystem service candidate with fixed protected Program Files path, owner/ACL/
+  reparse checks, one isolated fixed-path LHM reader, snapshot cache and timeouts.
+  Mainboard helper tries the verified service first, retaining legacy checks if
+  no endpoint exists; no automatic elevation or GUI/daemon privilege change.
+- Local snapshot-only pipe: FIRST_PIPE_INSTANCE handle retained across reconnects,
+  remote clients rejected, account-specific rights without create-instance, client
+  identification-only QoS, PID/image/protection checks, acknowledgment before
+  disconnect, bounded I/O with cancellation. Cache relay preserves monotonic age.
+- `scripts/test-mainboard-broker.ps1`: real pipe tests without hardware, service
+  registration or elevation; CI/Package include them. Both .NET binaries compile.
+  Existing Rust helper transport acceptance and local Inno build passed as well.
+- IMPORTANT: service candidate is NOT included/registered by Setup yet. Next work
+  is protected opt-in deployment from verified bytes, service owner state, update/
+  rollback/removal and disposable Windows SCM/worker crash/hang/normal-user tests.
+  Do not register a service image/DLL from the writable application/cache folder.
+  See MAINBOARD_BROKER.md. No actual fan setter or independent failsafe yet.
+- API/config formats unchanged; no GUI process logic, Tauri paths or shared types
+  changed. HKLM service owner SID is an anticipated protected installation setting,
+  not a user configuration file; not created on this machine.
+- Previous commit 0493bd0 CI39452690007 and Package39452741550 succeeded. This broker
+  increment requires its own subsequent runner result. User README/.claude remain
+  untouched.

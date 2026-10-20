@@ -3,6 +3,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -16,6 +17,7 @@ internal static class Mainboard
     private static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 262144 };
     private static object computer;
     private static string library;
+    private static bool direct;
 
     private static object Get(object target, string name)
     {
@@ -48,7 +50,7 @@ internal static class Mainboard
         using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
         {
             if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
-                return Empty("permission_denied", "Motherboard access currently requires an elevated daemon. No elevation was requested automatically.");
+                return Empty("permission_denied", "Motherboard access requires the protected freeRGB mainboard broker. No GUI/daemon elevation was requested automatically.");
         }
         AppDomain.CurrentDomain.AssemblyResolve += delegate(object sender, ResolveEventArgs args)
         {
@@ -118,27 +120,46 @@ internal static class Mainboard
             Console.WriteLine(Json.Serialize(Empty("missing_library", "Self-test only: no hardware accessed.")));
             return 0;
         }
-        if (args.Length != 2 || args[0] != "--library") return 2;
-        // Rust canonical paths use the Win32 extended prefix. Framework path
-        // validation rejects it unless legacy long-path switches are changed.
-        string directory = args[1];
-        if (directory.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) directory = @"\\" + directory.Substring(8);
-        else if (directory.StartsWith(@"\\?\", StringComparison.Ordinal)) directory = directory.Substring(4);
-        library = Path.GetFullPath(directory);
+        if (args.Length == 1 && args[0] == "--direct-protected-library")
+        {
+            // Only the protected LocalSystem service worker may bypass the broker.
+            try { BrokerService.CheckInstallation(true); }
+            catch { return 3; }
+            library = BrokerService.RuntimePath;
+            direct = true;
+        }
+        else
+        {
+            if (args.Length != 2 || args[0] != "--library") return 2;
+            // Rust canonical paths use the Win32 extended prefix. Framework path
+            // validation rejects it unless legacy long-path switches are changed.
+            string directory = args[1];
+            if (directory.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase)) directory = @"\\" + directory.Substring(8);
+            else if (directory.StartsWith(@"\\?\", StringComparison.Ordinal)) directory = directory.Substring(4);
+            library = Path.GetFullPath(directory);
+        }
         try
         {
             string request;
             while ((request = Console.ReadLine()) != null)
             {
                 if (request != "snapshot") return 2;
-                object result;
-                try { result = Snapshot(); }
+                string json;
+                try
+                {
+                    string broker = null;
+                    if (!direct)
+                    {
+                        try { broker = BrokerTransport.Snapshot(); }
+                        catch (Win32Exception error) { if (error.NativeErrorCode != 2) throw; }
+                    }
+                    json = broker ?? Json.Serialize(Snapshot());
+                }
                 catch (Exception error)
                 {
                     Exception cause = error is TargetInvocationException && error.InnerException != null ? error.InnerException : error;
-                    result = Empty("faulted", "Motherboard provider failed (" + cause.GetType().Name + "). Verify library dependencies, driver access and conflicting monitoring software.");
+                    json = Json.Serialize(Empty("faulted", "Motherboard provider failed (" + cause.GetType().Name + "). Verify library dependencies, protected broker access and conflicting monitoring software."));
                 }
-                string json = Json.Serialize(result);
                 if (Encoding.UTF8.GetByteCount(json) >= 262144) json = Json.Serialize(Empty("faulted", "Motherboard snapshot exceeds the message limit."));
                 Console.WriteLine(json);
                 Console.Out.Flush();

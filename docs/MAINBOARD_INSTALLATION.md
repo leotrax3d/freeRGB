@@ -66,7 +66,8 @@ and state but **does not uninstall shared PawnIO or .NET** needed by other softw
 **Remaining privilege work:** stock PawnIO access currently requires elevated
 motherboard-reader rights. Preparing dependencies does not bypass this: the helper
 reports `permission_denied` from a normal token. A restricted elevated broker/service
-and its protected installation/update/IPC need implementation and validation before
+candidate and its bounded local transport are implemented (`MAINBOARD_BROKER.md`),
+but protected installation/update/SCM acceptance still need implementation and validation before
 seamless normal-user motherboard operation. Do not install a privileged service
 from the user-writable application directory or elevate the full daemon implicitly.
 Real fan writes, calibration and independent failsafe remain separate gated work.

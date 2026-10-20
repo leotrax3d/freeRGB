@@ -56,6 +56,11 @@ jobs:
         shell: pwsh
         run: ./scripts/test-mainboard-prerequisites.ps1
 
+      - name: Windows motherboard broker boundary (no service installation)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-mainboard-broker.ps1
+
       - name: release build
         run: cargo build --workspace --release
 

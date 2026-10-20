@@ -104,7 +104,19 @@ Mainboard priority continuation:
 - [x] Initial explicit ASUS RGB/ARGB USB adapter; header table and manual ARGB lengths.
 - [x] Mock RGB protocol/fallback/ownership tests and real download/staging-only tests.
 - [x] Previous commit's CI39447281629 (Windows/Linux) and Package39447319152 passed.
-- [ ] Restricted privileged broker, protected installation/updates and IPC validation.
+- [x] Read-only broker service candidate, protected-path startup gate and local IPC tests.
+- [ ] Protected broker installation/updates/removal and real SCM/worker lifecycle validation.
 - [ ] Isolated real prerequisite installation/UAC/reboot acceptance.
 - [ ] Live ASUS configuration/color/fallback tests and header setup GUI/configuration.
 - [ ] Real mainboard fan writes/calibration/independent watchdog; broader manufacturer support.
+
+Broker boundary continuation:
+- [x] Minimal account-specific pipe rights, exclusive persistent handle and server identity checks.
+- [x] Identification-only client token, bounded request/reply/ack and cancellation/reconnection tests.
+- [x] Monotonic cache aging; expired readings cannot become fresh during forwarding.
+- [x] .NET helper/service compilation and no-hardware tests in PowerShell 7/Windows PowerShell 5.1.
+- [x] Existing Rust helper transport regression and local installer compilation.
+- [x] Commit 0493bd0 passed CI39452690007 and Package39452741550.
+- [ ] Activate the service only after protected deployment and disposable-machine acceptance.
+  No service or driver was installed/started by these tests. Setup still installs
+  prerequisite preparation only; real fan control remains unreleased.

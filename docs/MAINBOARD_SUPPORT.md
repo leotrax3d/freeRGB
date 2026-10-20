@@ -38,8 +38,12 @@ installation state that the launcher reads; normal installation remains disabled
 No shared GUI config-root file is added.
 The option is rejected with `--no-hardware` and on non-Windows systems.
 
-The helper checks for the library, an already-running PawnIO driver and an elevated
-token before opening LHM. It enables **only** motherboard/SuperIO groups. CPU, GPU,
+The helper first tries the fixed protected broker endpoint, verifies the server's
+image/protection, and retains measurement age when relaying cached readings. The
+broker is currently a tested service candidate, not installed by Setup; see
+`MAINBOARD_BROKER.md` for its boundary and outstanding deployment/SCM acceptance.
+With no broker, the direct reader checks for the library, an already-running PawnIO
+driver and an elevated token before opening LHM. It enables **only** motherboard/SuperIO groups. CPU, GPU,
 storage, memory and USB-controller groups remain off. It uses default memory-only
 LHM settings, never imports another program's saved control modes and never calls
 fan setters. It traverses subhardware and reads temperature, fan and control

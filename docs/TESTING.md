@@ -235,3 +235,21 @@ virtual IPC/plugin smoke, PowerShell5.1/7 prerequisite verification/staging, Inn
 build and installer model checks passed. Tauri preview PID32124 remained running
 on its default endpoint. No personal-machine installer, driver install or live
 ASUS color test was performed.
+
+## Read-only broker boundary candidate
+
+`scripts/test-mainboard-broker.ps1` compiles the helper, service candidate and a
+fixture using the .NET Framework compiler, without installing a service/driver or
+opening hardware. Real named-pipe tests cover account-specific DACL rights (no
+Everyone/anonymous/create-instance), exclusive name acquisition, server image
+checks, identification-only client token, command validation, bounded/strict UTF-8
+replies, silent peers, pending-I/O cancellation and reconnect/acknowledgment using
+one persistent handle. Cache tests cover retained age, expired snapshots/values,
+malformed envelopes, unsupported versions and future/negative/fractional clocks.
+Unprotected worker startup and writable payload paths are rejected.
+
+The fixture passes in PowerShell 7 and Windows PowerShell 5.1; existing ignored Rust
+helper transport acceptance also passed and Inno compiled. These are targeted
+checks for this increment, not a new full-workspace/hardware acceptance run.
+CI and Package now run the broker fixture. Protected deployment and actual SCM/
+native-worker lifecycle remain untested and the service is not enabled by Setup.

@@ -167,6 +167,12 @@ clients must not execute their paths or interpret them as permission to elevate.
 The existing mainboard provider still reports missing rights/prerequisites through
 its status. API version remains 1; Tauri paths/dependencies are unchanged.
 
+The internal read-only broker candidate (`MAINBOARD_BROKER.md`) retains this same
+helper envelope and these existing statuses. It adds no RPC methods, setters,
+GUI configuration files or wire fields. Relayed samples retain their original
+age. The service is not yet installed/enabled by Setup; prerequisite opt-in alone
+does not imply normal-user motherboard access.
+
 
 For concurrent Windows integration tests only, daemon `--ipc-instance NAME`
 selects `\\.\pipe\freergb-NAME`; NAME is 1..64 ASCII letters/digits/hyphens and
