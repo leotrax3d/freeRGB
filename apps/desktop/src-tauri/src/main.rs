@@ -5,6 +5,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod diagnostics;
+mod memory;
 mod poller;
 mod queue;
 
@@ -116,6 +117,18 @@ fn main() {
         .invoke_handler(tauri::generate_handler![rpc, snapshot, want_slices, start_service, export_diagnostics])
         .setup(move |app| {
             let handle = app.handle().clone();
+            if let Some(window) = app.get_webview_window("main") {
+                let w = window.clone();
+                let minimized = std::sync::atomic::AtomicBool::new(false);
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Resized(_) = event {
+                        let now = w.is_minimized().unwrap_or(false);
+                        if minimized.swap(now, std::sync::atomic::Ordering::Relaxed) != now {
+                            memory::set_minimized(&w, now);
+                        }
+                    }
+                });
+            }
             std::thread::Builder::new()
                 .name("daemon-commands".into())
                 .spawn(move || {

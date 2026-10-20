@@ -21,7 +21,8 @@
         "minHeight": 600,
         "theme": "Dark",
         "backgroundColor": "#000000",
-        "visible": true
+        "visible": true,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-gpu --disable-gpu-compositing --in-process-gpu --enable-features=NetworkServiceInProcess,NetworkServiceInProcess2 --disable-background-networking --disable-component-update --disable-sync --no-first-run"
       }
     ],
     "security": {
@@ -30,6 +31,11 @@
   },
   "bundle": {
     "active": false,
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico", "icons/icon.png"]
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ]
   }
 }
