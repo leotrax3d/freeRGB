@@ -21,9 +21,11 @@ enum UpdateCommand {
 }
 
 pub struct Panels {
+    alerts: super::alerts::Alerts,
     hotkeys: super::hotkeys::Hotkeys,
     history: super::sensor_history::Histories,
     history_generation: u64,
+    last_snapshot_s: f64,
     history_started: std::time::Instant,
     pub page: u8,
     curve: FanCurve,
@@ -174,12 +176,15 @@ impl Default for Panels {
                 }
             }
         });
-        Self { hotkeys:Default::default(),history:Default::default(),history_generation:0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
+        Self { alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
 
 impl Panels {
+    pub fn sensor_warnings(&self) -> usize {
+        self.alerts.unacknowledged()
+    }
     pub fn poll_hotkeys(&mut self, tx: &mpsc::Sender<Command>, snapshot: &Snapshot) {
         self.hotkeys.poll(tx, snapshot);
     }
@@ -187,6 +192,15 @@ impl Panels {
         self.hotkeys.active()
     }
     pub fn observe(&mut self, snapshot: &Snapshot) {
+        let now = self.history_started.elapsed().as_secs_f64();
+        if snapshot.generation != self.history_generation {
+            self.last_snapshot_s = now;
+        }
+        self.alerts.observe(
+            &snapshot.devices,
+            snapshot.connected && now - self.last_snapshot_s <= 5.0,
+            now,
+        );
         if snapshot.generation == self.history_generation {
             return;
         }
@@ -287,6 +301,7 @@ impl Panels {
                 }
                 4 => {
                     ui.heading("Monitoring");
+                    self.alerts.ui(ui);
                     if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); }
                     if let Some(path)=&snapshot.exported_report { ui.label(format!("Report saved: {}",path.display())); }
                     ui.label("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
@@ -298,6 +313,7 @@ impl Panels {
                                 let value = sensor["value"].as_f64().map_or_else(|| "missing".into(), |v| format!("{v:.0}"));
                                 let text = format!("{}: {} {} · {} ms{}", sensor["name"].as_str().unwrap_or("Sensor"), value, sensor["unit"].as_str().unwrap_or(""), age, if age > 3000 { " · STALE" } else { "" });
                                 ui.label(text);
+                                self.alerts.add_sensor_ui(ui,device,sensor);
                                 let key=(device["info"]["id"].as_str().unwrap_or_default().to_owned(),sensor["id"].as_str().unwrap_or_default().to_owned());
                                 if let Some(series)=self.history.series.get(&key) { super::sensor_history::graph(ui,series); }
                             }

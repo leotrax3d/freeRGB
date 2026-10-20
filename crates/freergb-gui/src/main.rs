@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
+mod alerts;
 mod diagnostics;
 mod hotkeys;
 mod macro_editor;
@@ -702,6 +703,7 @@ fn layout_editor(
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.request_repaint_after(Duration::from_secs(1));
         {
             let snapshot = self.state.lock().unwrap_or_else(|e| e.into_inner());
             self.panels.observe(&snapshot);
@@ -739,6 +741,14 @@ impl eframe::App for App {
         }
 
         egui::TopBottomPanel::top("status").show(ctx, |ui| {
+            let warnings = self.panels.sensor_warnings();
+            if warnings > 0
+                && ui
+                    .button(format!("⚠ {warnings} sensor warning(s) — open Monitoring"))
+                    .clicked()
+            {
+                self.panels.page = 4;
+            }
             if self.panels.hotkeys_active() {
                 ui.colored_label(
                     egui::Color32::LIGHT_GREEN,

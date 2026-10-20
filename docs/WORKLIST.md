@@ -44,3 +44,10 @@ Completed follow-up — 2026-10-20:
 
 Remaining acceptance: native hotkeys/input, installer lifecycle, live updater,
 Linux runner confirmation and identified/validated cooling hardware channels.
+
+Completed follow-up — advisory sensor monitoring:
+- [x] Persistent min/max sensor warning rules, hysteresis and debounce.
+- [x] Missing/stale/disconnected/changed-unit warnings and snapshot freshness guard.
+- [x] Cross-page banner, acknowledgement and recurrence handling.
+- [x] 132 Windows tests, Clippy/fmt, release smoke and regenerated installer.
+- [ ] Interactive monitoring acceptance with identified real channels.

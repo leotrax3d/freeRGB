@@ -136,3 +136,11 @@ No real cooling writes or product install/upgrade/uninstall were performed.
 GitHub Package run 39285464153 for 740b5b8 completed successfully; its downloaded
 installer checksum was verified. Later Ubuntu CI exposed missing ALSA development
 headers; libasound2-dev is now included, pending a fresh runner result.
+
+## Sensor warnings — 2026-10-20
+132 Windows tests pass, including low/high debounce and hysteresis, brief excursions,
+acknowledgement recurrence, invalid/duplicate rules and stale/disconnected/changed
+unit readings. Tests use cached JSON and simulated time, with no hardware access.
+Formatting, denied-warning Clippy, release build, virtual daemon/plugin IPC smoke
+and regenerated Inno installer pass. GUI click and real sensor acceptance remain
+open. This is advisory monitoring only; details in MONITORING.md.

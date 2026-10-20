@@ -176,3 +176,21 @@ Hardware results: `DEVICES.md#validation-log`.
   resolution; README is resolved and unstaged.
 * Ubuntu CI on a5e55c9 failed missing alsa.pc; added libasound2-dev to CI and
   installation docs. New Linux result pending.
+
+## Advisory sensor warnings — 2026-10-20
+* Monitoring supports up to 64 persistent per-device/sensor warning rules in
+  sensor-alerts.json. No rules or thresholds are enabled by default. Valid edits
+  apply in-memory immediately; Save persists them. See MONITORING.md.
+* Min/max limits with recovery hysteresis and three-second condition debounce;
+  stale/missing/nonfinite/disconnected/changed-unit readings warn. A snapshot that
+  stops advancing for five seconds is unavailable even if cached age_ms looks fresh.
+* Global GUI banner links to Monitoring. Acknowledgement lasts only for the current
+  condition, not a recurrence after recovery. States reset on startup; missing-device
+  rules remain available. Advisory GUI-only; not an independent hardware watchdog.
+* 132 Windows workspace tests, fmt/Clippy, release build, virtual IPC/plugin smoke
+  and installer compilation pass. Four alert regression tests use fake readings
+  and clocks. No real hardware writes, native key injection, GUI click acceptance
+  or product installer execution. Logs: target/alert-tests.log,
+  target/alert-release.log, target/alert-smoke.log, target/installer-build.log.
+* GitHub run 39369935576 (82f1211) passed Windows and Ubuntu fmt/Clippy; remainder
+  was still running at the last check. Do not claim overall Linux acceptance yet.
