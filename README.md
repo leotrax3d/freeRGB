@@ -14,6 +14,7 @@ no vendor software required.
 ![Rust](https://img.shields.io/badge/rust-1.80%2B-blue)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green)
+[![Downloads](https://img.shields.io/github/downloads/leotrax3d/FreeRGB/total?style=flat-square&color=10A37F&label=Downloads)](https://github.com/leotrax3d/FreeRGB/releases)
 
 </div>
 
