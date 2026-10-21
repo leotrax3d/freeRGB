@@ -45,6 +45,8 @@ policy there. Both GUIs consume the same additive daemon API.
 
 ## 4. Installer and updates
 
+- [x] Pure Rust maintenance gate: close admission, drain exact sessions, require
+      release evidence, block on timeout/crash. See `COOLING_MAINTENANCE.md`.
 - [ ] Maintenance admission lock prevents new control sessions during shutdown.
 - [ ] Request return, await confirmed release, then stop/swap/remove binaries.
 - [ ] Unresolved or failed release blocks maintenance and preserves recovery files.
