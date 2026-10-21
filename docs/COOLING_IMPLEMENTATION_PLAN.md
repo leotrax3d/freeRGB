@@ -45,6 +45,9 @@ policy there. Both GUIs consume the same additive daemon API.
       receipt identity/counter/duty validation, cancellation drops connection.
       Transport authentication/lifetime binding must precede construction;
       no production listener or caller yet.
+- [x] Rust client to actual C# session/transport over a real current-user Windows
+      pipe: set/close, disconnect and connected-but-silent lease expiry; synthetic
+      native sink only. Explicit script and Windows CI acceptance added.
 - [x] Pure calibration state machine and synthetic API preview.
 - [ ] Run calibration and curves through the Rust supervisor/private native client.
 - [ ] Support multiple channels with backward-compatible journal reservations.

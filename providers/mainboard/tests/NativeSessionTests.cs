@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO.Pipes;
 using System.Security.Principal;
+using System.Security.AccessControl;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +38,39 @@ internal sealed class SessionPort : INativeControlPort
 }
 internal static class NativeSessionTests
 {
+    private static NamedPipeServerStream RustFixturePipe(string name)
+    {
+        // Test-only full-access peer model. Production snapshot ACL is unchanged.
+        var user = WindowsIdentity.GetCurrent().User;
+        var acl = new PipeSecurity();
+        acl.SetOwner(user); acl.SetAccessRuleProtection(true,false);
+        acl.AddAccessRule(new PipeAccessRule(user,PipeAccessRights.FullControl,AccessControlType.Allow));
+        return new NamedPipeServerStream(name,PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous,4096,4096,acl);
+    }
+    // Test executable only. No LHM loading, protected service, driver or hardware.
+    internal static void RustChild(string name)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(name,"^freergb-native-rust-fixture-[a-f0-9]{32}$"))
+            throw new ArgumentException("Invalid synthetic interop pipe name.");
+        using (var server = RustFixturePipe(name))
+        {
+            // Model the private SYSTEM peer's full access using this test user.
+            // Tokio's generic-write open is deliberately NOT accepted by the
+            // limited-rights public snapshot pipe. Never change its production ACL.
+            Console.WriteLine("ready"); Console.Out.Flush();
+            server.WaitForConnection();
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            var port = new SessionPort { Floor = 40 };
+            var session = NativeControlSession.ForTest(port,delegate { return timer.ElapsedMilliseconds; });
+            NativeSessionTransport.RunForTest(server,session);
+            var view = session.View();
+            Console.WriteLine(new JavaScriptSerializer().Serialize(new {
+                state = view["state"], reason = view["reason"], duty_percent = view["duty_percent"],
+                owned = port.Owned, writes = port.Writes, simulated = true, physical_write_verified = false
+            }));
+            Console.Out.Flush();
+        }
+    }
     private static readonly JavaScriptSerializer Json = new JavaScriptSerializer();
     private static void Assert(bool value, string message) { if (!value) throw new Exception(message); }
     internal static string Command(Dictionary<string, object> reply, string action, int? duty)

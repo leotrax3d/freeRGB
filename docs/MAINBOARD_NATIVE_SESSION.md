@@ -162,3 +162,26 @@ hosting is integrated and accepted.
 Duplex-stream tests exercise set/close, changed session/counter/ticket/duty,
 unjustified physical verification, oversized nonterminated input and cancellation
 during a pending receipt. These use a synthetic peer, not LHM or a real driver.
+
+## Cross-language pipe acceptance
+
+`scripts/test-mainboard-interop.ps1` builds the test-only C# executable then runs
+the explicitly ignored Windows integration tests in `native_session_interop.rs`.
+The script selects the test executable through a temporary environment variable;
+it is not a daemon configuration or activation mechanism. Windows CI invokes the
+same tests after building the pinned native test fixture.
+
+Rust uses a real Tokio Windows named-pipe client against the actual C# session
+and `NativeSessionTransport`, with `SessionPort` as a memory-only native sink.
+Assertions inspect exact synthetic write order: acquire100, duty40, close100,
+release; disconnect or a silent connected client instead requests100 and retains
+ownership in emergency. Fixture output contains no tickets and always reports
+simulated/physical_write_verified=false. No LHM assembly is loaded in this mode.
+
+The test pipe grants the current test user full access, modelling the privileged
+private SYSTEM peer's rights. It is **not** the public sensor pipe's restricted
+ACL. Tokio's default generic-write open does not work against that public ACL;
+production permissions are deliberately unchanged. These tests do not establish
+SYSTEM authentication, registered-service identity or worker-lifetime binding for
+the Rust client; those remain required before production use. The C# fixture mode
+exists only in the test executable and never enters installer payloads.

@@ -59,6 +59,11 @@ jobs:
         shell: pwsh
         run: ./scripts/test-mainboard-control.ps1
 
+      - name: Rust to C# native session over a real current-user pipe (synthetic)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-mainboard-interop.ps1 -SkipBuild
+
       - name: Windows keyboard helper startup and cleanup (no events recorded)
         if: runner.os == 'Windows'
         shell: pwsh

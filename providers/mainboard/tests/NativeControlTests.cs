@@ -153,6 +153,7 @@ internal static class NativeControlTests
     private static int Main(string[] args)
     {
         if (args.Length == 2 && args[0] == "--journal-child") { NativeJournalTests.Child(args[1]); return 0; }
+        if (args.Length == 2 && args[0] == "--session-child") { NativeSessionTests.RustChild(args[1]); return 0; }
         if (args.Length != 1) return 2;
         string directory = Path.GetFullPath(args[0]);
         AppDomain.CurrentDomain.AssemblyResolve += delegate(object sender, ResolveEventArgs request) {
