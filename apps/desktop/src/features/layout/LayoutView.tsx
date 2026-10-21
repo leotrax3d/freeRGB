@@ -127,7 +127,7 @@ export default function LayoutView() {
               onChange={change}
             />
             <p className="text-caption text-text-subtle">
-              Drag to move, drag the corner to resize. Snaps to 5 % — hold Alt for free placement. The tinted
+              Drag to move, drag the corner to resize. Snaps to the 5 % grid when you let go — hold Alt for free placement. The tinted
               background only suggests the current effect.
             </p>
             {error && <p className="text-caption text-danger-text">{error}</p>}

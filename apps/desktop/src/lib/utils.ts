@@ -1,5 +1,11 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
+
+// Our type scale (globals.css) must count as font sizes, otherwise
+// tailwind-merge treats "text-body" as a colour and drops "text-black".
+const twMerge = extendTailwindMerge({
+  extend: { classGroups: { "font-size": [{ text: ["caption", "small", "body", "title", "section", "page"] }] } },
+});
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

@@ -1,7 +1,7 @@
 import { Plus, Thermometer, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ConfirmButton } from "@/components/confirm-button";
-import { NameForm } from "@/components/name-form";
+import { nameProblem } from "@/components/name-form";
 import { Section } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -73,13 +73,23 @@ export function CurvesSection() {
   const duty = usePreview(draft, temperature);
   const { pending, error, run } = useAction();
 
+  // null = no curve chosen yet, "" = new unsaved curve, otherwise a saved name.
+  const [title, setTitle] = useState("");
   const open = (n: string | null) => {
     setName(n);
+    setTitle("");
     setDraft(n && curves?.[n] ? curves[n] : DEFAULT_CURVE);
     setPoint(null);
   };
+  const isNew = name === "";
+  const titleProblem = isNew ? nameProblem(title) ?? (Object.keys(curves ?? {}).includes(title) ? "A curve with this name exists." : null) : null;
+  const save = async () => {
+    const target = isNew ? title : name!;
+    const ok = await run("save", () => rpc("cooling.curves.save", { name: target, curve: draft }), `Curve ${target} saved`);
+    if (ok) setName(target);
+  };
   const problem = curveProblem(draft);
-  const saved = name !== null && curves?.[name] !== undefined && approxEqual(curves[name], draft);
+  const saved = !!name && curves?.[name] !== undefined && approxEqual(curves[name], draft);
   const lastTemp = draft.points[draft.points.length - 1]!.temperature_c;
 
   return (
@@ -101,16 +111,39 @@ export function CurvesSection() {
               </button>
             </li>
           ))}
+          {isNew && (
+            <li className="flex h-9 items-center gap-2 rounded-control bg-surface-raised px-3 text-body animate-[view-in_var(--duration-base)_var(--ease-out)]">
+              <span className="size-2 rounded-full bg-creative" aria-hidden />
+              <span className="truncate">{title || "Untitled curve"}</span>
+              <span className="ml-auto text-caption text-text-subtle">unsaved</span>
+            </li>
+          )}
           <li>
-            <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => open(null)}>
+            <Button variant="ghost" size="sm" className="w-full justify-start" disabled={isNew} onClick={() => open("")}>
               <Plus /> New curve
             </Button>
           </li>
         </ul>
 
         <div className="flex flex-col gap-4 rounded-card bg-surface-sunken p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-title font-semibold">{name ?? "New curve"}</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {isNew ? (
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <input
+                  autoFocus
+                  aria-label="Curve name"
+                  value={title}
+                  maxLength={64}
+                  placeholder="Name this curve, e.g. Quiet"
+                  onChange={(e) => setTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && title && !titleProblem && !problem && void save()}
+                  className="h-9 w-full max-w-xs rounded-control border border-info/60 bg-surface px-3 text-title font-semibold text-text outline-none placeholder:font-normal placeholder:text-text-subtle focus:border-info"
+                />
+                {titleProblem && <span className="text-caption text-danger-text">{titleProblem}</span>}
+              </div>
+            ) : (
+              <h3 className="text-title font-semibold">{name ?? "Default curve"}</h3>
+            )}
             <div className="flex items-center gap-1">
               <Button size="sm" variant="ghost" disabled={draft.points.length >= 16} onClick={() => setDraft(addPoint(draft))}>
                 <Plus /> Point
@@ -118,6 +151,7 @@ export function CurvesSection() {
               <Button
                 size="sm"
                 variant="ghost"
+                title={point === null ? "Select a point first" : undefined}
                 disabled={point === null || draft.points.length <= 2}
                 onClick={() => {
                   setDraft(removePoint(draft, point!));
@@ -163,34 +197,43 @@ export function CurvesSection() {
             <Slider aria-label="Preview temperature" min={0} max={110} step={1} value={[temperature]} onValueChange={([v]) => setTemperature(v!)} />
           </div>
           {problem && <p className="text-caption text-danger-text">{problem}</p>}
-          <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4">
-            {name ? (
-              <div className="flex items-center gap-2">
-                <Button variant="primary" disabled={!!problem || saved || pending !== null} onClick={() => run("save", () => rpc("cooling.curves.save", { name, curve: draft }))}>
-                  {saved ? "Saved" : "Save changes"}
-                </Button>
-                <ConfirmButton
-                  label={`Delete ${name}`}
-                  icon={<Trash2 />}
-                  disabled={pending !== null}
-                  onConfirm={() => run("delete", () => rpc("cooling.curves.delete", { name })).then((ok) => ok && open(null))}
-                />
-              </div>
-            ) : (
-              <div className="w-full max-w-sm">
-                <NameForm
-                  label="Curve name"
-                  placeholder="e.g. Quiet"
-                  submit="Save curve"
-                  existing={Object.keys(curves ?? {})}
-                  busy={pending !== null || !!problem}
-                  onSubmit={async (n) => {
-                    const ok = await run("save", () => rpc("cooling.curves.save", { name: n, curve: draft }));
-                    if (ok) setName(n);
-                    return ok;
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+            {name === null ? (
+              <>
+                <span className="text-small text-text-muted">This is the default curve. Change it and save it under a name, or pick a saved curve.</span>
+                <Button
+                  variant="primary"
+                  className="ml-auto"
+                  onClick={() => {
+                    // Keep the edits made to the default curve.
+                    setName("");
+                    setTitle("");
                   }}
-                />
-              </div>
+                >
+                  <Plus /> Save as new curve
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="primary"
+                  disabled={!!problem || saved || pending !== null || (isNew && (!title || !!titleProblem))}
+                  title={isNew && !title ? "Enter a name above first" : undefined}
+                  onClick={() => void save()}
+                >
+                  {saved ? "Saved" : isNew ? "Save curve" : "Save changes"}
+                </Button>
+                {isNew ? (
+                  <Button variant="ghost" onClick={() => open(null)}>Cancel</Button>
+                ) : (
+                  <ConfirmButton
+                    label={`Delete ${name}`}
+                    icon={<Trash2 />}
+                    disabled={pending !== null}
+                    onConfirm={() => run("delete", () => rpc("cooling.curves.delete", { name }), "Curve deleted").then((ok) => ok && open(null))}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>

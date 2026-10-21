@@ -1,8 +1,10 @@
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Select } from "@/components/ui/select";
 import { ColorField } from "@/components/color-picker";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { MODIFIERS, SINGLE_KEYS, type MacroStep } from "@/lib/api/control";
+import { chordProblem, SINGLE_KEYS, type MacroStep } from "@/lib/api/control";
+import { KeyRecorder } from "@/components/key-recorder";
 import { EFFECTS } from "@/lib/api/effects";
 import fixtures from "@/lib/api/fixtures/effects.json";
 import type { EffectSpec } from "@/lib/api/types";
@@ -25,19 +27,16 @@ function Fields({ step, onChange }: { step: MacroStep; onChange: (s: MacroStep) 
       );
     case "effect":
       return (
-        <select
-          className={field}
-          aria-label="Effect"
+        <Select
+          label="Effect"
+          className="w-56"
           value={step.effect.type}
-          onChange={(e) => onChange({ ...step, effect: (fixtures as Record<string, EffectSpec>)[e.target.value]! })}
-        >
-          {EFFECTS.filter((e) => e.name !== "layers").map((e) => (
-            <option key={e.name} value={e.name}>
-              {e.label} (default settings)
-            </option>
-          ))}
-          {step.effect.type === "layers" && <option value="layers">Custom layers</option>}
-        </select>
+          onChange={(name) => onChange({ ...step, effect: (fixtures as Record<string, EffectSpec>)[name]! })}
+          options={[
+            ...EFFECTS.filter((e) => e.name !== "layers").map((e) => ({ value: e.name as string, label: e.label })),
+            ...(step.effect.type === "layers" ? [{ value: "layers", label: "Custom layers" }] : []),
+          ]}
+        />
       );
     case "delay":
       return (
@@ -67,43 +66,20 @@ function Fields({ step, onChange }: { step: MacroStep; onChange: (s: MacroStep) 
       );
     case "key":
       return (
-        <select className={field} aria-label="Key" value={step.key} onChange={(e) => onChange({ ...step, key: e.target.value })}>
-          {SINGLE_KEYS.map((k) => (
-            <option key={k} value={k}>
-              {KEY_LABELS[k] ?? k}
-            </option>
-          ))}
-        </select>
+        <Select label="Key" className="w-40" value={step.key} onChange={(key) => onChange({ ...step, key })} options={SINGLE_KEYS.map((k) => ({ value: k as string, label: KEY_LABELS[k] ?? k }))} />
       );
-    case "chord": {
-      const mods = step.keys.filter((k) => (MODIFIERS as readonly string[]).includes(k));
-      const key = step.keys.find((k) => !(MODIFIERS as readonly string[]).includes(k)) ?? "";
-      const set = (m: string[], k: string) => onChange({ ...step, keys: [...MODIFIERS.filter((x) => m.includes(x)), ...(k ? [k] : [])] });
+    case "chord":
       return (
-        <div className="flex flex-wrap items-center gap-3">
-          {MODIFIERS.map((m) => (
-            <label key={m} className="flex items-center gap-1 text-small capitalize">
-              <input
-                type="checkbox"
-                className="accent-[#10a37f]"
-                checked={mods.includes(m)}
-                onChange={(e) => set(e.target.checked ? [...mods, m] : mods.filter((x) => x !== m), key)}
-              />
-              {m === "meta" ? "Win" : m}
-            </label>
-          ))}
-          <span className="text-caption text-text-subtle">+</span>
-          <input
-            aria-label="Key"
-            className={`${field} w-24 font-mono`}
-            value={key}
-            maxLength={9}
-            placeholder="a–z, 0–9"
-            onChange={(e) => set(mods, e.target.value.trim().toLowerCase())}
+        <div className="flex flex-col gap-1">
+          <KeyRecorder
+            label="Shortcut to send"
+            value={step.keys}
+            accept={(k) => /^([a-z0-9]|enter|escape|tab|space|backspace|up|down|left|right)$/.test(k)}
+            onChange={(keys) => onChange({ ...step, keys })}
           />
+          {chordProblem(step.keys) && step.keys.length > 0 && <span className="text-caption text-danger-text">{chordProblem(step.keys)}</span>}
         </div>
       );
-    }
   }
 }
 
@@ -128,18 +104,13 @@ export function StepRow({
   return (
     <li className="flex items-start gap-3 px-3 py-2.5">
       <span className="mt-1.5 w-5 text-right text-caption text-text-subtle tabular">{index + 1}</span>
-      <select
-        aria-label="Step type"
-        className={`${field} w-36 shrink-0`}
+      <Select
+        label="Step type"
+        className="w-36 shrink-0"
         value={step.type}
-        onChange={(e) => onChange(blankStep(e.target.value as MacroStep["type"]))}
-      >
-        {STEP_TYPES.map((t) => (
-          <option key={t.type} value={t.type}>
-            {t.label}
-          </option>
-        ))}
-      </select>
+        onChange={(type) => onChange(blankStep(type))}
+        options={STEP_TYPES.map((t) => ({ value: t.type, label: t.label }))}
+      />
       <div className="min-w-0 flex-1">
         <Fields step={step} onChange={onChange} />
         {def.input && !inputEnabled && (

@@ -1,6 +1,6 @@
 import { Box, Cable, Cpu, Fan, Headphones, Keyboard, MemoryStick, Mouse, PlugZap, Snowflake, Sun, type LucideIcon } from "lucide-react";
 import { memo } from "react";
-import { PageHeader, Section } from "@/components/page";
+import { PageHeader } from "@/components/page";
 import { EmptyState, StatusDot, type Tone } from "@/components/status";
 import { Slider } from "@/components/ui/slider";
 import { deviceStatus, faultMessage, type DeviceKind, type DeviceSummary } from "@/lib/api/types";
@@ -68,7 +68,7 @@ const DeviceCard = memo(function DeviceCard({ device }: { device: DeviceSummary 
           <h3 className="truncate text-body font-medium" title={device.info.name}>
             {device.info.name}
           </h3>
-          <span className="text-caption text-text-subtle">{device.info.vendor}</span>
+          <span className="text-caption text-text-subtle">{device.info.vendor} · {kind.label.replace(/s$/, "")}</span>
         </div>
         <StatusDot tone={STATUS[state].tone} label={STATUS[state].label} />
       </header>
@@ -109,22 +109,23 @@ export default function DevicesView() {
 
   return (
     <>
-      <PageHeader title="Devices" description="Everything freeRGB found, with live status." />
+      <PageHeader
+        title="Devices"
+        description={devices ? `${devices.filter((d) => d.status === "Connected").length} of ${devices.length} connected · live status` : "Everything freeRGB found, with live status."}
+      />
       {devices && devices.length === 0 && (
         <EmptyState icon={<PlugZap />} title="No devices found">
           freeRGB only talks to devices it supports. Check the connection, close other RGB software, or start the
           service with a virtual demo device.
         </EmptyState>
       )}
-      {[...groups].map(([kind, list]) => (
-        <Section key={kind} title={KINDS[kind]?.label ?? kind}>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
-            {list.map((d) => (
-              <DeviceCard key={d.info.id} device={d} />
-            ))}
-          </div>
-        </Section>
-      ))}
+      {devices && devices.length > 0 && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
+          {[...groups.values()].flat().map((d) => (
+            <DeviceCard key={d.info.id} device={d} />
+          ))}
+        </div>
+      )}
     </>
   );
 }

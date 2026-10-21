@@ -49,18 +49,18 @@ function NowPlaying() {
   const devices = useDaemon((s) => s.devices);
   const active = devices?.filter((d) => d.status === "Connected").length ?? 0;
   return (
-    <div className="flex items-center gap-6 rounded-card bg-surface-sunken p-5">
-      <div
-        className="h-20 w-40 shrink-0 rounded-control"
-        style={{ background: effect ? effectPreview(effect) : "#303030" }}
-        aria-hidden
-      />
-      <div className="flex flex-col gap-1">
-        <span className="text-caption uppercase tracking-wider text-text-subtle">Now running</span>
-        <span className="text-section font-semibold">{effect ? effectLabel(effect.type) : "—"}</span>
-        <span className="text-small text-text-muted">
-          on {active} {active === 1 ? "device" : "devices"} · keeps running when this window is closed
-        </span>
+    <div data-tour="now" className="relative overflow-hidden rounded-card border border-border">
+      <div className="absolute inset-0 opacity-35" style={{ background: effect ? effectPreview(effect) : "#303030" }} aria-hidden />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/20" aria-hidden />
+      <div className="relative flex flex-wrap items-end justify-between gap-4 p-5">
+        <div className="flex flex-col gap-1">
+          <span className="text-caption font-medium uppercase tracking-wider text-text-muted">Now running</span>
+          <span className="text-section font-semibold">{effect ? effectLabel(effect.type) : "—"}</span>
+          <span className="text-small text-text-muted">
+            on {active} {active === 1 ? "device" : "devices"} · keeps running when this window is closed
+          </span>
+        </div>
+        <Brightness />
       </div>
     </div>
   );
@@ -88,11 +88,11 @@ const EffectTile = memo(function EffectTile({
       disabled={busy}
       onClick={() => onSelect(name)}
       className={cn(
-        "group flex flex-col gap-3 rounded-card p-2 pb-3 text-left transition-colors duration-(--duration-fast)",
+        "group flex flex-col gap-2 rounded-card p-1.5 pb-2.5 text-left transition-colors duration-(--duration-fast)",
         active ? "bg-surface-raised ring-1 ring-accent/60" : "hover:bg-surface-raised",
       )}
     >
-      <div className="relative h-20 overflow-hidden rounded-control" style={{ background: effectPreview(spec) }}>
+      <div className="relative h-14 overflow-hidden rounded-control opacity-90 transition-opacity group-hover:opacity-100" style={{ background: effectPreview(spec) }}>
         {active && (
           <span className="absolute right-2 top-2 grid size-5 place-items-center rounded-full bg-accent text-black">
             <Check className="size-3.5" strokeWidth={3} />
@@ -100,7 +100,7 @@ const EffectTile = memo(function EffectTile({
         )}
       </div>
       <div className="flex flex-col px-1">
-        <span className="text-body font-medium">{label}</span>
+        <span className="text-small font-medium">{label}</span>
         <span className="text-caption text-text-subtle">{HINTS[name] ?? " "}</span>
       </div>
     </button>
@@ -130,7 +130,7 @@ export default function LightingView() {
 
   return (
     <>
-      <PageHeader title="Lighting" description="Pick an effect for all devices." actions={<Brightness />} />
+      <PageHeader title="Lighting" description="Pick an effect for all devices." />
       {/* Wide: settings beside the effects. Narrow: settings under "Now running". */}
       <div className="@container">
         <div className="grid items-start gap-6 [grid-template-areas:'now'_'settings'_'effects'] @3xl:grid-cols-[minmax(0,1fr)_300px] @3xl:[grid-template-areas:'now_settings'_'effects_settings']">
@@ -139,7 +139,7 @@ export default function LightingView() {
           </div>
           <div className="flex min-w-0 flex-col gap-6 [grid-area:effects]">
             <Section title="Effects" aside={error && <span className="text-caption text-danger-text">{error}</span>}>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+              <div data-tour="effects" className="grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2">
                 {EFFECTS.map(({ name, label }) => (
                   <EffectTile
                     key={name}

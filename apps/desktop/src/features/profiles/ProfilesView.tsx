@@ -37,7 +37,7 @@ export default function ProfilesView() {
             submit="Save profile"
             existing={profiles ?? []}
             busy={pending !== null}
-            onSubmit={(name) => run(`save:${name}`, () => rpc("profiles.save", { name }))}
+            onSubmit={(name) => run(`save:${name}`, () => rpc("profiles.save", { name }), `Profile ${name} saved`)}
           />
         </div>
       </Section>
@@ -56,7 +56,7 @@ export default function ProfilesView() {
                 size="sm"
                 variant="secondary"
                 disabled={pending !== null}
-                onClick={() => run(name, () => rpc("profiles.load", { name }))}
+                onClick={() => run(name, () => rpc("profiles.load", { name }), `Profile ${name} loaded`)}
               >
                 {pending === name ? "Loading…" : "Load"}
               </Button>
@@ -64,7 +64,7 @@ export default function ProfilesView() {
                 label={`Delete ${name}`}
                 icon={<Trash2 />}
                 disabled={pending !== null}
-                onConfirm={() => run(name, () => rpc("profiles.delete", { name }))}
+                onConfirm={() => run(name, () => rpc("profiles.delete", { name }), `Profile ${name} deleted`)}
               />
             </li>
           ))}

@@ -1,17 +1,20 @@
 import { useCallback, useState } from "react";
+import { toast } from "@/components/toast";
 
 /**
- * Runs one user action at a time and keeps its error for inline display.
+ * Runs one user action at a time, keeps its error for inline display and
+ * optionally confirms success with a toast.
  * `pending` holds a key (e.g. the profile name) so only that row shows busy.
  */
 export function useAction() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const run = useCallback(async (key: string, action: () => Promise<unknown>): Promise<boolean> => {
+  const run = useCallback(async (key: string, action: () => Promise<unknown>, success?: string): Promise<boolean> => {
     setPending(key);
     setError(null);
     try {
       await action();
+      if (success) toast(success);
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

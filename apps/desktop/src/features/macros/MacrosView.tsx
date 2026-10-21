@@ -1,8 +1,9 @@
 import { Keyboard, Play, Plus, Square, Trash2, Zap } from "lucide-react";
+import { Select } from "@/components/ui/select";
 import { useState } from "react";
 import { ConfirmButton } from "@/components/confirm-button";
 import { NameForm } from "@/components/name-form";
-import { PageHeader, Section } from "@/components/page";
+import { PageHeader } from "@/components/page";
 import { Banner } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { macroProblem, type MacroDefinition, type MacroStep } from "@/lib/api/control";
@@ -10,6 +11,7 @@ import { approxEqual } from "@/lib/store/approxEqual";
 import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { cn } from "@/lib/utils";
+import { ShortcutsPanel } from "./ShortcutsPanel";
 import { StepRow } from "./StepEditor";
 import { STEP_TYPES, blankStep, moveStep } from "./steps";
 
@@ -21,6 +23,7 @@ export default function MacrosView() {
   const status = useDaemon((s) => s.macro_status);
   const [name, setName] = useState<string | null>(null);
   const [draft, setDraft] = useState<MacroDefinition>(NEW);
+  const [tab, setTab] = useState<"sequences" | "shortcuts">("sequences");
   const [addType, setAddType] = useState<MacroStep["type"]>("color");
   const { pending, error, run } = useAction();
 
@@ -35,12 +38,38 @@ export default function MacrosView() {
 
   return (
     <>
-      <PageHeader title="Macros" description="Step sequences for lighting changes and, if enabled, keyboard output." />
+      <PageHeader
+        title="Macros"
+        description="Step sequences and keyboard shortcuts."
+        actions={
+          <div role="tablist" aria-label="Macro sections" className="flex rounded-control bg-surface-sunken p-1">
+            {(["sequences", "shortcuts"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "h-8 rounded-chip px-4 text-small font-medium capitalize transition-colors duration-(--duration-fast)",
+                  tab === t ? "bg-surface-raised text-text" : "text-text-muted hover:text-text",
+                )}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        }
+      />
+      {tab === "shortcuts" ? (
+        <ShortcutsPanel />
+      ) : (
+      <>
 
       {running && (
         <Banner tone="info">
           <Zap className="size-4" /> Running “{running}”
-          <Button size="sm" variant="secondary" className="ml-auto" onClick={() => run("cancel", () => rpc("macros.cancel"))}>
+          <Button size="sm" variant="secondary" className="ml-auto" onClick={() => run("cancel", () => rpc("macros.cancel"), "Macro stopped")}>
             <Square /> Stop
           </Button>
         </Banner>
@@ -68,7 +97,7 @@ export default function MacrosView() {
                   variant="ghost"
                   aria-label={`Run ${n}`}
                   disabled={running !== null || pending !== null}
-                  onClick={() => run(`run:${n}`, () => rpc("macros.run", { name: n }))}
+                  onClick={() => run(`run:${n}`, () => rpc("macros.run", { name: n }), `Running ${n}`)}
                 >
                   <Play />
                 </Button>
@@ -112,18 +141,7 @@ export default function MacrosView() {
               ))}
             </ol>
             <div className="flex items-center gap-2">
-              <select
-                aria-label="Step to add"
-                className="h-8 rounded-chip border border-border-strong bg-surface px-2 text-small outline-none focus-visible:border-info"
-                value={addType}
-                onChange={(e) => setAddType(e.target.value as MacroStep["type"])}
-              >
-                {STEP_TYPES.map((t) => (
-                  <option key={t.type} value={t.type}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+              <Select label="Step to add" className="w-40" value={addType} onChange={setAddType} options={STEP_TYPES.map((t) => ({ value: t.type, label: t.label }))} />
               <Button size="sm" variant="secondary" disabled={draft.steps.length >= 128} onClick={() => setSteps([...draft.steps, blankStep(addType)])}>
                 <Plus /> Add step
               </Button>
@@ -133,17 +151,17 @@ export default function MacrosView() {
             <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border pt-4">
               {name ? (
                 <div className="flex items-center gap-2">
-                  <Button variant="primary" disabled={!!problem || saved || pending !== null} onClick={() => run("save", () => rpc("macros.save", { name, definition: draft }))}>
+                  <Button variant="primary" disabled={!!problem || saved || pending !== null} onClick={() => run("save", () => rpc("macros.save", { name, definition: draft }), "Macro saved")}>
                     {saved ? "Saved" : "Save changes"}
                   </Button>
-                  <Button variant="secondary" disabled={!saved || running !== null || pending !== null} onClick={() => run("run", () => rpc("macros.run", { name }))}>
+                  <Button variant="secondary" disabled={!saved || running !== null || pending !== null} onClick={() => run("run", () => rpc("macros.run", { name }), `Running ${name}`)}>
                     <Play /> Run
                   </Button>
                   <ConfirmButton
                     label={`Delete ${name}`}
                     icon={<Trash2 />}
                     disabled={pending !== null}
-                    onConfirm={() => run("delete", () => rpc("macros.delete", { name })).then((ok) => ok && open(null))}
+                    onConfirm={() => run("delete", () => rpc("macros.delete", { name }), "Macro deleted").then((ok) => ok && open(null))}
                   />
                 </div>
               ) : (
@@ -155,7 +173,7 @@ export default function MacrosView() {
                     existing={Object.keys(macros ?? {})}
                     busy={pending !== null || !!problem}
                     onSubmit={async (n) => {
-                      const ok = await run("save", () => rpc("macros.save", { name: n, definition: draft }));
+                      const ok = await run("save", () => rpc("macros.save", { name: n, definition: draft }), "Macro saved");
                       if (ok) setName(n);
                       return ok;
                     }}
@@ -167,12 +185,8 @@ export default function MacrosView() {
         </div>
       </div>
 
-      <Section title="Global shortcuts">
-        <p className="rounded-card border border-border px-4 py-3 text-small text-text-muted">
-          Keyboard shortcuts that start macros still run in freeRGB Classic. They move here once that logic is shared
-          between both apps (M5).
-        </p>
-      </Section>
+      </>
+      )}
     </>
   );
 }

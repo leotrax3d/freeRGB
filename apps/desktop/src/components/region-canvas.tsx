@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Region } from "@/lib/api/types";
 import { moved, nudged, resized } from "@/lib/region";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,7 @@ export function RegionCanvas({
 }) {
   const canvas = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
 
   const delta = (e: PointerEvent) => {
     const g = gesture.current!;
@@ -49,7 +50,9 @@ export function RegionCanvas({
     const g = gesture.current;
     if (!g) return;
     const [dx, dy] = delta(e);
-    const next = g.mode === "move" ? moved(g.start, dx, dy, !e.altKey) : resized(g.start, dx, dy, !e.altKey);
+    // Follow the pointer freely while dragging; snap only when the gesture ends.
+    const snap = commit && !e.altKey;
+    const next = g.mode === "move" ? moved(g.start, dx, dy, snap) : resized(g.start, dx, dy, snap);
     onChange(g.id, next, commit);
   };
   const begin = (e: PointerEvent<HTMLElement>, item: CanvasItem, mode: Gesture["mode"]) => {
@@ -57,11 +60,13 @@ export function RegionCanvas({
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     gesture.current = { id: item.id, mode, start: item.region, px: e.clientX, py: e.clientY };
+    setDragging(item.id);
     onSelect?.(item.id);
   };
   const end = (e: PointerEvent) => {
     apply(e, true);
     gesture.current = null;
+    setDragging(null);
   };
   const key = (e: KeyboardEvent, item: CanvasItem) => {
     const next = nudged(item.region, e.key, e.shiftKey ? 0.05 : 0.01, e.altKey);
@@ -104,6 +109,8 @@ export function RegionCanvas({
             onFocus={() => onSelect?.(item.id)}
             className={cn(
               "absolute cursor-grab touch-none rounded-control border-2 active:cursor-grabbing",
+              // Glide into the snapped position (and on keyboard/slider edits), never while following the pointer.
+              dragging !== item.id && "transition-[left,top,width,height] duration-(--duration-base) ease-(--ease-out)",
               active ? "z-10" : "z-0",
               item.muted && "opacity-50",
             )}

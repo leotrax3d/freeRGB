@@ -1,19 +1,18 @@
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select } from "@/components/ui/select";
 import { useState, type ReactNode } from "react";
 import { RegionCanvas } from "@/components/region-canvas";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { EFFECTS, effectLabel, effectPreview } from "@/lib/api/effects";
-import type { BlendMode, EffectName, Layer } from "@/lib/api/types";
+import type { EffectName, Layer } from "@/lib/api/types";
 import { FULL } from "@/lib/region";
 import { cn } from "@/lib/utils";
 import { EffectFields } from "./EffectFields";
 import { addLayer, BLENDS, MAX_LAYERS, moveLayer, removeLayer, setLayerEffect, updateLayer } from "./layers";
 
 type Change = (layers: Layer[], commit: boolean) => void;
-
-const selectClass =
-  "h-8 w-full rounded-chip border border-border-strong bg-surface px-2 text-small text-text outline-none focus-visible:border-info";
 
 function Labelled({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -81,26 +80,16 @@ function LayerCard({
         <div className="flex flex-col gap-3 border-t border-border px-2 pb-3 pt-3">
           <div className="grid grid-cols-2 gap-2 px-2">
             <Labelled label="Effect">
-              <select
-                className={selectClass}
+              <Select
+                label="Effect"
+                className="w-full"
                 value={layer.effect.type}
-                onChange={(e) => onChange(setLayerEffect(layers, index, e.target.value as Exclude<EffectName, "layers">), true)}
-              >
-                {EFFECTS.filter((e) => e.name !== "layers").map((e) => (
-                  <option key={e.name} value={e.name}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(name) => onChange(setLayerEffect(layers, index, name), true)}
+                options={EFFECTS.filter((e) => e.name !== "layers").map((e) => ({ value: e.name as Exclude<EffectName, "layers">, label: e.label }))}
+              />
             </Labelled>
             <Labelled label="Blend">
-              <select className={selectClass} value={layer.blend} onChange={(e) => set({ blend: e.target.value as BlendMode })}>
-                {BLENDS.map((b) => (
-                  <option key={b.mode} value={b.mode}>
-                    {b.label}
-                  </option>
-                ))}
-              </select>
+              <Select label="Blend" className="w-full" value={layer.blend} onChange={(blend) => set({ blend })} options={BLENDS.map((b) => ({ value: b.mode, label: b.label }))} />
             </Labelled>
           </div>
           <div className="flex flex-col gap-2 px-2">
@@ -123,15 +112,9 @@ function LayerCard({
             onChange={(key, value, commit) => set({ effect: { ...layer.effect, [key]: value } as Layer["effect"] }, commit)}
           />
           <div className="flex flex-col gap-2 px-2">
-            <label className="flex items-center gap-2 text-small">
-              <input
-                type="checkbox"
-                className="size-4 accent-[#10a37f]"
-                checked={!!layer.region}
-                onChange={(e) => set({ region: e.target.checked ? { x: 0, y: 0, w: 0.5, h: 1 } : null })}
-              />
+            <Checkbox checked={!!layer.region} onChange={(on) => set({ region: on ? { x: 0, y: 0, w: 0.5, h: 1 } : null })}>
               Only part of the canvas
-            </label>
+            </Checkbox>
             {layer.region && (
               <RegionCanvas
                 compact

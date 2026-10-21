@@ -48,7 +48,7 @@ export function CustomEffects() {
                 label={`Delete ${name}`}
                 icon={<Trash2 />}
                 disabled={pending !== null}
-                onConfirm={() => run(name, () => rpc("custom_effects.delete", { name }))}
+                onConfirm={() => run(name, () => rpc("custom_effects.delete", { name }), `Deleted ${name}`)}
               />
             </li>
           ))}

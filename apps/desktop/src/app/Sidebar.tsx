@@ -4,7 +4,9 @@ import { StatusDot } from "@/components/status";
 import { useDaemon } from "@/lib/store/daemon";
 import { cn } from "@/lib/utils";
 import { useNavigation } from "./navigation";
-import { VIEWS, type ViewDef } from "./views";
+import { Search } from "lucide-react";
+import { usePalette } from "./CommandPalette";
+import { GROUP_LABELS, VIEWS, type ViewDef } from "./views";
 
 function NavItem({ view, active, onSelect }: { view: ViewDef; active: boolean; onSelect: () => void }) {
   const Icon = view.icon;
@@ -21,7 +23,6 @@ function NavItem({ view, active, onSelect }: { view: ViewDef; active: boolean; o
     >
       <Icon className={cn("size-4", active ? "text-text" : "text-text-subtle group-hover:text-text-muted")} />
       <span className="flex-1 text-left">{view.label}</span>
-      {view.planned && <span className="text-caption text-text-disabled">{view.planned}</span>}
     </button>
   );
 }
@@ -56,22 +57,39 @@ export function Sidebar() {
     event.preventDefault();
   };
 
-  const main = VIEWS.filter((v) => !v.footer);
-  const footer = VIEWS.filter((v) => v.footer);
+  const footer = VIEWS.filter((v) => v.group === "footer");
+  const openPalette = usePalette((s) => s.open);
   return (
     <nav ref={nav} onKeyDown={onKeyDown} aria-label="Main" className="flex w-60 shrink-0 flex-col gap-1 bg-bg px-3 pb-3 pt-5">
-      <div className="mb-6 flex items-center gap-3 px-3">
+      <div className="mb-5 flex items-center gap-3 px-3">
         <BrandTiles size={9} />
         <span className="text-title font-semibold tracking-tight">freeRGB</span>
       </div>
-      {main.map((v) => (
-        <NavItem key={v.id} view={v} active={view === v.id} onSelect={() => go(v.id)} />
+      <button
+        type="button"
+        onClick={openPalette}
+        data-tour="search"
+        className="mb-4 flex h-9 items-center gap-2.5 rounded-control border border-border px-3 text-small text-text-subtle transition-colors hover:border-border-strong hover:text-text-muted"
+      >
+        <Search className="size-4" />
+        <span className="flex-1 text-left">Search</span>
+        <kbd className="rounded-chip bg-surface px-1.5 font-sans text-caption">Ctrl K</kbd>
+      </button>
+      <div data-tour="nav" className="flex flex-col">
+      {(Object.keys(GROUP_LABELS) as (keyof typeof GROUP_LABELS)[]).map((group) => (
+        <div key={group} className="mb-3 flex flex-col gap-0.5">
+          <span className="px-3 pb-1 text-caption font-medium text-text-subtle">{GROUP_LABELS[group]}</span>
+          {VIEWS.filter((v) => v.group === group).map((v) => (
+            <NavItem key={v.id} view={v} active={view === v.id} onSelect={() => go(v.id)} />
+          ))}
+        </div>
       ))}
+      </div>
       <div className="flex-1" />
       {footer.map((v) => (
         <NavItem key={v.id} view={v} active={view === v.id} onSelect={() => go(v.id)} />
       ))}
-      <div className="mt-2 border-t border-border px-3 pt-3">
+      <div data-tour="status" className="mt-2 border-t border-border px-3 pt-3">
         <ServiceStatus />
       </div>
     </nav>

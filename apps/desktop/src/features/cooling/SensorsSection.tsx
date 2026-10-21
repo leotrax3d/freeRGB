@@ -1,4 +1,6 @@
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { Section } from "@/components/page";
 import { Button } from "@/components/ui/button";
@@ -58,26 +60,19 @@ function NodeFields({
   onChange: (node: SensorNode) => void;
 }) {
   const nodeSelect = (value: string, set: (v: string) => void) => (
-    <select className={field} value={value} onChange={(e) => set(e.target.value)} aria-label="Source node">
-      {!others.includes(value) && <option value={value}>{value || "Choose…"}</option>}
-      {others.map((n) => (
-        <option key={n} value={n}>
-          {n}
-        </option>
-      ))}
-    </select>
+    <Select label="Source node" value={others.includes(value) ? value : ""} onChange={set} options={others.map((n) => ({ value: n, label: n }))} />
   );
   switch (node.type) {
     case "input":
       return (
-        <select className={`${field} w-full min-w-0`} value={node.source} onChange={(e) => onChange({ ...node, source: e.target.value })} aria-label="Sensor">
-          {!(node.source in sources) && <option value={node.source}>{node.source ? "Unavailable sensor" : "Choose a sensor…"}</option>}
-          {Object.entries(sources).map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </select>
+        <Select
+          label="Sensor"
+          className="w-full"
+          value={node.source in sources ? node.source : ""}
+          placeholder={node.source ? "Unavailable sensor" : "Choose a sensor…"}
+          onChange={(source) => onChange({ ...node, source })}
+          options={Object.entries(sources).map(([value, label]) => ({ value, label }))}
+        />
       );
     case "offset":
       return (
@@ -93,35 +88,27 @@ function NodeFields({
             value={node.amount}
             onChange={(e) => onChange({ ...node, amount: Number(e.target.value) })}
           />
-          <select className={field} value={node.proportional ? "pct" : "abs"} onChange={(e) => onChange({ ...node, proportional: e.target.value === "pct" })} aria-label="Unit">
-            <option value="abs">°C</option>
-            <option value="pct">%</option>
-          </select>
+          <Select
+            label="Unit"
+            value={node.proportional ? "pct" : "abs"}
+            onChange={(v) => onChange({ ...node, proportional: v === "pct" })}
+            options={[{ value: "abs", label: "°C" }, { value: "pct", label: "%" }]}
+          />
         </div>
       );
     case "mix":
       return (
         <div className="flex flex-wrap items-center gap-2">
-          <select className={field} value={node.function} onChange={(e) => onChange({ ...node, function: e.target.value as MixFunction })} aria-label="Function">
-            {MIX.map((m) => (
-              <option key={m.fn} value={m.fn}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          <Select label="Function" value={node.function} onChange={(fn) => onChange({ ...node, function: fn })} options={MIX.map((m) => ({ value: m.fn, label: m.label }))} />
           <span className="text-caption text-text-subtle">of</span>
           {others.map((n) => (
-            <label key={n} className="flex items-center gap-1 text-small">
-              <input
-                type="checkbox"
-                className="accent-[#10a37f]"
-                checked={node.sources.includes(n)}
-                onChange={(e) =>
-                  onChange({ ...node, sources: e.target.checked ? [...node.sources, n] : node.sources.filter((s) => s !== n) })
-                }
-              />
+            <Checkbox
+              key={n}
+              checked={node.sources.includes(n)}
+              onChange={(on) => onChange({ ...node, sources: on ? [...node.sources, n] : node.sources.filter((s) => s !== n) })}
+            >
               {n}
-            </label>
+            </Checkbox>
           ))}
         </div>
       );
@@ -178,7 +165,7 @@ export function SensorsSection() {
             <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>
               <RotateCcw /> Discard
             </Button>
-            <Button size="sm" variant="primary" disabled={pending !== null} onClick={() => run("save", () => rpc("cooling.sensors.save", { graph }))}>
+            <Button size="sm" variant="primary" disabled={pending !== null} onClick={() => run("save", () => rpc("cooling.sensors.save", { graph }), "Temperature sources saved")}>
               Save sources
             </Button>
           </div>
@@ -248,13 +235,12 @@ export function SensorsSection() {
               onChange={(e) => setNewName(e.target.value)}
               className={`${field} w-44 font-mono`}
             />
-            <select className={field} value={newType} onChange={(e) => setNewType(e.target.value as SensorNode["type"])} aria-label="Type">
-              {TYPES.map((t) => (
-                <option key={t.type} value={t.type} disabled={t.type !== "input" && names.length === 0}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+            <Select
+              label="Type"
+              value={newType}
+              onChange={setNewType}
+              options={TYPES.map((t) => ({ value: t.type, label: t.label, disabled: t.type !== "input" && names.length === 0 }))}
+            />
             <Button type="submit" size="sm" variant="secondary" disabled={!newName || !!problem}>
               <Plus /> Add
             </Button>

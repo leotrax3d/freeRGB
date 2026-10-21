@@ -1,4 +1,5 @@
-import { Download, Puzzle } from "lucide-react";
+import { Compass, Download, Puzzle } from "lucide-react";
+import { useTour } from "@/app/Tour";
 import { PageHeader, Section } from "@/components/page";
 import { StatusDot } from "@/components/status";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,14 @@ export default function SettingsView() {
         <div className="flex items-start gap-3 rounded-card border border-border px-4 py-3 text-small text-text-muted">
           <Download className="mt-0.5 size-4 shrink-0 text-text-subtle" aria-hidden />
           <span>Update checks and installation still run in freeRGB Classic. They move here with the shared desktop logic (M5).</span>
+        </div>
+      </Section>
+      <Section title="Help">
+        <div className="flex items-center justify-between gap-4 rounded-card border border-border px-4 py-3">
+          <span className="text-small text-text-muted">A short walk through the most important parts of freeRGB.</span>
+          <Button variant="secondary" size="sm" onClick={() => useTour.getState().start()}>
+            <Compass /> Start tour
+          </Button>
         </div>
       </Section>
       <Section title="About">

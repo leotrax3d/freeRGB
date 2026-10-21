@@ -1,4 +1,7 @@
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { Toaster } from "@/components/toast";
+import { CommandPalette } from "./CommandPalette";
+import { Tour, useFirstRunTour } from "./Tour";
 import { BrandTiles } from "@/components/brand";
 import { Banner, EmptyState } from "@/components/status";
 import { Button } from "@/components/ui/button";
@@ -6,7 +9,7 @@ import { transport } from "@/lib/api/transport";
 import { useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
 import { Sidebar } from "./Sidebar";
-import { VIEWS } from "./views";
+import { preloadViews, VIEWS } from "./views";
 
 function ServiceUnavailable({ error }: { error: string | null }) {
   const [starting, setStarting] = useState(false);
@@ -60,6 +63,8 @@ export function Shell() {
   const def = VIEWS.find((v) => v.id === view) ?? VIEWS[0]!;
   const offline = connection && !connection.connected;
   const View = def.component;
+  useEffect(preloadViews, []);
+  useFirstRunTour();
   return (
     <div className="flex h-full bg-bg">
       <Sidebar />
@@ -71,12 +76,17 @@ export function Shell() {
               <ServiceUnavailable error={connection.error} />
             ) : (
               <Suspense fallback={null}>
-                <View key={def.id} />
+                <div key={def.id} className="flex flex-col gap-6 animate-[view-in_var(--duration-base)_var(--ease-out)]">
+                  <View />
+                </div>
               </Suspense>
             )}
           </div>
         </div>
       </main>
+      <CommandPalette />
+      <Toaster />
+      <Tour />
     </div>
   );
 }
