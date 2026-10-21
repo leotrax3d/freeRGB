@@ -3,7 +3,6 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { NameForm } from "@/components/name-form";
 import { PageHeader, Section } from "@/components/page";
 import { EmptyState } from "@/components/status";
-import { Button } from "@/components/ui/button";
 import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { cn } from "@/lib/utils";
@@ -21,29 +20,32 @@ function ProfileRow({
   onDelete: () => void;
 }) {
   const state = useProfileState(name);
+  const busy = pending === name;
   return (
-    <li
-      aria-current={state === "active" ? "true" : undefined}
-      className={cn(
-        "relative flex items-center gap-3 px-4 py-2.5 transition-colors duration-(--duration-fast)",
-        state && "bg-surface-raised/60",
-        pending === name && "opacity-60",
-      )}
-    >
+    <li className={cn("group relative flex items-center transition-colors duration-(--duration-fast)", state ? "bg-surface-raised/60" : "hover:bg-surface-raised/40")}>
       {state && <span className={cn("absolute inset-y-2 left-0 w-1 rounded-r-full", state === "active" ? "bg-accent" : "bg-warning")} aria-hidden />}
-      <Bookmark className={cn("size-4", state === "active" ? "fill-accent text-accent" : "text-text-subtle")} aria-hidden />
-      <span className="truncate text-body">{name}</span>
-      {state === "active" && <span className="rounded-full bg-accent/15 px-2 py-0.5 text-caption font-medium text-accent">Active</span>}
-      {state === "modified" && (
-        <span className="rounded-full bg-warning/15 px-2 py-0.5 text-caption font-medium text-[#fbbf24]" title="Loaded last, but the lighting has changed since">
-          Modified
-        </span>
-      )}
-      <span className="flex-1" />
-      <Button size="sm" variant="secondary" disabled={pending !== null} onClick={onLoad}>
-        {pending === name ? "Loading…" : state ? "Reload" : "Load"}
-      </Button>
-      <ConfirmButton label={`Delete ${name}`} icon={<Trash2 />} disabled={pending !== null} onConfirm={onDelete} />
+      <button
+        type="button"
+        onClick={onLoad}
+        disabled={pending !== null}
+        aria-current={state === "active" ? "true" : undefined}
+        title={state === "active" ? "Running — click to load again" : `Load ${name}`}
+        className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left outline-none focus-visible:bg-surface-raised disabled:cursor-wait"
+      >
+        <Bookmark className={cn("size-4 shrink-0", state === "active" ? "fill-accent text-accent" : "text-text-subtle group-hover:text-text-muted")} aria-hidden />
+        <span className="truncate text-body">{name}</span>
+        {busy && <span className="text-caption text-text-subtle">Loading…</span>}
+        {!busy && state === "active" && <span className="rounded-full bg-accent/15 px-2 py-0.5 text-caption font-medium text-accent">Active</span>}
+        {!busy && state === "modified" && (
+          <span className="rounded-full bg-warning/15 px-2 py-0.5 text-caption font-medium text-[#fbbf24]" title="Loaded last, but the lighting has changed since — click to restore">
+            Modified
+          </span>
+        )}
+      </button>
+      {/* Delete stays out of the way until the row is hovered or focused. */}
+      <div className="pr-2 opacity-0 transition-opacity duration-(--duration-fast) focus-within:opacity-100 group-hover:opacity-100">
+        <ConfirmButton label={`Delete ${name}`} icon={<Trash2 />} disabled={pending !== null} onConfirm={onDelete} />
+      </div>
     </li>
   );
 }
@@ -82,7 +84,7 @@ export default function ProfilesView() {
         </div>
       </Section>
 
-      <Section title="Saved profiles" aside={error && <span className="text-caption text-danger-text">{error}</span>}>
+      <Section title="Saved profiles — click to load" aside={error && <span className="text-caption text-danger-text">{error}</span>}>
         {profiles?.length === 0 && <p className="text-small text-text-subtle">No profiles yet.</p>}
         <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-card bg-surface-sunken">
           {profiles?.map((name) => (
