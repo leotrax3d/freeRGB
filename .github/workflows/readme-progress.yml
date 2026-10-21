@@ -1,0 +1,57 @@
+name: README progress
+on:
+  push:
+    branches: [main]
+    paths: ['README.md', 'docs/**', 'scripts/update-readme-progress.py', '.github/workflows/readme-progress.yml']
+  pull_request:
+    paths: ['README.md', 'docs/**', 'scripts/update-readme-progress.py', '.github/workflows/readme-progress.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: readme-progress-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/update-readme-progress.py --check
+  update:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate and publish text progress
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            python scripts/update-readme-progress.py
+            if git diff --quiet -- README.md; then
+              exit 0
+            fi
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add README.md
+            git commit -m "docs: refresh delivery checklist progress"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+          done
+          echo "::error::Could not update README; check branch protection and rerun."
+          exit 1
+
