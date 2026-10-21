@@ -84,22 +84,11 @@ export function CurveEditor({
         {[0, 25, 50, 75, 100].map((d) => (
           <g key={d}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(d)} y2={y(d)} stroke="rgb(255 255 255 / 0.05)" />
-            <text x={PAD.left - 10} y={y(d) + 4} textAnchor="end" className="fill-text-subtle text-[11px] tabular">
-              {d}%
-            </text>
           </g>
-        ))}
-        {[0, 20, 40, 60, 80, 100].map((t) => (
-          <text key={t} x={x(t)} y={H - 10} textAnchor="middle" className="fill-text-subtle text-[11px] tabular">
-            {t} °C
-          </text>
         ))}
         {/* Below the minimum duty and above the critical temperature the curve has no say. */}
         <rect x={PAD.left} y={y(curve.minimum_percent)} width={W - PAD.left - PAD.right} height={y(0) - y(curve.minimum_percent)} fill="rgb(255 255 255 / 0.025)" />
         <rect x={x(curve.critical_c)} y={PAD.top} width={W - PAD.right - x(curve.critical_c)} height={y(0) - PAD.top} fill="rgb(239 68 68 / 0.08)" />
-        <text x={x(curve.critical_c) + 6} y={PAD.top + 12} className="fill-danger-text text-[11px]">
-          Critical · 100 %
-        </text>
         <polygon points={area} fill="url(#curve-fill)" />
         <polyline points={full} fill="none" stroke="#10a37f" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
         {preview && (
@@ -136,6 +125,34 @@ export function CurveEditor({
           </g>
         ))}
       </svg>
+      {/* Labels as HTML so they keep the app type scale at any chart width. */}
+      {[0, 25, 50, 75, 100].map((d) => (
+        <span
+          key={d}
+          aria-hidden
+          className="pointer-events-none absolute -translate-x-full -translate-y-1/2 text-caption text-text-subtle tabular"
+          style={{ left: `${((PAD.left - 8) / W) * 100}%`, top: `calc(0.5rem + ${(y(d) / H) * 100}%)` }}
+        >
+          {d}%
+        </span>
+      ))}
+      {[0, 20, 40, 60, 80, 100].map((t) => (
+        <span
+          key={t}
+          aria-hidden
+          className="pointer-events-none absolute bottom-1 -translate-x-1/2 text-caption text-text-subtle tabular"
+          style={{ left: `${(x(t) / W) * 100}%` }}
+        >
+          {t} °C
+        </span>
+      ))}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-3 text-caption font-medium text-danger-text"
+        style={{ left: `calc(${(x(curve.critical_c) / W) * 100}% + 8px)` }}
+      >
+        Critical · 100 %
+      </span>
       {tip && (
         <div
           className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-chip bg-surface-raised px-2 py-1 text-caption text-text shadow-popover tabular"
