@@ -1,4 +1,5 @@
-// freeRGB optional motherboard reader. No control setters or driver installation.
+// Optional reader and protected administrator-only fixed100 diagnostic.
+// No public fan setter or driver installation; general control remains gated.
 // Compiles with the Windows .NET Framework compiler; LHM is loaded only on request.
 using System;
 using System.Collections;
@@ -164,6 +165,16 @@ internal static class Mainboard
             if (unavailable != null) return unavailable;
         }
         var hardware = new List<object>();
+#if NATIVE_CONTROL_WORKER
+        using (var journal=NativeControlJournal.CreateProtected())
+            journal.Recover(delegate(Dictionary<string,object> pending) {
+                var matches=new List<object>();
+                foreach (object board in (IEnumerable)Get(computer,"Hardware")) FindControl(board,(string)pending["sensor_id"],matches,0);
+                if (matches.Count != 1 || Get(Get(matches[0],"Hardware"),"Identifier").ToString() != (string)pending["hardware_id"])
+                    throw new InvalidOperationException("Pending native channel cannot be uniquely identified.");
+                return NativeNctEvidence.RecoverProtected(Get(matches[0],"Control"),pending.ContainsKey("recovery") ? pending["recovery"] as Dictionary<string,object> : null);
+            });
+#endif
         var clock = Stopwatch.StartNew();
         int count = 0;
         foreach (object item in (IEnumerable)Get(computer, "Hardware")) Walk(item, hardware, clock, 0, ref count);
@@ -171,6 +182,61 @@ internal static class Mainboard
         return Result("ready", "Read-only motherboard channels. Fan/header pairing, PWM/DC mode and physical labels are unconfirmed; RGB uses a separate provider.", hardware);
 #endif
     }
+    private static object ProbeHundred(string sensorId)
+    {
+#if NATIVE_CONTROL_WORKER
+        BrokerService.CheckInstallation(true);
+        if (!direct || !System.Text.RegularExpressions.Regex.IsMatch(sensorId,"^/lpc/[a-z0-9]+/[0-9]+/control/[0-6]$"))
+            throw new InvalidOperationException("Invalid protected 100-percent probe target.");
+        if (computer == null) { var failure = Initialize(); if (failure != null) return failure; }
+        var matches = new List<object>();
+        foreach (object board in (IEnumerable)Get(computer,"Hardware")) FindControl(board,sensorId,matches,0);
+        if (matches.Count != 1) throw new InvalidOperationException("Expected exactly one native control identity.");
+        object control = Get(matches[0],"Control");
+        var native = NativeControl.CreateProtected(control,true); // Hard floor100, never reduce.
+        object hardware = Get(matches[0],"Hardware");
+        object before = ProbeReadings(hardware);
+        using (var journal = NativeControlJournal.CreateProtected())
+        {
+            var owned = JournaledNativeControl.CreateProtected(native,journal);
+            object applied;
+            try
+            {
+                owned.Acquire();
+                System.Threading.Thread.Sleep(3000);
+                applied = ProbeReadings(hardware);
+            }
+            finally { owned.Release(); }
+            System.Threading.Thread.Sleep(250);
+            return new { version=1, status="completed",control_id=sensorId,requested_percent=100,
+                register_write_verified=true,firmware_return_verified=owned.FirmwareReturnVerified,
+                journal_cleared=owned.JournalCleared,before=before,applied=applied,returned=ProbeReadings(hardware) };
+        }
+#else
+        return Empty("faulted","Hardware probe is absent from this build.");
+#endif
+    }
+#if NATIVE_CONTROL_WORKER
+    private static void FindControl(object hardware, string id, List<object> matches, int depth)
+    {
+        if (depth > 16) throw new InvalidDataException("Hardware tree depth exceeded.");
+        foreach (object sensor in (IEnumerable)Get(hardware,"Sensors"))
+            if (Get(sensor,"SensorType").ToString() == "Control" && Get(sensor,"Identifier").ToString() == id) matches.Add(sensor);
+        foreach (object child in (IEnumerable)Get(hardware,"SubHardware")) FindControl(child,id,matches,depth+1);
+    }
+    private static object ProbeReadings(object hardware)
+    {
+        Invoke(hardware,"Update");
+        var readings = new List<object>();
+        foreach (object sensor in (IEnumerable)Get(hardware,"Sensors"))
+        {
+            string kind = Get(sensor,"SensorType").ToString();
+            if (kind != "Fan" && kind != "Control") continue;
+            readings.Add(new { id=Get(sensor,"Identifier").ToString(),kind=kind,value=Get(sensor,"Value") });
+        }
+        return readings;
+    }
+#endif
     private static int Main(string[] args)
     {
         Console.OutputEncoding = new UTF8Encoding(false);
@@ -203,7 +269,8 @@ internal static class Mainboard
             string request;
             while ((request = Console.ReadLine()) != null)
             {
-                if (request != "snapshot") return 2;
+                bool probe = direct && request.StartsWith("probe100 ",StringComparison.Ordinal);
+                if (request != "snapshot" && !probe) return 2;
                 string json;
                 try
                 {
@@ -213,12 +280,12 @@ internal static class Mainboard
                         try { broker = BrokerTransport.Snapshot(); }
                         catch (Win32Exception error) { if (error.NativeErrorCode != 2) throw; }
                     }
-                    json = broker ?? Json.Serialize(Snapshot());
+                    json = broker ?? Json.Serialize(probe ? ProbeHundred(request.Substring(9)) : Snapshot());
                 }
                 catch (Exception error)
                 {
                     Exception cause = error is TargetInvocationException && error.InnerException != null ? error.InnerException : error;
-                    string detail = cause is InvalidDataException ? " " + cause.Message : "";
+                    string detail = cause is InvalidDataException || probe ? " " + cause.Message.Substring(0,Math.Min(cause.Message.Length,256)) : "";
                     json = Json.Serialize(Empty("faulted", "Motherboard provider failed (" + cause.GetType().Name + ")." + detail + " Verify library dependencies, protected broker access and conflicting monitoring software."));
                 }
                 if (Encoding.UTF8.GetByteCount(json) >= 262144) json = Json.Serialize(Empty("faulted", "Motherboard snapshot exceeds the message limit."));

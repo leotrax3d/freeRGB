@@ -39,6 +39,16 @@ internal sealed class ControlSink
         }
     }
 }
+internal sealed class EvidenceSink : INativeControlEvidence
+{
+    internal bool FailDuty, FailReturn;
+    internal int DutyChecks, ReturnChecks;
+    public Dictionary<string,object> Recovery { get { return new Dictionary<string,object> {
+        {"kind","lhm_nct677x_registers_v1"},{"chip","NCT6701D"},{"index",1},{"port",656},{"revision",1},{"mode",16},{"command",150}
+    }; } }
+    public void VerifyDuty(float percent) { DutyChecks++; if (FailDuty) throw new InvalidOperationException("Synthetic register mismatch despite successful callback."); }
+    public void VerifyReturn() { ReturnChecks++; if (FailReturn) throw new InvalidOperationException("Synthetic original-mode readback failed."); }
+}
 internal static class NativeControlTests
 {
     private static Assembly library;
@@ -164,6 +174,7 @@ internal static class NativeControlTests
         };
         library = Assembly.LoadFrom(Path.Combine(directory,"LibreHardwareMonitorLib.dll"));
         Run();
+        EvidenceTests();
         NativeSessionTests.Run();
         TelemetryTests();
         NativeJournalTests.Run(delegate(ControlSink sink) { return NativeControl.ForTest(Create(sink),false); });
@@ -206,5 +217,42 @@ internal static class NativeControlTests
         reversal.Observe(100,100,40,900);
         Assert(reversal.Check(99) == "telemetry_clock_fault","Clock reversal accepted.");
         Console.WriteLine("PASS: independent telemetry faults, stale samples, stall, critical heat and non-revival; synthetic only.");
+    }
+    private static void EvidenceTests()
+    {
+        var sink = new ControlSink(); var proof = new EvidenceSink();
+        var adapter = NativeControl.ForTest(Create(sink),false,proof);
+        adapter.Acquire();
+        Assert(proof.DutyChecks == 1 && adapter.Identity().Recovery != null,"Acquisition skipped evidence/baseline.");
+        proof.FailDuty = true;
+        Reject(delegate { adapter.SetDuty(60); },"Successful callback hid failed physical register readback.");
+        Assert(!adapter.Owned && proof.ReturnChecks == 1,"Register mismatch did not request verified firmware return.");
+
+        sink = new ControlSink(); proof = new EvidenceSink();
+        adapter = NativeControl.ForTest(Create(sink),false,proof);
+        adapter.Acquire(); proof.FailReturn = true;
+        Reject(adapter.Release,"Failed original-mode readback released ownership.");
+        Assert(adapter.Owned,"Failed verification lost the recovery reservation.");
+        proof.FailReturn = false; adapter.Release();
+        Assert(!adapter.Owned && proof.ReturnChecks == 2,"Firmware verification retry was skipped.");
+        string root = Path.Combine(Path.GetTempPath(),"freergb-evidence-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            using (var journal = NativeControlJournal.ForTest(root))
+            {
+                proof = new EvidenceSink();
+                adapter = NativeControl.ForTest(Create(new ControlSink()),false,proof);
+                var wrapped = JournaledNativeControl.ForTest(adapter,journal,adapter.Identity());
+                var session = NativeControlSession.ForTest(wrapped,delegate { return 0; });
+                var persisted = (Dictionary<string,object>)journal.Pending()["recovery"];
+                Assert((string)persisted["chip"] == "NCT6701D" && (int)persisted["mode"] == 16,"Native recovery evidence was not persisted before writes.");
+                Assert(!(bool)session.View()["firmware_return_verified"] && !(bool)session.View()["journal_cleared"],"Active session claimed return evidence.");
+                session.Execute(NativeSessionTests.Command(session.View(),"close",null));
+                var view = session.View();
+                Assert((bool)view["firmware_return_verified"] && (bool)view["journal_cleared"] && journal.Pending() == null,"Verified return and durable clear did not reach private receipt.");
+            }
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root,true); }
+        Console.WriteLine("PASS: write/readback mismatch, verified-return failure and retry; synthetic evidence only.");
     }
 }

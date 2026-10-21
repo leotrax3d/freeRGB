@@ -15,13 +15,15 @@ pub enum SessionState {
     RecoveryFailed,
 }
 
-/// Callback-level evidence only. Never authorizes firmware-return verification.
+/// Native callback and explicit return evidence; mechanical RPM proof is separate.
 #[derive(Debug)]
 pub struct Receipt {
     pub state: SessionState,
     pub reason: Option<String>,
     pub duty_percent: u8,
     pub owned: bool,
+    pub firmware_return_verified: bool,
+    pub journal_cleared: bool,
 }
 
 // Intentionally no Debug/Serialize: ticket/session secrets must not enter logs.
@@ -38,6 +40,10 @@ struct Reply {
     lease_ms: u32,
     owned: bool,
     physical_write_verified: bool,
+    #[serde(default)]
+    firmware_return_verified: bool,
+    #[serde(default)]
+    journal_cleared: bool,
 }
 
 #[derive(Serialize)]
@@ -96,6 +102,8 @@ async fn read<T: AsyncRead + Unpin>(transport: &mut T) -> Result<Reply, String> 
             .is_some_and(|value| value.len() > 512 || value.chars().count() > 128)
         || (reply.state == SessionState::Active && (!reply.owned || reply.reason.is_some()))
         || (reply.state == SessionState::Closed && (reply.owned || reply.duty_percent != 100))
+        || ((reply.firmware_return_verified || reply.journal_cleared)
+            && reply.state != SessionState::Closed)
     {
         return Err("Invalid native reply semantics".into());
     }
@@ -124,7 +132,8 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
         self.send(Some(duty)).await
     }
 
-    /// Closed means native callback returned, NOT verified firmware restoration.
+    /// Closed alone means callback completion. Explicit return/journal evidence
+    /// must also be checked before authorizing maintenance.
     pub async fn close(&mut self) -> Result<Receipt, String> {
         self.send(None).await
     }
@@ -175,6 +184,8 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
             reason: reply.reason.clone(),
             duty_percent: reply.duty_percent,
             owned: reply.owned,
+            firmware_return_verified: reply.firmware_return_verified,
+            journal_cleared: reply.journal_cleared,
         };
         self.received = Instant::now();
         if reply.state == SessionState::Active {
@@ -237,6 +248,8 @@ mod tests {
             "ticket",
             "duty_percent",
             "physical_write_verified",
+            "firmware_return_verified",
+            "journal_cleared",
         ] {
             let (client, mut worker) = tokio::io::duplex(4096);
             let task = tokio::spawn(async move {

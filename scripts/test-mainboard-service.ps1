@@ -83,6 +83,21 @@ try {
         } finally { [IO.File]::WriteAllText($journalPath,$beforeJournal) }
     }
     $foreignName = 'frgb' + [guid]::NewGuid().ToString('N').Substring(0,12)
+    # Compile-time workers reject native probes without loading LHM/driver.
+    $probeRequestPath=Join-Path (Split-Path -Parent $protected) 'mainboard-probe-request.json'
+    $probeResultPath=Join-Path (Split-Path -Parent $protected) 'mainboard-probe-result.json'
+    $probeId=[guid]::NewGuid().ToString('N')
+    [IO.File]::WriteAllText($probeRequestPath,(@{ version=1;id=$probeId;control_id='/lpc/fixture/0/control/2';expires_utc=[DateTime]::UtcNow.AddSeconds(25).ToString('o') } | ConvertTo-Json -Compress))
+    $acl=Get-Acl -LiteralPath $probeRequestPath
+    $acl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'));Set-Acl -LiteralPath $probeRequestPath -AclObject $acl
+    $controller=New-Object ServiceProcess.ServiceController('freeRGBMainboard')
+    try { $controller.ExecuteCommand(128) } finally { $controller.Dispose() }
+    $deadline=[DateTime]::UtcNow.AddSeconds(8)
+    do { Start-Sleep -Milliseconds 200; $probeReply=if(Test-Path -LiteralPath $probeResultPath){Get-Content -LiteralPath $probeResultPath -Raw | ConvertFrom-Json}else{$null} } while (($null -eq $probeReply -or $probeReply.id -ne $probeId) -and [DateTime]::UtcNow -lt $deadline)
+    Require ($probeReply.id -eq $probeId -and $probeReply.result.status -eq 'faulted' -and $probeReply.result.message -eq 'Hardware probe is absent from this build.') 'Compile-time fixture reached hardware probe code or did not answer.'
+    Require (-not(Test-Path -LiteralPath $probeRequestPath)) 'Probe request was not consumed once.'
+    Require ([IO.File]::ReadAllText($journalPath) -eq $beforeJournal) 'Disabled fixture probe changed recovery state.'
+    Snapshot 900
     $foreignPassword = ConvertTo-SecureString ([guid]::NewGuid().ToString('N') + '!aA9') -AsPlainText -Force
     $foreign = New-LocalUser -Name $foreignName -Password $foreignPassword -AccountNeverExpires
     Add-LocalGroupMember -Group $userGroup.Name -Member $foreignName

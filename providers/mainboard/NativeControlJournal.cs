@@ -13,7 +13,9 @@ internal sealed class NativeControlIdentity
 {
     internal readonly string HardwareId, SensorId;
     internal readonly bool Pump;
-    internal NativeControlIdentity(string hardware, string sensor, bool pump) { HardwareId = hardware; SensorId = sensor; Pump = pump; }
+    internal readonly Dictionary<string,object> Recovery;
+    internal NativeControlIdentity(string hardware, string sensor, bool pump, Dictionary<string,object> recovery = null)
+    { HardwareId = hardware; SensorId = sensor; Pump = pump; Recovery = recovery; }
 }
 internal sealed class NativeControlJournal : IDisposable
 {
@@ -111,13 +113,28 @@ internal sealed class NativeControlJournal : IDisposable
         if (document["reservation"] == null) return null;
         var entry = document["reservation"] as Dictionary<string, object>;
         Guid identifier;
-        if (entry == null || entry.Count != 5 || !entry.ContainsKey("id") || !(entry["id"] is string) || !Guid.TryParseExact((string)entry["id"],"N",out identifier) ||
+        if (entry == null || (entry.Count != 5 && !(entry.Count == 6 && entry.ContainsKey("recovery"))) || !entry.ContainsKey("id") || !(entry["id"] is string) || !Guid.TryParseExact((string)entry["id"],"N",out identifier) ||
             !entry.ContainsKey("backend") || !Object.Equals(entry["backend"],"lhm_0_9_6") ||
             !entry.ContainsKey("hardware_id") || !(entry["hardware_id"] is string) || !IdentityText((string)entry["hardware_id"]) ||
             !entry.ContainsKey("sensor_id") || !(entry["sensor_id"] is string) || !IdentityText((string)entry["sensor_id"]) ||
             !entry.ContainsKey("pump") || !(entry["pump"] is bool))
             throw new InvalidDataException("Invalid control reservation; recovery required.");
+        if (entry.ContainsKey("recovery")) ValidateRecovery(entry["recovery"] as Dictionary<string,object>);
         return entry;
+    }
+    private static void ValidateRecovery(Dictionary<string,object> value)
+    {
+        if (value == null || (value.Count != 7 && value.Count != 9) || !value.ContainsKey("kind") || !Object.Equals(value["kind"],"lhm_nct677x_registers_v1") ||
+            !value.ContainsKey("chip") || !(value["chip"] is string) || !IdentityText((string)value["chip"]))
+            throw new InvalidDataException("Invalid native recovery metadata.");
+        foreach (string key in new[] { "index","port","revision","mode","command" })
+            if (!value.ContainsKey(key) || !(value[key] is int) || (int)value[key] < 0 || (int)value[key] > (key == "index" ? 6 : key == "port" ? 65535 : 255))
+                throw new InvalidDataException("Invalid native recovery register metadata.");
+        if ((int)value["mode"] == 0) throw new InvalidDataException("Recovery metadata must describe original automatic firmware mode.");
+        if (value.Count == 9)
+            foreach (string key in new[] { "service_identity","worker_identity" })
+                if (!value.ContainsKey(key) || !(value[key] is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)value[key],"^[1-9][0-9]{0,9}:[1-9][0-9]{0,18}$"))
+                    throw new InvalidDataException("Invalid native recovery lifetime metadata.");
     }
     private void Write(Dictionary<string, object> entry)
     {
@@ -133,6 +150,17 @@ internal sealed class NativeControlJournal : IDisposable
         Check(path);
     }
     internal Dictionary<string, object> Pending() { return Locked(Read); }
+    internal void Recover(Func<Dictionary<string,object>,bool> restore)
+    {
+        if (restore == null) throw new ArgumentNullException("restore");
+        Locked(delegate {
+            var entry=Read();
+            if (entry == null) return true;
+            if (!restore(entry)) throw new InvalidOperationException("Native recovery was not verified; intent retained.");
+            Write(null);
+            return true;
+        });
+    }
     // Hold the SAME cross-process mutex as Reserve through stop/swap/remove.
     // This is a conservative refusal path, not automatic firmware recovery.
     internal void Maintenance(Action action)
@@ -150,7 +178,9 @@ internal sealed class NativeControlJournal : IDisposable
         return Locked(delegate {
             if (Read() != null) throw new InvalidOperationException("An unresolved native control intent exists; do not resume or acquire another channel.");
             string id = Guid.NewGuid().ToString("N");
-            Write(new Dictionary<string, object> { {"id",id}, {"backend","lhm_0_9_6"}, {"hardware_id",identity.HardwareId}, {"sensor_id",identity.SensorId}, {"pump",identity.Pump} });
+            var entry = new Dictionary<string, object> { {"id",id}, {"backend","lhm_0_9_6"}, {"hardware_id",identity.HardwareId}, {"sensor_id",identity.SensorId}, {"pump",identity.Pump} };
+            if (identity.Recovery != null) { ValidateRecovery(identity.Recovery); entry.Add("recovery",identity.Recovery); }
+            Write(entry);
             return id;
         });
     }

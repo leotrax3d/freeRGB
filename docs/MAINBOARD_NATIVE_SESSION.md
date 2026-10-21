@@ -153,9 +153,15 @@ drop the transport and make that client unusable. Server-side lease/telemetry mu
 continue independently; an async timeout cannot resolve a hung native driver.
 
 Secret-bearing reply/client types deliberately have no Debug output. Public Rust
-receipts contain callback state/duty/ownership/reason only; no ticket and no
-physical-write or firmware-return verification. A closed receipt cannot authorize
-maintenance by itself. This is an internal Rust module, not a new JSON-RPC API or
+receipts contain callback state/duty/ownership/reason and optional native-return
+evidence, never tickets. Additive private reply fields `firmware_return_verified`
+and `journal_cleared` default to false for older workers and are rejected as true
+unless the session is closed. The production journaled adapter asserts them only
+after checked native firmware return and durable intent clearance respectively.
+Mechanical/RPM verification remains separate; `physical_write_verified` is still
+false. A closed receipt alone cannot authorize maintenance.
+See `COOLING_RUNTIME.md` for the Rust runtime/owned host and remaining integration.
+This is an internal Rust module, not a new JSON-RPC API or
 shared configuration format. The old C# peer remains until authenticated Rust
 hosting is integrated and accepted.
 

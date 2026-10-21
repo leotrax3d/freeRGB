@@ -38,6 +38,27 @@ state blocks acquisition. The initial candidate permits only **one pending
 channel intent** globally; multiple simultaneous controlled channels need a later
 backward-compatible format/ownership extension before release.
 
+The pinned Nct677X native adapter may additionally include `recovery` in a pending
+entry: `kind:"lhm_nct677x_registers_v1"`, chip name, selected index0..6,
+port0..65535, revision/mode/command bytes, and `service_identity`/`worker_identity`
+strings (`PID:process-start-UTC-ticks`). Mode must describe original nonzero
+automatic mode. The seven-field baseline form is accepted for old fixtures;
+production adds both lifetime identities. Older readers reject extended pending
+state and therefore cannot silently erase it during rollback. Empty/older journal
+records retain their existing format. This is privileged recovery metadata, not
+a shared GUI configuration file, and never stores an old requested low duty.
+
+Recovery runs before production snapshots. It identifies the exact sensor/hardware,
+chip/index/port/revision and refuses another still-living original worker (PID reuse
+is checked against start time; query denial is not proof of death). In the same
+worker it retries the original owned adapter. For a dead worker, an already
+returned original mode permits a non-writing clear; otherwise register restoration
+requires the same registered SYSTEM service lifetime. Only the original selected
+restore cache is seeded in the fresh pinned LHM backend, then original mode is read
+back before journal clear. Different service/boot lifetime with differing native
+mode, legacy missing provenance, unknown hardware or failed readback retain the
+intent. No low-duty replay or blind fresh-context SetDefault is used.
+
 ## Ordering, locks and failures
 
 Production construction requires the protected SYSTEM worker. Parent/file owners
@@ -54,7 +75,8 @@ acquisition/restoration leaves the intent; a failed clear preserves the pending
 record and can be retried without redoing a successful native release.
 
 An unresolved intent blocks any new channel reservation, including after worker
-death/restart. Reading it never clears it or reacquires the recorded channel.
+death/restart. Parsing the journal alone never clears it or reacquires the channel;
+only the checked protected recovery operation described above can clear it.
 Only the exact transaction ID can be completed. A failed intermediate temporary
 write before Reserve returns cannot authorize native I/O. Atomic replacement/file
 flushing targets process-crash ordering, **not a proven power-loss/filesystem
@@ -63,14 +85,16 @@ unvalidated. Administrative deletion/tampering is outside the unprivileged bound
 
 ## What remains before activation
 
-The journal is not a hardware snapshot or an implemented automatic recovery path.
-It cannot tell whether a worker is still alive or restore original chip registers.
-A fresh LHM context may capture an already overridden state as its baseline;
-blindly calling SetDefault from that new context must not be treated as restoring
-the original firmware configuration. No old low duty may be replayed.
+The protected pinned Nct677X recovery adapter now checks original native baseline
+metadata and exact worker/service lifetimes, and restores only the proven original
+mode/command as described above. Worker-crash recovery passed on the actual
+NCT6701D test board during a fixed100 diagnostic. This does not establish safe
+recovery across all chips, service/OS crashes, power loss or blocked drivers.
+A fresh LHM context's SetDefault alone is still not original-state proof.
+No old low duty may be replayed.
 
-The supervisor still needs exclusive worker lifetime/identity, a checked recovery
-operation and independent physical readback/fallback behavior. Upgrade/uninstall
+The productive host still needs exclusive lifetime/admission integration and
+independent physical fallback acceptance. Upgrade/uninstall
 must coordinate with active sessions before stopping or replacing the worker;
 maintenance now refuses pending/invalid journal state and holds the reservation
 mutex through replacement/removal (see `COOLING_MAINTENANCE.md`), but does not yet

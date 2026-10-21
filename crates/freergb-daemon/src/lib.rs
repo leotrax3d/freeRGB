@@ -7,6 +7,8 @@ pub mod api;
 pub mod channel_bindings;
 pub mod conflicts;
 pub mod control;
+pub mod cooling_host;
+pub mod cooling_runtime;
 pub mod custom_effects;
 pub mod engine;
 pub mod hardware;

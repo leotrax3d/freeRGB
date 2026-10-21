@@ -2,10 +2,13 @@
 
 `providers/mainboard/NativeControl.cs` adds an owned adapter for the pinned LHM
 0.9.6 `Control` object. It is compiled into the motherboard helper but is **not
-called by any production entry point**. The helper still accepts only snapshots;
-the protected service and public API remain read-only. Installer mainboard opt-in
-does not enable fan writes. No new runtime flag or configuration activates this
-candidate.
+called by the ordinary snapshot path**. The public service pipe/API remain
+read-only. There is now an explicit administrator-only fixed100 diagnostic through
+`scripts/probe-mainboard-100.ps1 -ConsentToProbe`: it submits a protected one-use
+request and SCM command128, verifies registers and returns the original mode.
+Its `-CrashWorker` option tests recovery only during that100-percent operation.
+Installer opt-in does not enable normal fan curves or general fan setters.
+See `COOLING_RUNTIME.md` for real acceptance and remaining production integration.
 
 ## Protected construction and ownership
 

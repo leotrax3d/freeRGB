@@ -126,6 +126,41 @@ internal static class BrokerTransport
         finally { CloseServiceHandle(manager); }
     }
 
+    internal static string CurrentProcessIdentity()
+    {
+        using (var process=Process.GetCurrentProcess())
+            return process.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)+":"+process.StartTime.ToUniversalTime().Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+    internal static bool ProcessIdentityAlive(string identity)
+    {
+        string[] parts=identity.Split(':'); int pid; long started;
+        if (parts.Length != 2 || !Int32.TryParse(parts[0],out pid) || pid <= 0 || !Int64.TryParse(parts[1],out started) || started <= 0)
+            throw new InvalidDataException("Invalid native process lifetime identity.");
+        try { using (var process=Process.GetProcessById(pid)) return process.StartTime.ToUniversalTime().Ticks == started; }
+        catch (ArgumentException) { return false; }
+    }
+    internal static string ServiceIdentity()
+    {
+        IntPtr manager=OpenSCManager(null,null,1);
+        if (manager == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+        try
+        {
+            IntPtr service=OpenService(manager,BrokerService.Name,5);
+            if (service == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+            try
+            {
+                byte[] status=new byte[36]; int needed;
+                if (!QueryServiceStatusEx(service,0,status,status.Length,out needed)) throw new Win32Exception(Marshal.GetLastWin32Error());
+                uint pid=BitConverter.ToUInt32(status,28);
+                if (!IsRegisteredServicePid(pid)) throw new InvalidOperationException("No verified registered SYSTEM service lifetime.");
+                using (var process=Process.GetProcessById(checked((int)pid)))
+                    return process.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)+":"+process.StartTime.ToUniversalTime().Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            finally { CloseServiceHandle(service); }
+        }
+        finally { CloseServiceHandle(manager); }
+    }
+
     private static void AwaitIo(Task operation, Stream stream, int timeout)
     {
         if (timeout > 0 && operation.Wait(timeout)) return;

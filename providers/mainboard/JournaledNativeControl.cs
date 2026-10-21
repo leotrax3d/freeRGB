@@ -1,13 +1,16 @@
 // Candidate ordering bridge: durable intent before I/O, clear only after release.
 using System;
 
-internal sealed class JournaledNativeControl : INativeControlPort
+internal sealed class JournaledNativeControl : INativeControlPort, INativeReturnEvidence
 {
     private readonly INativeControlPort port;
     private readonly NativeControlJournal journal;
     private readonly NativeControlIdentity identity;
     private readonly object gate = new object();
     private string reservation;
+    private bool released;
+    public bool FirmwareReturnVerified { get { lock (gate) return released && port is INativeReturnEvidence && ((INativeReturnEvidence)port).FirmwareReturnVerified; } }
+    public bool JournalCleared { get { lock (gate) return released && reservation == null; } }
     private JournaledNativeControl(INativeControlPort port, NativeControlJournal journal, NativeControlIdentity identity)
     { this.port = port; this.journal = journal; this.identity = identity; }
 #if NATIVE_CONTROL_TESTS
@@ -28,6 +31,7 @@ internal sealed class JournaledNativeControl : INativeControlPort
         {
             if (reservation != null || port.Owned) throw new InvalidOperationException("Journaled native acquisition already pending.");
             reservation = journal.Reserve(identity); // Must finish/flush before ANY native I/O.
+            released = false;
             port.Acquire();
         }
     }
@@ -41,6 +45,7 @@ internal sealed class JournaledNativeControl : INativeControlPort
             if (port.Owned) throw new InvalidOperationException("Native release did not relinquish the channel.");
             journal.Complete(reservation); // A failed clear leaves the intent for retry/recovery.
             reservation = null;
+            released = true;
         }
     }
 }

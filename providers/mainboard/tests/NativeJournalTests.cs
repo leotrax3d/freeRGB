@@ -68,6 +68,10 @@ internal static class NativeJournalTests
                 bool maintained = false;
                 Reject(delegate { journal.Maintenance(delegate { maintained = true; }); },"Pending intent permitted maintenance.");
                 Assert(!maintained && File.ReadAllText(path) == initial,"Refused maintenance mutated service or journal.");
+                Reject(delegate { journal.Recover(delegate { return false; }); },"Unverified recovery cleared the intent.");
+                Assert(File.ReadAllText(path) == initial,"Unverified recovery mutated durable evidence.");
+                Reject(delegate { journal.Recover(delegate { throw new IOException("Synthetic recovery failure."); }); },"Throwing recovery returned success.");
+                Assert(File.ReadAllText(path) == initial,"Failed recovery cleared durable evidence.");
                 port.SetDuty(40);
                 Assert(File.ReadAllText(path) == initial,"Heartbeat duty rewrote the recovery journal.");
                 using (var another = NativeControlJournal.ForTest(root))

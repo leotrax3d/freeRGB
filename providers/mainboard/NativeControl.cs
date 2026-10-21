@@ -1,11 +1,19 @@
-// Version-pinned native adapter candidate. No production entry point enables it.
+// Version-pinned native adapter. Only the protected fixed100 diagnostic invokes it.
 // All calls must stay in a protected isolated worker, never in the GUI/RPC loop.
 using System;
 using System.Reflection;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Collections.Generic;
 
-internal sealed class NativeControl : INativeControlPort
+internal interface INativeControlEvidence
+{
+    Dictionary<string,object> Recovery { get; }
+    void VerifyDuty(float percent);
+    void VerifyReturn();
+}
+
+internal sealed class NativeControl : INativeControlPort, INativeReturnEvidence
 {
     private sealed class Reservation { internal readonly object Gate = new object(); internal NativeControl Owner; }
     private static readonly ConditionalWeakTable<object, Reservation> Reservations = new ConditionalWeakTable<object, Reservation>();
@@ -16,6 +24,10 @@ internal sealed class NativeControl : INativeControlPort
     private readonly MethodInfo prime, software, firmware;
     private readonly int floor;
     private bool owned;
+    private INativeControlEvidence evidence;
+    private bool returnVerified;
+    public bool FirmwareReturnVerified { get { lock (reservation.Gate) return returnVerified && !owned; } }
+    public bool JournalCleared { get { return false; } } // Only the journal wrapper can assert this.
 
     private NativeControl(object control, bool pump)
     {
@@ -46,6 +58,8 @@ internal sealed class NativeControl : INativeControlPort
 #if NATIVE_CONTROL_TESTS
     // Only present in the separate synthetic-callback acceptance binary.
     internal static NativeControl ForTest(object control, bool pump) { return new NativeControl(control, pump); }
+    internal static NativeControl ForTest(object control, bool pump, INativeControlEvidence evidence)
+    { var adapter = new NativeControl(control,pump); adapter.evidence = evidence; return adapter; }
 #else
     internal static NativeControl CreateProtected(object control, bool pump)
     {
@@ -53,11 +67,26 @@ internal sealed class NativeControl : INativeControlPort
         string expected = Path.Combine(BrokerService.RuntimePath, "LibreHardwareMonitorLib.dll");
         if (control == null || !String.Equals(Path.GetFullPath(control.GetType().Assembly.Location), expected, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Control object did not originate in the protected runtime.");
-        return new NativeControl(control, pump);
+        var adapter = new NativeControl(control, pump);
+        adapter.evidence = NativeNctEvidence.Create(control);
+        return adapter;
     }
 #endif
 
     internal bool Owned { get { lock (reservation.Gate) return owned; } }
+    internal static bool RecoverOwned(object control)
+    {
+        BrokerService.CheckInstallation(true);
+        Reservation held;
+        if (!Reservations.TryGetValue(control,out held)) return false;
+        lock (held.Gate)
+        {
+            if (held.Owner == null) return false;
+            var owner=held.Owner;
+            owner.Release();
+            return owner.FirmwareReturnVerified;
+        }
+    }
     int INativeControlPort.Floor { get { return floor; } }
     bool INativeControlPort.Owned { get { return Owned; } }
     void INativeControlPort.Acquire() { Acquire(); }
@@ -73,7 +102,8 @@ internal sealed class NativeControl : INativeControlPort
             !Object.ReferenceEquals(sensorType.GetProperty("Control").GetValue(sensor,null),control))
             throw new InvalidOperationException("Native journal identity is not the selected SuperIO control.");
         return new NativeControlIdentity(hardware.GetType().GetProperty("Identifier").GetValue(hardware,null).ToString(),
-            sensorType.GetProperty("Identifier").GetValue(sensor,null).ToString(),floor == 100);
+            sensorType.GetProperty("Identifier").GetValue(sensor,null).ToString(),floor == 100,
+            evidence == null ? null : evidence.Recovery);
     }
     private int Mode { get { return Convert.ToInt32(mode.GetValue(control, null)); } }
     private static Exception Cause(Exception error) { return error is TargetInvocationException && error.InnerException != null ? error.InnerException : error; }
@@ -87,6 +117,7 @@ internal sealed class NativeControl : INativeControlPort
         cachedMode.SetValue(control, Enum.ToObject(mode.PropertyType, 0)); // memory only
         prime.Invoke(control, new object[] { percent });                 // memory only
         software.Invoke(control, new object[] { percent });
+        if (evidence != null) evidence.VerifyDuty(percent);
         if (Mode != 1 || (float)value.GetValue(control, null) != percent)
             throw new InvalidOperationException("Native software control state did not match the request.");
     }
@@ -97,6 +128,7 @@ internal sealed class NativeControl : INativeControlPort
             if (owned || reservation.Owner != null) throw new InvalidOperationException("Control is already reserved.");
             if (Mode != 0 && Mode != 2) throw new InvalidOperationException("Refusing an existing or unknown software-control mode.");
             reservation.Owner = this;
+            returnVerified = false;
             owned = true; // Track partial acquisition before the first possible hardware call.
             try { Write(100); }
             catch (Exception error) { RecoverAndThrow(error); }
@@ -132,7 +164,9 @@ internal sealed class NativeControl : INativeControlPort
             // memory-only transition so a second recovery really retries the I/O.
             cachedMode.SetValue(control, Enum.ToObject(mode.PropertyType, 0));
             firmware.Invoke(control, null);
+            if (evidence != null) evidence.VerifyReturn();
             if (Mode != 2) throw new InvalidOperationException("Firmware restoration callback did not retain Default mode.");
+            returnVerified = evidence != null;
             owned = false;
             reservation.Owner = null;
         }

@@ -13,6 +13,11 @@ internal interface INativeControlPort
     void SetDuty(float percent);
     void Release();
 }
+internal interface INativeReturnEvidence
+{
+    bool FirmwareReturnVerified { get; }
+    bool JournalCleared { get; }
+}
 // Receives acquisition timestamps from a trusted local sampler, never GUI data.
 // No sensor I/O here: polling must not wait on a sensor/driver callback.
 internal sealed class NativeTelemetryGuard
@@ -144,7 +149,9 @@ internal sealed class NativeControlSession
             {"version",1}, {"session",session}, {"ticket",ticket}, {"sequence",sequence},
             {"state",state}, {"reason",reason}, {"duty_percent",duty},
             {"ticket_ms",TicketMs}, {"lease_ms",LeaseMs}, {"owned",port.Owned},
-            {"physical_write_verified",false}
+            {"physical_write_verified",false},
+            {"firmware_return_verified",state == "closed" && port is INativeReturnEvidence && ((INativeReturnEvidence)port).FirmwareReturnVerified},
+            {"journal_cleared",state == "closed" && port is INativeReturnEvidence && ((INativeReturnEvidence)port).JournalCleared}
         };
     }
     private static bool SameToken(object raw, string expected) { return raw is string && String.Equals((string)raw, expected, StringComparison.Ordinal); }

@@ -1,4 +1,4 @@
-// Read-only service; elevated installation lives in the one-shot deployment entry.
+// Read-only public sensor service plus administrator-authorized fixed100 probe.
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -21,6 +21,16 @@ internal sealed class BrokerService : ServiceBase
     private NamedPipeServerStream pipe;
     private Process worker;
     private Thread readerThread, pipeThread;
+    private NativeProbeJob pendingProbe;
+    protected override void OnCustomCommand(int command)
+    {
+        if (command != 128) throw new InvalidOperationException("Unsupported service command.");
+        lock (gate)
+        {
+            if (stop.WaitOne(0) || pendingProbe != null) throw new InvalidOperationException("Probe admission unavailable.");
+            pendingProbe=NativeProbeJob.Claim();
+        }
+    }
     internal const string Name = "freeRGBMainboard";
     internal static readonly string RuntimePath = Path.Combine(BrokerTransport.DirectoryPath, "library");
 
@@ -132,6 +142,27 @@ internal sealed class BrokerService : ServiceBase
                             }
 #endif
                             first = false;
+                            NativeProbeJob probe;
+                            lock (gate) { probe=pendingProbe; pendingProbe=null; }
+                            if (probe != null)
+                            {
+                                if (stop.WaitOne(0))
+                                {
+                                    probe.Complete(BrokerCache.Failure("Service stopping; diagnostic was not dispatched."));
+                                    return;
+                                }
+                                try
+                                {
+                                    if (probe.Expired) throw new InvalidOperationException("Probe expired before dispatch; no write permitted.");
+                                    child.StandardInput.WriteLine("probe100 "+probe.ControlId); child.StandardInput.Flush();
+                                    probe.Complete(BrokerTransport.ReadReply(child.StandardOutput.BaseStream,6000));
+                                }
+                                catch (Exception error)
+                                {
+                                    probe.Complete(BrokerCache.Failure("Fixed100 diagnostic failed: "+error.GetType().Name));
+                                    throw;
+                                }
+                            }
                             if (stop.WaitOne(1000)) return;
                         }
                     }
@@ -190,14 +221,30 @@ internal sealed class BrokerService : ServiceBase
 
     protected override void OnStop()
     {
+        // Close admission first. Let a bounded in-flight diagnostic finish its
+        // verified return/journal clear instead of killing it mid-reservation.
+        RequestAdditionalTime(25000);
         stop.Set();
         lock (gate)
         {
             if (pipe != null) pipe.Dispose();
-            try { if (worker != null && !worker.HasExited) worker.Kill(); }
-            catch (InvalidOperationException) { }
+            if (pendingProbe != null)
+            {
+                pendingProbe.Complete(BrokerCache.Failure("Service stopping; diagnostic was not dispatched."));
+                pendingProbe = null;
+            }
         }
-        if (readerThread != null && readerThread != Thread.CurrentThread) readerThread.Join(5000);
+        if (readerThread != null && readerThread != Thread.CurrentThread && !readerThread.Join(18000))
+        {
+            // A hung native call is not verified release. Preserve its journal;
+            // later recovery/maintenance must inspect it and cannot claim success.
+            lock (gate)
+            {
+                try { if (worker != null && !worker.HasExited) worker.Kill(); }
+                catch (InvalidOperationException) { }
+            }
+            readerThread.Join(2000);
+        }
         if (pipeThread != null && pipeThread != Thread.CurrentThread) pipeThread.Join(3000);
     }
 

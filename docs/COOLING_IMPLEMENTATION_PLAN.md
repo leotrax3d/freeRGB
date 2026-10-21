@@ -18,8 +18,14 @@ policy there. Both GUIs consume the same additive daemon API.
 - [ ] Establish exclusive supervisor/worker lifetime across restart and maintenance.
 - [ ] Define backend-specific recovery with original register/baseline evidence.
       A new LHM object's SetDefault is not proof of original firmware restoration.
-- [ ] Separate requested duty, callback completion, register readback and RPM
+- [x] Pinned Nct677X evidence adapter: persist original mode/command metadata,
+      verify native command registers and restored mode; fixed100 verified on
+      actual NCT6701D/CHA_FAN2, with separate measured RPM response.
+- [x] Separate requested duty, callback completion, register readback and RPM
       response; never report callback completion as physical write verification.
+- [x] Protected original baseline recovery after an exact owned worker crash:
+      real fixed100 test passed under the same service lifetime. Other service/boot
+      and driver-hang cases remain open; no old low duty is replayed.
 - [ ] Test recovery failures without clearing unresolved intent or replaying duty.
 
 ## 2. Independent supervision
@@ -49,6 +55,13 @@ policy there. Both GUIs consume the same additive daemon API.
       pipe: set/close, disconnect and connected-but-silent lease expiry; synthetic
       native sink only. Explicit script and Windows CI acceptance added.
 - [x] Pure calibration state machine and synthetic API preview.
+- [x] Rust native-session runtime executes curves, full calibration, bounded I/O,
+      independent sampler/timer checks and explicit return. Six cross-language
+      tests pass locally; see `COOLING_RUNTIME.md` for acceptance limits.
+- [x] Owned Rust runtime host reserves admission before acquisition, limits to
+      one native channel and drains with verified-return evidence. Healthy-command
+      tests independently reject stale temperature and sustained stalled RPM.
+      Production service transport/sampler and installer callers remain missing.
 - [ ] Run calibration and curves through the Rust supervisor/private native client.
 - [ ] Support multiple channels with backward-compatible journal reservations.
 - [ ] Retain explicit user channel/source selection and conservative pump limits.
@@ -70,7 +83,14 @@ policy there. Both GUIs consume the same additive daemon API.
 
 ## 5. Hardware acceptance and exposure
 
-- [ ] Obtain authorization for the specific live hardware/driver test.
+- [x] User authorized protected-service installation for hardware inspection;
+      opt-in bootstrap installed the service, reused existing PawnIO, and actual
+      read-only inventory succeeded. Later fixed100 diagnostics are listed below.
+- [x] User attached a normal fan to CHA_FAN2; new RPM source around1240 observed.
+      Selected control/2 fixed100 test measured about1324 ->1709RPM; original
+      firmware mode was verified and later RPM returned around1300.
+- [x] Worker-crash recovery on that fixed100 diagnostic: unchanged supervisor,
+      exact owned worker termination/restart, native baseline return and empty journal.
 - [ ] Verify selected fan/pump, register effects, RPM response and firmware return.
 - [ ] Test command loss, sensor loss, process/service crash and restart recovery.
 - [ ] Only then add documented live daemon API and both GUI integrations.

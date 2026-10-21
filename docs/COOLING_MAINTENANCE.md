@@ -58,10 +58,10 @@ For each exact token, release requires all of:
 - Backend-specific firmware return verified independently of callback completion.
 - Durable recovery intent successfully cleared after that verification.
 
-These are evidence inputs, not implemented hardware probes. In particular, the
-existing LHM callback/session receipt does **not** currently satisfy the second
-condition; no production caller may invent that proof. The existing candidate
-journal ordering must also be strengthened to retain intent until verification.
+These must be authenticated evidence inputs, never GUI assertions. The pinned
+Nct677X adapter now checks the original native mode on return before journal
+clearance, and private closed receipts carry separate return/clear flags. Plain
+callback completion or a closed state alone still cannot satisfy these conditions.
 
 Timeout (including a completion exactly at the deadline), worker disappearance,
 incomplete release evidence or clock reversal blocks maintenance. Outstanding
@@ -75,6 +75,18 @@ Gate-local tokens are not globally unique: a future authenticated transport must
 bind them to a unique supervisor lifetime and reject replies from old workers.
 
 ## Remaining production integration
+
+The Rust `CoolingHost` now owns the actual runtime tasks, reserves admission
+before native acquisition and implements stop/drain with the private verified
+return receipt. Tests exercise successful drain, missing evidence and stuck
+acquisition. It permits only one channel until the durable journal supports more.
+This is executable integration logic, but still has no productive SCM/installer
+caller. See `COOLING_RUNTIME.md` for the exact remaining boundary.
+
+The existing C# service stop path now closes diagnostic admission and waits for
+bounded in-flight native work before forced termination. This gives the fixed100
+diagnostic time to verify return; it is not yet an active-curve maintenance
+handshake. Forced termination cannot assert return and leaves recovery intent.
 
 An in-memory gate alone cannot exclude another process or survive a supervisor
 crash. The service needs exclusive lifetime ownership, a maintenance handshake and
