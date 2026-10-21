@@ -41,6 +41,10 @@ policy there. Both GUIs consume the same additive daemon API.
 ## 3. Protected service integration
 
 - [x] Protected service/client authentication and private expiring session tickets.
+- [x] Rust async peer for the existing private session protocol: bounded I/O,
+      receipt identity/counter/duty validation, cancellation drops connection.
+      Transport authentication/lifetime binding must precede construction;
+      no production listener or caller yet.
 - [x] Pure calibration state machine and synthetic API preview.
 - [ ] Run calibration and curves through the Rust supervisor/private native client.
 - [ ] Support multiple channels with backward-compatible journal reservations.
@@ -52,7 +56,8 @@ policy there. Both GUIs consume the same additive daemon API.
       release evidence, block on timeout/crash. See `COOLING_MAINTENANCE.md`.
 - [x] Existing elevated maintenance shares the native reservation mutex through
       stop/swap/remove and refuses pending/invalid journal state. Local concurrent
-      exclusion tested; disposable SCM acceptance is tracked separately.
+      exclusion tested; disposable SCM acceptance passed for `983a67a`, run
+      `39559255035` (unchanged service PID, executable hash and recovery bytes).
 - [ ] Connect the Rust admission/release handshake to the production supervisor.
 - [ ] Request return, await confirmed release, then stop/swap/remove binaries.
 - [ ] Unresolved or failed release blocks maintenance and preserves recovery files.

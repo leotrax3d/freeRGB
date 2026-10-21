@@ -135,3 +135,30 @@ The 25 ms transport watchdog is independent of pipe input, not native driver han
 Architectural follow-up: keep reusable calibration, curve and supervision policy
 in Rust (`freergb-control`/daemon); restrict C# to the necessary LHM/native boundary.
 No public API, GUI/config format or live-control enablement changed.
+
+## Rust peer (2026-10-21)
+
+`freergb-daemon::native_session` implements an async peer for the same private
+version-1 worker protocol using existing Tokio/Serde dependencies. It accepts an
+already authenticated transport; it does **not** authenticate a pipe or launch a
+worker itself and has no production caller/listener. The eventual protected Rust
+supervisor must validate SYSTEM/service/worker lifetime before construction.
+
+Replies are bounded to 2048 bytes including LF and two seconds. Writes/flush have
+a two-second bound. Initial reply must be active/owned/100%, counter zero; receipts
+must match session, requested counter/duty, new ticket and ownership semantics.
+Ticket/lease parameters remain 250/1000 ms, with a conservative local 200 ms send
+window. There is no auto-reconnect/replay/heartbeat. Invalid or cancelled operations
+drop the transport and make that client unusable. Server-side lease/telemetry must
+continue independently; an async timeout cannot resolve a hung native driver.
+
+Secret-bearing reply/client types deliberately have no Debug output. Public Rust
+receipts contain callback state/duty/ownership/reason only; no ticket and no
+physical-write or firmware-return verification. A closed receipt cannot authorize
+maintenance by itself. This is an internal Rust module, not a new JSON-RPC API or
+shared configuration format. The old C# peer remains until authenticated Rust
+hosting is integrated and accepted.
+
+Duplex-stream tests exercise set/close, changed session/counter/ticket/duty,
+unjustified physical verification, oversized nonterminated input and cancellation
+during a pending receipt. These use a synthetic peer, not LHM or a real driver.

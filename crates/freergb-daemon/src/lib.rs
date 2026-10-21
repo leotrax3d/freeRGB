@@ -13,6 +13,7 @@ pub mod hardware;
 pub mod ipc;
 pub mod keyboard;
 pub mod mainboard;
+pub mod native_session;
 pub mod profiles;
 pub mod report;
 pub mod state;
