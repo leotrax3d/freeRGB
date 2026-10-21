@@ -548,3 +548,22 @@ Hardware results: `DEVICES.md#validation-log`.
   journal permits one pending control only; multi-channel ownership is open.
   Supervisor recovery/readback and maintenance coordination remain mandatory.
   File flush/replace is not proof of OS/power-loss/native-driver-hang recovery.
+
+## Private service client added while the journal runner worked
+
+- NativeSessionClient compiled into service binary, inactive/no listener/caller.
+  Factory requires protected SYSTEM service, SYSTEM-owned pipe and exact managed
+  worker PID/protected image. SCM fixture now uses the same exact-worker check.
+- Typed reply validation: version/tokens/session/counter/requested duty/state/
+  ownership and physical_write_verified:false. Active replies mint a fresh ticket.
+  Local send window200ms; worker's250ms ticket remains authoritative. Failures
+  dispose private pipe, not reconnect/replay; terminal receipts block later writes.
+  No raw session tokens/request records in logs or public RPC.
+- Real pipe tests: normal set/close, cancel, late local ticket and corrupted
+  identity/counter/duty replies. Rejection closes pipe and triggers synthetic full
+  speed; PS7/PS5.1 pass, production factory rejects unprotected caller and test
+  entry absent. Journal broker39483452345 succeeded with real SYSTEM journal/mutex
+  and actual denied standard-user write; native quick39483452459 also passed.
+- No API/config/GUI/Tauri changes. Current CI/Package still need final results;
+  activation/recovery/readback/multi-channel and upgrade/uninstall coordination
+  remain open. Mainboard service is still read-only for end users.

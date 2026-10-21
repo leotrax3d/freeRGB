@@ -392,3 +392,16 @@ runner result is pending. No service/driver was installed locally. These tests d
 not establish physical readback, power-loss safety, recovery after a native driver
 hang or coordination with active-session upgrade/uninstall. Those gaps keep the
 candidate inactive; see MAINBOARD_CONTROL_RECOVERY.md.
+
+Journal quick39483452459 and broker39483452345 subsequently passed, including
+the actual protected SYSTEM journal/mutex and standard-user write denial.
+The private typed service client additionally passes PS7/PS5.1 real-pipe normal
+set/close/cancel, local-ticket expiry and forged reply identity/counter/duty
+rejection. Failed responses close the pipe and cause the synthetic worker's
+100% fallback. Protected factory/test-entry gates and fixture compilation pass.
+This adds no physical fan-control acceptance or automatic heartbeat/listener.
+
+Journal baseline554f1c5 completed successfully in CI39483452355 and
+Package39483452206 as well as the broker/native quick runs. The later typed
+client also compiled into the current local installer and passed Inno model
+checks; its own fresh CI/Package remains separate.

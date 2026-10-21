@@ -123,7 +123,7 @@ internal sealed class BrokerService : ServiceBase
                                 using (var proof = BrokerTransport.Connect("freergb-native-auth-fixture-" + child.Id))
                                 {
                                     var owner = (SecurityIdentifier)proof.GetAccessControl().GetOwner(typeof(SecurityIdentifier));
-                                    if (!owner.IsWellKnown(WellKnownSidType.LocalSystemSid) || !BrokerTransport.IsExpectedServer(proof,start.FileName))
+                                    if (!owner.IsWellKnown(WellKnownSidType.LocalSystemSid) || !BrokerTransport.IsExpectedWorker(proof,(uint)child.Id))
                                         throw new InvalidOperationException("Synthetic worker identity failed.");
                                     BrokerTransport.Write(proof,Encoding.ASCII.GetBytes("snapshot\n"));
                                     if (BrokerTransport.ReadReply(proof,2000) != "authenticated") throw new InvalidOperationException("Registered service client authentication failed.");

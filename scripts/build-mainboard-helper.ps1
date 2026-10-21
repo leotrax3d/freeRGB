@@ -17,6 +17,7 @@ $nativeSession = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboar
 $nativeTransport = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeSessionTransport.cs").Path
 $nativeJournal = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControlJournal.cs").Path
 $journaledControl = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/JournaledNativeControl.cs").Path
+$nativeClient = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeSessionClient.cs").Path
 $icon = (Resolve-Path -LiteralPath "$PSScriptRoot/../assets/icons/freergb.ico").Path
 $helperOptions = @()
 if ($Mode -ne 'Production') {
@@ -38,6 +39,6 @@ $helperHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower
 $serviceDefine = '/define:BROKER_INSTALLER'
 if ($Mode -ne 'Production') { $serviceDefine = '/define:BROKER_INSTALLER;BROKER_FIXTURE_CLIENT_AUTH' }
 if ($Mode -eq 'FixtureFailStart') { $serviceDefine = '/define:BROKER_INSTALLER;BROKER_FIXTURE_FAIL_START' }
-& $compiler /nologo /target:exe $serviceDefine /main:BrokerService /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/win32icon:$icon" "/out:$serviceBinary" $source $transport $cache $service $deployment $identity
+& $compiler /nologo /target:exe $serviceDefine /main:BrokerService /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/win32icon:$icon" "/out:$serviceBinary" $source $transport $cache $service $deployment $identity $nativeClient
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard broker compilation failed.' }
 Write-Output $serviceBinary

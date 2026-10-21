@@ -88,6 +88,13 @@ internal static class BrokerTransport
         finally { CloseHandle(process); }
     }
 
+    internal static bool IsExpectedWorker(NamedPipeClientStream pipe, uint expectedPid)
+    {
+        uint actual;
+        return expectedPid != 0 && GetNamedPipeServerProcessId(pipe.SafePipeHandle,out actual) && actual == expectedPid &&
+            IsExpectedServer(pipe,Path.Combine(DirectoryPath,"freergb-mainboard.exe"));
+    }
+
     private static bool IsRegisteredServicePid(uint pid)
     {
         IntPtr manager = OpenSCManager(null, null, 1); // CONNECT only

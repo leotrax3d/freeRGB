@@ -222,3 +222,17 @@ Recovery continuation while CI ran:
 - [ ] Fresh SCM proof of protected journal/mutex and denied standard-user write.
 - [ ] Automatic checked recovery/readback, multi-channel format/ownership and active
   session coordination with upgrade/uninstall before enabling live fan control.
+
+Service-client continuation during journal CI:
+- [x] Journal native quick39483452459 and protected broker39483452345 succeeded,
+  including production SYSTEM journal/mutex and standard-user write denial.
+- [x] Typed private service client: protected caller/pipe/exact worker PID+image,
+  reply identity/counter/duty/state validation, local ticket window and no replay.
+- [x] Real pipe tests for set/close/cancel/late ticket and corrupt replies, with
+  worker full-speed fallback; PS7/PS5.1 and fixture build pass.
+- [ ] Fresh full CI/Package for the complete journal/client increment; production
+  worker activation, recovery/readback and maintenance coordination remain open.
+
+Journal baseline554f1c5 now passed CI39483452355, Package39483452206,
+broker39483452345 and native quick39483452459. The later typed-client increment
+has its own fresh CI/Package pending after commit; do not conflate those results.

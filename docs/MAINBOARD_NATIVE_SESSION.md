@@ -24,6 +24,12 @@ factory signatures. It records intent before acquisition and retains unresolved
 state across worker death; see MAINBOARD_CONTROL_RECOVERY.md. No production caller
 activates the chain yet.
 
+The service-side `NativeSessionClient` is also a candidate with no production
+caller. Its factory requires the protected SYSTEM service, a SYSTEM-owned pipe
+and the exact expected worker PID/protected helper image. Merely matching another
+copy of the helper executable is insufficient. The SCM fixture exercises the same
+worker-identity check in its private authentication probe.
+
 ## Private version-1 exchange
 
 Each server reply has `version:1`, random 128-bit `session` and `ticket` hex strings,
@@ -45,6 +51,15 @@ prior accepted counter +1, bounded by Int32.MaxValue. The private protocol does
 not accept fractional counters/duties or client-supplied clocks. Requests are UTF-8
 JSON lines, at most 2048 bytes including LF, bounded nesting; extra buffered data
 after a newline is rejected. There is no request pipelining.
+
+The typed service client validates version, token shape/session continuity,
+counter, requested duty, ownership/state consistency and unverified-write flag
+on replies. Active replies require a fresh ticket. It closes the pipe on protocol/
+I/O/local ticket faults rather than reconnecting or replaying commands. Its local
+200-ms send window is conservative; the worker's ticket issue time remains the
+authority, including when a reply was delayed in transit. No automatic heartbeat
+or listener has been enabled. Terminal receipts cannot be used for another set
+or close; disposal alone does not request firmware release.
 
 A ticket is single-use and accepted only within 250 ms of **server issue time**.
 The active duty lease expires at that issue time +1000 ms, never receipt time.
@@ -93,3 +108,8 @@ read/upgrade/rollback/crash tests require that evidence. These probes are compil
 out of production. They run only on disposable GitHub Windows service acceptance;
 local tests do not install a service/driver. This proof is distinct from a live
 fan-control session and must not be presented as hardware acceptance.
+
+Typed-client real-pipe tests additionally cover normal set/close, cancellation,
+an expired local ticket and altered session/counter/duty replies. Rejected replies
+close the pipe and cause the synthetic worker to request full speed. Both PS7 and
+PS5.1 acceptance pass; no session secrets are written to test output/logs.

@@ -165,6 +165,74 @@ internal static class NativeSessionTests
     internal static void Run()
     {
         Policy(); Pipe(false,false); Pipe(true,false); Pipe(false,true);
+        Client(false,false); Client(true,false); Client(false,true);
+        for (int fault = 0; fault < 3; fault++) CorruptResponse(fault);
         Console.WriteLine("PASS: one-use session tickets, anti-replay/expiry, bounded real pipe input, independent input-stall watchdog, disconnect, close and failed recovery. Synthetic port only.");
+    }
+    private static void Client(bool stale, bool detach)
+    {
+        string name = "freergb-native-client-fixture-"+Guid.NewGuid().ToString("N");
+        var port = new SessionPort { Floor = 40 };
+        var serverClock = System.Diagnostics.Stopwatch.StartNew();
+        using (var server = BrokerTransport.CreateServer(name,WindowsIdentity.GetCurrent().User))
+        {
+            var serving = Task.Run(delegate {
+                server.WaitForConnection();
+                var session = NativeControlSession.ForTest(port,delegate { return serverClock.ElapsedMilliseconds; });
+                NativeSessionTransport.RunForTest(server,session);
+            });
+            long clientClock = 0;
+            using (var client = NativeSessionClient.ForTest(BrokerTransport.Connect(name),delegate { return clientClock; }))
+            {
+                if (stale)
+                {
+                    clientClock = 201;
+                    bool rejected = false;
+                    try { client.SetDuty(40); } catch (InvalidOperationException) { rejected = true; }
+                    Assert(rejected,"Client sent an expired local ticket.");
+                }
+                else
+                {
+                    var receipt = client.SetDuty(40);
+                    Assert(receipt.State == "active" && receipt.DutyPercent == 40 && receipt.Owned,"Typed native client did not match its response.");
+                    if (detach) client.Dispose();
+                    else Assert(client.Close().State == "closed","Typed native close failed.");
+                }
+            }
+            Assert(serving.Wait(4000),"Native client cancellation did not finish the session.");
+            if (stale || detach) Assert(port.Owned && port.Writes[port.Writes.Length-1] == 100,"Client error silently released emergency ownership.");
+            else Assert(!port.Owned && port.Writes[port.Writes.Length-1] == -1,"Valid typed close did not restore firmware.");
+        }
+    }
+    private static void CorruptResponse(int fault)
+    {
+        string name = "freergb-native-response-fixture-"+Guid.NewGuid().ToString("N");
+        var port = new SessionPort { Floor = 40 };
+        using (var server = BrokerTransport.CreateServer(name,WindowsIdentity.GetCurrent().User))
+        {
+            var serving = Task.Run(delegate {
+                server.WaitForConnection();
+                var session = NativeControlSession.ForTest(port,delegate { return 0; });
+                try
+                {
+                    BrokerTransport.Write(server,Encoding.UTF8.GetBytes(Json.Serialize(session.View())+"\n"));
+                    var reply = session.Execute(BrokerTransport.ReadRecord(server,2000,2048));
+                    if (fault == 0) reply["session"] = new string('0',32);
+                    else if (fault == 1) reply["sequence"] = 2;
+                    else reply["duty_percent"] = 60;
+                    BrokerTransport.Write(server,Encoding.UTF8.GetBytes(Json.Serialize(reply)+"\n"));
+                    BrokerTransport.ReadRecord(server,2000,2048);
+                }
+                catch (System.IO.EndOfStreamException) { }
+                finally { session.Fault("fixture_peer_error"); }
+            });
+            using (var client = NativeSessionClient.ForTest(BrokerTransport.Connect(name),delegate { return 0; }))
+            {
+                bool rejected = false;
+                try { client.SetDuty(40); } catch (System.IO.InvalidDataException) { rejected = true; }
+                Assert(rejected,"Native client trusted a changed session/counter/duty response.");
+            }
+            Assert(serving.Wait(4000) && port.Fallback.WaitOne(0),"Rejected response did not close the pipe and force fallback.");
+        }
     }
 }
