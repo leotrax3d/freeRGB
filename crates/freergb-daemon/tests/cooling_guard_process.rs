@@ -14,9 +14,12 @@ impl Drop for Fixture {
     }
 }
 fn spawn(producer: bool) -> (Fixture, Receiver<Value>) {
+    spawn_mode(if producer { Some("--producer") } else { None })
+}
+fn spawn_mode(mode: Option<&str>) -> (Fixture, Receiver<Value>) {
     let mut command = Command::new(env!("CARGO_BIN_EXE_freergb-cooling-guard-fixture"));
-    if producer {
-        command.arg("--producer");
+    if let Some(mode) = mode {
+        command.arg(mode);
     }
     let mut child = command
         .stdin(Stdio::piped())
@@ -35,6 +38,92 @@ fn spawn(producer: bool) -> (Fixture, Receiver<Value>) {
         }
     });
     (Fixture(child), rx)
+}
+fn send(child: &mut Fixture, message: Value) {
+    let input = child.0.stdin.as_mut().unwrap();
+    writeln!(input, "{message}").unwrap();
+    input.flush().unwrap();
+}
+#[test]
+fn blocked_sensor_input_does_not_block_rust_supervision() {
+    let (mut process, rx) = spawn_mode(Some("--supervised"));
+    assert_eq!(read(&rx)["state"], "armed");
+    // A partial frame leaves the input thread blocked while controller ticks continue.
+    process
+        .0
+        .stdin
+        .as_mut()
+        .unwrap()
+        .write_all(b"{\"type\":")
+        .unwrap();
+    let fallback = read(&rx);
+    assert_eq!(fallback["state"], "emergency");
+    assert_eq!(fallback["detail"], "Some(Stale)");
+    assert_eq!(fallback["duty_percent"], 100);
+    assert_eq!(fallback["physical_write_verified"], false);
+}
+#[test]
+fn critical_heat_latches_in_the_supervisor_process() {
+    let (mut process, rx) = spawn_mode(Some("--supervised"));
+    assert_eq!(read(&rx)["state"], "armed");
+    send(
+        &mut process,
+        serde_json::json!({"type":"temperature","value":80}),
+    );
+    let fallback = read(&rx);
+    assert_eq!(fallback["state"], "emergency");
+    assert_eq!(fallback["detail"], "Some(Critical)");
+}
+#[test]
+fn fan_stall_is_detected_while_command_heartbeats_continue() {
+    let (mut process, rx) = spawn_mode(Some("--supervised"));
+    assert_eq!(read(&rx)["state"], "armed");
+    send(&mut process, serde_json::json!({"type":"rpm","value":0}));
+    let fallback = read(&rx);
+    assert_eq!(fallback["state"], "emergency");
+    assert_eq!(fallback["detail"], "Some(Stalled)");
+    assert_eq!(fallback["duty_percent"], 100);
+}
+#[test]
+fn input_loss_during_maintenance_cannot_authorize_replacement() {
+    let (mut process, rx) = spawn_mode(Some("--supervised"));
+    assert_eq!(read(&rx)["state"], "armed");
+    send(&mut process, serde_json::json!({"type":"maintenance"}));
+    assert_eq!(read(&rx)["state"], "draining");
+    drop(process.0.stdin.take());
+    let result = read(&rx);
+    assert_eq!(result["state"], "blocked");
+    assert_eq!(result["detail"], "input_lost");
+    assert_eq!(result["physical_write_verified"], false);
+}
+#[test]
+fn maintenance_requires_complete_return_and_does_not_wait_forever() {
+    for outcome in ["complete", "partial", "timeout"] {
+        let (mut process, rx) = spawn_mode(Some("--supervised"));
+        assert_eq!(read(&rx)["state"], "armed");
+        send(&mut process, serde_json::json!({"type":"maintenance"}));
+        let draining = read(&rx);
+        assert_eq!(draining["state"], "draining");
+        assert_eq!(draining["detail"], "admission_closed");
+        assert_eq!(draining["duty_percent"], 100);
+        if outcome != "timeout" {
+            send(
+                &mut process,
+                serde_json::json!({"type":"release","native_released":true,"firmware_return_verified":outcome=="complete","journal_cleared":true}),
+            );
+        }
+        let result = read(&rx);
+        assert_eq!(
+            result["state"],
+            if outcome == "complete" {
+                "ready_for_maintenance"
+            } else {
+                "blocked"
+            }
+        );
+        assert_eq!(result["simulated"], true);
+        assert_eq!(result["physical_write_verified"], false);
+    }
 }
 fn read(rx: &Receiver<Value>) -> Value {
     rx.recv_timeout(Duration::from_secs(5))

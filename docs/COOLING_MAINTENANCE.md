@@ -57,3 +57,16 @@ Current acceptance is synthetic Rust testing: multiple sessions, admission refus
 exact/duplicate tokens, each missing proof, worker loss, timeout, clock reversal,
 overflow and non-extendable deadlines. Actual service/installer integration remains
 unchecked in `COOLING_IMPLEMENTATION_PLAN.md`.
+
+The feature-gated `freergb-cooling-guard-fixture --supervised` now combines the
+Rust telemetry/lease and maintenance policies in a real child process. A bounded
+input thread may block on a partial message while the supervisor timer continues.
+Command heartbeats and initial samples are synthetic, and test messages create
+synthetic measurements at receipt time; this is not a production sampler protocol.
+Release proof is likewise test data, never evidence from real hardware. Output
+always reports `simulated=true` and `physical_write_verified=false`.
+
+Run `cargo test -p freergb-daemon --features cooling-fixture --test cooling_guard_process --locked`.
+The fixture is excluded from ordinary builds/installer packaging. It does not
+install a service, open a sensor backend or write hardware. Production supervisor
+authentication, process ownership, native I/O and installer handshake remain open.

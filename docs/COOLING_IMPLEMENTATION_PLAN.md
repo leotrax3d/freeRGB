@@ -29,6 +29,9 @@ policy there. Both GUIs consume the same additive daemon API.
 - [x] Rust telemetry policy with distinct source identities/acquisition timestamps.
 - [x] Pure Rust composition of telemetry and command lease; tested mutual failure
       isolation. This is not yet the independent supervisor executable.
+- [x] Feature-gated Rust process fixture: blocked partial input, stale telemetry,
+      critical heat and fan stall with healthy synthetic command heartbeats;
+      maintenance success, missing evidence, timeout and input loss.
 - [ ] Compose telemetry, command lease and curves in a Rust supervisor process.
 - [ ] Connect bounded trusted sampler updates; reject relabelled cached values.
 - [ ] Exercise stalled sampler, critical heat, missing RPM, disconnect and native

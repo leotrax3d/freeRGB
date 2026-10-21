@@ -5,6 +5,7 @@ use std::io::{BufRead, Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
+mod supervised_guard;
 
 fn emit(state: impl serde::Serialize, duty: u8) {
     println!(
@@ -14,6 +15,10 @@ fn emit(state: impl serde::Serialize, duty: u8) {
     std::io::stdout().flush().unwrap();
 }
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--supervised") {
+        supervised_guard::run();
+        return;
+    }
     if std::env::args().nth(1).as_deref() == Some("--producer") {
         let mut guard = Command::new(std::env::current_exe().unwrap())
             .stdin(Stdio::piped())
