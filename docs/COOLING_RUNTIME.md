@@ -3,6 +3,10 @@
 Updated 2026-10-21. This documents implemented execution code and its remaining
 production boundaries. It does not announce enabled live fan control.
 
+Latest acceptance: `MAINBOARD_CONTROL_BRIDGE.md` documents the now-connected
+protected service/native sampler and successful actual constant100% Rust curve
+pilot on CHA_FAN2. The normal daemon/API/GUI and variable-duty paths remain gated.
+
 ## Rust execution
 
 `freergb-daemon::cooling_runtime::run` now executes either a validated fan curve or
@@ -78,7 +82,8 @@ evidence. Missing proof, acquisition failure, task loss or timeout blocks furthe
 admission and replacement. Dropping execution aborts the task and closes transport;
 it never treats EOF as successful release. Ready is terminal. The elevated
 installer must still hold its existing shared native reservation mutex and use a
-production service handshake; this host is not yet wired to SCM or the installer.
+  production maintenance handshake; its commissioning transport now reaches the
+  protected service, but installer draining remains unwired.
 
 Tests execute the actual runtime through duplex native-protocol peers: verified
 drain succeeds, missing proof and stuck acquisition block. Separate runtime tests

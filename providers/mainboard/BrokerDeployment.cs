@@ -94,7 +94,7 @@ internal sealed class BrokerRegistration : IBrokerRegistration
             {
                 if (service.Status != ServiceControllerStatus.StopPending) service.Stop();
                 // Match the service's bounded graceful native-return window.
-                service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(50));
             }
             if (process != null && !process.WaitForExit(5000)) throw new System.TimeoutException("Stopped service process did not exit; update was not applied.");
             }

@@ -11,6 +11,10 @@ rust-version.workspace = true
 name = "freergbd"
 path = "src/main.rs"
 
+[[bin]]
+name = "freergb-cooling-pilot"
+path = "src/bin/cooling_pilot.rs"
+
 [features]
 cooling-fixture = []
 

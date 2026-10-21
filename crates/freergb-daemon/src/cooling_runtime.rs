@@ -1,6 +1,6 @@
 //! Rust cooling execution over an authenticated native session. No listener,
 //! process elevation or automatic hardware activation is performed here.
-use crate::native_session::{NativeSessionClient, Receipt, SessionState};
+use crate::native_session::{NativeObservation, NativeSessionClient, Receipt, SessionState};
 use freergb_control::calibration::{
     Calibration, CalibrationPhase, CalibrationResult, CalibrationSample,
 };
@@ -19,6 +19,22 @@ pub struct SamplerFrame {
     pub temperature_at_ms: u64,
     pub rpm: f32,
     pub rpm_at_ms: u64,
+}
+impl SamplerFrame {
+    pub fn from_native(sample: NativeObservation, epoch: Instant) -> Result<Self, String> {
+        let acquired = sample
+            .acquired
+            .checked_duration_since(epoch)
+            .ok_or("Native sample predates cooling host epoch")?
+            .as_millis()
+            .min(u128::from(u64::MAX)) as u64;
+        Ok(Self {
+            temperature_c: sample.temperature_c,
+            rpm: sample.rpm,
+            temperature_at_ms: acquired,
+            rpm_at_ms: acquired,
+        })
+    }
 }
 pub enum ControlMode {
     Curve(FanCurve),
@@ -145,6 +161,8 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         return Err("A running, explicitly selected fan is required before control".into());
     }
     let mut control = SupervisedControl::new(telemetry, at, 1000, 40)?;
+    let native_sampled = client.observation().is_some();
+    let (native_samples, mut native_receiver) = mpsc::channel(4);
     let (tx, mut rx) = mpsc::channel::<NativeRequest>(1);
     let _native_task = NativeTask(tokio::spawn(async move {
         while let Some(request) = rx.recv().await {
@@ -156,6 +174,13 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             let terminal = result
                 .as_ref()
                 .map_or(true, |receipt| receipt.state != SessionState::Active);
+            if !terminal {
+                if let Some(sample) = client.observation() {
+                    if native_samples.send(sample).await.is_err() {
+                        break;
+                    }
+                }
+            }
             let _ = request.reply.send(result);
             if closing || terminal {
                 break;
@@ -181,8 +206,13 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     loop {
         tokio::select! {
             _ = ticker.tick() => {},
-            incoming = samples.recv(), if !closing => {
+            incoming = samples.recv(), if !closing && !native_sampled => {
                 let incoming = incoming.ok_or("Trusted sampler disconnected; preserve recovery intent")?;
+                observe(&mut control,incoming,Some(frame),now(epoch))?;
+                frame = incoming;
+            },
+            incoming = native_receiver.recv(), if !closing && native_sampled => {
+                let incoming = SamplerFrame::from_native(incoming.ok_or("Native sampler transport stopped")?,epoch)?;
                 observe(&mut control,incoming,Some(frame),now(epoch))?;
                 frame = incoming;
             },

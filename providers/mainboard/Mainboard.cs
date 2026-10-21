@@ -167,13 +167,21 @@ internal static class Mainboard
         var hardware = new List<object>();
 #if NATIVE_CONTROL_WORKER
         using (var journal=NativeControlJournal.CreateProtected())
-            journal.Recover(delegate(Dictionary<string,object> pending) {
+        {
+            var current=journal.Pending();
+            var provenance=current != null && current.ContainsKey("recovery") ? current["recovery"] as Dictionary<string,object> : null;
+            bool active=provenance != null && provenance.ContainsKey("worker_identity") &&
+                !Object.Equals(provenance["worker_identity"],BrokerTransport.CurrentProcessIdentity()) &&
+                provenance.ContainsKey("service_identity") && Object.Equals(provenance["service_identity"],BrokerTransport.ServiceIdentity()) &&
+                BrokerTransport.ProcessIdentityAlive((string)provenance["worker_identity"]);
+            if (!active) journal.Recover(delegate(Dictionary<string,object> pending) {
                 var matches=new List<object>();
                 foreach (object board in (IEnumerable)Get(computer,"Hardware")) FindControl(board,(string)pending["sensor_id"],matches,0);
                 if (matches.Count != 1 || Get(Get(matches[0],"Hardware"),"Identifier").ToString() != (string)pending["hardware_id"])
                     throw new InvalidOperationException("Pending native channel cannot be uniquely identified.");
                 return NativeNctEvidence.RecoverProtected(Get(matches[0],"Control"),pending.ContainsKey("recovery") ? pending["recovery"] as Dictionary<string,object> : null);
             });
+        }
 #endif
         var clock = Stopwatch.StartNew();
         int count = 0;
@@ -240,6 +248,23 @@ internal static class Mainboard
     private static int Main(string[] args)
     {
         Console.OutputEncoding = new UTF8Encoding(false);
+        if (args.Length == 1 && args[0] == "--control-relay") return NativeControlBroker.Relay();
+#if NATIVE_CONTROL_WORKER
+        if (args.Length == 4 && args[0] == "--control-protected-session")
+        {
+            // Only the registered protected service launches this dedicated worker.
+            // No fan is acquired until the service-only pipe peer authenticates.
+            BrokerService.CheckInstallation(true);
+            library=BrokerService.RuntimePath; direct=true;
+            if (!System.Text.RegularExpressions.Regex.IsMatch(args[2],"^/lpc/[a-z0-9]+/[0-9]+/control/[0-6]$")) return 2;
+            object unavailable=Initialize();
+            if (unavailable != null) throw new InvalidOperationException("Native runtime unavailable.");
+            var controls=new List<object>();
+            foreach (object hardware in (IEnumerable)Get(computer,"Hardware")) FindControl(hardware,args[2],controls,0);
+            if (controls.Count != 1) throw new InvalidOperationException("Control identity is not unique.");
+            return NativeControlWorker.Run(Get(controls[0],"Control"),args[1],args[3]);
+        }
+#endif
         if (args.Length == 1 && args[0] == "--self-test")
         {
             // Tests serialization without loading LHM, touching hardware or drivers.

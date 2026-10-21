@@ -68,7 +68,7 @@ Synthetic tests, real hardware tests and public UI availability are distinguishe
 | 🟡 Native write evidence | Pinned Nct677X adapter captures original mode/command and checks actual command/mode registers; protected administrator diagnostic limited to 100% | Broader native backends and approved reduced-duty operation; shared-bit/EC variants and unsupported families remain blocked |
 | 🟡 Crash recovery | Durable intent before writes; unresolved state blocks control/maintenance; protected original-state recovery with chip/process/service identity checks; real worker-crash test passed on the test board | Broader service/reboot/power-loss scenarios and multi-channel recovery; unresolved ownership must remain blocked |
 | 🟡 Independent supervision | Rust lease and temperature/RPM/stall policies; private native lease/interlock; Rust runtime keeps sensor/timer checks running while native I/O waits | Productive trusted sampler/host wiring, full process-boundary fault acceptance and validated handling of driver hangs |
-| 🟡 Protected curve execution | Rust async native-session client/runtime executes curves and calibration; six Rust/C# interoperability tests passed locally with synthetic native sink | Production authenticated transport and sampler integration; this runtime is not yet called by normal live cooling UI/API |
+| 🟡 Protected curve execution | Rust runtime/owned host, authenticated service bridge and checked native sampler; actual constant100% curve with verified return passed on CHA_FAN2; six synthetic Rust/C# interoperability tests | Variable-duty hardware curves/calibration, normal daemon API/GUI callers and wider acceptance; see [bridge](docs/MAINBOARD_CONTROL_BRIDGE.md) |
 | 🟡 Motherboard RGB/ARGB | Separate experimental ASUS USB backend (`0b05:19af`), manual ARGB lengths, protocol validation and mock tests; no PawnIO needed for this USB path | Actual header colour/fallback tests, setup UI, broader ASUS IDs and MSI/Gigabyte/ASRock/other protocols |
 | 🟡 Windows installer | Inno Setup, project icon, launcher entry point, independent Start Menu/desktop/autostart choices (**autostart defaults on**), optional manufacturer uninstallers, configuration preservation; CI lifecycle tests | Interactive vendor-uninstaller acceptance, cross-version upgrade and remaining prerequisite/UAC/reboot scenarios |
 | 🟡 Optional prerequisites | Explicit unchecked installer opt-in for verified LHM/PawnIO/missing .NET prerequisites and protected mainboard service; fixed hashes/publisher checks and failure/cancellation reporting | Wider clean-machine acceptance and alternate backends; these dependencies are not required for every RGB device |
@@ -99,6 +99,7 @@ On the **ASUS PRIME X870-P WIFI / Nuvoton NCT6701D** test system:
 - [x] Test only **100% duty** on the selected channel: observed approximately **1324 → 1709 RPM**, with native command-register verification.
 - [x] Verify return to the original firmware mode and clear the recovery journal only after verification; later RPM returned to approximately 1300.
 - [x] Kill the exact owned native worker during the 100% diagnostic; supervisor restart, protected baseline recovery and journal clearance succeeded.
+- [x] Execute the Rust curve host through the real authenticated service and dedicated native worker, using checked native temperature/RPM sampling; constant100% curve and verified return passed.
 - [ ] Accept reduced-duty response/calibration, sustained curves and temperature/RPM/stall fault handling on the productive path.
 - [ ] Accept service/reboot failure cases and active-control upgrade/uninstall.
 - [ ] Expose accepted live control through the daemon API and both GUIs.
@@ -111,7 +112,7 @@ and validation. Fan power (PWM/DC) and lighting (5 V ARGB / 12 V RGB) are separa
 
 ### Remaining delivery order
 
-1. Wire the Rust cooling runtime to the production protected transport and trusted sampler.
+1. Extend the verified constant100% protected path to accepted variable-duty curves/calibration and normal daemon callers.
 2. Complete independent fault supervision, recovery and safe active-session maintenance.
 3. Perform reduced-duty, calibration, curve and failure acceptance on actual supported hardware.
 4. Add documented live daemon methods and thin UI controls; coordinate modern-GUI parity through the shared API.

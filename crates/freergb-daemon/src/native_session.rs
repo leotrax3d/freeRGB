@@ -26,6 +26,60 @@ pub struct Receipt {
     pub journal_cleared: bool,
 }
 
+#[derive(Clone, Copy, Deserialize)]
+struct NativeTelemetry {
+    sequence: u64,
+    temperature_c: f32,
+    rpm: f32,
+    age_ms: u64,
+}
+
+#[derive(Clone, Copy)]
+pub struct NativeObservation {
+    pub temperature_c: f32,
+    pub rpm: f32,
+    pub acquired: Instant,
+}
+
+fn observation(
+    raw: Option<NativeTelemetry>,
+    began: Instant,
+    previous: Option<(NativeTelemetry, NativeObservation)>,
+) -> Result<Option<(NativeTelemetry, NativeObservation)>, String> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    if !(-20.0..=150.0).contains(&raw.temperature_c)
+        || !(0.0..=100_000.0).contains(&raw.rpm)
+        || raw.age_ms > 1500
+    {
+        return Err("Invalid trusted native telemetry".into());
+    }
+    if let Some((old, observed)) = previous {
+        if raw.sequence < old.sequence
+            || (raw.sequence == old.sequence
+                && (raw.temperature_c != old.temperature_c || raw.rpm != old.rpm))
+        {
+            return Err("Native sample identity changed or reversed".into());
+        }
+        if raw.sequence == old.sequence {
+            return Ok(Some((raw, observed)));
+        }
+    }
+    // Request start is conservative: transport latency never makes data newer.
+    let acquired = began
+        .checked_sub(Duration::from_millis(raw.age_ms))
+        .ok_or("Native sample time overflow")?;
+    Ok(Some((
+        raw,
+        NativeObservation {
+            temperature_c: raw.temperature_c,
+            rpm: raw.rpm,
+            acquired,
+        },
+    )))
+}
+
 // Intentionally no Debug/Serialize: ticket/session secrets must not enter logs.
 #[derive(Deserialize)]
 struct Reply {
@@ -44,6 +98,8 @@ struct Reply {
     firmware_return_verified: bool,
     #[serde(default)]
     journal_cleared: bool,
+    #[serde(default)]
+    telemetry: Option<NativeTelemetry>,
 }
 
 #[derive(Serialize)]
@@ -60,6 +116,7 @@ pub struct NativeSessionClient<T> {
     transport: Option<T>,
     reply: Reply,
     received: Instant,
+    observation: Option<(NativeTelemetry, NativeObservation)>,
 }
 
 fn token(value: &str) -> bool {
@@ -114,15 +171,22 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
     /// Caller supplies an already authenticated, worker-lifetime-bound transport.
     /// Cancellation/drop closes the transport; no reconnect or command replay.
     pub async fn from_authenticated_transport(mut transport: T) -> Result<Self, String> {
+        let began = Instant::now();
         let reply = read(&mut transport).await?;
         if reply.state != SessionState::Active || reply.sequence != 0 || reply.duty_percent != 100 {
             return Err("Unsafe initial native session".into());
         }
+        let observation = observation(reply.telemetry, began, None)?;
         Ok(Self {
             transport: Some(transport),
             reply,
             received: Instant::now(),
+            observation,
         })
+    }
+
+    pub fn observation(&self) -> Option<NativeObservation> {
+        self.observation.map(|(_, sample)| sample)
     }
 
     pub async fn set_duty(&mut self, duty: u8) -> Result<Receipt, String> {
@@ -139,6 +203,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
     }
 
     async fn send(&mut self, duty: Option<u8>) -> Result<Receipt, String> {
+        let began = Instant::now();
         // Move out before the first await: cancellation drops this transport too,
         // and leaves the client unusable instead of permitting a duplicate send.
         let mut transport = self.transport.take().ok_or("Native session is terminal")?;
@@ -169,6 +234,13 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
         .map_err(|_| "Native command timed out")?
         .map_err(|_| "Native command disconnected")?;
         let reply = read(&mut transport).await?;
+        let next_observation = observation(reply.telemetry, began, self.observation)?;
+        if self.observation.is_some()
+            && next_observation.is_none()
+            && reply.state == SessionState::Active
+        {
+            return Err("Trusted native sampler became unavailable".into());
+        }
         let regular = matches!(reply.state, SessionState::Active | SessionState::Closed);
         if reply.session != self.reply.session
             || (regular && reply.sequence != next)
@@ -192,6 +264,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
             self.transport = Some(transport);
         }
         self.reply = reply;
+        self.observation = next_observation;
         Ok(receipt)
     }
 }
@@ -201,6 +274,37 @@ mod tests {
     use super::*;
     use serde_json::{json, Value};
     use tokio::io::{AsyncBufReadExt, BufReader};
+    #[test]
+    fn native_cached_sample_identity_cannot_refresh_acquisition_time() {
+        let began = Instant::now();
+        let raw = NativeTelemetry {
+            sequence: 10,
+            temperature_c: 40.0,
+            rpm: 900.0,
+            age_ms: 50,
+        };
+        let first = observation(Some(raw), began, None).unwrap().unwrap();
+        let repeated = observation(
+            Some(NativeTelemetry { age_ms: 0, ..raw }),
+            began + Duration::from_secs(1),
+            Some(first),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(first.1.acquired, repeated.1.acquired);
+        assert!(observation(
+            Some(NativeTelemetry { rpm: 0.0, ..raw }),
+            began,
+            Some(first)
+        )
+        .is_err());
+        assert!(observation(
+            Some(NativeTelemetry { sequence: 9, ..raw }),
+            began,
+            Some(first)
+        )
+        .is_err());
+    }
     fn reply(sequence: i32, ticket: char, state: &str, duty: u8, owned: bool) -> Value {
         json!({"version":1,"session":"a".repeat(32),"ticket":ticket.to_string().repeat(32),"sequence":sequence,
             "state":state,"reason":null,"duty_percent":duty,"ticket_ms":250,"lease_ms":1000,"owned":owned,"physical_write_verified":false})

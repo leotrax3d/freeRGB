@@ -62,6 +62,11 @@ policy there. Both GUIs consume the same additive daemon API.
       one native channel and drains with verified-return evidence. Healthy-command
       tests independently reject stale temperature and sustained stalled RPM.
       Production service transport/sampler and installer callers remain missing.
+- [x] Actual Rust pilot -> authenticated service -> protected worker bridge,
+      checked independent native sampler and verified firmware/journal return;
+      real constant100% curve passed on CHA_FAN2. Normal daemon/API/GUI callers,
+      variable-duty acceptance and installer drain remain missing. See
+      `MAINBOARD_CONTROL_BRIDGE.md` (supersedes the earlier transport status).
 - [ ] Run calibration and curves through the Rust supervisor/private native client.
 - [ ] Support multiple channels with backward-compatible journal reservations.
 - [ ] Retain explicit user channel/source selection and conservative pump limits.

@@ -1,4 +1,5 @@
-// Inactive private-session candidate. Not reachable from production CLI/RPC.
+// Private protected native session. Commissioning bridge is fixed100 only;
+// normal live daemon RPC remains gated.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -62,6 +63,14 @@ internal sealed class NativeTelemetryGuard
             if (temperature >= critical) return fault = "temperature_critical";
             if (stalledAt >= 0 && now - stalledAt >= 1000) return fault = "fan_stalled";
             return null;
+        }
+    }
+    internal object Snapshot(long now)
+    {
+        lock (gate)
+        {
+            if (Check(now) != null) return null;
+            return new { sequence=temperatureAt,temperature_c=temperature,rpm=rpm,age_ms=now-temperatureAt };
         }
     }
 }
@@ -150,6 +159,7 @@ internal sealed class NativeControlSession
             {"state",state}, {"reason",reason}, {"duty_percent",duty},
             {"ticket_ms",TicketMs}, {"lease_ms",LeaseMs}, {"owned",port.Owned},
             {"physical_write_verified",false},
+            {"telemetry",telemetry == null ? null : telemetry.Snapshot(clock())},
             {"firmware_return_verified",state == "closed" && port is INativeReturnEvidence && ((INativeReturnEvidence)port).FirmwareReturnVerified},
             {"journal_cleared",state == "closed" && port is INativeReturnEvidence && ((INativeReturnEvidence)port).JournalCleared}
         };

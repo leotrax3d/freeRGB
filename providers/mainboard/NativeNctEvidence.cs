@@ -114,6 +114,35 @@ internal sealed class NativeNctEvidence : INativeControlEvidence
         finally { release.Invoke(null,null); }
     }
     public Dictionary<string,object> Recovery { get { return new Dictionary<string,object>(recovery); } }
+    // A successful, checked ISA acquisition surrounds the entire LHM refresh.
+    // Without this, its silent lock-failure path can relabel cached data as fresh.
+    internal void ReadTelemetry(object control, string temperatureId, string rpmId, out double temperature, out double rpm)
+    {
+        object selected = control.GetType().GetProperty("Sensor").GetValue(control,null);
+        object hardware = selected.GetType().GetProperty("Hardware").GetValue(selected,null);
+        if (!(bool)wait.Invoke(null,new object[] { 100 })) throw new InvalidOperationException("Trusted telemetry could not acquire ISA bus.");
+        try
+        {
+        // LHM activates some RPM/temperature sensors only after its first update.
+        hardware.GetType().GetMethod("Update",Type.EmptyTypes).Invoke(hardware,null);
+        object temperatureSensor=null, rpmSensor=null;
+        foreach (object sensor in (System.Collections.IEnumerable)hardware.GetType().GetProperty("Sensors").GetValue(hardware,null))
+        {
+            string id=sensor.GetType().GetProperty("Identifier").GetValue(sensor,null).ToString();
+            string kind=sensor.GetType().GetProperty("SensorType").GetValue(sensor,null).ToString();
+            if (id == temperatureId && kind == "Temperature") temperatureSensor=sensor;
+            if (id == rpmId && kind == "Fan") rpmSensor=sensor;
+        }
+        if (temperatureSensor == null || rpmSensor == null) throw new InvalidOperationException("Selected native temperature/RPM identities are not available on the control hardware.");
+            object celsius=temperatureSensor.GetType().GetProperty("Value").GetValue(temperatureSensor,null);
+            object revolutions=rpmSensor.GetType().GetProperty("Value").GetValue(rpmSensor,null);
+            if (celsius == null || revolutions == null) throw new InvalidOperationException("Selected native telemetry is unavailable.");
+            temperature=Convert.ToDouble(celsius); rpm=Convert.ToDouble(revolutions);
+            if (Double.IsNaN(temperature) || Double.IsInfinity(temperature) || Double.IsNaN(rpm) || Double.IsInfinity(rpm))
+                throw new InvalidOperationException("Nonfinite native telemetry.");
+        }
+        finally { release.Invoke(null,null); }
+    }
     public void VerifyDuty(float percent)
     {
         byte[] actual = ReadPair();

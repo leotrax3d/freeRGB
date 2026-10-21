@@ -1,4 +1,5 @@
-// Candidate private service -> protected worker pipe. No production listener yet.
+// Authenticated service -> protected native worker pipe, including the fixed100
+// commissioning worker. No direct GUI/native access.
 using System;
 using System.IO;
 using System.IO.Pipes;

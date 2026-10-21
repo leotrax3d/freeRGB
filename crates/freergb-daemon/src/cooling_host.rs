@@ -80,6 +80,40 @@ impl CoolingHost {
         Ok(())
     }
 
+    /// Production native sampler variant: initial values come only from the
+    /// authenticated worker receipt, never from GUI/API arguments.
+    pub fn start_native<T, F>(&mut self, acquire: F, mode: ControlMode) -> Result<(), String>
+    where
+        T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+        F: Future<Output = Result<NativeSessionClient<T>, String>> + Send + 'static,
+    {
+        if self.execution.is_some() || self.gate.unresolved_count() != 0 {
+            return Err("Cooling channel already active or unresolved".into());
+        }
+        let token = self.gate.admit(self.now())?;
+        let (stop, stopped) = oneshot::channel();
+        let epoch = self.epoch;
+        let task = tokio::spawn(async move {
+            let client = tokio::time::timeout(Duration::from_secs(12), acquire)
+                .await
+                .map_err(|_| "Protected native startup timed out; inspect recovery state")??;
+            let initial = SamplerFrame::from_native(
+                client
+                    .observation()
+                    .ok_or("Protected worker supplied no trusted telemetry")?,
+                epoch,
+            )?;
+            let (_sender, samples) = mpsc::channel(1);
+            cooling_runtime::run(client, mode, initial, samples, stopped, epoch).await
+        });
+        self.execution = Some(Execution {
+            token,
+            stop: Some(stop),
+            task,
+        });
+        Ok(())
+    }
+
     fn record(
         &mut self,
         token: SessionToken,
