@@ -1,6 +1,6 @@
 <div align="center">
 <p align="center">
-  <img src="logo.png" alt="free RGB" width="300">
+  <img src="assets/brand/github-banner.svg" alt="freeRGB — Open-source RGB control for Windows and Linux" width="100%">
 </p>
   
 # FreeRGB
@@ -335,3 +335,4 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion
 in freeRGB by you, as defined in the Apache-2.0 license, shall be dual licensed as above,
 without any additional terms or conditions.
+
