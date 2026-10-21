@@ -6,6 +6,7 @@ pub mod calibration;
 pub mod channels;
 pub mod cooling_safety;
 pub mod sensors;
+pub mod telemetry_guard;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

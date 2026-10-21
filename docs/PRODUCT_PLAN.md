@@ -1,5 +1,7 @@
 # Product completion plan
 
+Current mainboard cooling execution checklist: `COOLING_IMPLEMENTATION_PLAN.md`.
+
 The RGB prototype is not a complete SignalRGB replacement. This plan supersedes
 any earlier implication that the broad feature roadmap was finished.
 

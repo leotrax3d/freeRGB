@@ -1,0 +1,64 @@
+# Mainboard cooling implementation checklist
+
+Updated 2026-10-21. This is the execution plan for the current cooling work;
+`PRODUCT_PLAN.md` remains the wider product backlog. A checked test is not hardware
+acceptance. Live mainboard control remains disabled.
+
+## Architecture
+
+Rust owns calibration, curves, telemetry policy, supervision and API orchestration.
+C# is the LHM/native adapter. Existing private C# session/journal protection stays
+in place until replaced by an equally tested Rust boundary; do not add more product
+policy there. Both GUIs consume the same additive daemon API.
+
+## 1. Recovery and evidence
+
+- [x] Flush channel intent before acquisition; block new acquisition after crash.
+- [x] Exercise killed worker, corrupt journal and failed restoration synthetically.
+- [ ] Establish exclusive supervisor/worker lifetime across restart and maintenance.
+- [ ] Define backend-specific recovery with original register/baseline evidence.
+      A new LHM object's SetDefault is not proof of original firmware restoration.
+- [ ] Separate requested duty, callback completion, register readback and RPM
+      response; never report callback completion as physical write verification.
+- [ ] Test recovery failures without clearing unresolved intent or replaying duty.
+
+## 2. Independent supervision
+
+- [x] Pure Rust command lease policy and killed/hung producer process tests.
+- [x] Private native cached telemetry interlock, synthetic tests only.
+- [x] Rust telemetry policy with distinct source identities/acquisition timestamps.
+- [x] Pure Rust composition of telemetry and command lease; tested mutual failure
+      isolation. This is not yet the independent supervisor executable.
+- [ ] Compose telemetry, command lease and curves in a Rust supervisor process.
+- [ ] Connect bounded trusted sampler updates; reject relabelled cached values.
+- [ ] Exercise stalled sampler, critical heat, missing RPM, disconnect and native
+      callback hangs through process boundaries. A blocked driver needs a separately
+      validated recovery mechanism; a thread watchdog is insufficient.
+
+## 3. Protected service integration
+
+- [x] Protected service/client authentication and private expiring session tickets.
+- [x] Pure calibration state machine and synthetic API preview.
+- [ ] Run calibration and curves through the Rust supervisor/private native client.
+- [ ] Support multiple channels with backward-compatible journal reservations.
+- [ ] Retain explicit user channel/source selection and conservative pump limits.
+
+## 4. Installer and updates
+
+- [ ] Maintenance admission lock prevents new control sessions during shutdown.
+- [ ] Request return, await confirmed release, then stop/swap/remove binaries.
+- [ ] Unresolved or failed release blocks maintenance and preserves recovery files.
+- [ ] Test active-session upgrade/uninstall, timeout and rollback in disposable CI.
+- [ ] Keep optional prerequisites/control activation opt-in; no local installation
+      or hardware writes as a side effect of development tests.
+
+## 5. Hardware acceptance and exposure
+
+- [ ] Obtain authorization for the specific live hardware/driver test.
+- [ ] Verify selected fan/pump, register effects, RPM response and firmware return.
+- [ ] Test command loss, sensor loss, process/service crash and restart recovery.
+- [ ] Only then add documented live daemon API and both GUI integrations.
+- [ ] Keep API additive and configurations versioned; document all changes.
+
+Next implementation: supervisor process integration and maintenance admission. Do not
+skip recovery, maintenance or hardware acceptance to expose a live toggle early.

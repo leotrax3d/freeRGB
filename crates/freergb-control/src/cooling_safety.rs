@@ -1,5 +1,74 @@
 //! Hardware-independent lease policy. A requested fallback is not proof of a write.
+use crate::telemetry_guard::{Reading, TelemetryFault, TelemetryGuard};
 use serde::{Deserialize, Serialize};
+
+/// Combined supervisor policy. Holds no pipe, driver or GUI objects. Call poll
+/// on a supervisor timer even when commands or sampler messages stop arriving.
+pub struct SupervisedControl {
+    lease: LeaseGuard,
+    telemetry: TelemetryGuard,
+    fault: Option<TelemetryFault>,
+}
+
+impl SupervisedControl {
+    pub fn new(
+        mut telemetry: TelemetryGuard,
+        now_ms: u64,
+        lease_ms: u64,
+        floor: u8,
+    ) -> Result<Self, String> {
+        telemetry
+            .check(now_ms)
+            .map_err(|fault| format!("Unsafe initial telemetry: {fault:?}"))?;
+        Ok(Self {
+            lease: LeaseGuard::new(now_ms, lease_ms, floor)?,
+            telemetry,
+            fault: None,
+        })
+    }
+
+    pub fn observe(&mut self, reading: Reading<'_>, now_ms: u64) -> Result<(), TelemetryFault> {
+        if let Some(fault) = self.fault {
+            return Err(fault);
+        }
+        if let Err(fault) = self.telemetry.observe(reading, now_ms) {
+            self.fault = Some(fault);
+            self.lease.stop();
+            return Err(fault);
+        }
+        Ok(())
+    }
+
+    pub fn accept(&mut self, command: DutyLease, now_ms: u64) -> Result<(), String> {
+        self.poll(now_ms);
+        if self.fault.is_some() {
+            return Err("Telemetry fault is latched".into());
+        }
+        self.lease.accept(command, now_ms)
+    }
+
+    /// Requested fallback only; caller must separately track native write and
+    /// physical readback evidence. This function never claims verified speed.
+    pub fn poll(&mut self, now_ms: u64) -> u8 {
+        if self.fault.is_none() {
+            if let Err(fault) = self.telemetry.check(now_ms) {
+                self.fault = Some(fault);
+                self.lease.stop();
+            }
+        }
+        self.lease.poll(now_ms)
+    }
+
+    pub fn stop(&mut self) {
+        self.lease.stop();
+    }
+    pub fn telemetry_fault(&self) -> Option<TelemetryFault> {
+        self.fault
+    }
+    pub fn lease_state(&self) -> GuardState {
+        self.lease.state()
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -93,6 +162,101 @@ impl LeaseGuard {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn healthy_commands_cannot_mask_a_dead_sampler() {
+        let mut telemetry = TelemetryGuard::new("cpu".into(), "fan".into(), 80.0).unwrap();
+        for (source, value) in [("cpu", 40.0), ("fan", 900.0)] {
+            telemetry
+                .observe(
+                    Reading {
+                        source,
+                        acquired_ms: 0,
+                        value,
+                    },
+                    0,
+                )
+                .unwrap();
+        }
+        let mut control = SupervisedControl::new(telemetry, 0, 1000, 40).unwrap();
+        for sequence in 1..=7 {
+            let now = sequence * 200;
+            control
+                .accept(
+                    DutyLease {
+                        sequence,
+                        issued_at_ms: now,
+                        duty_percent: 40,
+                    },
+                    now,
+                )
+                .unwrap();
+            assert_eq!(control.poll(now), 40);
+        }
+        assert!(control
+            .accept(
+                DutyLease {
+                    sequence: 8,
+                    issued_at_ms: 1600,
+                    duty_percent: 40
+                },
+                1600
+            )
+            .is_err());
+        assert_eq!(control.poll(1600), 100);
+        assert_eq!(control.telemetry_fault(), Some(TelemetryFault::Stale));
+        assert!(control
+            .observe(
+                Reading {
+                    source: "cpu",
+                    acquired_ms: 1601,
+                    value: 40.0
+                },
+                1601
+            )
+            .is_err());
+    }
+    #[test]
+    fn healthy_sampler_cannot_mask_a_dead_controller() {
+        let mut telemetry = TelemetryGuard::new("cpu".into(), "fan".into(), 80.0).unwrap();
+        for (source, value) in [("cpu", 40.0), ("fan", 900.0)] {
+            telemetry
+                .observe(
+                    Reading {
+                        source,
+                        acquired_ms: 0,
+                        value,
+                    },
+                    0,
+                )
+                .unwrap();
+        }
+        let mut control = SupervisedControl::new(telemetry, 0, 1000, 40).unwrap();
+        control
+            .accept(
+                DutyLease {
+                    sequence: 1,
+                    issued_at_ms: 0,
+                    duty_percent: 40,
+                },
+                0,
+            )
+            .unwrap();
+        for (source, value) in [("cpu", 40.0), ("fan", 900.0)] {
+            control
+                .observe(
+                    Reading {
+                        source,
+                        acquired_ms: 1000,
+                        value,
+                    },
+                    1000,
+                )
+                .unwrap();
+        }
+        assert_eq!(control.poll(1000), 100);
+        assert_eq!(control.lease_state(), GuardState::Expired);
+        assert_eq!(control.telemetry_fault(), None);
+    }
     #[test]
     fn delayed_and_replayed_commands_cannot_extend_a_lease_or_revive_it() {
         let mut g = LeaseGuard::new(0, 1000, 40).unwrap();
