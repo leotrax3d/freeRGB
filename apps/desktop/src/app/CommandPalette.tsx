@@ -6,6 +6,7 @@ import type { EffectSpec } from "@/lib/api/types";
 import { requireSlices, rpc, useDaemon } from "@/lib/store/daemon";
 import { toast } from "@/components/toast";
 import { cn } from "@/lib/utils";
+import { markLoaded } from "@/features/profiles/activeProfile";
 import { useNavigation } from "./navigation";
 import { VIEWS } from "./views";
 
@@ -83,6 +84,7 @@ function useItems(): Item[] {
         icon: Bookmark,
         run: async () => {
           await rpc("profiles.load", { name });
+          await markLoaded(name);
           toast(`Profile ${name} loaded`);
         },
       });

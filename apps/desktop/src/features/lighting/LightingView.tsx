@@ -46,8 +46,6 @@ function Brightness() {
 
 function NowPlaying() {
   const effect = useCurrentEffect();
-  const devices = useDaemon((s) => s.devices);
-  const active = devices?.filter((d) => d.status === "Connected").length ?? 0;
   return (
     <div data-tour="now" className="relative overflow-hidden rounded-card border border-border">
       <div className="absolute inset-0 opacity-35" style={{ background: effect ? effectPreview(effect) : "#303030" }} aria-hidden />
@@ -56,9 +54,6 @@ function NowPlaying() {
         <div className="flex flex-col gap-1">
           <span className="text-caption font-medium uppercase tracking-wider text-text-muted">Now running</span>
           <span className="text-section font-semibold">{effect ? effectLabel(effect.type) : "—"}</span>
-          <span className="text-small text-text-muted">
-            on {active} {active === 1 ? "device" : "devices"} · keeps running when this window is closed
-          </span>
         </div>
         <Brightness />
       </div>
@@ -130,7 +125,7 @@ export default function LightingView() {
 
   return (
     <>
-      <PageHeader title="Lighting" description="Pick an effect for all devices." />
+      <PageHeader title="Lighting" />
       {/* Wide: settings beside the effects. Narrow: settings under "Now running". */}
       <div className="@container">
         <div className="grid items-start gap-6 [grid-template-areas:'now'_'settings'_'effects'] @3xl:grid-cols-[minmax(0,1fr)_300px] @3xl:[grid-template-areas:'now_settings'_'effects_settings']">

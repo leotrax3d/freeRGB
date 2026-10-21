@@ -217,6 +217,10 @@ export function mockTransport(): Transport {
           graph = (p.graph as SensorGraph);
           emit("sensor_graph");
           return true as T;
+        case "effects.get":
+          return effect as T;
+        case "diagnostics.get":
+          return diagnostics() as T;
         case "effects.default":
           return (effectDefaults as Record<string, unknown>)[p.name as string] as T;
         default:

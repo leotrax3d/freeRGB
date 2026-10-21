@@ -7,6 +7,46 @@ import { Button } from "@/components/ui/button";
 import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { cn } from "@/lib/utils";
+import { forget, markLoaded, useProfileState } from "./activeProfile";
+
+function ProfileRow({
+  name,
+  pending,
+  onLoad,
+  onDelete,
+}: {
+  name: string;
+  pending: string | null;
+  onLoad: () => void;
+  onDelete: () => void;
+}) {
+  const state = useProfileState(name);
+  return (
+    <li
+      aria-current={state === "active" ? "true" : undefined}
+      className={cn(
+        "relative flex items-center gap-3 px-4 py-2.5 transition-colors duration-(--duration-fast)",
+        state && "bg-surface-raised/60",
+        pending === name && "opacity-60",
+      )}
+    >
+      {state && <span className={cn("absolute inset-y-2 left-0 w-1 rounded-r-full", state === "active" ? "bg-accent" : "bg-warning")} aria-hidden />}
+      <Bookmark className={cn("size-4", state === "active" ? "fill-accent text-accent" : "text-text-subtle")} aria-hidden />
+      <span className="truncate text-body">{name}</span>
+      {state === "active" && <span className="rounded-full bg-accent/15 px-2 py-0.5 text-caption font-medium text-accent">Active</span>}
+      {state === "modified" && (
+        <span className="rounded-full bg-warning/15 px-2 py-0.5 text-caption font-medium text-[#fbbf24]" title="Loaded last, but the lighting has changed since">
+          Modified
+        </span>
+      )}
+      <span className="flex-1" />
+      <Button size="sm" variant="secondary" disabled={pending !== null} onClick={onLoad}>
+        {pending === name ? "Loading…" : state ? "Reload" : "Load"}
+      </Button>
+      <ConfirmButton label={`Delete ${name}`} icon={<Trash2 />} disabled={pending !== null} onConfirm={onDelete} />
+    </li>
+  );
+}
 
 export default function ProfilesView() {
   useSlices("profiles");
@@ -46,27 +86,19 @@ export default function ProfilesView() {
         {profiles?.length === 0 && <p className="text-small text-text-subtle">No profiles yet.</p>}
         <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-card bg-surface-sunken">
           {profiles?.map((name) => (
-            <li
+            <ProfileRow
               key={name}
-              className={cn("flex items-center gap-3 px-4 py-2.5 transition-opacity", pending === name && "opacity-60")}
-            >
-              <Bookmark className="size-4 text-text-subtle" aria-hidden />
-              <span className="flex-1 truncate text-body">{name}</span>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={pending !== null}
-                onClick={() => run(name, () => rpc("profiles.load", { name }), `Profile ${name} loaded`)}
-              >
-                {pending === name ? "Loading…" : "Load"}
-              </Button>
-              <ConfirmButton
-                label={`Delete ${name}`}
-                icon={<Trash2 />}
-                disabled={pending !== null}
-                onConfirm={() => run(name, () => rpc("profiles.delete", { name }), `Profile ${name} deleted`)}
-              />
-            </li>
+              name={name}
+              pending={pending}
+              onLoad={() => run(name, async () => {
+                await rpc("profiles.load", { name });
+                await markLoaded(name);
+              }, `Profile ${name} loaded`)}
+              onDelete={() => run(name, async () => {
+                await rpc("profiles.delete", { name });
+                forget(name);
+              }, `Profile ${name} deleted`)}
+            />
           ))}
         </ul>
       </Section>
