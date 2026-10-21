@@ -1,8 +1,38 @@
 # Cooling maintenance admission policy
 
 `freergb-control::maintenance` is a pure Rust state machine for the protected
-supervisor. It is not yet called by the installer or a production control service.
-Live control remains disabled. No API or configuration format changes.
+supervisor. Its active-session release handshake is not yet called by the
+installer or a production control service. The existing Windows maintenance entry
+now implements the conservative journal exclusion described below. Live control
+remains disabled. No API or configuration format changes.
+
+## Production refusal and exclusion (2026-10-21)
+
+The existing elevated broker install/remove entry now takes the **same global
+mutex as native journal reservation**, validates the journal and holds that mutex
+through install/update/rollback/removal. Pending, corrupt, unsupported or oversized
+state refuses the operation before staging payloads, stopping the service or
+removing files. Lock contention times out and refuses acquisition/maintenance.
+The separate preexisting deployment file lock still serializes maintenance calls.
+
+The mutex may initially be created by either the SYSTEM worker or elevated
+administrator maintenance. Owner must be SYSTEM or Administrators, and only
+those identities may hold allowed access. Maintenance can run from its verified
+staging executable under elevation; it does not require a running SYSTEM service.
+Its factory uses the fixed protected parent, not a supplied journal path.
+
+This deliberately does not auto-clear an intent or stop a live controlled worker.
+If a future session is active, its pending intent blocks maintenance. The future
+supervisor handshake must first obtain verified return and preserve intent until
+that verification. A mutex with a clear journal excludes new reservations while
+maintenance runs; after process death, an abandoned mutex still requires journal
+validation. This is not a complete supervisor lifetime or driver-hang solution.
+
+Local synthetic tests cover refusal and a concurrent acquisition waiting until
+maintenance releases the shared mutex. Disposable SCM CI additionally attempts
+upgrade and removal with corrupt/pending state and requires unchanged service PID,
+executable hash and journal bytes. Check that run's result separately; local tests
+never register the service or access hardware.
 
 ## Lifecycle
 

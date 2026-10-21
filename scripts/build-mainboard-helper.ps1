@@ -39,6 +39,6 @@ $helperHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower
 $serviceDefine = '/define:BROKER_INSTALLER'
 if ($Mode -ne 'Production') { $serviceDefine = '/define:BROKER_INSTALLER;BROKER_FIXTURE_CLIENT_AUTH' }
 if ($Mode -eq 'FixtureFailStart') { $serviceDefine = '/define:BROKER_INSTALLER;BROKER_FIXTURE_FAIL_START' }
-& $compiler /nologo /target:exe $serviceDefine /main:BrokerService /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/win32icon:$icon" "/out:$serviceBinary" $source $transport $cache $service $deployment $identity $nativeClient
+& $compiler /nologo /target:exe $serviceDefine /main:BrokerService /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/win32icon:$icon" "/out:$serviceBinary" $source $transport $cache $service $deployment $identity $nativeClient $nativeJournal
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard broker compilation failed.' }
 Write-Output $serviceBinary

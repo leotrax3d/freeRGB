@@ -50,7 +50,10 @@ policy there. Both GUIs consume the same additive daemon API.
 
 - [x] Pure Rust maintenance gate: close admission, drain exact sessions, require
       release evidence, block on timeout/crash. See `COOLING_MAINTENANCE.md`.
-- [ ] Maintenance admission lock prevents new control sessions during shutdown.
+- [x] Existing elevated maintenance shares the native reservation mutex through
+      stop/swap/remove and refuses pending/invalid journal state. Local concurrent
+      exclusion tested; disposable SCM acceptance is tracked separately.
+- [ ] Connect the Rust admission/release handshake to the production supervisor.
 - [ ] Request return, await confirmed release, then stop/swap/remove binaries.
 - [ ] Unresolved or failed release blocks maintenance and preserves recovery files.
 - [ ] Test active-session upgrade/uninstall, timeout and rollback in disposable CI.

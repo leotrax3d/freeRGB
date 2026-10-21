@@ -66,6 +66,22 @@ try {
     [IO.File]::WriteAllText($probeScript,'param([string]$Journal) try { [IO.File]::WriteAllText($Journal,"unexpected-user-write"); exit 1 } catch [UnauthorizedAccessException] { exit 0 }')
     $probe = Start-Process -FilePath (Join-Path $env:WINDIR 'System32/WindowsPowerShell/v1.0/powershell.exe') -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"{0}"' -f $probeScript),'-Journal',('"{0}"' -f $journalPath)) -WorkingDirectory $root -Credential $credential -WindowStyle Hidden -Wait -PassThru
     Require ($probe.ExitCode -eq 0 -and [IO.File]::ReadAllText($journalPath) -eq $beforeJournal) 'Standard user modified the protected control journal.'
+    # Production maintenance must refuse BOTH corrupt and pending journal state
+    # before stopping/replacing/removing the running synthetic service.
+    $originalPid = (Get-CimInstance Win32_Service -Filter "Name='freeRGBMainboard'").ProcessId
+    $originalHash = (Get-FileHash -LiteralPath (Join-Path $protected 'freergb-mainboard-service.exe')).Hash
+    $pendingJournal = @{ version=1; reservation=@{ id=[guid]::NewGuid().ToString('N'); backend='lhm_0_9_6'; hardware_id='/fixture/board'; sensor_id='/fixture/control'; pump=$false } } | ConvertTo-Json -Depth 4 -Compress
+    foreach ($blockedJournal in @('not-json',$pendingJournal)) {
+        [IO.File]::WriteAllText($journalPath,$blockedJournal)
+        try {
+            Install $v2 $false
+            Maintain (Join-Path $v1 'freergb-mainboard-service.exe') $false @('--remove','--consent',$sid)
+            Require ((Get-CimInstance Win32_Service -Filter "Name='freeRGBMainboard'").ProcessId -eq $originalPid) 'Refused maintenance stopped/restarted the service.'
+            Require ((Get-FileHash -LiteralPath (Join-Path $protected 'freergb-mainboard-service.exe')).Hash -eq $originalHash) 'Refused maintenance replaced executable bytes.'
+            Require ([IO.File]::ReadAllText($journalPath) -eq $blockedJournal) 'Refused maintenance changed recovery evidence.'
+            Snapshot 900
+        } finally { [IO.File]::WriteAllText($journalPath,$beforeJournal) }
+    }
     $foreignName = 'frgb' + [guid]::NewGuid().ToString('N').Substring(0,12)
     $foreignPassword = ConvertTo-SecureString ([guid]::NewGuid().ToString('N') + '!aA9') -AsPlainText -Force
     $foreign = New-LocalUser -Name $foreignName -Password $foreignPassword -AccountNeverExpires

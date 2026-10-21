@@ -20,7 +20,7 @@ internal sealed class NativeControlJournal : IDisposable
     private readonly string root, path;
     private readonly Mutex mutex;
     private const int Limit = 16384;
-    private NativeControlJournal(string root, bool fixture)
+    private NativeControlJournal(string root, bool fixture, bool maintenance = false)
     {
         this.root = Path.GetFullPath(root);
         path = Path.Combine(this.root, "mainboard-control-recovery.json");
@@ -35,7 +35,7 @@ internal sealed class NativeControlJournal : IDisposable
 #endif
         var system = new SecurityIdentifier(WellKnownSidType.LocalSystemSid,null);
         var admins = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid,null);
-        var acl = new MutexSecurity(); acl.SetAccessRuleProtection(true,false); acl.SetOwner(system);
+        var acl = new MutexSecurity(); acl.SetAccessRuleProtection(true,false); acl.SetOwner(maintenance ? admins : system);
         acl.AddAccessRule(new MutexAccessRule(system,MutexRights.FullControl,AccessControlType.Allow));
         acl.AddAccessRule(new MutexAccessRule(admins,MutexRights.FullControl,AccessControlType.Allow));
         bool created;
@@ -54,6 +54,15 @@ internal sealed class NativeControlJournal : IDisposable
     {
         BrokerService.CheckInstallation(true);
         return new NativeControlJournal(Path.GetDirectoryName(BrokerTransport.DirectoryPath),false);
+    }
+    internal static NativeControlJournal CreateForMaintenance()
+    {
+        using (var identity = WindowsIdentity.GetCurrent())
+            if (!new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator))
+                throw new UnauthorizedAccessException("Elevated broker maintenance required.");
+        string root = Path.GetDirectoryName(BrokerTransport.DirectoryPath);
+        BrokerService.CheckProtectedPath(root);
+        return new NativeControlJournal(root,false,true);
     }
 #endif
     private void Check(string file)
@@ -124,6 +133,17 @@ internal sealed class NativeControlJournal : IDisposable
         Check(path);
     }
     internal Dictionary<string, object> Pending() { return Locked(Read); }
+    // Hold the SAME cross-process mutex as Reserve through stop/swap/remove.
+    // This is a conservative refusal path, not automatic firmware recovery.
+    internal void Maintenance(Action action)
+    {
+        if (action == null) throw new ArgumentNullException("action");
+        Locked(delegate {
+            if (Read() != null) throw new InvalidOperationException("Unresolved cooling channel: broker maintenance refused; preserve service and recovery journal.");
+            action();
+            return true;
+        });
+    }
     internal string Reserve(NativeControlIdentity identity)
     {
         if (identity == null || !IdentityText(identity.HardwareId) || !IdentityText(identity.SensorId)) throw new ArgumentException("Invalid native control identity.");

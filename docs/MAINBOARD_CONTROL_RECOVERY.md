@@ -72,7 +72,9 @@ the original firmware configuration. No old low duty may be replayed.
 The supervisor still needs exclusive worker lifetime/identity, a checked recovery
 operation and independent physical readback/fallback behavior. Upgrade/uninstall
 must coordinate with active sessions before stopping or replacing the worker;
-current maintenance does not yet provide that live-control protocol. Multiple
+maintenance now refuses pending/invalid journal state and holds the reservation
+mutex through replacement/removal (see `COOLING_MAINTENANCE.md`), but does not yet
+provide that active-session release protocol. Multiple
 channels, driver/native hangs, service/OS crash and power loss remain open. These
 requirements keep the candidate inactive despite passing synthetic tests.
 

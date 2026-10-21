@@ -382,7 +382,10 @@ internal static class BrokerDeployment
                     File.SetAccessControl(lockPath, acl);
                 }
                 BrokerService.CheckProtectedPath(maintenance.Name);
-                if (install) Install(sid, args[3], args[4], args[5]); else Remove(sid);
+                using (var controls = NativeControlJournal.CreateForMaintenance())
+                    controls.Maintenance(delegate {
+                        if (install) Install(sid, args[3], args[4], args[5]); else Remove(sid);
+                    });
                 Report(install ? "install" : "remove", "success", "Owned broker maintenance completed; fan writes remain disabled.");
             }
             Console.WriteLine(install ? "Protected mainboard broker installed and running. Fan writes remain disabled." : "Owned mainboard broker removed. Shared PawnIO and .NET are unchanged.");

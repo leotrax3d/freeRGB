@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 
 internal static class NativeJournalTests
 {
@@ -31,11 +32,42 @@ internal static class NativeJournalTests
         {
             using (var journal = NativeControlJournal.ForTest(root))
             {
+                string concurrentId = null;
+                Exception concurrentError = null;
+                using (var entered = new ManualResetEvent(false))
+                using (var completed = new ManualResetEvent(false))
+                {
+                    Thread contender = null;
+                    try
+                    {
+                        journal.Maintenance(delegate {
+                            contender = new Thread(delegate() {
+                                try
+                                {
+                                    using (var other = NativeControlJournal.ForTest(root))
+                                    { entered.Set(); concurrentId = other.Reserve(Identity()); }
+                                }
+                                catch (Exception error) { concurrentError = error; }
+                                finally { completed.Set(); }
+                            });
+                            contender.Start();
+                            Assert(entered.WaitOne(3000),"Concurrent acquisition did not start.");
+                            Assert(!completed.WaitOne(150),"Acquisition escaped maintenance exclusion.");
+                            Assert(journal.Pending() == null,"Concurrent acquisition wrote while maintenance held the mutex.");
+                        });
+                    }
+                    finally { if (contender != null) Assert(contender.Join(6000),"Concurrent acquisition failed to finish after maintenance."); }
+                    Assert(concurrentError == null && concurrentId != null,"Acquisition did not resume after maintenance exclusion ended.");
+                    journal.Complete(concurrentId);
+                }
                 var native = new SessionPort { Floor = 40 };
                 native.BeforeAcquire = delegate { Assert(journal.Pending() != null,"Native acquisition preceded durable intent."); };
                 var port = JournaledNativeControl.ForTest(native,journal,Identity());
                 port.Acquire();
                 string initial = File.ReadAllText(path);
+                bool maintained = false;
+                Reject(delegate { journal.Maintenance(delegate { maintained = true; }); },"Pending intent permitted maintenance.");
+                Assert(!maintained && File.ReadAllText(path) == initial,"Refused maintenance mutated service or journal.");
                 port.SetDuty(40);
                 Assert(File.ReadAllText(path) == initial,"Heartbeat duty rewrote the recovery journal.");
                 using (var another = NativeControlJournal.ForTest(root))
@@ -92,6 +124,8 @@ internal static class NativeJournalTests
                     port = JournaledNativeControl.ForTest(native,journal,Identity());
                     Reject(port.Acquire,"Invalid/oversized journal permitted native acquisition.");
                     Assert(native.Writes.Length == 0,"Invalid journal reached I/O.");
+                    Reject(delegate { journal.Maintenance(delegate { maintained = true; }); },"Corrupt journal permitted maintenance.");
+                    Assert(!maintained,"Corrupt journal reached maintenance callback.");
                 }
             }
             string crashed = Path.Combine(root,"crashed-worker");
@@ -108,6 +142,9 @@ internal static class NativeJournalTests
                     using (var journal = NativeControlJournal.ForTest(crashed))
                     {
                         Assert(journal.Pending() != null,"Worker crash lost its control intent.");
+                        bool maintained = false;
+                        Reject(delegate { journal.Maintenance(delegate { maintained = true; }); },"Killed-worker orphan permitted maintenance.");
+                        Assert(!maintained,"Orphan maintenance reached service mutation.");
                         var native = new SessionPort { Floor = 40 };
                         var port = JournaledNativeControl.ForTest(native,journal,Identity());
                         Reject(port.Acquire,"Restart resumed an orphaned channel.");
