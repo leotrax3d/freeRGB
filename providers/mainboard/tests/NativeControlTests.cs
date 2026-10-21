@@ -164,8 +164,46 @@ internal static class NativeControlTests
         library = Assembly.LoadFrom(Path.Combine(directory,"LibreHardwareMonitorLib.dll"));
         Run();
         NativeSessionTests.Run();
+        TelemetryTests();
         NativeJournalTests.Run(delegate(ControlSink sink) { return NativeControl.ForTest(Create(sink),false); });
         Console.WriteLine("PASS: real pinned LHM Control ordering, no-zero acquisition, ownership, pump limits, failed writes and repeated firmware recovery. Synthetic callbacks only; no hardware opened.");
         return 0;
+    }
+    private static void TelemetryTests()
+    {
+        var missing = new NativeTelemetryGuard(80);
+        var untouched = new SessionPort { Floor = 40 };
+        Reject(delegate { NativeControlSession.ForTest(untouched,delegate { return 0; },missing); },"Missing telemetry permitted acquisition.");
+        Assert(!untouched.Owned,"Missing telemetry touched the native port.");
+        foreach (string failure in new[] { "stale", "critical", "stall", "future", "replay", "nan" })
+        {
+            long now = 0;
+            var guard = new NativeTelemetryGuard(80);
+            guard.Observe(0,0,40,900);
+            var port = new SessionPort { Floor = 40 };
+            var session = NativeControlSession.ForTest(port,delegate { return now; },guard);
+            // Keep the command lease alive while the independent sensor path fails.
+            for (now = 200; now <= 1600; now += 200)
+            {
+                if (failure == "critical") guard.Observe(now,now,80,900);
+                if (failure == "stall") guard.Observe(now,now,40,0);
+                if (failure == "future") guard.Observe(now,now+1,40,900);
+                if (failure == "replay") guard.Observe(now,0,40,900);
+                if (failure == "nan") guard.Observe(now,now,Double.NaN,900);
+                session.Execute(NativeSessionTests.Command(session.View(),"set",40));
+                if (!session.Poll()) break;
+            }
+            var view = session.View();
+            Assert((string)view["state"] == "emergency" && (int)view["duty_percent"] == 100 && port.Owned,"Telemetry fault did not latch owned 100%: " + failure);
+            guard.Observe(now+1,now+1,40,900);
+            Assert(!session.Poll(),"Good telemetry revived a failed session.");
+        }
+        var healthy = new NativeTelemetryGuard(80);
+        healthy.Observe(0,0,40,900);
+        Assert(healthy.Check(1500) == null && healthy.Check(1501) == "telemetry_stale","Freshness boundary changed.");
+        var reversal = new NativeTelemetryGuard(80);
+        reversal.Observe(100,100,40,900);
+        Assert(reversal.Check(99) == "telemetry_clock_fault","Clock reversal accepted.");
+        Console.WriteLine("PASS: independent telemetry faults, stale samples, stall, critical heat and non-revival; synthetic only.");
     }
 }

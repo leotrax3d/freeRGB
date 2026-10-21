@@ -179,8 +179,8 @@ internal static class BrokerTests
         CacheTests(); RequestTests(); PipeTests();
         Reject(delegate { BrokerService.CheckInstallation(true); }, "Unprotected worker startup accepted.");
         Reject(delegate { NativeControl.CreateProtected(new object(), false); }, "Unprotected native control factory accepted.");
-        Reject(delegate { NativeControlSession.CreateProtected(null); }, "Unprotected native session factory accepted.");
-        Reject(delegate { NativeSessionTransport.RunProtected(null, null); }, "Unprotected native transport accepted.");
+        Reject(delegate { NativeControlSession.CreateProtected(null,null,null); }, "Unprotected native session factory accepted.");
+        Reject(delegate { NativeSessionTransport.RunProtected(null, null,null,null); }, "Unprotected native transport accepted.");
         Reject(delegate { NativeControlJournal.CreateProtected(); }, "Unprotected native journal factory accepted.");
         Reject(delegate { JournaledNativeControl.CreateProtected(null,null); }, "Unprotected journaled port accepted.");
         Reject(delegate { NativeSessionClient.CreateProtected(null,0); }, "Unprotected native session client accepted.");

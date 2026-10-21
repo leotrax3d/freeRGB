@@ -13,11 +13,59 @@ internal interface INativeControlPort
     void SetDuty(float percent);
     void Release();
 }
+// Receives acquisition timestamps from a trusted local sampler, never GUI data.
+// No sensor I/O here: polling must not wait on a sensor/driver callback.
+internal sealed class NativeTelemetryGuard
+{
+    private readonly object gate = new object();
+    private readonly double critical;
+    private long temperatureAt = -1, rpmAt = -1, lastNow = -1, stalledAt = -1;
+    private double temperature, rpm;
+    private string fault;
+    internal NativeTelemetryGuard(double critical)
+    {
+        if (Double.IsNaN(critical) || critical < 40 || critical > 100) throw new ArgumentException("Invalid critical temperature.");
+        this.critical = critical;
+    }
+    internal void Observe(long now, long sampledAt, double celsius, double revolutions)
+    {
+        lock (gate)
+        {
+            if (fault != null) return;
+            if (now < 0 || sampledAt < 0 || sampledAt > now || now < lastNow || sampledAt <= temperatureAt)
+            { fault = "telemetry_clock_fault"; return; }
+            lastNow = now;
+            if (Double.IsNaN(celsius) || Double.IsInfinity(celsius) || celsius < -20 || celsius > 150 ||
+                Double.IsNaN(revolutions) || Double.IsInfinity(revolutions) || revolutions < 0 || revolutions > 100000)
+            { fault = "telemetry_invalid"; return; }
+            temperature = celsius; rpm = revolutions; temperatureAt = rpmAt = sampledAt;
+            if (temperature >= critical) { fault = "temperature_critical"; return; }
+            if (rpm < 100) { if (stalledAt < 0) stalledAt = sampledAt; }
+            else stalledAt = -1;
+            if (stalledAt >= 0 && sampledAt - stalledAt >= 1000) fault = "fan_stalled";
+        }
+    }
+    internal string Check(long now)
+    {
+        lock (gate)
+        {
+            if (fault != null) return fault;
+            if (now < 0 || now < lastNow) return fault = "telemetry_clock_fault";
+            lastNow = now;
+            if (temperatureAt < 0 || rpmAt < 0 || now - temperatureAt > 1500 || now - rpmAt > 1500)
+                return fault = "telemetry_stale";
+            if (temperature >= critical) return fault = "temperature_critical";
+            if (stalledAt >= 0 && now - stalledAt >= 1000) return fault = "fan_stalled";
+            return null;
+        }
+    }
+}
 internal sealed class NativeControlSession
 {
     private readonly object gate = new object();
     private readonly INativeControlPort port;
     private readonly Func<long> clock;
+    private readonly NativeTelemetryGuard telemetry;
     private readonly string session = Nonce();
     private string ticket, state = "active", reason;
     private long issued, deadline, lastNow;
@@ -30,12 +78,13 @@ internal sealed class NativeControlSession
         using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes);
         return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
     }
-    private NativeControlSession(INativeControlPort port, Func<long> clock)
+    private NativeControlSession(INativeControlPort port, Func<long> clock, NativeTelemetryGuard telemetry)
     {
         if (port == null || clock == null) throw new ArgumentNullException();
-        this.port = port; this.clock = clock;
+        this.port = port; this.clock = clock; this.telemetry = telemetry;
         long before = clock();
         if (before < 0 || before > Int64.MaxValue - LeaseMs) throw new InvalidOperationException("Invalid session clock.");
+        if (telemetry != null && telemetry.Check(before) != null) throw new InvalidOperationException("Fresh safe native telemetry required before acquisition.");
         port.Acquire();
         issued = lastNow = clock();
         if (issued < before || issued > Int64.MaxValue - LeaseMs)
@@ -48,13 +97,14 @@ internal sealed class NativeControlSession
         deadline = issued + LeaseMs; ticket = Nonce();
     }
 #if NATIVE_CONTROL_TESTS
-    internal static NativeControlSession ForTest(INativeControlPort port, Func<long> clock) { return new NativeControlSession(port, clock); }
+    internal static NativeControlSession ForTest(INativeControlPort port, Func<long> clock) { return new NativeControlSession(port, clock, null); }
+    internal static NativeControlSession ForTest(INativeControlPort port, Func<long> clock, NativeTelemetryGuard telemetry) { return new NativeControlSession(port, clock, telemetry); }
 #else
-    internal static NativeControlSession CreateProtected(JournaledNativeControl port)
+    internal static NativeControlSession CreateProtected(JournaledNativeControl port, NativeTelemetryGuard telemetry, Func<long> clock)
     {
         BrokerService.CheckInstallation(true);
-        var timer = Stopwatch.StartNew();
-        return new NativeControlSession(port, delegate { return timer.ElapsedMilliseconds; });
+        if (telemetry == null) throw new ArgumentNullException("telemetry");
+        return new NativeControlSession(port, clock, telemetry);
     }
 #endif
     private long Now()
@@ -62,6 +112,11 @@ internal sealed class NativeControlSession
         long now = clock();
         if (now < lastNow || now > Int64.MaxValue - LeaseMs) { Latch("clock_fault"); return lastNow; }
         lastNow = now;
+        if (state == "active" && telemetry != null)
+        {
+            string fault = telemetry.Check(now);
+            if (fault != null) Latch(fault);
+        }
         return now;
     }
     private void Latch(string fault)

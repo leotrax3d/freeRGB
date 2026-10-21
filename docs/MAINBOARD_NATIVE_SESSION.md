@@ -113,3 +113,25 @@ Typed-client real-pipe tests additionally cover normal set/close, cancellation,
 an expired local ticket and altered session/counter/duty replies. Rejected replies
 close the pipe and cause the synthetic worker to request full speed. Both PS7 and
 PS5.1 acceptance pass; no session secrets are written to test output/logs.
+
+## Telemetry interlock candidate (2026-10-21)
+
+The inactive protected session factory now requires a telemetry guard and the
+same monotonic clock as its trusted local sampler. Before acquisition it requires
+fresh temperature/RPM. Session polling and commands both check the guard, so
+valid command traffic cannot hide lost sensor updates. Samples older than 1500 ms,
+clock reversal, repeated/future acquisition timestamps, non-finite or out-of-range
+values, temperature at the configured 40..100 C limit, or RPM below 100 for 1000 ms
+latch a fault. Critical heat latches on observation even between polls. Faults
+request 100% and retain the recovery reservation; later good samples cannot revive
+the session. This is a conservative no-fan-stop pilot policy, not calibration.
+
+This is a cached interlock, not a sensor reader or physical write verifier. No
+production sampler constructs it yet. The sampler must provide acquisition times,
+not refresh cached readings with new receipt times; selected sensor identity and
+actual hardware readback remain prerequisites. Locks/native calls may still block.
+The 25 ms transport watchdog is independent of pipe input, not native driver hangs.
+
+Architectural follow-up: keep reusable calibration, curve and supervision policy
+in Rust (`freergb-control`/daemon); restrict C# to the necessary LHM/native boundary.
+No public API, GUI/config format or live-control enablement changed.
