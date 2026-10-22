@@ -150,7 +150,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AsusAuraUSBController` | ported | `063d720` | 100 detectors / 100 non-built-in IDs | Common 0xEC/0x40 direct HID framing; built-in 0b05:19af omitted; controller-specific effects omitted |
 | `SteelSeriesController` | ported | `aa96e26` | 76 detectors / 76 unique IDs | Generic 64-byte RGB report path; device-specific Apex, Arctis, receiver, layout and effect paths omitted |
 | `ThermaltakeRiingController` | ported | `e90c42a` | 51 detectors / 51 unique IDs | Base 65-byte, Quad 193-byte and Trio chunked 65-byte direct paths; firmware/serial reads and Quad keepalive omitted |
-| `LogitechController` | in progress | `27e3762` | 55 detectors / 48 unique IDs | Generator and HID inventory staged; G213, G203, G815 and Lightsync mouse direct reports ported; HID++/Lightspeed, G915, remaining mouse, headset and X56 paths still being ported |
+| `LogitechController` | in progress | `64c05dd` | 55 detectors / 48 unique IDs | Generator and HID inventory staged; G213, G203, G815, Lightsync mouse and X56 feature reports ported; HID++/Lightspeed, G915, remaining mouse and headset paths still being ported |
 
 
 The per-family status ledger is maintained below this inventory by the porting
