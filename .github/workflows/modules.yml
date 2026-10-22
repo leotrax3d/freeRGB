@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'sony-gamepad'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -108,6 +108,10 @@ jobs:
           elif [ "$MODULE" = "corsair-peripheral" ]; then
             node scripts/openrgb/port-corsair-peripheral-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/corsair-peripheral/src/devices_table.rs
+          elif [ "$MODULE" = "sony-gamepad" ]; then
+            node scripts/openrgb/port-sony-gamepad-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-sony-gamepad
+            git diff --exit-code -- modules/sony-gamepad/src/devices_table.rs
           elif [ "$MODULE" = "coolermaster" ]; then
             node scripts/openrgb/port-coolermaster-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/coolermaster/src/devices_table.rs
