@@ -73,7 +73,11 @@ impl StartRequest {
             critical_c,
             minimum_percent,
             tier,
-            role: ChannelRole::Fan,
+            role: if policy.evidence.role == Some(ChannelRole::Pump) {
+                ChannelRole::Pump
+            } else {
+                ChannelRole::Fan
+            },
             limits,
         })
     }
@@ -85,13 +89,23 @@ impl StartRequest {
         if !self.confirmed_fan {
             return Err("Explicit physical fan confirmation required; pumps excluded".into());
         }
-        if policy.evidence.role == Some(ChannelRole::Pump) {
+        let pump = policy.evidence.role == Some(ChannelRole::Pump);
+        // A pump is controlled only after an unrestricted unlock AND its second,
+        // separate confirmation, and never tested or calibrated (100% default).
+        if pump && !(policy.evidence.unlocked && policy.evidence.pump_confirmed) {
             return Err(
                 "This channel is assigned as a pump; pump sessions are not available here".into(),
             );
         }
+        if pump && self.mode != "curve" {
+            return Err("Pumps are never calibrated or tested".into());
+        }
         let evidence = ChannelEvidence {
-            role: Some(ChannelRole::Fan),
+            role: Some(if pump {
+                ChannelRole::Pump
+            } else {
+                ChannelRole::Fan
+            }),
             ..policy.evidence
         };
         let limits = fan_support::limits(policy.capability, evidence)?;
@@ -544,6 +558,36 @@ mod tests {
         assert!(request()
             .plan(&policy(SupportTier::ReadOnly, None, true, true))
             .is_err());
+    }
+
+    #[test]
+    fn pumps_need_unlock_and_second_confirmation_and_only_run_curves() {
+        let pump = |unlocked: bool, confirmed: bool| SessionPolicy {
+            capability: SupportTier::LhmSupported,
+            evidence: ChannelEvidence {
+                role: Some(ChannelRole::Pump),
+                test_passed: false,
+                unlocked,
+                pump_confirmed: confirmed,
+            },
+        };
+        let curve_request = || {
+            let mut r = request();
+            r.mode = "curve".into();
+            r.curve = Some(curve(20.0));
+            r
+        };
+        assert!(curve_request().plan(&pump(false, false)).is_err());
+        assert!(curve_request().plan(&pump(true, false)).is_err());
+        let plan = curve_request().plan(&pump(true, true)).unwrap();
+        assert_eq!(
+            (plan.role, plan.tier, plan.minimum_percent),
+            (ChannelRole::Pump, SupportTier::Unrestricted, 20)
+        );
+        assert!(
+            request().plan(&pump(true, true)).is_err(),
+            "no pump calibration"
+        );
     }
 
     #[test]

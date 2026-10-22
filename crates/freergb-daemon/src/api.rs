@@ -182,6 +182,34 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     .map_err(|error| (-32006, error))
             }),
         "cooling.background.get" => Ok(lock(engine).background.view()),
+        "cooling.support.settings" => params["unrestricted_enabled"]
+            .as_bool()
+            .ok_or_else(|| invalid_params("unrestricted_enabled:boolean required"))
+            .and_then(|enabled| {
+                let mut engine = lock(engine);
+                engine
+                    .fan_support
+                    .set_unrestricted(enabled)
+                    .map_err(|e| (-32000, e))?;
+                Ok(json!({"background_reapplied": !enabled && engine.reapply_background()}))
+            }),
+        "cooling.channels.unlock" | "cooling.channels.confirm_pump" => {
+            let control_id = params["control_id"].as_str().unwrap_or_default().to_owned();
+            let typed = params["confirmation"].as_str().unwrap_or_default().to_owned();
+            let mut engine = lock(engine);
+            engine
+                .unlock_channel(&control_id, &typed, method == "cooling.channels.confirm_pump")
+                .map(|()| json!(true))
+                .map_err(|e| (-32006, e))
+        }
+        "cooling.channels.revoke" => params["control_id"]
+            .as_str()
+            .ok_or_else(|| invalid_params("control_id required"))
+            .and_then(|control_id| {
+                let mut engine = lock(engine);
+                let removed = engine.fan_support.revoke(control_id).map_err(|e| (-32000, e))?;
+                Ok(json!({"revoked": removed, "background_reapplied": removed && engine.reapply_background()}))
+            }),
         "cooling.support.get" => {
             let engine = lock(engine);
             Ok(engine.fan_support.view(

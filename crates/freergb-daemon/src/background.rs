@@ -52,12 +52,18 @@ pub fn protected_entry(
         "control_id": channel.control_id,
         "temperature_id": channel.temperature_id,
         "rpm_id": channel.rpm_id,
-        "role": "fan",
+        "role": match plan.role {
+            freergb_control::channels::ChannelRole::Fan => "fan",
+            freergb_control::channels::ChannelRole::Pump => "pump",
+        },
         "tier": plan.tier.as_str(),
         "floor_percent": plan.minimum_percent,
         "critical_c": plan.critical_c,
         "curve": channel.curve,
     });
+    if plan.role == freergb_control::channels::ChannelRole::Pump && plan.minimum_percent < 100 {
+        entry["pump_unlocked"] = json!(true);
+    }
     if let Some(bands) = plausibility {
         entry["plausibility"] = bands
             .iter()

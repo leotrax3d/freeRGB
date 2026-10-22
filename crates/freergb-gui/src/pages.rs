@@ -259,7 +259,7 @@ impl Panels {
                         let temperature = self.curve.points.last().map_or(25.0, |p| p.temperature_c + 5.0);
                         self.curve.points.push(CurvePoint { temperature_c: temperature, duty_percent: 100.0 });
                     }
-                    ui.add(egui::Slider::new(&mut self.curve.minimum_percent, 20.0..=100.0).text("Minimum duty %"));
+                    ui.add(egui::Slider::new(&mut self.curve.minimum_percent, 0.0..=100.0).text("Minimum duty %"));
                     ui.add(egui::Slider::new(&mut self.curve.critical_c, 40.0..=110.0).text("Emergency temperature °C"));
                     ui.add(egui::Slider::new(&mut self.curve.hysteresis_c, 0.0..=10.0).text("Cooling hysteresis °C"));
                     let validation = self.curve.validate();

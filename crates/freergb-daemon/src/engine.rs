@@ -930,6 +930,68 @@ impl Engine {
             .map(|t| t.tested.iter().map(|d| (d.duty_percent, d.rpm)).collect())
     }
 
+    /// Unlock (or confirm pump control for) a channel after the typed confirmation.
+    pub fn unlock_channel(
+        &mut self,
+        control_id: &str,
+        typed: &str,
+        pump: bool,
+    ) -> Result<(), String> {
+        let channels = self.mainboard.channels();
+        let channel = channels
+            .iter()
+            .find(|c| c.kind == "control" && c.sensor_id == control_id && c.control_available)
+            .ok_or("Unknown or uncontrollable channel")?;
+        if channel.support.as_ref().is_some_and(|s| s.software_mode) {
+            return Err(
+                "This channel is already in software mode (another tool); it cannot be unlocked"
+                    .into(),
+            );
+        }
+        let identity = self.channel_identity(control_id).ok_or(
+            "The protected service reports no board identity; update the mainboard service",
+        )?;
+        if pump {
+            if self.channel_bindings.role(&channel.id)
+                != Some(freergb_control::channels::ChannelRole::Pump)
+            {
+                return Err("Pump confirmation applies only to channels bound as pump".into());
+            }
+            self.fan_support.confirm_pump(&identity, typed)
+        } else {
+            self.fan_support
+                .unlock_channel(identity, &channel.name, typed)
+        }
+    }
+
+    /// After a revocation, re-validate the saved background channels under the
+    /// new policy, drop those no longer permitted and hand the result to the
+    /// protected service (UAC). Returns whether a re-apply was started.
+    pub fn reapply_background(&mut self) -> bool {
+        let saved = self.background.view()["saved"].clone();
+        let Ok(request) = serde_json::from_value::<crate::background::BackgroundRequest>(saved)
+        else {
+            return false;
+        };
+        if request.channels.is_empty() {
+            return false;
+        }
+        let mut kept = crate::background::BackgroundRequest::default();
+        let mut entries = Vec::new();
+        for channel in request.channels {
+            let Ok(policy) = self.cooling_policy(&channel.control_id) else {
+                continue;
+            };
+            let bands = self.plausibility(&channel.control_id);
+            if let Ok(entry) = crate::background::protected_entry(&channel, &policy, bands.as_ref())
+            {
+                entries.push(entry);
+                kept.channels.push(channel);
+            }
+        }
+        self.background.apply(kept, entries).is_ok()
+    }
+
     /// Store a finished guided channel test once (bound to its identity).
     fn record_channel_test(&mut self) {
         let status = self.cooling_sessions.status();

@@ -175,6 +175,64 @@ impl FanSupport {
             .filter(|u| &u.identity == identity)
     }
 
+    pub fn set_unrestricted(&mut self, enabled: bool) -> Result<(), String> {
+        self.config.unrestricted_enabled = enabled;
+        self.save()
+    }
+
+    /// Per-channel unlock: the global switch must be on and the user must type
+    /// the channel's name exactly. Takeover of foreign software mode stays refused
+    /// by the caller (inventory) and the protected worker.
+    pub fn unlock_channel(
+        &mut self,
+        identity: ChannelIdentity,
+        channel_name: &str,
+        typed: &str,
+    ) -> Result<(), String> {
+        if !self.config.unrestricted_enabled {
+            return Err("Enable unrestricted control in the settings first".into());
+        }
+        if typed.trim() != channel_name.trim() || channel_name.trim().is_empty() {
+            return Err("Type the channel name exactly to confirm the unlock".into());
+        }
+        self.config.unlocks.insert(
+            identity.control_id.clone(),
+            UnlockRecord {
+                identity,
+                confirmed_name: channel_name.trim().into(),
+                pump_confirmed: false,
+                unlocked_unix: now_unix(),
+            },
+        );
+        self.save()
+    }
+
+    /// Second, separate confirmation for a pump; requires an existing unlock.
+    pub fn confirm_pump(&mut self, identity: &ChannelIdentity, typed: &str) -> Result<(), String> {
+        if !self.config.unrestricted_enabled {
+            return Err("Enable unrestricted control in the settings first".into());
+        }
+        let record = self
+            .config
+            .unlocks
+            .get_mut(&identity.control_id)
+            .filter(|u| &u.identity == identity)
+            .ok_or("Unlock the channel before confirming pump control")?;
+        if typed.trim() != format!("PUMP {}", record.confirmed_name) {
+            return Err("Type PUMP followed by the channel name to confirm pump control".into());
+        }
+        record.pump_confirmed = true;
+        self.save()
+    }
+
+    pub fn revoke(&mut self, control_id: &str) -> Result<bool, String> {
+        let removed = self.config.unlocks.remove(control_id).is_some();
+        if removed {
+            self.save()?;
+        }
+        Ok(removed)
+    }
+
     fn state(&self, identity: Option<&ChannelIdentity>, control_id: &str) -> Value {
         let test = self.config.tests.get(control_id);
         let unlock = self.config.unlocks.get(control_id);
@@ -268,6 +326,42 @@ mod tests {
             .unwrap();
         assert!(failing.passed_test(&identity("1.0")).is_none());
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn unlock_requires_switch_typed_name_and_separate_pump_confirmation() {
+        let mut store = FanSupport::default();
+        assert!(store
+            .unlock_channel(identity("1.0"), "Fan Control #2", "Fan Control #2")
+            .is_err());
+        store.set_unrestricted(true).unwrap();
+        assert!(store
+            .unlock_channel(identity("1.0"), "Fan Control #2", "fan control #2")
+            .is_err());
+        assert!(store
+            .confirm_pump(&identity("1.0"), "PUMP Fan Control #2")
+            .is_err());
+        store
+            .unlock_channel(identity("1.0"), "Fan Control #2", " Fan Control #2 ")
+            .unwrap();
+        assert!(!store.unlock(&identity("1.0")).unwrap().pump_confirmed);
+        assert!(store
+            .confirm_pump(&identity("1.0"), "Fan Control #2")
+            .is_err());
+        store
+            .confirm_pump(&identity("1.0"), "PUMP Fan Control #2")
+            .unwrap();
+        assert!(store.unlock(&identity("1.0")).unwrap().pump_confirmed);
+        assert!(store
+            .confirm_pump(&identity("2.0"), "PUMP Fan Control #2")
+            .is_err());
+        store.set_unrestricted(false).unwrap();
+        assert!(
+            store.unlock(&identity("1.0")).is_none(),
+            "switch off disables unlocks"
+        );
+        assert!(store.revoke(&identity("1.0").control_id).unwrap());
+        assert!(!store.revoke(&identity("1.0").control_id).unwrap());
     }
 
     #[test]

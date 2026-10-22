@@ -149,3 +149,36 @@ accompanies each hardware-facing step.
   firmware) may oscillate; the plausibility guard returns them to firmware.
 * LHM chip support itself is community-tested; a wrong LHM mapping can address
   the wrong header. The guided test is the main protection.
+
+### Implementation status (2026-10-22, branch feature/broad-fan-support)
+
+Work packages 1-5 and the unrestricted unlock are implemented with synthetic
+tests only (no hardware was opened). The unrestricted unlock: global switch
+`cooling.support.settings` (default off), per-channel `cooling.channels.unlock`
+with the typed channel name, `cooling.channels.confirm_pump` (`PUMP <name>`) for
+pumps, `cooling.channels.revoke`; records bound to board/BIOS/channel; both GUIs.
+Open: work packages 6-8 (opt-in diagnostics report with board/chip/test result,
+modern-GUI live parity, further controller features) and hardware acceptance.
+Known limits: interactive GUI sessions run one at a time (single-instance bridge
+pipe); a dead lower-tier worker's channel is held at 100% until reboot and the
+`held_full` marker is kept only in the snapshot worker's memory.
+
+### Hardware acceptance checklist (with the user present)
+
+Prerequisites: build the installer from this branch, install with the mainboard
+option, note the current BIOS version, keep LHM/FanControl/vendor tools closed.
+
+1. **Version pin:** `freergbd --help` and Setup show LHM 0.9.6; `%ProgramFiles%\freeRGB\providers\lhm-0.9.6` exists.
+2. **Inventory:** `cooling.channels.list` shows `support.tier` per control (NCT6701D: `verified`), `software_mode=false`; `cooling.providers.list` shows `board`.
+3. **Verified unchanged:** on CHA_FAN2 run calibration and an 80% curve (UAC); report `tier:null|verified`, `return_evidence:register_readback`; journal file is `{"version":1,"reservation":null}` afterwards.
+4. **Foreign takeover refused:** start FanControl on one header, then freeRGB on it -> refused with the software-mode message; close FanControl.
+5. **Channel test:** run `channel_test` on CHA_FAN2; observe 100/70/50%, RPM falls monotonically, fan returns to firmware; `cooling.support.get` shows `passed` with RPM values.
+6. **Fault return:** during a curve, unplug the tachometer or stop the daemon -> 100%, then firmware mode; no `blocked` state for lower tiers; journal cleared.
+7. **Multiple channels:** add two fans to background control (UAC), reboot without logging into the GUI; both follow their curves (status file), journal shows a version-2 file while both run.
+8. **Interactive precedence:** start a live session on a background channel -> background suspends, resumes after stop.
+9. **Crash recovery:** kill one background worker process (Task Manager, admin) -> verified chip: firmware mode restored; untested chip: channel held at 100% (`held_full`) until reboot.
+10. **Plausibility:** on an LHM-supported board (e.g. ITE), block a fan briefly (safely) during background control -> channel returns to firmware and shows `rpm_implausible`.
+11. **Unrestricted:** enable the switch, unlock a fan by typing its name, run a curve with 0% minimum -> fan stops, warning only; revoke -> background re-validated (UAC), channel back to >=40% or removed.
+12. **Pump:** bind the AIO pump header as pump; unlock without pump confirmation -> stays 100%; after `PUMP <name>` a reduced curve is accepted (only test briefly, watch coolant temperature).
+13. **Identity binding:** after a BIOS update the test and unlock show `stale`.
+14. **Maintenance:** run Setup upgrade while background control runs -> channels return to firmware, upgrade succeeds, background restarts.

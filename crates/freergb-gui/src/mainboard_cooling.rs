@@ -49,6 +49,7 @@ pub struct MainboardCooling {
     rpm: String,
     temperature: String,
     confirmed: bool,
+    confirmation: String,
 }
 impl MainboardCooling {
     pub fn show(
@@ -188,6 +189,42 @@ impl MainboardCooling {
                 let _=tx.send(Command {method:"cooling.sessions.stop",params:json!({"job_id":status["job_id"]})});
             }
         });
+        let support = &snapshot.control["cooling_support"];
+        if !support.is_null() {
+            ui.separator();
+            ui.colored_label(
+                egui::Color32::from_rgb(251, 191, 36),
+                "Unrestricted control (untested hardware): no channel test, down to 0% (fan stop), RPM deviations only warn. Always kept: firmware return on stop/crash/telemetry loss/watchdog, 100% at critical temperature, no takeover of foreign software mode.",
+            );
+            let mut enabled = support["unrestricted_enabled"] == true;
+            if ui
+                .checkbox(&mut enabled, "Allow unrestricted control (off by default)")
+                .changed()
+            {
+                let _ = tx.send(Command {
+                    method: "cooling.support.settings",
+                    params: json!({"unrestricted_enabled": enabled}),
+                });
+            }
+            if enabled && !self.control.is_empty() {
+                let state = support["channels"][self.control.as_str()]["unlock"]
+                    .as_str()
+                    .unwrap_or("none");
+                ui.label(format!("Selected channel unlock: {state}. Type the channel name to unlock, or 'PUMP <name>' to confirm a pump."));
+                ui.text_edit_singleline(&mut self.confirmation);
+                ui.horizontal(|ui| {
+                    if ui.add_enabled(snapshot.connected && !self.confirmation.trim().is_empty(), egui::Button::new("Unlock channel")).clicked() {
+                        let _ = tx.send(Command { method: "cooling.channels.unlock", params: json!({"control_id": self.control, "confirmation": self.confirmation}) });
+                    }
+                    if ui.add_enabled(snapshot.connected && state == "unlocked", egui::Button::new("Confirm pump control")).clicked() {
+                        let _ = tx.send(Command { method: "cooling.channels.confirm_pump", params: json!({"control_id": self.control, "confirmation": self.confirmation}) });
+                    }
+                    if ui.add_enabled(snapshot.connected && state != "none", egui::Button::new("Revoke")).clicked() {
+                        let _ = tx.send(Command { method: "cooling.channels.revoke", params: json!({"control_id": self.control}) });
+                    }
+                });
+            }
+        }
         let background = &snapshot.control["cooling_background"];
         if background["available"] == true {
             ui.separator();

@@ -453,3 +453,23 @@ GUI or daemon (`COOLING_BROAD_SUPPORT_PLAN.md`, work package 4).
 * `cooling.support.get` -> `{unrestricted_enabled, board_identity_available,
   channels:{CONTROL_ID:{test,tested,unlock}}, error}`; `test` is `none`, `passed`,
   `failed` or `stale`.
+
+## Unrestricted unlock (additive, 2026-10-22)
+
+* `cooling.support.settings {unrestricted_enabled:bool}` -> `{background_reapplied}`.
+  Global switch, default off. Turning it off disables every unlock; saved
+  background channels are re-validated and those no longer permitted are dropped
+  (new UAC hand-over).
+* `cooling.channels.unlock {control_id, confirmation}`: requires the switch, a
+  reported board identity, a controllable channel not in foreign software mode,
+  and `confirmation` equal to the channel name. Stored bound to board, BIOS and
+  channel (`cooling-fan-support.json`); invalid after any change.
+* `cooling.channels.confirm_pump {control_id, confirmation}`: second, separate
+  confirmation for a channel bound as pump, `confirmation` = `PUMP <name>`.
+* `cooling.channels.revoke {control_id}` -> `{revoked, background_reapplied}`.
+
+An unlocked channel runs as tier `unrestricted`: no channel test needed, curves
+down to 0% (fan stop), RPM deviations and stalls are warnings. Pumps leave 100%
+only after the pump confirmation, and are never calibrated or tested. Always
+active regardless: firmware return on stop/crash/telemetry loss/watchdog,
+critical-temperature override to 100%, refusal of foreign software mode.

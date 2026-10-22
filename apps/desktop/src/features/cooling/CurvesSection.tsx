@@ -176,7 +176,7 @@ export function CurvesSection() {
             </p>
           )}
           <div className="grid gap-4 @xl:grid-cols-3">
-            <LimitSlider label="Minimum duty" unit="%" value={draft.minimum_percent} min={20} max={100} onChange={(v) => setDraft(withMinimum(draft, v))} />
+            <LimitSlider label="Minimum duty" unit="%" value={draft.minimum_percent} min={0} max={100} onChange={(v) => setDraft(withMinimum(draft, v))} />
             <LimitSlider
               label="Critical"
               unit="°C"

@@ -53,7 +53,7 @@ infer completion from a build, simulator, detected device or old pending CI note
 - [ ] Independent production fault supervision and service/boot/driver-hang recovery acceptance. Evidence: [runtime](COOLING_RUNTIME.md).
 - [ ] Production maintenance drain and active-control upgrade/uninstall/rollback acceptance. Handshake implemented; same-version active replacement passed, release/fault/uninstall acceptance remains. Evidence: [maintenance](COOLING_MAINTENANCE.md), [acceptance record](COOLING_ACCEPTANCE.md).
 - [ ] Public daemon cooling methods and both GUI integrations after acceptance. Additive session API and Classic dialog implemented; public-path interactive acceptance and modern-GUI live-session parity remain. Evidence: [API](LOCAL_API.md), [acceptance record](COOLING_ACCEPTANCE.md).
-- [ ] Multiple native channels and additional validated motherboard backends. Evidence: [execution plan](COOLING_IMPLEMENTATION_PLAN.md).
+- [ ] Multiple native channels and additional validated motherboard backends. Tiered LHM support (verified/LHM-supported/unrestricted), multi-channel journal, background control, guided channel test and unrestricted unlock are implemented with synthetic tests on `feature/broad-fan-support`; nothing is hardware-confirmed yet. Evidence: [broad support plan](COOLING_BROAD_SUPPORT_PLAN.md).
 - [ ] Remaining controller types, RPM operation, guided setup and cooling profiles/plugins. Evidence: [FanControl target](FANCONTROL_PARITY.md).
 
 ## Distribution and platforms
