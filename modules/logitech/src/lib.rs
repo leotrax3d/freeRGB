@@ -120,9 +120,7 @@ impl Module for Logitech {
             3
         } else if handler.contains("KeyboardG815") || handler.contains("KeyboardG915") {
             117
-        } else if handler.contains("G600") {
-            1
-        } else if handler.contains("MouseGPRO") {
+        } else if handler.contains("G600") || handler.contains("MouseGPRO") {
             1
         } else if handler.contains("MouseG303") || handler.contains("MouseG403") {
             2
