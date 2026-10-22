@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry' || env.MODULE == 'lenovo' || env.MODULE == 'nzxt-hue2'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry' || env.MODULE == 'lenovo' || env.MODULE == 'nzxt-hue2' || env.MODULE == 'nollie'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -129,11 +129,14 @@ jobs:
             node scripts/openrgb/port-nzxt-hue2-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-nzxt-hue2
             git diff --exit-code -- modules/nzxt-hue2/src/devices_table.rs
-          - name: roccat
-            run: |
+          elif [ "$MODULE" = "roccat" ]; then
               node scripts/openrgb/port-roccat-devices.mjs openrgb "$OPENRGB_COMMIT"
               cargo fmt --package freergb-module-roccat
               git diff --exit-code -- modules/roccat/src/devices_table.rs
+          elif [ "$MODULE" = "nollie" ]; then
+            node scripts/openrgb/port-nollie-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-nollie
+            git diff --exit-code -- modules/nollie/src/devices_table.rs
           else
             node scripts/openrgb/port-logitech-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/logitech/src/devices_table.rs

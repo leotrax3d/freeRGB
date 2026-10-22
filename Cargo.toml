@@ -34,6 +34,7 @@ members = [
     "modules/cherry",
     "modules/lenovo",
     "modules/nzxt-hue2",
+    "modules/nollie",
 ]
 
 [workspace.package]
