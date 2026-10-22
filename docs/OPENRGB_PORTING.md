@@ -55,5 +55,6 @@ simulated, matching and layout tests included; not confirmed on hardware.
 
 ## Continuation status
 
-* 	hermaltake-riing: **blocked** — OpenRGB's standard Riing layout is manually configured per header (0–20 LEDs), but module protocol v1 has no configuration/descriptor exchange. Claiming a fixed layout would violate the complete-port and behaviour-preservation rules. Quad/Trio use separate protocols and remain separate candidates.
+* `thermaltake-riing`: **blocked** — OpenRGB's standard Riing layout is manually configured per header (0–20 LEDs), but module protocol v1 has no configuration/descriptor exchange. Claiming a fixed layout would violate the complete-port and behaviour-preservation rules. Quad/Trio use separate protocols and remain separate candidates.
+* `luxafor`: **ported** — commit `d5c481e832b71dbf6afd3162f90533aebf805799`, 1 device, Direct packets and fixed Flag/Rear six-LED layout ported; Fade, Strobe, Wave and Pattern modes intentionally omitted by Direct-only policy; hardware not confirmed.
 
