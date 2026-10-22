@@ -28,6 +28,7 @@ members = [
     "modules/logitech",
     "modules/corsair-peripheral",
     "modules/coolermaster",
+    "modules/corsair-peripheral-v2",
 ]
 
 [workspace.package]

@@ -1,0 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+fn main() {
+    freergb_module_api::sdk::run(
+        freergb_module_corsair_peripheral_v2::CorsairPeripheralV2::default(),
+    );
+}
