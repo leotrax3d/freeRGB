@@ -160,6 +160,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `LenovoControllers` | ported | `f2c2c01` | 24 detectors / 24 unique IDs | Legacy Legion, Gen7/8, 4-zone, K500 and M300 direct HID paths use generated upstream LED IDs, zones and byte-exact report tests; K510 follows the upstream controller's no-op LED-frame path. Omitted paths: firmware/serial reads, profile/effect reads and persistence, runtime chassis/keyboard-layout probing, and OpenRGB's dynamic mode UI. |
 | `NZXTHue2Controller` | ported | `9cf428d` | 21 detectors / 21 unique IDs | Dynamic device-list discovery, channel LED sizing, direct 64-byte RGB packets and apply packets are ported with byte-exact tests. Omitted paths: effect-mode packets, fan telemetry/control, firmware/serial display and device-specific UI modes. |
 | `NollieController` | ported | `a8c6a79` | 16 detectors / 16 unique IDs | Generated detector inventory, configurable channel layouts, high-speed 1025-byte reports, fixed 65-byte chunk reports and update packets are covered by byte-exact tests. Omitted paths: effect/mode UI and serial/firmware reads. |
+| `EVisionKeyboardController` | ported | `4b0ce69` | 15 detectors / 15 unique IDs | Generated V1/V2 HID inventory, checksum-framed V1 color chunks and V2 dynamic-color packets are covered by byte-exact tests. Omitted paths: OpenRGB's matrix remapping, capability/profile reads, advanced effect-mode persistence and serial display. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
