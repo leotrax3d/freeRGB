@@ -27,6 +27,7 @@ members = [
     "modules/asus-aura-usb",
     "modules/asus-legacy-usb",
     "modules/asus-aura-core",
+    "modules/instant-mouse",
 ]
 
 [workspace.package]

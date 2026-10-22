@@ -152,6 +152,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AsusAuraUSBController` | partial | `b6edab9` | 0 | 100 external detector rows audited; built-in 0b05:19af excluded; controller-specific lifecycles remain unsupported |
 | `AsusLegacyUSBController` | partial | `a4b28e5` | 0 | 3 detector rows audited; Cerberus, Sagaris and Strix Claw paths remain unsupported |
 | `AsusAuraCoreController` | partial | `ba82083` | 0 | 5 detector rows audited; desktop/laptop controller paths remain unsupported |
+| `InstantMouseController` | partial | pending | 4 | Four exact HID detectors audited. Direct one-LED lifecycle and six-report DPI-slot sequence are ported; OpenRGB effect-mode controls are not exposed by the module API. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
