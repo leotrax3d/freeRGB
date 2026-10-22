@@ -164,6 +164,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `HyperXKeyboardController` | ported | `bdf915d` | 20 detectors / 13 unique IDs | Generated full detector inventory and direct report builders for Origins, Origins 60/65, Origins 2 65, Eve 1800, Origins Core, Alloy Elite 2, Alloy Elite and Alloy FPS are covered by byte-exact tests. Omitted paths: profile/effect persistence, keepalive threads, serial display and OpenRGB matrix naming/layout UI. |
 | `CorsairHydroPlatinumController` | ported | `eb52c62` | 13 detectors / 13 unique IDs | Generated detector inventory, upstream startup magic tables, CRC-8 PEC framing, BGR lighting packets and optional fan-zone sizing are covered by byte-exact tests. Omitted paths: firmware telemetry/version reads, fan tachometer data and OpenRGB's keepalive/guard threading. |
 | `SinowealthController` | ported | pending | 13 detectors / 13 unique IDs | Generated detector inventory and byte-exact report builders cover the base mouse, ZET Fury Pro, Genesis Xenon 200, GMOW, Keyboard 10C, Keyboard 16 and legacy keyboard paths. Omitted paths: OpenRGB effect/profile UI, feature-report read/modify/write persistence, GMOW mode controls and device-specific matrix naming. |
+| `HyperXMouseController` | in progress | pending | 12 detectors / 14 unique IDs | Generated HID inventory and direct packet builders are in progress for Surge, FPS Pro/Core, Dart, Raid and Haste. |
 
 
 The per-family status ledger is maintained below this inventory by the porting

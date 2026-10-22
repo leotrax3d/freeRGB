@@ -1871,6 +1871,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-hyperx-mouse"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-lenovo"
 version = "0.1.0"
 dependencies = [

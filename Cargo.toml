@@ -37,6 +37,7 @@ members = [
     "modules/nollie",
     "modules/evision-keyboard",
     "modules/hyperx-keyboard",
+    "modules/hyperx-mouse",
     "modules/corsair-hydro-platinum",
     "modules/sinowealth",
 ]
