@@ -173,6 +173,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `EVGAUSBController` | ported | `ec2dd5d` | 7 detectors / 15 unique IDs | Generated inventory and protocol-specific feature reports cover EVGA Z15/Z20 keyboards, X20 mouse/receiver and X12 mouse with byte-exact tests. Omitted paths: mode/profile persistence, wireless retry state, telemetry and device-specific key matrix naming. |
 | `A4TechController` | ported | `f913727` | 6 detectors / 6 unique IDs | Generated inventory and feature reports cover Bloody B820R keyboard and W60/W70/W90/MP50RS mouse paths with byte-exact tests. Omitted paths: mode persistence, sleep/retry handling and matrix naming. |
 | `AresonController` | ported | `c7e2eaf` | 6 detectors / 6 unique IDs | Generated inventory and CRC-framed 17-byte direct reports cover ZET Gaming Edge Air and Redragon M914 NIX paths with byte-exact tests. Omitted paths: effect-mode UI, wireless retry state and profile persistence. |
+| `AnnePro2Controller` | ported | pending | 5 detectors / 5 unique IDs | Generated inventory and five-part 64-byte service reports cover the 61-LED Anne Pro 2 direct path with byte-exact tests. Omitted paths: wireless protocol, mode/profile persistence and key-matrix naming. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
