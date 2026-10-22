@@ -118,8 +118,18 @@ impl Module for Logitech {
             5
         } else if handler.contains("MouseG203") {
             3
-        } else if handler.contains("KeyboardG815") || handler.contains("KeyboardG915") {
+        } else if handler.contains("KeyboardG815") {
             117
+        } else if handler.contains("KeyboardG915") {
+            if id
+                .model
+                .as_deref()
+                .is_some_and(|model| model.contains("TKL"))
+            {
+                95
+            } else {
+                117
+            }
         } else if handler.contains("G600") || handler.contains("MouseGPRO") {
             1
         } else if handler.contains("MouseG303") || handler.contains("MouseG403") {
@@ -312,18 +322,14 @@ impl Module for Logitech {
             }
         } else if self.handler.contains("KeyboardG815") {
             for (n, color) in c.iter().enumerate() {
-                h.write(&report::g815_little(0x04u8.saturating_add(n as u8), *color))
+                h.write(&report::g815_little(report::g815_key(n), *color))
                     .map_err(err)?;
             }
         } else if self.handler.contains("KeyboardG915") {
             let wired = self.handler.contains("Wired");
             for (n, color) in c.iter().enumerate() {
-                h.write(&report::g915_little(
-                    wired,
-                    0x04u8.saturating_add(n as u8),
-                    *color,
-                ))
-                .map_err(err)?;
+                h.write(&report::g915_little(wired, report::g915_key(n), *color))
+                    .map_err(err)?;
             }
         } else {
             for x in c.chunks(20) {
