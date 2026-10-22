@@ -1817,6 +1817,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-corsair-hydro-platinum"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-corsair-peripheral"
 version = "0.1.0"
 dependencies = [
@@ -1836,6 +1845,24 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-drgb"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-evision-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-hyperx-keyboard"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -1880,6 +1907,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-nollie"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-nzxt-hue2"
 version = "0.1.0"
 dependencies = [
@@ -1909,6 +1945,15 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-roccat"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-sinowealth"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
