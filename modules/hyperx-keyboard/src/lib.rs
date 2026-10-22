@@ -87,6 +87,16 @@ impl Module for HyperX {
                     h.write(&report::core(x, i as u8)).map_err(err)?;
                 }
             }
+            "fps" => {
+                for ch in [0x01_u8, 0x02, 0x03] {
+                    h.write(&report::channel(c, ch, ch)).map_err(err)?;
+                }
+            }
+            "elite" => {
+                for ch in [0x01_u8, 0x02, 0x03] {
+                    h.write(&report::channel(c, ch, ch)).map_err(err)?;
+                }
+            }
             _ => {
                 for (i, x) in c.chunks(16).enumerate() {
                     h.write(&report::origins2(i as u8, x)).map_err(err)?;

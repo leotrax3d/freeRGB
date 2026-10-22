@@ -39,7 +39,7 @@ pub static DETECTORS: &[Detector] = &[
         handler: "DetectHyperXAlloyElite",
         vid: 0x0951,
         pid: 0x16BE,
-        kind: "legacy",
+        kind: "elite",
         leds: 106,
     },
     Detector {
@@ -179,7 +179,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x0951,
         pid: 0x16BE,
-        kind: "legacy",
+        kind: "elite",
         leds: 106,
     },
     Device {
