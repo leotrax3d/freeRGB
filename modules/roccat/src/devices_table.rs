@@ -7,7 +7,7 @@ pub static DETECTORS: &[Detector] = &[
         handler: "DetectRoccatHordeAimoKeyboardControllers",
         vid: 0x1E7D,
         pid: 0x303E,
-        protocol: "keyboard",
+        protocol: "horde",
     },
     Detector {
         name: "Roccat Magma",
@@ -203,7 +203,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x303E,
-        protocol: "keyboard",
+        protocol: "horde",
         leds: 6,
         packet: 24,
         column: 1,

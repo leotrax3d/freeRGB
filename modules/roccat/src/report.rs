@@ -44,10 +44,36 @@ pub fn mat(colors: &[Rgb]) -> Vec<u8> {
     p
 }
 pub fn headset(c: Rgb) -> Vec<u8> {
-    let mut p = vec![0; 64];
-    p[0] = 0x0f;
+    let mut p = vec![0; 16];
+    p[0] = 0xff;
     p[1] = 4;
     p[4..7].copy_from_slice(&[c.r, c.g, c.b]);
+    p
+}
+pub fn elo_init() -> Vec<Vec<u8>> {
+    vec![
+        vec![0xff, 1],
+        vec![0xff, 2],
+        vec![0xff, 3, 0, 1],
+        vec![0xff, 1],
+    ]
+}
+pub fn horde_init() -> Vec<u8> {
+    vec![0x13, 8, 1, 0, 0, 0, 0, 0]
+}
+pub fn horde(colors: &[Rgb]) -> Vec<u8> {
+    let mut p = vec![0; 24];
+    p[0] = 0x18;
+    p[1] = 24;
+    p[2] = 0xff;
+    p[3] = 0xff;
+    for (n, c) in colors.iter().enumerate().take(6) {
+        let q = 4 + n * 3;
+        p[q..q + 3].copy_from_slice(&[c.r, c.g, c.b]);
+    }
+    let checksum: u16 = p[..22].iter().map(|x| u16::from(*x)).sum();
+    p[22] = checksum as u8;
+    p[23] = (checksum >> 8) as u8;
     p
 }
 

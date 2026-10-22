@@ -48,12 +48,20 @@ impl Module for Roccat {
         self.version = d.version;
         self.active = true;
         match self.protocol {
+            "horde" => {
+                hid.send_feature(&report::horde_init()).map_err(err)?;
+            }
             "keyboard" => {
                 hid.send_feature(&report::keyboard_direct_mode(self.version > 1))
                     .map_err(err)?;
             }
             "kova" => {
                 hid.send_feature(&report::kova_init()).map_err(err)?;
+            }
+            "headset" => {
+                for packet in report::elo_init() {
+                    hid.write(&packet).map_err(err)?;
+                }
             }
             "mouse" | "direct-mouse" | "kone-xp" => {
                 hid.send_feature(&report::direct_mode()).map_err(err)?;
@@ -93,6 +101,9 @@ impl Module for Roccat {
             }
             "headset" => {
                 h.write(&report::headset(colors[0])).map_err(err)?;
+            }
+            "horde" => {
+                h.send_feature(&report::horde(colors)).map_err(err)?;
             }
             "mouse" => {
                 h.write(&report::mouse(colors, self.packet)).map_err(err)?;

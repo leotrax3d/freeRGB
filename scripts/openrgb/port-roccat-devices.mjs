@@ -27,7 +27,8 @@ for (const match of source.matchAll(pattern)) {
 }
 if (detectors.length !== 28) throw new Error(`expected 28 Roccat detectors, found ${detectors.length}`);
 const protocol = (handler, name) => {
-  if (handler.includes("Vulcan") || handler.includes("Horde")) return "keyboard";
+  if (handler.includes("Horde")) return "horde";
+  if (handler.includes("Vulcan")) return "keyboard";
   if (handler.includes("Elo")) return "headset";
   if (handler.includes("Sense")) return "mat";
   if (handler.includes("Kova")) return "kova";
@@ -40,6 +41,7 @@ const protocol = (handler, name) => {
 };
 const metadata = (name, handler) => {
   const p = protocol(handler, name);
+  if (p === "horde") return { p, leds: 6, packet: 24, column: 1, version: 1 };
   if (p === "headset") return { p, leds: 1, packet: 16, column: 1, version: 1 };
   if (p === "mat") return { p, leds: 2, packet: 9, column: 1, version: 1 };
   if (p === "kova") return { p, leds: 2, packet: 46, column: 1, version: 1 };
