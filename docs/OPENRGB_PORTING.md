@@ -150,7 +150,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `MSIMotherboardController` | partial | `b0d7a33` | 0 | 124 detector rows audited; four complete controller lifecycles remain unsupported |
 | `DasKeyboardController` | partial | `1b7d153` | 0 | 3 detector rows audited; complete keyboard initialization, per-key mapping, direct mode and cleanup remain unsupported |
 | `AsusAuraUSBController` | partial | `b6edab9` | 0 | 100 external detector rows audited; built-in 0b05:19af excluded; controller-specific lifecycles remain unsupported |
-| `AsusLegacyUSBController` | partial | pending integration commit | 0 | 3 detector rows audited; Cerberus, Sagaris and Strix Claw paths remain unsupported |
+| `AsusLegacyUSBController` | partial | `a4b28e5` | 0 | 3 detector rows audited; Cerberus, Sagaris and Strix Claw paths remain unsupported |
 
 
 The per-family status ledger is maintained below this inventory by the porting
