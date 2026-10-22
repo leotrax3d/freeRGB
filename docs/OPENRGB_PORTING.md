@@ -159,6 +159,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `InstantMouseController` | ported | `4675ed4` | 4 detectors / 4 unique IDs | Generated inventory and byte-exact eight-byte feature reports cover Advanced GTA 250, Anko KM43243952/KM43277483 and AntEsports GM600 HID paths. Omitted paths: effect-mode UI, DPI profile persistence and readback. |
 | `MSIKeyboardController` | ported | `d65e396` | 4 detectors / 4 unique IDs | Generated inventory and byte-exact 64-byte zone/payload feature reports cover MSI Keyboard MS_1565 and Mystic Light MS_1562–1564 HID paths. Omitted paths: effect/profile UI, firmware/readback and keyboard matrix naming. |
 | `MSILaptopController` | ported | `28109fd` | 4 detectors / 4 unique IDs | Generated inventory and 64-byte MSI laptop feature-report builders cover Raider A18 and GE68HX keyboard/lightbar registrations. Omitted paths: 525-byte KLC batching, mode/profile UI, DMI model naming and feature readback. |
+| `AsusLegacyUSBController` | ported | `f42fa18` | 3 detectors / 3 unique IDs | Generated inventory and byte-exact legacy feature-report builders cover Cerberus Mech, Sagaris GK1100 and ROG Strix Claw HID registrations. Omitted paths: per-key matrix naming, effect/profile UI, serial reads and model-specific mode sequencing. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
