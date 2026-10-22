@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'msi-keyboard' || env.MODULE == 'msi-laptop' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'asus-aura-core' || env.MODULE == 'gigabyte-aorus-laptop' || env.MODULE == 'instant-mouse' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'sony-gamepad'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'msi-keyboard' || env.MODULE == 'msi-laptop' || env.MODULE == 'asus-legacy-usb' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'asus-aura-core' || env.MODULE == 'gigabyte-aorus-laptop' || env.MODULE == 'instant-mouse' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'sony-gamepad'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -104,6 +104,10 @@ jobs:
             node scripts/openrgb/port-gigabyte-aorus-laptop-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-gigabyte-aorus-laptop
             git diff --exit-code -- modules/gigabyte-aorus-laptop/src/devices_table.rs
+          elif [ "$MODULE" = "asus-legacy-usb" ]; then
+            node scripts/openrgb/port-asus-legacy-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-legacy-usb
+            git diff --exit-code -- modules/asus-legacy-usb/src/devices_table.rs
           elif [ "$MODULE" = "msi-laptop" ]; then
             node scripts/openrgb/port-msi-laptop-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-msi-laptop
