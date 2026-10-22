@@ -1886,6 +1886,7 @@ version = "0.1.0"
 dependencies = [
  "freergb-core",
  "freergb-module-api",
+ "serde_json",
 ]
 
 [[package]]
