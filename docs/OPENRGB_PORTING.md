@@ -167,6 +167,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `HyperXMouseController` | ported | `4a76c58` | 12 detectors / 14 unique IDs | Generated HID inventory and direct packet builders cover Surge, FPS Pro/Core, Dart, Raid and Haste with byte-exact packet tests. Omitted paths: profile/effect persistence, keepalive threads, telemetry and OpenRGB zone naming. |
 | `GaiZongGaiKeyboardController` | ported | `65913ad` | 9 detectors / 9 unique IDs | Generated inventory and PID-specific 65-byte chunk reports cover keyboard, dial, light-board and RGB-hub paths with byte-exact tests. Omitted paths: dynamic hub length discovery/readback, effect UI and device-specific matrix maps. |
 | `LianLiController` | ported | `1a9911e` | 9 detectors / 9 unique IDs | Generated HID inventory and 64-byte channel reports cover Uni Hub SL/AL variants, Strimer L Connect and GA II Trinity HID paths with byte-exact tests. Omitted paths: non-HID Universal Screen/legacy discovery, dynamic serial/readback and effect/profile UI. |
+| `AsusMonitorController` | ported | pending | 7 detectors / 7 unique IDs | Generated HID inventory, LED-count query, initialization and 65-byte direct color reports are covered by byte-exact tests. Omitted paths: serial metadata, monitor effect UI and readback beyond the upstream LED-count query. |
 
 
 The per-family status ledger is maintained below this inventory by the porting

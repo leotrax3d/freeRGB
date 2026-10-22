@@ -40,6 +40,7 @@ members = [
     "modules/hyperx-mouse",
     "modules/gaizonggai",
     "modules/lianli",
+    "modules/asus-monitor",
     "modules/corsair-hydro-platinum",
     "modules/sinowealth",
 ]
