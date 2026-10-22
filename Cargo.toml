@@ -23,6 +23,7 @@ members = [
     "modules/luxafor",
     "modules/steelseries",
     "modules/msi-motherboard",
+    "modules/das-keyboard",
 ]
 
 [workspace.package]
