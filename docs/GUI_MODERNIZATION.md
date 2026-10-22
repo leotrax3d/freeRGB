@@ -1,6 +1,7 @@
 # Integration status
 
-The implementation is being integrated on `codex/integrate-tauri-main`.
+The implementation from `codex/integrate-tauri-main` was integrated into local
+`main` on 22 October 2026 with user approval.
 Current architecture, completed work and remaining acceptance checks are tracked
 in [INTEGRATION_CHECKLIST.md](INTEGRATION_CHECKLIST.md) and
 [ARCHITECTURE.md](ARCHITECTURE.md). The design and original milestones below are

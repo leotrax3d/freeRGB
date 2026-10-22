@@ -1,6 +1,8 @@
 # Integration von main und feature/tauri-gui
 
-Arbeitsbranch: `codex/integrate-tauri-main`. Kein Merge nach `main` ohne Freigabe.
+Integrationsbranch: `codex/integrate-tauri-main`. Nach Nutzerfreigabe am
+22. Oktober 2026 lokal per Fast-forward nach `main` übernommen (`b7e82ff`).
+Die folgenden offenen Abnahmen bleiben Voraussetzung für die Release-Freigabe.
 
 ## Entscheidungen
 
@@ -42,7 +44,7 @@ Arbeitsbranch: `codex/integrate-tauri-main`. Kein Merge nach `main` ohne Freigab
 - [ ] Reale Tastaturreaktionen und Zusammenspiel mit Classic-Funktionen prüfen.
 - [ ] Neue Linux-CI erfolgreich ausführen; Linux-Fensterstart und Hardwareverhalten prüfen.
 - [ ] Installer mit Inno Setup kompilieren und den erweiterten CI-Installationslebenszyklus ausführen.
-- [ ] Nutzerfreigabe für einen endgültigen Merge nach main (wird hier nicht durchgeführt).
+- [x] Nutzerfreigabe für den Merge nach main erteilt und lokaler Fast-forward durchgeführt (22. Oktober 2026).
 
 ## Aktueller Stand
 
