@@ -157,6 +157,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AsusAuraCoreController` | ported | `eaf22fe` | 5 detector registrations / 5 generated HID IDs | Generated inventory and byte-exact Aura Core direct/chunked reports cover desktop and SCAR HID registrations. Omitted paths: laptop-specific feature-report sequencing, effect/profile UI, power configuration and readback. |
 | `GigabyteAorusLaptopController` | ported | `0679451` | 4 detectors / 4 unique IDs | Generated inventory and byte-exact 8-part 65-byte keyboard color reports cover the four Aorus 17X/15BKF HID registrations. Omitted paths: laptop mode/profile sequencing, keyboard matrix naming, feature-report readback and effect UI. |
 | `InstantMouseController` | ported | `4675ed4` | 4 detectors / 4 unique IDs | Generated inventory and byte-exact eight-byte feature reports cover Advanced GTA 250, Anko KM43243952/KM43277483 and AntEsports GM600 HID paths. Omitted paths: effect-mode UI, DPI profile persistence and readback. |
+| `MSIKeyboardController` | ported | `d65e396` | 4 detectors / 4 unique IDs | Generated inventory and byte-exact 64-byte zone/payload feature reports cover MSI Keyboard MS_1565 and Mystic Light MS_1562–1564 HID paths. Omitted paths: effect/profile UI, firmware/readback and keyboard matrix naming. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
