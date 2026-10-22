@@ -7,6 +7,7 @@ import { deviceStatus, faultMessage, type DeviceKind, type DeviceSummary } from 
 import { useDaemon } from "@/lib/store/daemon";
 import { num } from "@/lib/format";
 import { useDaemonValue } from "@/lib/store/useDaemonValue";
+import { NewDevicesPanel, SetupExtras } from "@/features/setup/NewDevicesPanel";
 
 const KINDS: Record<DeviceKind, { label: string; icon: LucideIcon }> = {
   Keyboard: { label: "Keyboards", icon: Keyboard },
@@ -113,6 +114,7 @@ export default function DevicesView() {
         title="Devices"
         description={devices ? `${devices.filter((d) => d.status === "Connected").length} of ${devices.length} connected · live status` : "Everything freeRGB found, with live status."}
       />
+      <NewDevicesPanel />
       {devices && devices.length === 0 && (
         <EmptyState icon={<PlugZap />} title="No devices found">
           freeRGB only talks to devices it supports. Check the connection, close other RGB software, or start the
@@ -126,6 +128,7 @@ export default function DevicesView() {
           ))}
         </div>
       )}
+      <SetupExtras />
     </>
   );
 }

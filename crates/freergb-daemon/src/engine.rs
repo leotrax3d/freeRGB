@@ -19,6 +19,8 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 pub const RETRY_INTERVAL: Duration = Duration::from_secs(2);
+/// One slow rise and fall: far below any flash/strobe rate.
+pub const LIGHT_TEST: Duration = Duration::from_millis(2400);
 /// Upper bound for the exponential reconnect back-off.
 pub const MAX_RETRY: Duration = Duration::from_secs(60);
 const CANVAS_W: usize = 320;
@@ -98,6 +100,9 @@ pub struct Engine {
     pub mainboard: crate::mainboard::MainboardProvider,
     sensor_refresh_at: Option<Instant>,
     plugins: std::collections::BTreeMap<String, PluginEntry>,
+    /// Hardware module setup service (absent with --no-modules).
+    pub modules: Option<Arc<freergb_modules::setup::Manager>>,
+    light_test: Option<(std::collections::BTreeSet<String>, Instant)>,
     workers: Vec<Worker>,
     spec: EffectSpec,
     effect: Box<dyn Effect>,
@@ -276,6 +281,8 @@ impl Engine {
             cooling_sessions: Default::default(),
             sensor_refresh_at: None,
             plugins: Default::default(),
+            modules: None,
+            light_test: None,
             workers: Vec::new(),
             effect: spec.build(),
             spec,
@@ -456,6 +463,7 @@ impl Engine {
             .into_iter()
             .partition(|w| {
                 w.id.0.starts_with("hid:")
+                    || w.id.0.starts_with("module:")
                     || (w.id.0.starts_with("plugin:")
                         && guard(&w.view).info.kind != freergb_device_api::DeviceKind::Virtual)
             });
@@ -488,6 +496,49 @@ impl Engine {
             !done
         });
         before - self.workers.len()
+    }
+
+    /// Stops and removes the workers whose id satisfies `select`; each hands
+    /// its device back first. Returns how many were removed.
+    pub fn remove_devices(&mut self, select: impl Fn(&DeviceId) -> bool) -> usize {
+        let (gone, keep): (Vec<Worker>, Vec<Worker>) = std::mem::take(&mut self.workers)
+            .into_iter()
+            .partition(|w| select(&w.id));
+        self.workers = keep;
+        for w in &gone {
+            w.stop.store(true, Ordering::SeqCst);
+            w.slot.1.notify_one();
+        }
+        let n = gone.len();
+        for mut w in gone {
+            if let Some(h) = w.handle.take() {
+                let _ = h.join();
+            }
+        }
+        n
+    }
+
+    /// Lets the given devices glow once, softly, for [`LIGHT_TEST`]. The
+    /// running effect continues underneath and takes over again afterwards,
+    /// so the previous lighting is restored exactly.
+    pub fn start_light_test(&mut self, ids: Vec<String>) -> Result<(), String> {
+        if ids.is_empty()
+            || ids
+                .iter()
+                .any(|id| !self.workers.iter().any(|w| &w.id.0 == id))
+        {
+            return Err("light test needs connected devices".into());
+        }
+        self.light_test = Some((ids.into_iter().collect(), Instant::now()));
+        Ok(())
+    }
+
+    /// Remaining light test time in seconds, if one runs.
+    pub fn light_test_remaining(&self) -> Option<f64> {
+        self.light_test
+            .as_ref()
+            .and_then(|(_, at)| LIGHT_TEST.checked_sub(at.elapsed()))
+            .map(|d| d.as_secs_f64())
     }
 
     pub fn has_device(&self, id: &DeviceId) -> bool {
@@ -761,6 +812,19 @@ impl Engine {
             &mut self.canvas,
         );
         let brightness = self.brightness;
+        if self
+            .light_test
+            .as_ref()
+            .is_some_and(|(_, at)| now.saturating_duration_since(*at) >= LIGHT_TEST)
+        {
+            self.light_test = None;
+        }
+        let test_color = self.light_test.as_ref().map(|(ids, at)| {
+            let t = now.saturating_duration_since(*at).as_secs_f32() / LIGHT_TEST.as_secs_f32();
+            let level = (std::f32::consts::PI * t).sin().powi(2);
+            let v = (level * 255.0).round() as u8;
+            (ids, freergb_core::Rgb { r: v, g: v, b: v })
+        });
 
         for w in &self.workers {
             let (layout, key_map) = {
@@ -781,6 +845,11 @@ impl Engine {
             }
             let mut frame = self.canvas.sample_layout(&layout, w.region);
             self.keyboard.apply(&w.id.0, &key_map, &mut frame);
+            if let Some((ids, color)) = &test_color {
+                if ids.contains(&w.id.0) {
+                    frame = Frame::solid(layout.len(), *color);
+                }
+            }
             let frame = frame.corrected(&corr);
             let (lock, cv) = &*w.slot;
             if guard(lock).replace(frame).is_some() {

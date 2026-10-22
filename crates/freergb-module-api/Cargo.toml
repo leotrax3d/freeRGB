@@ -1,0 +1,16 @@
+[package]
+name = "freergb-module-api"
+description = "Versioned freeRGB hardware module protocol and module SDK"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+freergb-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64 = "0.22"
+
+[lints]
+workspace = true

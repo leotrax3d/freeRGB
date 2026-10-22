@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { create } from "zustand";
 import { BrandTiles } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import { useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
 import type { ViewId } from "./views";
 
@@ -48,7 +49,10 @@ export const useTour = create<{ step: number | null; start: () => void; stop: ()
 
 /** Starts the tour on first launch. */
 export function useFirstRunTour() {
+  // Device setup comes first; the tour starts once it is finished or skipped.
+  const setupDone = useDaemon((d) => d.modules_setup !== undefined && d.modules_setup?.first_run !== true);
   useEffect(() => {
+    if (!setupDone) return;
     let seen = true;
     try {
       seen = localStorage.getItem(SEEN_KEY) === "1";
@@ -56,7 +60,7 @@ export function useFirstRunTour() {
       // Storage unavailable: never nag.
     }
     if (!seen) setTimeout(() => useTour.getState().start(), 600);
-  }, []);
+  }, [setupDone]);
 }
 
 function useTargetRect(target: string | undefined, step: number) {

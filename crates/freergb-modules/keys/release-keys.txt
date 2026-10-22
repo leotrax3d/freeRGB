@@ -1,0 +1,3 @@
+# Ed25519 public keys (64 hex chars, one per line) trusted to sign the
+# hardware module catalog. Empty until the project owner generates the
+# release key with `freergb-module-tool keygen` (docs/HARDWARE_MODULES.md).

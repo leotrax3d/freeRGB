@@ -7,6 +7,7 @@ import { RpcError } from "../api/transport";
 import { DEFAULT_CURVE, type FanCurve, type MacroDefinition, type SensorGraph } from "../api/control";
 import type { DeviceSummary, EffectSpec, Slices } from "../api/types";
 import effectDefaults from "../api/fixtures/effects.json";
+import { mockSetup } from "./setup";
 
 let devices: DeviceSummary[] = [
   {
@@ -76,6 +77,7 @@ let devices: DeviceSummary[] = [
 
 export function mockTransport(): Transport {
   const listeners = new Set<SliceListener>();
+  const setup = mockSetup(() => emit("modules_setup"));
   let effect = (effectDefaults as Record<string, EffectSpec>).rainbow_wave!;
   let brightness = 0.85;
   const started = Date.now();
@@ -111,6 +113,7 @@ export function mockTransport(): Transport {
     profiles: sorted(profiles),
     custom_effects: sorted(custom),
     plugins: [],
+    modules_setup: setup.get(),
     curves: { ...curves },
     macros: { ...macros },
     macro_status: { running: null, input_enabled: false, error: null },
@@ -223,6 +226,26 @@ export function mockTransport(): Transport {
           return diagnostics() as T;
         case "effects.default":
           return (effectDefaults as Record<string, unknown>)[p.name as string] as T;
+        case "modules.status":
+          return setup.get() as T;
+        case "modules.setup.start":
+          setup.start(p.keys as string[]);
+          return true as T;
+        case "modules.setup.retry":
+          setup.retry(p.keys as string[]);
+          return true as T;
+        case "modules.setup.complete":
+          setup.complete();
+          return true as T;
+        case "modules.setup.dismiss":
+          setup.dismiss(p.keys as string[]);
+          return true as T;
+        case "modules.light_test":
+          setup.lightTest();
+          return true as T;
+        case "modules.setup.cancel":
+        case "modules.catalog.refresh":
+          return true as T;
         default:
           throw new RpcError({ kind: "rpc", code: -32601, message: `${method} is not mocked` });
       }

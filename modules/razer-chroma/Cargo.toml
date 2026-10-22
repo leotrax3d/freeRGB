@@ -1,0 +1,27 @@
+[package]
+name = "freergb-module-razer-chroma"
+description = "freeRGB hardware module for Razer Chroma HID devices, ported from OpenRGB"
+version = "0.1.0"
+edition.workspace = true
+license = "GPL-2.0-or-later"
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "freergb-module-razer-chroma"
+path = "src/main.rs"
+
+[dependencies]
+freergb-core.workspace = true
+freergb-module-api = { path = "../../crates/freergb-module-api" }
+serde_json.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading", "Win32_Security"] }
+
+[lints.rust]
+# deny, not forbid: src/guard.rs needs three documented Win32 calls.
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

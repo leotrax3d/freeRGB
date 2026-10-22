@@ -9,6 +9,7 @@ import { transport } from "@/lib/api/transport";
 import { useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
 import { Sidebar } from "./Sidebar";
+import { SetupWizard } from "@/features/setup/SetupWizard";
 import { preloadViews, VIEWS } from "./views";
 
 function ServiceUnavailable({ error }: { error: string | null }) {
@@ -87,6 +88,7 @@ export function Shell() {
       <CommandPalette />
       <Toaster />
       <Tour />
+      {!offline && <SetupWizard />}
     </div>
   );
 }

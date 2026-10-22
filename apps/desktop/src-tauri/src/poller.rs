@@ -20,6 +20,8 @@ const CORE: &[(&str, &str)] = &[
     ("devices", "devices.list"),
     ("diagnostics", "diagnostics.get"),
     ("effect", "effects.get"),
+    // Device setup: first-run wizard and the new-devices panel.
+    ("modules_setup", "modules.status"),
 ];
 
 /// Slices polled only while a view asks for them.
@@ -283,7 +285,14 @@ mod tests {
         let emitted = emitted.lock().unwrap().clone();
         assert_eq!(
             emitted,
-            ["connection", "devices", "diagnostics", "effect", "profiles"]
+            [
+                "connection",
+                "devices",
+                "diagnostics",
+                "effect",
+                "modules_setup",
+                "profiles"
+            ]
         );
         assert!(!shared.lock().unwrap().slices.contains_key("plugins"));
     }

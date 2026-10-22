@@ -47,12 +47,6 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
             e.set_conflicts(conflicts.clone());
         }
     }
-    if !conflicts.is_empty() {
-        return 0;
-    }
-    if lock(engine).has_hardware_plugins() {
-        return 0;
-    }
     let list = match freergb_hid::enumerate() {
         Ok(l) => l,
         Err(e) => {
@@ -60,9 +54,16 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
             return 0;
         }
     };
+    if !conflicts.is_empty() || lock(engine).has_hardware_plugins() {
+        // Setup still shows what is attached; nothing is opened.
+        crate::modules::scan(engine, &list, &Default::default(), false);
+        return 0;
+    }
     lock(engine).prune_finished();
     let mut added = 0;
-    for info in list {
+    // HID path -> built-in adapter's device name; modules never claim these.
+    let mut builtin = std::collections::BTreeMap::new();
+    for info in &list {
         let Some(m) = registry::match_interface_with(
             &opts.user_devices,
             info.vid,
@@ -107,10 +108,11 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
             ),
             _ => continue,
         };
+        builtin.insert(info.path.clone(), m.device_name.clone());
         if lock(engine).has_device(&id) {
             continue;
         }
-        match HidapiTransport::open(&info) {
+        match HidapiTransport::open(info) {
             Ok(t) => {
                 lock(engine).add_device(make(t, info.serial.clone()));
                 added += 1;
@@ -118,5 +120,6 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
             Err(e) => tracing::warn!(path = %info.path, error = %e, "open failed"),
         }
     }
+    crate::modules::scan(engine, &list, &builtin, true);
     added
 }

@@ -30,6 +30,21 @@ pub trait HidTransport: Send {
     /// Input report length including the report ID byte (if any).
     fn input_report_len(&self) -> usize;
 
+    /// Sends one feature report (first byte is the report ID). Transports
+    /// without feature report support refuse.
+    fn send_feature(&mut self, _report: &[u8]) -> Result<usize, TransportError> {
+        Err(TransportError::Io(
+            "feature reports are not supported".into(),
+        ))
+    }
+
+    /// Reads one feature report; `buf[0]` selects the report ID.
+    fn get_feature(&mut self, _buf: &mut [u8]) -> Result<usize, TransportError> {
+        Err(TransportError::Io(
+            "feature reports are not supported".into(),
+        ))
+    }
+
     /// Discards pending input reports.
     fn drain(&mut self) -> Result<(), TransportError> {
         let mut buf = vec![0u8; self.input_report_len().max(1)];

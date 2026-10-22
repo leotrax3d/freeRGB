@@ -44,6 +44,13 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `macros.status` | – | `{running,input_enabled,error}` |
 | `plugins.list` | – | `[{id,name,access,enabled,allowed,status,last_error,frames}]`; status null while stopped or awaiting start/conflict resolution |
 | `plugins.start` / `plugins.stop` | `{"id":"example-strip"}` | `true`; only IDs explicitly configured with `--plugin`; start occurs on next render tick |
+| `modules.status` | – | Setup state: `{first_run, cards:[{key,name,vendor,kind,phase,module,download_size,progress,error,configured,dismissed,builtin,installed,connected,engine_id,technical}], catalog, job, installed, trusted_release_key, light_test_remaining_s}`. See [hardware modules](HARDWARE_MODULES.md) |
+| `modules.catalog.refresh` | – | `true`; fetches and authenticates the catalog in the background |
+| `modules.setup.start` / `modules.setup.retry` | `{"keys":["usb:1532:00a3:if0:0001:0002"]}` | `true`; runs in the service (retry first stops that device's module) |
+| `modules.setup.cancel` / `modules.setup.complete` | – | `true`; cancel aborts downloads, complete ends the first-start setup |
+| `modules.setup.dismiss` / `modules.forget` | `{"keys":[...]}` | `true`; dismiss hides new devices, forget removes a device from the configuration |
+| `modules.rollback` | `{"id":"razer-chroma"}` | `{"version":"0.1.0"}`; returns to the last working or previous version |
+| `modules.light_test` | `{"devices":[engine ids]}` | `true`; one soft 2.4 s white pulse, then the running effect continues |
 | `diagnostics.get` | – | `{uptime_s, ticks, target_fps, measured_fps, effect, brightness, devices, conflicts, audio, screen}` – `conflicts` lists other RGB software that is running (hardware is released meanwhile) |
 | `diagnostics.export` | – | Offline report version 1 with anonymous device/plugin indexes and fault flags; omits IDs/serials, paths, names, raw errors and user macro/profile contents. See `DIAGNOSTICS.md`. |
 | `effects.list` | – | effect names: `solid`, `rainbow_wave`, `breathing`, `gradient`, `color_cycle`, `radial_rainbow`, `scanner`, `twinkle`, `audio_pulse`, `audio_spectrum`, `screen_ambience`, `layers` (audio/screen effects start the respective capture only while active) |
@@ -65,6 +72,9 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `profiles.delete` | `{"name": "…"}` | `true` |
 
 ## Errors
+
+`modules.*` returns -32006 when the service runs with `--no-modules`.
+
 `-32700` parse error, `-32600` missing method, `-32601` unknown method,
 `-32602` invalid params (also invalid profile names), `-32004` profile not found,
 `-32003` profiles disabled (`--no-state`), `-32000` storage I/O error,
