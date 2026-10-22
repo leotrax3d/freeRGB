@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry' || env.MODULE == 'lenovo'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -121,6 +121,10 @@ jobs:
             node scripts/openrgb/port-cherry-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-cherry
             git diff --exit-code -- modules/cherry/src/devices_table.rs
+          elif [ "$MODULE" = "lenovo" ]; then
+            node scripts/openrgb/port-lenovo-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-lenovo
+            git diff --exit-code -- modules/lenovo/src/devices_table.rs
           - name: roccat
             run: |
               node scripts/openrgb/port-roccat-devices.mjs openrgb "$OPENRGB_COMMIT"
