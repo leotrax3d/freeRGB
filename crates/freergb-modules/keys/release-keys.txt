@@ -1,3 +1,5 @@
 # Ed25519 public keys (64 hex chars, one per line) trusted to sign the
-# hardware module catalog. Empty until the project owner generates the
-# release key with `freergb-module-tool keygen` (docs/HARDWARE_MODULES.md).
+# hardware module catalog. Private key: held by the project owner and as the
+# GitHub secret FREERGB_MODULE_SIGNING_KEY (docs/HARDWARE_MODULES.md).
+# Release key generated 2026-10-22:
+23469f6bec07ca5df93240261eaf3015b2ca8dbe37226e201499d1a8c1823c4a
