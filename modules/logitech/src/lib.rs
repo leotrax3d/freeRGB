@@ -19,6 +19,7 @@ pub struct Logitech {
     hidpp_zones: Vec<u8>,
     hidpp_fp8070: bool,
     hidpp_perkey: bool,
+    hidpp_headset: bool,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
@@ -75,6 +76,17 @@ fn discover_rgb_effects(h: &mut dyn Hid) -> Result<(u8, bool, usize), ModuleErro
     };
     Ok((feature, fp8070, count.clamp(1, 240)))
 }
+fn optional_root_feature(h: &mut dyn Hid, page: [u8; 2]) -> Result<Option<u8>, ModuleError> {
+    h.write(&report::hidpp(0, 0, &page)).map_err(err)?;
+    let response = h.read(20, 250).map_err(err)?;
+    if response.len() < 4 || response[0] != 0x11 || response[1] != 2 || response[2] != 0 {
+        return Err(err("invalid Logitech HID++ root response"));
+    }
+    if response[3] & 0xf0 != 0 {
+        return Ok(None);
+    }
+    Ok(response.get(4).copied().filter(|x| *x != 0))
+}
 impl Module for Logitech {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
@@ -116,35 +128,45 @@ impl Module for Logitech {
         let lightspeed =
             handler.contains("DetectLogitechWireless") || handler.contains("DetectLogitechWired");
         if handler.contains("HIDPP20") {
-            let (rgb_idx, fp8070, rgb_count) = discover_rgb_effects(h)?;
-            self.hidpp_rgb_idx = rgb_idx;
-            self.hidpp_fp8070 = fp8070;
-            let response = hidpp_call(h, 0, 0, &[0x80, 0x81])?;
-            let perkey_idx = response.get(4).copied().unwrap_or(0);
-            let mut zones = Vec::new();
-            for page in 0..3u8 {
-                if perkey_idx == 0 {
-                    break;
-                }
-                let response = hidpp_call(h, perkey_idx, 0, &[0, page, 0])?;
-                for bit in 0..112u8 {
-                    if page == 0 && bit == 0 {
-                        continue;
-                    }
-                    let byte = response.get(6 + usize::from(bit / 8)).copied().unwrap_or(0);
-                    if byte & (1 << (bit % 8)) != 0 {
-                        let zone = page.saturating_mul(112).saturating_add(bit);
-                        zones.push(zone);
-                    }
-                }
-            }
-            self.hidpp_zones = zones;
-            self.hidpp_perkey = perkey_idx != 0 && !self.hidpp_zones.is_empty();
-            if self.hidpp_perkey {
-                self.hidpp_idx = perkey_idx;
+            if let Some(headset_idx) = optional_root_feature(h, [0x06, 0x20])? {
+                self.hidpp_idx = headset_idx;
+                self.hidpp_headset = true;
+                hidpp_call(h, headset_idx, 0x80, &[1])?;
+                let response = hidpp_call(h, headset_idx, 0x10, &[])?;
+                let count = usize::from(response.get(4).copied().unwrap_or(0)).clamp(1, 15);
+                self.hidpp_zones = (0..count)
+                    .map(|n| response.get(5 + n).copied().unwrap_or(n as u8))
+                    .collect();
             } else {
-                self.hidpp_idx = rgb_idx;
-                self.hidpp_zones = (0..rgb_count).map(|n| n as u8).collect();
+                let (rgb_idx, fp8070, rgb_count) = discover_rgb_effects(h)?;
+                self.hidpp_rgb_idx = rgb_idx;
+                self.hidpp_fp8070 = fp8070;
+                let response = hidpp_call(h, 0, 0, &[0x80, 0x81])?;
+                let perkey_idx = response.get(4).copied().unwrap_or(0);
+                let mut zones = Vec::new();
+                for page in 0..3u8 {
+                    if perkey_idx == 0 {
+                        break;
+                    }
+                    let response = hidpp_call(h, perkey_idx, 0, &[0, page, 0])?;
+                    for bit in 0..112u8 {
+                        if page == 0 && bit == 0 {
+                            continue;
+                        }
+                        let byte = response.get(6 + usize::from(bit / 8)).copied().unwrap_or(0);
+                        if byte & (1 << (bit % 8)) != 0 {
+                            zones.push(page.saturating_mul(112).saturating_add(bit));
+                        }
+                    }
+                }
+                self.hidpp_zones = zones;
+                self.hidpp_perkey = perkey_idx != 0 && !self.hidpp_zones.is_empty();
+                if self.hidpp_perkey {
+                    self.hidpp_idx = perkey_idx;
+                } else {
+                    self.hidpp_idx = rgb_idx;
+                    self.hidpp_zones = (0..rgb_count).map(|n| n as u8).collect();
+                }
             }
         } else if lightspeed {
             let (feature, fp8070, count) = discover_rgb_effects(h)?;
@@ -216,6 +238,12 @@ impl Module for Logitech {
             }
         } else if self.handler.contains("G600") {
             h.send_feature(&report::g600(0, 3, c[0])).map_err(err)?;
+        } else if self.handler.contains("HIDPP20") && self.hidpp_headset {
+            for (zone, color) in c.iter().enumerate() {
+                let id = self.hidpp_zones.get(zone).copied().unwrap_or(zone as u8);
+                hidpp_call(h, self.hidpp_idx, 0x50, &report::headset_zone(*color, id))?;
+            }
+            hidpp_call(h, self.hidpp_idx, 0x60, &report::headset_end())?;
         } else if self.handler.contains("HIDPP20") && self.hidpp_perkey {
             for (offset, colors) in c.chunks(4).enumerate() {
                 let mut data = [0; 16];

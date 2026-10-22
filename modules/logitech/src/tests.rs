@@ -100,6 +100,11 @@ fn bytes() {
         &[0x11, 2, 5, 0x17, 2, 1, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 1]
     );
     assert_eq!(
+        report::headset_zone(Rgb { r: 1, g: 2, b: 3 }, 4),
+        [1, 2, 3, 1, 4]
+    );
+    assert_eq!(report::headset_end(), [1, 0, 0, 0]);
+    assert_eq!(
         &report::g915_little(false, 4, Rgb { r: 1, g: 2, b: 3 })[..8],
         &[0x11, 1, 0x0b, 0x1f, 4, 1, 2, 3]
     );
@@ -137,6 +142,7 @@ fn hidpp_discovery_and_frame_are_brokered() {
         product: None,
     };
     let mut reads = Vec::new();
+    reads.push(vec![0x11, 2, 0, 0x8f]);
     let mut root = vec![0; 20];
     root[..4].copy_from_slice(&[0x11, 2, 0, 7]);
     root[4] = 5;
@@ -171,6 +177,6 @@ fn hidpp_discovery_and_frame_are_brokered() {
         &mut h,
     )
     .unwrap();
-    assert_eq!(h.w[0], report::hidpp(0, 0, &[0x80, 0x71]));
-    assert_eq!(h.w.len(), 8);
+    assert_eq!(h.w[0], report::hidpp(0, 0, &[0x06, 0x20]));
+    assert_eq!(h.w.len(), 9);
 }
