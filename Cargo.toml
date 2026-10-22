@@ -26,6 +26,7 @@ members = [
     "modules/das-keyboard",
     "modules/asus-aura-usb",
     "modules/asus-legacy-usb",
+    "modules/asus-aura-core",
 ]
 
 [workspace.package]
