@@ -100,6 +100,31 @@ internal static class MainboardMaintenance
         }
 #endif
     }
+    // Elevated, consented write of the protected background configuration,
+    // followed by a reload request to the running service (command 130).
+    internal static int ConfigureCooling(string[] args)
+    {
+#if BROKER_INSTALLER
+        try {
+            if (args.Length != 4 || args[0] != "--configure-cooling" || args[1] != "--consent") return 2;
+            using (var identity=System.Security.Principal.WindowsIdentity.GetCurrent())
+                if (!new System.Security.Principal.WindowsPrincipal(identity).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator))
+                    throw new UnauthorizedAccessException("Explicit elevated cooling configuration required.");
+            if (!String.Equals(System.Reflection.Assembly.GetExecutingAssembly().Location,BrokerTransport.ServicePath,StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Use the installed protected configuration service.");
+            new BrokerRegistration(args[2]).ValidateOwner();
+            string text=Encoding.UTF8.GetString(Convert.FromBase64String(args[3]));
+            BackgroundChannelConfig.ParseAll(text);
+            var document=new JavaScriptSerializer { MaxJsonLength=32768,RecursionLimit=10 }.DeserializeObject(text);
+            Write(BackgroundCooling.ConfigName,document);
+            using (var service=new ServiceController(BrokerService.Name))
+                if (service.Status == ServiceControllerStatus.Running) service.ExecuteCommand(130);
+            return 0;
+        } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name); return 1; }
+#else
+        return 2;
+#endif
+    }
     internal static int AuthorizeControl(string[] args)
     {
 #if BROKER_INSTALLER

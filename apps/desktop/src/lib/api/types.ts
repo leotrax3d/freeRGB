@@ -121,6 +121,7 @@ export interface Slices {
   cooling_channels: CoolingChannel[] | null;
   cooling_session: CoolingSession | null;
   cooling_bindings: ChannelBindingsView | null;
+  cooling_background: CoolingBackground | null;
   keyboard_reactive: KeyboardReactive | null;
   connection: Connection;
   devices: DeviceSummary[] | null;
@@ -180,6 +181,28 @@ export interface CoolingSession {
   report: unknown;
   error: string | null;
   tier?: SupportTier | null;
+}
+/** Saved background curves (run by the protected service from boot). */
+export interface BackgroundChannel {
+  control_id: string;
+  temperature_id: string;
+  rpm_id: string;
+  curve: import("./control").FanCurve;
+  confirmed_fan: boolean;
+}
+export interface BackgroundServiceChannel {
+  control_id: string;
+  tier: SupportTier;
+  state: string;
+  duty_percent: number;
+  fault: string | null;
+  warning: string | null;
+}
+export interface CoolingBackground {
+  available: boolean;
+  saved: { channels: BackgroundChannel[] };
+  apply: { state: "idle" | "applying" | "applied" | "failed"; error: string | null };
+  service: { version: 1; error: string | null; updated_utc: string; channels: BackgroundServiceChannel[] } | null;
 }
 export interface ReactiveConfig {
   version: number;

@@ -103,6 +103,7 @@ pub struct CoolingSupportEntry {
 
 pub struct Engine {
     pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
+    pub background: crate::background::Background,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
     pub controls: crate::control::Controls,
@@ -285,6 +286,7 @@ impl Engine {
             controls: Default::default(),
             mainboard: Default::default(),
             cooling_sessions: Default::default(),
+            background: Default::default(),
             sensor_refresh_at: None,
             plugins: Default::default(),
             workers: Vec::new(),
@@ -564,6 +566,8 @@ impl Engine {
                 std::mem::take(&mut self.keyboard).with_file(parent.join("keyboard-reactive.json"));
             self.channel_bindings = std::mem::take(&mut self.channel_bindings)
                 .with_file(parent.join("cooling-channel-bindings.json"));
+            self.background = std::mem::take(&mut self.background)
+                .with_file(parent.join("cooling-background.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);

@@ -1,0 +1,15 @@
+{
+  "curve": {"points": [{"temperature_c": 25, "duty_percent": 30}, {"temperature_c": 50, "duty_percent": 55}, {"temperature_c": 75, "duty_percent": 100}], "minimum_percent": 25, "critical_c": 85, "hysteresis_c": 2},
+  "steps": [
+    {"temperature_c": 20, "age_ms": 0, "duty_percent": 30},
+    {"temperature_c": 40, "age_ms": 0, "duty_percent": 45},
+    {"temperature_c": 39, "age_ms": 0, "duty_percent": 45},
+    {"temperature_c": 37, "age_ms": 0, "duty_percent": 42},
+    {"temperature_c": 80, "age_ms": 0, "duty_percent": 100},
+    {"temperature_c": 90, "age_ms": 0, "duty_percent": 100},
+    {"temperature_c": 60, "age_ms": 5000, "duty_percent": 100},
+    {"temperature_c": 60, "age_ms": 0, "duty_percent": 73},
+    {"temperature_c": null, "age_ms": 0, "duty_percent": 100},
+    {"temperature_c": 30, "age_ms": 0, "duty_percent": 35}
+  ]
+}

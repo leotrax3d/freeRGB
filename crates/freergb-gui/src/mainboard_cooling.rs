@@ -180,6 +180,53 @@ impl MainboardCooling {
                 let _=tx.send(Command {method:"cooling.sessions.stop",params:json!({"job_id":status["job_id"]})});
             }
         });
+        let background = &snapshot.control["cooling_background"];
+        if background["available"] == true {
+            ui.separator();
+            ui.label("Background control: saved curves run in the protected service from Windows startup, without this window.");
+            let saved: Vec<serde_json::Value> = background["saved"]["channels"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            for channel in background["service"]["channels"]
+                .as_array()
+                .into_iter()
+                .flatten()
+            {
+                ui.label(format!(
+                    "{} · {} · {}% · {}{}",
+                    channel["control_id"].as_str().unwrap_or("?"),
+                    channel["state"].as_str().unwrap_or("?"),
+                    channel["duty_percent"],
+                    tier_label(channel["tier"].as_str().unwrap_or("")),
+                    channel["fault"]
+                        .as_str()
+                        .map(|f| format!(" · {f}"))
+                        .unwrap_or_default()
+                ));
+            }
+            let applying = background["apply"]["state"] == "applying";
+            ui.horizontal(|ui| {
+                let duplicate = saved.iter().any(|c| c["control_id"] == self.control.as_str());
+                if ui
+                    .add_enabled(ready && !applying && !duplicate && saved.len() < 8, egui::Button::new("Run current curve in background (UAC)"))
+                    .clicked()
+                {
+                    let mut next = saved.clone();
+                    next.push(json!({"control_id":self.control,"temperature_id":self.temperature,"rpm_id":self.rpm,"curve":curve,"confirmed_fan":true}));
+                    let _ = tx.send(Command { method: "cooling.background.apply", params: json!({"channels": next}) });
+                }
+                if ui
+                    .add_enabled(snapshot.connected && !applying && !saved.is_empty(), egui::Button::new("Disable background control (UAC)"))
+                    .clicked()
+                {
+                    let _ = tx.send(Command { method: "cooling.background.apply", params: json!({"channels": []}) });
+                }
+            });
+            if let Some(error) = background["apply"]["error"].as_str() {
+                ui.colored_label(egui::Color32::LIGHT_RED, error);
+            }
+        }
         ui.label(format!(
             "Job {} · {}{}",
             status["job_id"],

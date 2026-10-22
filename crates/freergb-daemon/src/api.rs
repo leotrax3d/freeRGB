@@ -181,6 +181,27 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     .map(|job| json!({"job_id":job}))
                     .map_err(|error| (-32006, error))
             }),
+        "cooling.background.get" => Ok(lock(engine).background.view()),
+        "cooling.background.apply" => serde_json::from_value(params.clone())
+            .map_err(invalid_params)
+            .and_then(|request: crate::background::BackgroundRequest| {
+                let mut engine = lock(engine);
+                let mut entries = Vec::new();
+                for channel in &request.channels {
+                    let policy = engine
+                        .cooling_policy(&channel.control_id)
+                        .map_err(|error| (-32006, error))?;
+                    entries.push(
+                        crate::background::protected_entry(channel, &policy, None)
+                            .map_err(invalid_params)?,
+                    );
+                }
+                engine
+                    .background
+                    .apply(request, entries)
+                    .map(|()| json!(true))
+                    .map_err(|error| (-32006, error))
+            }),
         "cooling.sessions.stop" => params["job_id"]
             .as_u64()
             .ok_or_else(|| invalid_params("job_id required"))

@@ -180,6 +180,7 @@ internal static class NativeControlTests
         NativeJournalTests.Run(delegate(ControlSink sink) { return NativeControl.ForTest(Create(sink),false); });
         NativeTierTests.Run(delegate(ControlSink sink) { return Create(sink); });
         NativeMultiChannelTests.Run(delegate(ControlSink sink) { return Create(sink); });
+        BackgroundCoolingTests.Run(Path.GetFullPath(Path.Combine(directory,"..","..","..")));
         Console.WriteLine("PASS: real pinned LHM Control ordering, no-zero acquisition, ownership, pump limits, failed writes and repeated firmware recovery. Synthetic callbacks only; no hardware opened.");
         return 0;
     }

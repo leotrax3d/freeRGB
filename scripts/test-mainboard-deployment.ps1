@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $directory = [IO.Path]::GetFullPath("$PSScriptRoot/../target/deployment-tests")
 & "$PSScriptRoot/build-mainboard-helper.ps1" -OutputDirectory $directory
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
-$sources = @('Mainboard.cs','BrokerTransport.cs','BrokerCache.cs','BrokerService.cs','NativeProbeJob.cs','NativeControlBroker.cs','MainboardMaintenance.cs','BrokerDeployment.cs','NativeControlJournal.cs','tests/DeploymentTests.cs') | ForEach-Object {
+$sources = @('Mainboard.cs','BrokerTransport.cs','BrokerCache.cs','BrokerService.cs','NativeProbeJob.cs','NativeControlBroker.cs','BackgroundCooling.cs','MainboardMaintenance.cs','BrokerDeployment.cs','NativeControlJournal.cs','tests/DeploymentTests.cs') | ForEach-Object {
     (Resolve-Path -LiteralPath (Join-Path "$PSScriptRoot/../providers/mainboard" $_)).Path
 }
 $manifest = (Resolve-Path -LiteralPath "$PSScriptRoot/../packaging/windows/mainboard-packages.json").Path

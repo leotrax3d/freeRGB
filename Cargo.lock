@@ -1593,6 +1593,7 @@ dependencies = [
  "freergb-core",
  "freergb-effects",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

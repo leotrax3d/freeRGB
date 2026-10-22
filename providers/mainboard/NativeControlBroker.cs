@@ -12,6 +12,9 @@ using System.Web.Script.Serialization;
 internal sealed class NativeControlBroker : IDisposable
 {
     internal const string PipeName="freergb-mainboard-control-v1";
+    // Set by the service: an interactive session first stops the background
+    // curve on the same channel (explicit return), then resumes it afterwards.
+    internal static Action<string> SuspendBackground = null, ResumeBackground = null;
     private readonly NamedPipeServerStream pipe;
     private readonly Thread thread;
     private volatile bool stopping;
@@ -58,6 +61,7 @@ internal sealed class NativeControlBroker : IDisposable
         while (!stopping)
         {
             string stage="admission";
+            string suspended=null;
             try
             {
                 pipe.WaitForConnection();
@@ -71,6 +75,8 @@ internal sealed class NativeControlBroker : IDisposable
                 var authorization=Authorization();
                 stage="worker_start";
                 string controlId=(string)authorization["control_id"];
+                if (SuspendBackground != null) SuspendBackground(controlId);
+                suspended=controlId;
                 authorization.Remove("control_id");
                 authorization.Remove("expires_utc");
                 string binding=Convert.ToBase64String(Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(authorization)));
@@ -145,6 +151,7 @@ internal sealed class NativeControlBroker : IDisposable
             }
             finally
             {
+                if (suspended != null && ResumeBackground != null) ResumeBackground(suspended);
                 idle.Set();
                 try { if (pipe.IsConnected) pipe.Disconnect(); }
                 catch (ObjectDisposedException) { }
@@ -181,6 +188,26 @@ internal sealed class NativeControlBroker : IDisposable
                 string request=BrokerTransport.ReadRecord(input,2000,2048);
                 BrokerTransport.Write(connection,Encoding.UTF8.GetBytes(request+"\n"));
             }
+        }
+    }
+    // Hands a validated background configuration to the elevated, consented
+    // service command (UAC). An empty channel list disables background control.
+    internal static int RequestBackgroundConfiguration(string[] args)
+    {
+        if (args.Length != 2 || args[1].Length > 44000) return 2;
+        try { BackgroundChannelConfig.ParseAll(Encoding.UTF8.GetString(Convert.FromBase64String(args[1]))); }
+        catch (Exception error) { if (error is OutOfMemoryException) throw; return 2; }
+        BrokerService.CheckProtectedPath(BrokerTransport.ServicePath);
+        string sid;
+        using (var user=WindowsIdentity.GetCurrent()) sid=user.User.Value;
+        var start=new ProcessStartInfo(BrokerTransport.ServicePath,"--configure-cooling --consent "+sid+" "+args[1]) {
+            UseShellExecute=true,Verb="runas",WindowStyle=ProcessWindowStyle.Hidden,
+            WorkingDirectory=Environment.GetFolderPath(Environment.SpecialFolder.System)
+        };
+        using (var process=Process.Start(start))
+        {
+            if (!process.WaitForExit(120000)) throw new TimeoutException("Background configuration did not finish.");
+            return process.ExitCode;
         }
     }
     internal static int RequestAuthorization(string[] args)

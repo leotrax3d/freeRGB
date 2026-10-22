@@ -10,9 +10,25 @@ using System.Web.Script.Serialization;
 
 internal sealed class NativeSessionReceipt
 {
-    internal string State, Reason;
+    internal string State, Reason, Tier, Warning;
     internal int DutyPercent;
     internal bool Owned;
+    // Checked sampler data from the worker; null when unavailable.
+    internal double? Temperature, Rpm;
+    internal long AgeMs = Int64.MaxValue;
+    internal static NativeSessionReceipt From(Dictionary<string,object> value)
+    {
+        var receipt = new NativeSessionReceipt { State=(string)value["state"], Reason=value["reason"] as string, DutyPercent=(int)value["duty_percent"], Owned=(bool)value["owned"],
+            Tier = value.ContainsKey("tier") ? value["tier"] as string : null, Warning = value.ContainsKey("warning") ? value["warning"] as string : null };
+        var telemetry = value.ContainsKey("telemetry") ? value["telemetry"] as Dictionary<string,object> : null;
+        if (telemetry != null && telemetry.ContainsKey("temperature_c") && telemetry.ContainsKey("rpm") && telemetry.ContainsKey("age_ms"))
+        {
+            receipt.Temperature = Convert.ToDouble(telemetry["temperature_c"],System.Globalization.CultureInfo.InvariantCulture);
+            receipt.Rpm = Convert.ToDouble(telemetry["rpm"],System.Globalization.CultureInfo.InvariantCulture);
+            receipt.AgeMs = Convert.ToInt64(telemetry["age_ms"],System.Globalization.CultureInfo.InvariantCulture);
+        }
+        return receipt;
+    }
 }
 internal sealed class NativeSessionClient : IDisposable
 {
@@ -29,7 +45,10 @@ internal sealed class NativeSessionClient : IDisposable
         if ((string)reply["state"] != "active" || (int)reply["sequence"] != 0 || (int)reply["duty_percent"] != 100)
             throw new InvalidDataException("Invalid initial native session state.");
         received = clock();
+        last = NativeSessionReceipt.From(reply);
     }
+    private NativeSessionReceipt last;
+    internal NativeSessionReceipt Last { get { lock (gate) return last; } }
 #if NATIVE_CONTROL_TESTS
     internal static NativeSessionClient ForTest(NamedPipeClientStream pipe, Func<long> clock)
     {
@@ -102,7 +121,8 @@ internal sealed class NativeSessionClient : IDisposable
                 if ((state == "active" && (!duty.HasValue || (int)result["duty_percent"] != duty.Value)) || (state == "closed" && duty.HasValue))
                     throw new InvalidDataException("Native response does not match the requested operation.");
                 reply = result; received = clock(); terminal = state != "active";
-                return new NativeSessionReceipt { State=state, Reason=result["reason"] as string, DutyPercent=(int)result["duty_percent"], Owned=(bool)result["owned"] };
+                last = NativeSessionReceipt.From(result);
+                return last;
             }
             catch { Dispose(); throw; }
         }

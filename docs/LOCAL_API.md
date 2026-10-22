@@ -416,3 +416,24 @@ command channel and joins the dedicated worker, requesting checked native return
 
 Legacy clients need not use these methods; API version remains 1. Hardware and
 release acceptance limits are recorded in [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).
+
+## Background fan control (additive, 2026-10-22)
+
+Saved curves run in the protected SYSTEM service from Windows startup, without a
+GUI or daemon (`COOLING_BROAD_SUPPORT_PLAN.md`, work package 4).
+
+* `cooling.background.get` -> `{available, saved:{channels}, apply:{state,error},
+  service}`. `saved` is the last request (per-user config
+  `cooling-background.json`). `apply.state`: `idle`, `applying`, `applied`,
+  `failed`. `service` is the status the protected service publishes in
+  `%ProgramFiles%\freeRGB\mainboard-control-status.json`
+  (`{version:1,error,updated_utc,channels:[{control_id,tier,state,duty_percent,fault,warning}]}`)
+  or `null`; it is display data only.
+* `cooling.background.apply` `{channels:[{control_id,temperature_id,rpm_id,curve,confirmed_fan}]}`
+  (at most 8, unknown fields rejected) -> `true` when the hand-over started. Each
+  channel is resolved like `cooling.sessions.start` (`mode=curve`): tier from the
+  protected inventory, 40% fan floor unless unrestricted, LHM-supported reduction
+  only with channel-test evidence. The helper asks for UAC and the service's
+  `--configure-cooling` re-validates and writes the protected
+  `mainboard-control-channels.json`, then reloads (service command 130). An empty
+  list disables background control.

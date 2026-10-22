@@ -29,6 +29,7 @@ pub const OPTIONAL: &[(&str, &str)] = &[
     ("cooling_channels", "cooling.channels.list"),
     ("cooling_session", "cooling.sessions.status"),
     ("cooling_bindings", "cooling.bindings.get"),
+    ("cooling_background", "cooling.background.get"),
     ("keyboard_reactive", "keyboard.reactive.get"),
     ("profiles", "profiles.list"),
     ("custom_effects", "custom_effects.list"),

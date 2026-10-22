@@ -303,6 +303,7 @@ internal static class Mainboard
         Console.OutputEncoding = new UTF8Encoding(false);
         if (args.Length == 6 && args[0] == "--request-control-authorization") return NativeControlBroker.RequestAuthorization(args);
         if (args.Length == 1 && args[0] == "--control-relay") return NativeControlBroker.Relay();
+        if (args.Length == 2 && args[0] == "--request-background-config") return NativeControlBroker.RequestBackgroundConfiguration(args);
 #if NATIVE_CONTROL_WORKER
         if (args.Length == 4 && args[0] == "--control-protected-session")
         {

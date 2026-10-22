@@ -112,8 +112,17 @@ channel test and outside the verified/LHM-supported lists.
    (`MAINBOARD_CONTROL_RECOVERY.md`). Interactive GUI sessions stay one at a
    time (single-instance bridge pipe); concurrent channels run in the protected
    background controller.
-4. **Background control:** the protected service starts the saved per-channel
-   curves at boot/login without a GUI session; GUI only edits and observes.
+4. **Background control** *(implemented, synthetic tests only)*: the protected
+   service (`BackgroundCooling.cs`) starts the saved per-channel curves 5 s after
+   service start (boot), one protected worker per channel, without GUI or daemon.
+   The curve evaluator mirrors `FanCurve`/`CurveController` (shared vectors in
+   `crates/freergb-control/tests/fixtures/curve_vectors.json`); LHM-supported
+   channels close (return to firmware) on persistent RPM implausibility and stay
+   faulted until re-tested, unrestricted channels only warn. Worker faults retry
+   after 30 s (10 min after three failures). Interactive sessions suspend the
+   background curve of the same channel. Configuration only via the elevated,
+   consented `--configure-cooling`; status in `mainboard-control-status.json`;
+   API `cooling.background.*`; both GUIs edit and observe.
 5. **Guided channel test + identification, unrestricted unlock** in the service API and both GUIs
    (which header is which fan, pump marking, tier display).
 6. **Diagnostics report** (opt-in, anonymised: board model, chip, tier, test

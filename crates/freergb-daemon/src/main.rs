@@ -107,6 +107,7 @@ fn main() -> Result<()> {
             .start(helper.clone(), library.clone(), !args.no_hardware)
             .map_err(anyhow::Error::msg)?;
         if !args.no_hardware && cfg!(windows) {
+            engine.background = std::mem::take(&mut engine.background).enable(helper.clone());
             engine.cooling_sessions =
                 freergb_daemon::cooling_sessions::CoolingSessions::enable(helper)
                     .map_err(anyhow::Error::msg)?;
