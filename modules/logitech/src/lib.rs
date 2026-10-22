@@ -129,6 +129,16 @@ impl Module for Logitech {
                 h.write(&report::g815_little(0x04u8.saturating_add(n as u8), *color))
                     .map_err(err)?;
             }
+        } else if self.handler.contains("KeyboardG915") {
+            let wired = self.handler.contains("Wired");
+            for (n, color) in c.iter().enumerate() {
+                h.write(&report::g915_little(
+                    wired,
+                    0x04u8.saturating_add(n as u8),
+                    *color,
+                ))
+                .map_err(err)?;
+            }
         } else {
             for x in c.chunks(20) {
                 h.write(&report::direct(x)).map_err(err)?;

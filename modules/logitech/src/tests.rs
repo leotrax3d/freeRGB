@@ -56,6 +56,10 @@ fn bytes() {
         &report::g933(1, Rgb { r: 1, g: 2, b: 3 })[..10],
         &[0x11, 0xff, 4, 0x3a, 1, 1, 1, 2, 3, 2]
     );
+    assert_eq!(
+        &report::g915_little(false, 4, Rgb { r: 1, g: 2, b: 3 })[..8],
+        &[0x11, 1, 0x0b, 0x1f, 4, 1, 2, 3]
+    );
 }
 #[test]
 fn lifecycle() {

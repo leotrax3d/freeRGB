@@ -35,6 +35,15 @@ pub fn g815_little(key: u8, c: Rgb) -> [u8; 20] {
     p[0..8].copy_from_slice(&[0x11, 0xff, 0x10, 0x1f, key, c.r, c.g, c.b]);
     p
 }
+pub fn g915_little(wired: bool, key: u8, c: Rgb) -> [u8; 20] {
+    let mut p = [0; 20];
+    p[0] = 0x11;
+    p[1] = if wired { 0xff } else { 1 };
+    p[2] = if wired { 0x0a } else { 0x0b };
+    p[3] = 0x1f;
+    p[4..8].copy_from_slice(&[key, c.r, c.g, c.b]);
+    p
+}
 pub fn g815_init() -> [[u8; 20]; 4] {
     let mut a = [[0; 20]; 4];
     a[0][0..4].copy_from_slice(&[0x11, 0xff, 0x08, 0x3e]);
