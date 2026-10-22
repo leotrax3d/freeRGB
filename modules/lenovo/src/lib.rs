@@ -13,6 +13,7 @@ pub const MODULE_ID: &str = "lenovo";
 pub struct Lenovo {
     protocol: &'static str,
     leds: usize,
+    pid: u16,
     active: bool,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
@@ -38,6 +39,7 @@ impl Module for Lenovo {
         let d = table::device(i).ok_or_else(|| err("unsupported Lenovo device"))?;
         self.protocol = d.protocol;
         self.leds = d.leds;
+        self.pid = d.pid;
         self.active = true;
         if self.protocol == "legacy" {
             h.send_feature(&[7, 0xb2]).map_err(err)?;
@@ -66,7 +68,7 @@ impl Module for Lenovo {
         }
         match self.protocol {
             "legacy" => {
-                for p in report::legacy(c) {
+                for p in report::legacy(self.pid, c) {
                     h.send_feature(&p).map_err(err)?;
                 }
             }
@@ -79,11 +81,11 @@ impl Module for Lenovo {
             "m300" => {
                 h.write(&report::m300(c[0])).map_err(err)?;
             }
-            "k510" => {
-                h.write(&report::k510()).map_err(err)?;
-            }
+            "k510" => {}
             "k500" => {
-                h.write(&report::k510()).map_err(err)?;
+                for p in report::k500(c) {
+                    h.write(&p).map_err(err)?;
+                }
             }
             _ => {}
         }

@@ -26,9 +26,9 @@ const meta = (d) => {
     if (d.name.includes("Gen 8") || d.name.includes("Gen 9")) return ["gen7-8", 111];
     return ["gen7-8", 101];
   }
-  if (d.name.includes("Y740")) return ["legacy", d.name.includes("Y740") ? 108 : 108];
-  if (d.name.includes("Y750")) return ["legacy", 148];
-  return ["legacy", d.name.includes("Y760") ? 351 : 145];
+  if (d.name.includes("Y740")) return ["legacy", 108];
+  if (d.name.includes("Y750") && !d.name.includes("Y750S")) return ["legacy", 148];
+  return ["legacy", d.name.includes("Y760") && !d.name.includes("Y760S") ? 362 : 145];
 };
 const devices = detectors.map((d) => { const [protocol, leds] = meta(d); return { ...d, protocol, leds }; });
 const out = ["// SPDX-License-Identifier: GPL-2.0-or-later", `// Generated from OpenRGB ${commit}.`, "use super::table::{Detector, Device};", "pub static DETECTORS: &[Detector] = &[", ...devices.map((d) => `    Detector { name: ${JSON.stringify(d.name)}, handler: ${JSON.stringify(d.handler)}, vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.protocol)}, leds: ${d.leds} },`), "];", "pub static DEVICES: &[Device] = &[", ...devices.map((d) => `    Device { vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.protocol)}, leds: ${d.leds} },`), "];", ""];
