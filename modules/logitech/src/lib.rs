@@ -205,6 +205,12 @@ impl Module for Logitech {
                 h.write(&p).map_err(err)?;
             }
         }
+        if handler.contains("KeyboardG915") {
+            let wired = handler.contains("Wired");
+            for p in report::g915_init(wired) {
+                h.write(&p).map_err(err)?;
+            }
+        }
         Ok(Capabilities {
             name: id.model.unwrap_or_else(|| "Logitech".into()),
             kind: DeviceKind::Accessory,
@@ -331,6 +337,7 @@ impl Module for Logitech {
                 h.write(&report::g915_little(wired, report::g915_key(n), *color))
                     .map_err(err)?;
             }
+            h.write(&report::g915_commit(wired)).map_err(err)?;
         } else {
             for x in c.chunks(20) {
                 h.write(&report::direct(x)).map_err(err)?;

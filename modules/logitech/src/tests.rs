@@ -107,6 +107,8 @@ fn bytes() {
     assert_eq!(report::g815_key(0), 0x01);
     assert_eq!(report::g815_key(116), 0xb8);
     assert_eq!(report::g915_key(95), 0x50);
+    assert_eq!(&report::g915_init(false)[0][..4], &[0x11, 1, 0x0f, 0x3e]);
+    assert_eq!(&report::g915_commit(true)[..4], &[0x11, 0xff, 0x0a, 0x7f]);
     assert_eq!(
         &report::g915_little(false, 4, Rgb { r: 1, g: 2, b: 3 })[..8],
         &[0x11, 1, 0x0b, 0x1f, 4, 1, 2, 3]

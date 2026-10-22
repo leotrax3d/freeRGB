@@ -104,6 +104,29 @@ pub fn g915_little(wired: bool, key: u8, c: Rgb) -> [u8; 20] {
     p[4..8].copy_from_slice(&[key, c.r, c.g, c.b]);
     p
 }
+pub fn g915_init(wired: bool) -> [[u8; 20]; 4] {
+    let device = if wired { 0xff } else { 1 };
+    let f4522 = if wired { 0x0e } else { 0x0f };
+    let f8071 = if wired { 0x09 } else { 0x0a };
+    let mut a = [[0; 20]; 4];
+    a[0][0..4].copy_from_slice(&[0x11, device, f4522, 0x3e]);
+    a[1][0..4].copy_from_slice(&[0x11, device, f4522, 0x1e]);
+    a[2][0..4].copy_from_slice(&[0x11, device, f8071, 0x1e]);
+    a[2][0x10] = 1;
+    a[3][0..5].copy_from_slice(&[0x11, device, f8071, 0x1e, 1]);
+    a[3][0x10] = 1;
+    a
+}
+pub fn g915_commit(wired: bool) -> [u8; 20] {
+    let mut p = [0; 20];
+    p[0..4].copy_from_slice(&[
+        0x11,
+        if wired { 0xff } else { 1 },
+        if wired { 0x0a } else { 0x0b },
+        0x7f,
+    ]);
+    p
+}
 pub fn g815_init() -> [[u8; 20]; 4] {
     let mut a = [[0; 20]; 4];
     a[0][0..4].copy_from_slice(&[0x11, 0xff, 0x08, 0x3e]);
