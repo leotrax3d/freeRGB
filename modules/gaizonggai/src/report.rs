@@ -2,7 +2,7 @@
 use freergb_core::Rgb;
 pub fn packets(pid: u16, colors: &[Rgb]) -> Vec<Vec<u8>> {
     let (start, count) = match pid {
-        0x4770 | 0x4771 | 0x4772 => (68, 20),
+        0x4770..=0x4772 => (68, 20),
         0x4720 => (85, 21),
         0x4710..=0x4712 => (0, 20),
         _ => (0, 21),
