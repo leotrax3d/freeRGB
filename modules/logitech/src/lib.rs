@@ -41,7 +41,9 @@ impl Module for Logitech {
         if !id.supported {
             return Err(err("unsupported Logitech HID device"));
         }
-        let default_leds = if handler.contains("KeyboardG213") {
+        let default_leds = if handler.contains("X56") {
+            1
+        } else if handler.contains("KeyboardG213") {
             5
         } else if handler.contains("MouseG203") {
             3
@@ -93,7 +95,10 @@ impl Module for Logitech {
         if !self.active || c.len() != self.leds {
             return Err(err("invalid Logitech frame"));
         }
-        if self.handler.contains("KeyboardG213") {
+        if self.handler.contains("X56") {
+            h.send_feature(&report::x56_brightness(100)).map_err(err)?;
+            h.send_feature(&report::x56_color(c[0])).map_err(err)?;
+        } else if self.handler.contains("KeyboardG213") {
             for (zone, color) in c.iter().enumerate() {
                 h.write(&report::g213(zone, *color)).map_err(err)?;
             }

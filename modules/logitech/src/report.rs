@@ -52,3 +52,25 @@ pub fn lightsync(function: u8, zone: usize, c: Rgb) -> [u8; 20] {
     ]);
     p
 }
+pub fn x56_brightness(brightness: u8) -> [u8; 64] {
+    let mut p = [0; 64];
+    p[0] = 9;
+    p[2] = 2;
+    p[3] = brightness;
+    p
+}
+pub fn x56_color(c: Rgb) -> [u8; 64] {
+    let mut p = [0; 64];
+    p[0] = 9;
+    p[2] = 3;
+    p[3] = c.r;
+    p[4] = c.g;
+    p[5] = c.b;
+    p
+}
+pub fn x56_save() -> [u8; 64] {
+    let mut p = [0; 64];
+    p[0] = 1;
+    p[1] = 1;
+    p
+}

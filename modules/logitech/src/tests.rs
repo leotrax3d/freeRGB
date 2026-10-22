@@ -48,6 +48,10 @@ fn bytes() {
         &report::lightsync(0x3a, 0, Rgb { r: 1, g: 2, b: 3 })[..10],
         &[0x11, 1, 0x0e, 0x3a, 0, 1, 1, 2, 3, 2]
     );
+    assert_eq!(
+        &report::x56_color(Rgb { r: 1, g: 2, b: 3 })[..6],
+        &[9, 0, 3, 1, 2, 3]
+    );
 }
 #[test]
 fn lifecycle() {
