@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use freergb_core::Rgb;
+pub fn hidpp(feature: u8, function: u8, data: &[u8]) -> [u8; 20] {
+    let mut p = [0; 20];
+    p[0..4].copy_from_slice(&[0x11, 2, feature, function | 0x07]);
+    let n = data.len().min(16);
+    p[4..4 + n].copy_from_slice(&data[..n]);
+    p
+}
 pub fn direct(c: &[Rgb]) -> [u8; 64] {
     let mut p = [0; 64];
     p[0] = 2;

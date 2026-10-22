@@ -73,6 +73,10 @@ fn bytes() {
         [0xf1, 1, 2, 3, 0, 3, 0, 0]
     );
     assert_eq!(
+        &report::hidpp(4, 0x10, &[1, 2, 3, 4])[..8],
+        &[0x11, 2, 4, 0x17, 1, 2, 3, 4]
+    );
+    assert_eq!(
         &report::g915_little(false, 4, Rgb { r: 1, g: 2, b: 3 })[..8],
         &[0x11, 1, 0x0b, 0x1f, 4, 1, 2, 3]
     );
