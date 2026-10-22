@@ -146,6 +146,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `RedragonController` | ported | `4a55e3c` | 11 | Direct only; effects/profile persistence omitted |
 | `LuxaforController` | ported | `8e7b1d2` | 1 | Direct only; Fade/Strobe/Wave/Pattern omitted |
 | `ThermaltakeRiingController` | unblocked / next | pending | 51 | Optional `initialize.zones` protocol parameter is now available; standard/Quad/Trio paths remain to port |
+| `SteelSeriesController` | partial | pending integration commit | 0 | 76 detector rows audited; all 17 controller-specific protocols remain unsupported; generic packet claim removed |
 
 
 The per-family status ledger is maintained below this inventory by the porting

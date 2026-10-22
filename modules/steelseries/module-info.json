@@ -1,0 +1,1 @@
+{"id":"steelseries","name":"SteelSeries USB HID","version":"0.1.0","api":1,"license":"GPL-2.0-or-later","transport":"usb-hid","vendor":{"vid":"1038","name":"SteelSeries"},"detectors":76,"source_commit":"bbc77470a7cba56af60989e54ba910d5ac66a3ac"}
