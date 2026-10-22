@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 freergb-core.workspace = true
 freergb-module-api = { path = "../../crates/freergb-module-api" }
+serde_json.workspace = true
 [lints.rust]
 unsafe_code = "forbid"
 [lints.clippy]
