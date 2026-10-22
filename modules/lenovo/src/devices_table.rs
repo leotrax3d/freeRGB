@@ -184,7 +184,7 @@ pub static DETECTORS: &[Detector] = &[
         vid: 0x048D,
         pid: 0xC197,
         protocol: "gen7-8",
-        leds: 24,
+        leds: 119,
     },
     Detector {
         name: "Lenovo Legion 5 Gen 10",
@@ -332,7 +332,7 @@ pub static DEVICES: &[Device] = &[
         vid: 0x048D,
         pid: 0xC197,
         protocol: "gen7-8",
-        leds: 24,
+        leds: 119,
     },
     Device {
         vid: 0x048D,

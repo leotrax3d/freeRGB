@@ -73,7 +73,7 @@ impl Module for Lenovo {
                 }
             }
             "gen7-8" => {
-                h.send_feature(&report::gen7(c)).map_err(err)?;
+                h.send_feature(&report::gen7(self.pid, c)).map_err(err)?;
             }
             "four-zone" => {
                 h.send_feature(&report::four_zone(c)).map_err(err)?;

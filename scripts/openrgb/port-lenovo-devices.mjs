@@ -21,7 +21,8 @@ const meta = (d) => {
   if (d.handler.includes("K510")) return ["k510", 1];
   if (d.handler.includes("M300")) return ["m300", 1];
   if (d.handler.includes("Gen7And8")) {
-    if (d.name.includes("Gen 10")) return ["gen7-8", 24];
+    if (d.name.includes("5 Gen 10")) return ["gen7-8", 24];
+    if (d.name.includes("7 Gen 10")) return ["gen7-8", 119];
     if (d.name.includes("Gen 7") && !d.name.includes("7S")) return ["gen7-8", 120];
     if (d.name.includes("Gen 8") || d.name.includes("Gen 9")) return ["gen7-8", 111];
     return ["gen7-8", 101];

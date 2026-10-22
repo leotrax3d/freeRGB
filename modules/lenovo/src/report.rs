@@ -31,16 +31,36 @@ pub fn legacy(pid: u16, colors: &[Rgb]) -> Vec<Vec<u8>> {
     }
     out
 }
-pub fn gen7(colors: &[Rgb]) -> Vec<u8> {
+fn gen7_ids(pid: u16, count: usize) -> Vec<u16> {
+    let mut ids: Vec<u16> = (1..=101).collect();
+    match pid {
+        0xc978 => {
+            ids.push(0xdd);
+            ids.extend(0xe9..=0xf0);
+            ids.extend(0xf5..=0xfe);
+        }
+        0xc197 => ids.extend(0xe9..=0xfa),
+        0xc195 => ids = (1..=24).collect(),
+        0xc977 | 0xc987 => {}
+        _ => ids.extend(0xf5..=0xfe),
+    }
+    ids.truncate(count);
+    ids
+}
+pub fn gen7(pid: u16, colors: &[Rgb]) -> Vec<u8> {
     let mut p = vec![0; 960];
     p[0] = 0x07;
     p[1] = 0xa1;
     p[2] = 0xc0;
     p[3] = 0x03;
-    for (i, c) in colors.iter().enumerate().take((960 - 4) / 5) {
+    for (i, (id, c)) in gen7_ids(pid, colors.len())
+        .into_iter()
+        .zip(colors.iter())
+        .enumerate()
+    {
         let q = 4 + i * 5;
-        p[q] = i as u8;
-        p[q + 1] = (i >> 8) as u8;
+        p[q] = id as u8;
+        p[q + 1] = (id >> 8) as u8;
         p[q + 2..q + 5].copy_from_slice(&[c.r, c.g, c.b]);
     }
     p
@@ -105,8 +125,8 @@ mod tests {
     }
     #[test]
     fn gen7_header_is_exact() {
-        let p = gen7(&[Rgb { r: 1, g: 2, b: 3 }]);
-        assert_eq!(&p[..9], &[7, 0xa1, 0xc0, 3, 0, 0, 1, 2, 3]);
+        let p = gen7(0xc195, &[Rgb { r: 1, g: 2, b: 3 }]);
+        assert_eq!(&p[..9], &[7, 0xa1, 0xc0, 3, 1, 0, 1, 2, 3]);
     }
     #[test]
     fn m300_checksum_is_exact() {
