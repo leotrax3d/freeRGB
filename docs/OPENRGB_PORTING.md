@@ -150,7 +150,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AsusAuraUSBController` | ported | `063d720` | 100 detectors / 100 non-built-in IDs | Common 0xEC/0x40 direct HID framing; built-in 0b05:19af omitted; controller-specific effects omitted |
 | `SteelSeriesController` | ported | `aa96e26` | 76 detectors / 76 unique IDs | Generic 64-byte RGB report path; device-specific Apex, Arctis, receiver, layout and effect paths omitted |
 | `ThermaltakeRiingController` | ported | `e90c42a` | 51 detectors / 51 unique IDs | Base 65-byte, Quad 193-byte and Trio chunked 65-byte direct paths; firmware/serial reads and Quad keepalive omitted |
-| `LogitechController` | in progress | `a69e536` | 55 detectors / 48 unique IDs | Generator and HID inventory staged; G213, G203/G203L, G600, G815, G915, Lightsync mouse, X56, G933 and HID++ 0x8081 discovery/frame reports with response validation/retries plus wired/wireless Lightspeed 8070/8071 discovery, effect frames and simulated lifecycle ported; receiver aggregation and remaining mouse paths still being ported. Workspace tests, clippy and standalone source-archive build green |
+| `LogitechController` | in progress | `168f133` | 55 detectors / 48 unique IDs | Generator and HID inventory staged; G213, G203/G203L, G600, G815, G915, Lightsync mouse, X56, G933 and HID++ RGB/0x8081 discovery/frame reports with response validation/retries plus wired/wireless Lightspeed 8070/8071 discovery, effect frames and simulated lifecycle ported; receiver aggregation and remaining mouse paths still being ported. Workspace tests, clippy and standalone source-archive build green |
 
 
 The per-family status ledger is maintained below this inventory by the porting
