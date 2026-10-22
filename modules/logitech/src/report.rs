@@ -7,6 +7,12 @@ pub fn hidpp(feature: u8, function: u8, data: &[u8]) -> [u8; 20] {
     p[4..4 + n].copy_from_slice(&data[..n]);
     p
 }
+pub fn lightspeed_effect(feature: u8, fp8070: bool, zone: u8, c: Rgb) -> [u8; 20] {
+    let mut data = [0; 16];
+    data[0..5].copy_from_slice(&[zone, 1, c.r, c.g, c.b]);
+    data[12] = if fp8070 { 0 } else { 1 };
+    hidpp(feature, if fp8070 { 0x30 } else { 0x10 }, &data)
+}
 pub fn direct(c: &[Rgb]) -> [u8; 64] {
     let mut p = [0; 64];
     p[0] = 2;

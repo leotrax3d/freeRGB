@@ -77,6 +77,10 @@ fn bytes() {
         &[0x11, 2, 4, 0x17, 1, 2, 3, 4]
     );
     assert_eq!(
+        &report::lightspeed_effect(5, false, 2, Rgb { r: 1, g: 2, b: 3 })[..17],
+        &[0x11, 2, 5, 0x17, 2, 1, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 1]
+    );
+    assert_eq!(
         &report::g915_little(false, 4, Rgb { r: 1, g: 2, b: 3 })[..8],
         &[0x11, 1, 0x0b, 0x1f, 4, 1, 2, 3]
     );
