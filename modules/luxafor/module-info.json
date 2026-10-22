@@ -1,0 +1,5 @@
+{
+  "name": "Luxafor Flag (OpenRGB port)",
+  "origin": { "project": "OpenRGB", "url": "https://gitlab.com/CalcProgrammer1/OpenRGB", "commit": "bbc77470a7cba56af60989e54ba910d5ac66a3ac" },
+  "vendors": ["04D8=Luxafor"]
+}

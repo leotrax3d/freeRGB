@@ -46,9 +46,22 @@ function Brightness() {
 
 function NowPlaying() {
   const effect = useCurrentEffect();
+  const brightness = useDaemon((s) => s.diagnostics?.brightness ?? 1);
+  const motion = effect?.type === "breathing" ? "preview-breathe"
+    : effect?.type === "rainbow_wave" || effect?.type === "scanner" ? "preview-travel"
+    : effect?.type === "color_cycle" ? "preview-cycle" : undefined;
+  const period = effect && "period_ms" in effect ? Math.max(0.25, effect.period_ms / 1000)
+    : effect?.type === "rainbow_wave" ? Math.min(60, 1 / Math.max(0.02, Math.abs(effect.speed))) : 5;
   return (
     <div data-tour="now" className="relative overflow-hidden rounded-card border border-border">
-      <div className="absolute inset-0 opacity-35" style={{ background: effect ? effectPreview(effect) : "#303030" }} aria-hidden />
+      <div className="effect-preview absolute inset-0" style={{
+        background: effect ? effectPreview(effect) : "#303030",
+        backgroundSize: motion === "preview-travel" ? "200% 100%" : undefined,
+        opacity: 0.35 * brightness,
+        animation: motion ? `${motion} ${period}s linear infinite` : undefined,
+        animationDirection: effect?.type === "rainbow_wave" && effect.speed < 0 ? "reverse" : undefined,
+        animationPlayState: effect?.type === "rainbow_wave" && effect.speed === 0 ? "paused" : undefined,
+      }} aria-hidden />
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/20" aria-hidden />
       <div className="relative flex flex-wrap items-end justify-between gap-4 p-5">
         <div className="flex flex-col gap-1">

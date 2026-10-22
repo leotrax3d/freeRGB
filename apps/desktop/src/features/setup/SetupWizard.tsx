@@ -43,6 +43,7 @@ function Overall({ cards }: { cards: SetupCard[] }) {
 }
 
 function LightTest({ ready }: { ready: SetupCard[] }) {
+  const simulated = useDaemon((s) => s.mode === "mock");
   const setup = useSetup();
   const remaining = setup.status?.light_test_remaining_s ?? null;
   const ids = ready.map((c) => c.engine_id).filter((id): id is string => !!id);
@@ -53,8 +54,7 @@ function LightTest({ ready }: { ready: SetupCard[] }) {
       <div className="flex flex-col gap-1">
         <h3 className="text-body font-medium">Optional light test</h3>
         <p className="text-small text-text-muted">
-          The chosen devices glow once in soft white for about two seconds, without flashing, and then return to the
-          lighting freeRGB is showing now.
+          {simulated ? "This simulates a two-second light test. No physical device will light up." : "The chosen devices glow once in soft white for about two seconds, without flashing, and then return to the lighting freeRGB is showing now."}
         </p>
       </div>
       <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -85,6 +85,7 @@ function LightTest({ ready }: { ready: SetupCard[] }) {
  * current phase reappears on the next start.
  */
 export function SetupWizard() {
+  const simulated = useDaemon((s) => s.mode === "mock");
   const setup = useSetup();
   const status = setup.status;
   const go = useNavigation((s) => s.go);
@@ -137,7 +138,7 @@ export function SetupWizard() {
           <p className="text-body text-text-muted">
             {stage === "select" &&
               "freeRGB looked for lighting devices. Supported ones are selected; freeRGB downloads only the modules they need."}
-            {stage === "working" && "You can close this window — setup continues in the background service."}
+            {stage === "working" && (simulated ? "Simulated setup — keep this tab open. Nothing is downloaded or installed." : "You can close this window — setup continues in the background service.")}
             {stage === "done" && "Everything that could be set up is ready. You can change devices later under Devices."}
           </p>
         </header>

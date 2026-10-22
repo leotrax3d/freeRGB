@@ -1790,6 +1790,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-luxafor"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-razer-chroma"
 version = "0.1.0"
 dependencies = [
@@ -1797,6 +1806,15 @@ dependencies = [
  "freergb-module-api",
  "serde_json",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "freergb-module-redragon-mouse"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
 ]
 
 [[package]]

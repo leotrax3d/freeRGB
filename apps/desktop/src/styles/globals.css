@@ -144,3 +144,9 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Shared visual suggestions, not a second implementation of the daemon renderer. */
+@keyframes preview-travel { from { background-position: 100% 50%; } to { background-position: -100% 50%; } }
+@keyframes preview-breathe { 0%, 100% { filter: brightness(.12); } 50% { filter: brightness(1); } }
+@keyframes preview-cycle { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .effect-preview { animation: none !important; } }

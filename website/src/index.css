@@ -14,3 +14,7 @@
 .install-list a.recommended{background:var(--raised);box-shadow:inset 3px 0 var(--accent)}
 @media(max-width:700px){.device-head{display:none}.device-row{grid-template-columns:1fr;gap:10px;min-height:0;padding:18px}.release-panel{padding:18px}.release-panel h3 small{display:block;margin:5px 0 0}.faq-list summary{padding-inline:18px}.faq-list p{padding:0 36px 18px 18px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition-duration:.01ms!important}}
+
+.demo-launch{display:flex;align-items:flex-start;flex-direction:column;gap:18px;border-block:1px solid var(--line);padding:36px 0}
+.demo-label{color:var(--accent);font-size:11px}.demo-launch h3{margin:0;font-size:28px;letter-spacing:-.025em}
+.demo-launch p{max-width:640px;margin:0;color:var(--subtle);font-size:13px;line-height:1.7}.demo-launch .section-note{font-size:11px}

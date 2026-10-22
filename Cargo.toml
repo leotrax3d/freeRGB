@@ -19,6 +19,8 @@ members = [
     "crates/freergb-modules",
     "crates/freergb-module-tool",
     "modules/razer-chroma",
+    "modules/redragon-mouse",
+    "modules/luxafor",
 ]
 
 [workspace.package]
