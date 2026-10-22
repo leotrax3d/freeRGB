@@ -36,6 +36,7 @@ members = [
     "modules/nzxt-hue2",
     "modules/nollie",
     "modules/evision-keyboard",
+    "modules/hyperx-keyboard",
 ]
 
 [workspace.package]
