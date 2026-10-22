@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -102,9 +102,12 @@ jobs:
           elif [ "$MODULE" = "steelseries" ]; then
             node scripts/openrgb/port-steelseries-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/steelseries/src/devices_table.rs
-          else
+          elif [ "$MODULE" = "thermaltake-riing" ]; then
             node scripts/openrgb/port-thermaltake-riing-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/thermaltake-riing/src/devices_table.rs
+          else
+            node scripts/openrgb/port-logitech-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/logitech/src/devices_table.rs
           fi
       - name: Source archive
         run: |
