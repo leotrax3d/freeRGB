@@ -119,3 +119,21 @@ constructors are absent from production. Check the fresh SCM result separately
 from the already passed service-client identity fixture.
 
 Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).
+
+## Lower support tiers (2026-10-22)
+
+Entries for `lhm_supported`/`unrestricted` channels add `"tier"`. Without register
+readback they carry recovery kind `lhm_fallback_v1` with only
+`service_identity`/`worker_identity`. Verified entries keep the exact previous
+shape. Recovery semantics without readback:
+
+* Live worker, any fault (lease/watchdog expiry, telemetry loss, critical heat,
+  transport loss): 100%, then the owned `SetDefault` in the same LHM context
+  (which captured the original firmware mode), then journal clear. A failed
+  return keeps ownership and the intent.
+* Same process: the owned adapter is released.
+* Dead worker: a fresh LHM context does not know the original mode and its
+  restore would replay the crashed duty, so recovery writes a prepared 100%,
+  never releases it, clears the intent and reports `held_full` until the
+  snapshot worker restarts (the hardware stays at 100% until reboot). A living
+  original worker still blocks recovery.

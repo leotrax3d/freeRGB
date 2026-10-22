@@ -123,13 +123,22 @@ install/start a driver or issue hardware writes:
   covers the optional `mainboard.lhm` provider, including when disabled; it is not
   an exhaustive list of existing RGB/HID adapters. Fields: `id`, `name`, `status`,
   `message`, `read_only:true`, `control_enabled:false`, `rgb_supported:false`,
-  `age_ms:number|null`. Status values: `disabled`, `starting`, `ready`,
+  `age_ms:number|null`, `board:null|{manufacturer,product,bios_version}` (public
+  SMBIOS strings, at most 128 characters each). Status values: `disabled`, `starting`, `ready`,
   `missing_library`, `missing_driver`, `permission_denied`, `no_supported_hardware`,
   `faulted`, `stale`. `age_ms` is elapsed time since the cached request began.
 * `cooling.channels.list` returns cached mainboard fan-RPM and control-percentage
   channels. Each item: `provider`, `id`, `device_id`, `name`, `kind` (`fan` or
   `control`), `reading` (unchanged `SensorReading` shape), `control_available:bool`,
-  `writable:false`, `physical_mapping:"unconfirmed"`, `electrical_mode:"unknown"`.
+  `writable:false`, `physical_mapping:"unconfirmed"`, `electrical_mode:"unknown"`,
+  `sensor_id` (raw native sensor identity, as used by sessions), `hardware_name` and
+  `support:null|{tier,register_readback,software_mode,held_full}` for controls.
+  `support.tier` is the chip's capability from the protected inventory:
+  `verified` (audited register readback) or `lhm_supported` (LHM software mode, no
+  readback; see `COOLING_BROAD_SUPPORT_PLAN.md`). `software_mode:true` means LHM
+  already reports software control (another tool); sessions refuse it.
+  `held_full:true` means a crashed lower-tier worker's channel is held at 100%
+  until reboot. `support:null` comes from older protected services (verified-only).
   `id` is a JSON-encoded `[native_hardware_id,native_sensor_id]` string. A control
   object does not establish safe writes or pairing with an RPM sensor. No setter
   is exposed. Missing/unavailable providers return an empty array.
@@ -303,6 +312,15 @@ helper and current protected service must be installed. `available=true` reports
 worker enablement, not verified service/hardware support. No session is persisted
 or replayed at startup. The current native journal permits one channel/job only.
 
+**Support tiers.** The daemon resolves the tier from the protected inventory
+(`support`) and the user's channel binding, never from the request:
+`verified` chips keep the legacy authorization (unchanged record, register
+readback mandatory). `lhm_supported` chips may run `calibration` (100 -> 40%) but
+reduced-duty curves only after a passed guided channel test (see the plan).
+Channels bound as pumps, or with `software_mode`/`held_full`, are refused here.
+Lower tiers pass `tier` and `role` into the UAC authorization; the protected
+worker re-validates the floor (40% fan, 100% pump, 0% only when unrestricted).
+
 ### Start parameters
 
 `cooling.sessions.start` rejects unknown fields. Required fields:
@@ -324,8 +342,9 @@ infers a physical header or CPU/coolant identity from a sensor label.
 For `mode=curve`, `curve` is required and `critical_c` must be absent/null. Curve
 fields are `points:[{temperature_c,duty_percent}]`, `minimum_percent`, `critical_c`,
 `hysteresis_c`. There must be 2..16 points; temperatures -20..110 C strictly
-increase; duty never decreases and each duty is minimum..100%. Native minimum is
-40..100%, critical 40..100 C, hysteresis 0..10 C, and the last point cannot exceed
+increase; duty never decreases and each duty is minimum..100%. Saved curves allow
+a minimum of 0..100%; native execution requires at least the channel's tier floor
+(40% unless unrestricted), critical 40..100 C, hysteresis 0..10 C, and the last point cannot exceed
 critical temperature. All numbers must be finite. Native authorization rounds the
 floor up and critical threshold down to whole units, conservatively.
 
@@ -354,17 +373,25 @@ critical heat cannot be overridden by GUI assertions.
 
 - `available:bool`, `job_id:u64|null` (daemon-lifetime identity).
 - `state`: `disabled`, `idle`, `authorizing`, `executing`, `stopping`, `completed`,
-  `stopped`, `failed`, or `blocked`.
-- `report:null|{calibration,native_closed,maintenance_authorized,minimum_applied_percent,initial_rpm,last_rpm}`.
+  `stopped`, `failed`, `faulted` or `blocked`.
+- `tier:null|"verified"|"lhm_supported"|"unrestricted"` of the current/last job.
+- `report:null|{calibration,native_closed,maintenance_authorized,minimum_applied_percent,initial_rpm,last_rpm,tier,return_evidence,fault,warning}`.
   `calibration` is null for curves, otherwise the calibration result. RPM values
   are initial/last checked native readings; `minimum_applied_percent` is the
-  lowest acknowledged command, not a mechanically verified minimum.
+  lowest acknowledged command, not a mechanically verified minimum. `tier` is
+  what the protected worker admitted (null: legacy verified worker).
+  `return_evidence` is `register_readback` (verified), `firmware_callback` (lower
+  tiers: owned SetDefault callback plus cleared journal, no register proof) or
+  `none`. `fault`/`warning` explain a faulted run or an allowed fan stop.
 - `error:string|null`: asynchronous authorization, transport or runtime failure.
 
 `completed`/`stopped` after native execution require the authenticated firmware
 return and durable journal-clear proof (`maintenance_authorized=true`). A stop
 during authorization can yield `stopped` with no report because no acquisition was
-started. `failed` covers authorization/pre-start failure. `blocked` means uncertain
+started. `failed` covers authorization/pre-start failure. `faulted` (lower tiers
+only) means supervision or the worker ended the run and the channel was returned
+to its captured firmware mode with a cleared journal; new starts remain possible.
+`blocked` means uncertain
 native execution/return: inspect protected recovery state before daemon restart;
 new starts are refused. No failed outcome is evidence of successful return.
 

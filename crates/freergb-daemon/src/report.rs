@@ -24,9 +24,20 @@ pub fn create(engine: &Engine) -> Value {
         "plugin":index+1,"access":plugin.access,"enabled":plugin.enabled,"allowed":plugin.allowed,
         "status":plugin.status.as_ref().map(status),"frames":plugin.frames,"has_error":plugin.last_error.is_some(),
     })).collect();
+    let cooling: Vec<_> = diagnostics
+        .cooling_support
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| {
+            json!({
+                "channel":index+1,"tier":entry.tier,"register_readback":entry.register_readback,
+                "software_mode":entry.software_mode,"held_full":entry.held_full,
+            })
+        })
+        .collect();
     json!({"report_version":1,"application_version":env!("CARGO_PKG_VERSION"),"os":std::env::consts::OS,"arch":std::env::consts::ARCH,
         "runtime":{"uptime_s":diagnostics.uptime_s,"ticks":diagnostics.ticks,"target_fps":diagnostics.target_fps,"measured_fps":diagnostics.measured_fps,"brightness":diagnostics.brightness,"effect":diagnostics.effect.name(),"conflicts":diagnostics.conflicts},
-        "devices":devices,"plugins":plugins,
+        "devices":devices,"plugins":plugins,"cooling_channels":cooling,
         "redaction":"Device IDs/names/serials, raw errors, capture names, paths and macro/profile contents omitted. Review before sharing."})
 }
 

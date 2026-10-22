@@ -104,7 +104,7 @@ internal static class MainboardMaintenance
     {
 #if BROKER_INSTALLER
         try {
-            if (args.Length != 8 || args[0] != "--authorize-control" || args[1] != "--consent") return 2;
+            if ((args.Length != 8 && args.Length != 10) || args[0] != "--authorize-control" || args[1] != "--consent") return 2;
             using (var identity=System.Security.Principal.WindowsIdentity.GetCurrent())
                 if (!new System.Security.Principal.WindowsPrincipal(identity).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator))
                     throw new UnauthorizedAccessException("Explicit elevated control authorization required.");
@@ -115,10 +115,25 @@ internal static class MainboardMaintenance
                 if (!System.Text.RegularExpressions.Regex.IsMatch(args[index],"^/lpc/[a-z0-9]+/[0-9]+/(control|temperature|fan)/[0-9]+$")) throw new ArgumentException("Invalid selected source identity.");
             int critical,minimum;
             if (!Int32.TryParse(args[6],out critical) || critical < 40 || critical > 100 ||
-                !Int32.TryParse(args[7],out minimum) || minimum < 40 || minimum > 100) throw new ArgumentException("Invalid native control limits.");
+                !Int32.TryParse(args[7],out minimum) || minimum < (args.Length == 10 ? 0 : 40) || minimum > 100) throw new ArgumentException("Invalid native control limits.");
+            object record;
+            if (args.Length == 8)
+            {
+                // Verified/legacy record, identical to earlier releases.
+                record = new {version=1,control_id=args[3],temperature_id=args[4],rpm_id=args[5],
+                    role="fan",floor_percent=minimum,critical_c=critical,expires_utc=DateTime.UtcNow.AddMinutes(4).ToString("o")};
+            }
+            else
+            {
+                var tiered = new Dictionary<string,object> { {"version",1},{"control_id",args[3]},{"temperature_id",args[4]},{"rpm_id",args[5]},
+                    {"role",args[9]},{"tier",args[8]},{"floor_percent",minimum},{"critical_c",critical},{"expires_utc",DateTime.UtcNow.AddMinutes(4).ToString("o")} };
+                if (args[9] == "pump" && minimum < 100) tiered.Add("pump_unlocked",true);
+                NativeTier tier; bool pump, pumpUnlocked;
+                NativeAuthorizationRules.Validate(tiered,minimum,out tier,out pump,out pumpUnlocked);
+                record = tiered;
+            }
             using (var journal=NativeControlJournal.CreateForMaintenance())
-                journal.Maintenance(delegate { Write("mainboard-control-authorization.json",new {version=1,control_id=args[3],temperature_id=args[4],rpm_id=args[5],
-                    role="fan",floor_percent=minimum,critical_c=critical,expires_utc=DateTime.UtcNow.AddMinutes(4).ToString("o")}); });
+                journal.Maintenance(delegate { Write("mainboard-control-authorization.json",record); });
             return 0;
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name); return 1; }
 #else

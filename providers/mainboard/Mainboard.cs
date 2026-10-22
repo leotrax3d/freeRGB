@@ -117,14 +117,55 @@ internal static class Mainboard
                 double number = Convert.ToDouble(raw, System.Globalization.CultureInfo.InvariantCulture);
                 if (!Double.IsNaN(number) && !Double.IsInfinity(number)) value = number;
             }
-            sensors.Add(new Dictionary<string, object> {
+            var entry = new Dictionary<string, object> {
                 {"id", Get(sensor, "Identifier").ToString()}, {"name", Get(sensor, "Name").ToString()},
                 {"kind", kind}, {"value", value}, {"age_ms", clock.ElapsedMilliseconds},
                 {"control_available", kind == "control" && Get(sensor, "Control") != null}
-            });
+            };
+#if NATIVE_CONTROL_WORKER
+            if (kind == "control" && Get(sensor, "Control") != null) entry.Add("support", Support(hardware, sensor));
+#endif
+            sensors.Add(entry);
         }
         output.Add(new Dictionary<string, object> { {"id", Get(hardware, "Identifier").ToString()}, {"name", Get(hardware, "Name").ToString()}, {"sensors", sensors} });
         foreach (object child in (IEnumerable)Get(hardware, "SubHardware")) Walk(child, output, clock, depth + 1, ref sensorCount);
+    }
+#if NATIVE_CONTROL_WORKER
+    private static HashSet<string> held = new HashSet<string>();
+    // Inventory only (no I/O): which tier the chip can reach and whether LHM's
+    // cached mode already reports software control (foreign takeover refused).
+    private static Dictionary<string, object> Support(object hardware, object sensor)
+    {
+        object control = Get(sensor, "Control");
+        string chip = NativeNctEvidence.AuditedChip(control);
+        string id = Get(hardware, "Identifier").ToString() + "|" + Get(sensor, "Identifier").ToString();
+        return new Dictionary<string, object> {
+            {"tier", chip != null ? "verified" : "lhm_supported"}, {"register_readback", chip != null},
+            {"software_mode", Get(control, "ControlMode").ToString() == "Software"},
+            {"held_full", held.Contains(id)}
+        };
+    }
+#endif
+    // Public SMBIOS data only; binds unrestricted unlocks to board and firmware.
+    private static object Board()
+    {
+        try
+        {
+            object smbios = Get(computer, "SMBios");
+            object board = smbios == null ? null : Get(smbios, "Board");
+            object bios = smbios == null ? null : Get(smbios, "Bios");
+            Func<object, string, string> text = delegate(object owner, string name) {
+                object raw = owner == null ? null : Get(owner, name);
+                string value = raw == null ? "" : raw.ToString().Trim();
+                foreach (char c in value) if (Char.IsControl(c)) return "";
+                return value.Length > 128 ? value.Substring(0, 128) : value;
+            };
+            return new Dictionary<string, object> {
+                {"manufacturer", text(board, "ManufacturerName")}, {"product", text(board, "ProductName")},
+                {"bios_version", text(bios, "Version")}
+            };
+        }
+        catch (Exception error) { if (error is OutOfMemoryException) throw; return null; }
     }
     private static object Snapshot()
     {
@@ -179,7 +220,13 @@ internal static class Mainboard
                 foreach (object board in (IEnumerable)Get(computer,"Hardware")) FindControl(board,(string)pending["sensor_id"],matches,0);
                 if (matches.Count != 1 || Get(Get(matches[0],"Hardware"),"Identifier").ToString() != (string)pending["hardware_id"])
                     throw new InvalidOperationException("Pending native channel cannot be uniquely identified.");
-                return NativeNctEvidence.RecoverProtected(Get(matches[0],"Control"),pending.ContainsKey("recovery") ? pending["recovery"] as Dictionary<string,object> : null);
+                var recorded=pending.ContainsKey("recovery") ? pending["recovery"] as Dictionary<string,object> : null;
+                if (recorded == null || !Object.Equals(recorded["kind"],"lhm_fallback_v1"))
+                    return NativeNctEvidence.RecoverProtected(Get(matches[0],"Control"),recorded);
+                bool heldFull;
+                bool recovered=NativeControl.RecoverFallbackProtected(Get(matches[0],"Control"),recorded,out heldFull);
+                if (heldFull) held.Add((string)pending["hardware_id"] + "|" + (string)pending["sensor_id"]);
+                return recovered;
             });
         }
 #endif
@@ -187,7 +234,10 @@ internal static class Mainboard
         int count = 0;
         foreach (object item in (IEnumerable)Get(computer, "Hardware")) Walk(item, hardware, clock, 0, ref count);
         if (count == 0) return Empty("no_supported_hardware", "No supported motherboard sensor channels were reported; this does not prove no fans are connected.");
-        return Result("ready", "Read-only motherboard channels. Fan/header pairing, PWM/DC mode and physical labels are unconfirmed; RGB uses a separate provider.", hardware);
+        var ready = Result("ready", "Read-only motherboard channels. Fan/header pairing, PWM/DC mode and physical labels are unconfirmed; RGB uses a separate provider.", hardware);
+        object identity = Board();
+        if (identity != null) ready.Add("board", identity);
+        return ready;
 #endif
     }
     private static object ProbeHundred(string sensorId)

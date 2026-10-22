@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub mod calibration;
 pub mod channels;
 pub mod cooling_safety;
+pub mod fan_support;
 pub mod maintenance;
 pub mod sensors;
 pub mod telemetry_guard;
@@ -54,7 +55,9 @@ impl FanCurve {
         if !(2..=16).contains(&self.points.len()) {
             return Err("curve needs 2..16 points".into());
         }
-        if !(20.0..=100.0).contains(&self.minimum_percent)
+        // Curves may reach 0% (fan stop); native execution enforces each
+        // channel's tier floor (40% unless unrestricted) before any write.
+        if !(0.0..=100.0).contains(&self.minimum_percent)
             || !(40.0..=110.0).contains(&self.critical_c)
             || !(0.0..=10.0).contains(&self.hysteresis_c)
         {

@@ -170,10 +170,14 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         "cooling.sessions.status" => Ok(json!(lock(engine).cooling_sessions.status())),
         "cooling.sessions.start" => serde_json::from_value(params.clone())
             .map_err(invalid_params)
-            .and_then(|request| {
-                lock(engine)
+            .and_then(|request: crate::cooling_sessions::StartRequest| {
+                let mut engine = lock(engine);
+                let policy = engine
+                    .cooling_policy(&request.control_id)
+                    .map_err(|error| (-32006, error))?;
+                engine
                     .cooling_sessions
-                    .start(request)
+                    .start(request, &policy)
                     .map(|job| json!({"job_id":job}))
                     .map_err(|error| (-32006, error))
             }),

@@ -88,6 +88,17 @@ pub struct Diagnostics {
     pub effect: EffectSpec,
     pub brightness: f32,
     pub devices: usize,
+    /// Support tier per motherboard fan control (no readings or identities).
+    pub cooling_support: Vec<CoolingSupportEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CoolingSupportEntry {
+    pub name: String,
+    pub tier: String,
+    pub register_readback: bool,
+    pub software_mode: bool,
+    pub held_full: bool,
 }
 
 pub struct Engine {
@@ -843,6 +854,43 @@ impl Engine {
         serde_json::json!({"config":self.keyboard.config,"status":self.keyboard.status(),"devices":devices})
     }
 
+    /// Resolve the support tier and user evidence for a native control id from
+    /// the protected inventory and bindings (never from the GUI request).
+    pub fn cooling_policy(
+        &self,
+        control_id: &str,
+    ) -> Result<crate::cooling_sessions::SessionPolicy, String> {
+        use freergb_control::fan_support::{ChannelEvidence, SupportTier};
+        let channels = self.mainboard.channels();
+        let Some(channel) = channels
+            .iter()
+            .find(|c| c.kind == "control" && c.sensor_id == control_id)
+        else {
+            // Unknown to the cached inventory: the protected worker still checks
+            // the identity; legacy rules (verified readback required) apply.
+            return Ok(crate::cooling_sessions::SessionPolicy::legacy());
+        };
+        let capability = match channel.support.as_ref() {
+            // Older protected services report no support: verified-only as before.
+            None => SupportTier::Verified,
+            Some(support) if support.software_mode => {
+                return Err("This channel is already in software mode (another tool controls it); freeRGB will not take it over".into())
+            }
+            Some(support) if support.held_full => {
+                return Err("This channel is held at 100% after a worker crash; restart Windows to return it to firmware first".into())
+            }
+            Some(support) if support.tier == "verified" => SupportTier::Verified,
+            Some(_) => SupportTier::LhmSupported,
+        };
+        Ok(crate::cooling_sessions::SessionPolicy {
+            capability,
+            evidence: ChannelEvidence {
+                role: self.channel_bindings.role(&channel.id),
+                ..ChannelEvidence::default()
+            },
+        })
+    }
+
     /// All cached sensor providers, without introducing non-RGB devices into devices.list.
     pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
         let mut entries = self.mainboard.sensors();
@@ -882,6 +930,24 @@ impl Engine {
             effect: self.spec.clone(),
             brightness: self.brightness,
             devices: self.workers.len(),
+            cooling_support: self
+                .mainboard
+                .channels()
+                .into_iter()
+                .filter(|c| c.kind == "control" && c.control_available)
+                .map(|c| {
+                    let support = c.support.clone();
+                    CoolingSupportEntry {
+                        name: c.name,
+                        tier: support
+                            .as_ref()
+                            .map_or("unknown".into(), |s| s.tier.clone()),
+                        register_readback: support.as_ref().is_some_and(|s| s.register_readback),
+                        software_mode: support.as_ref().is_some_and(|s| s.software_mode),
+                        held_full: support.as_ref().is_some_and(|s| s.held_full),
+                    }
+                })
+                .collect(),
         }
     }
 

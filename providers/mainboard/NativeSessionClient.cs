@@ -64,7 +64,7 @@ internal sealed class NativeSessionClient : IDisposable
             !value.ContainsKey("sequence") || !(value["sequence"] is int) || (int)value["sequence"] < 0 ||
             !value.ContainsKey("state") || !(value["state"] is string) ||
             !value.ContainsKey("reason") || (value["reason"] != null && (!(value["reason"] is string) || ((string)value["reason"]).Length > 128)) ||
-            !value.ContainsKey("duty_percent") || !(value["duty_percent"] is int) || (int)value["duty_percent"] < 40 || (int)value["duty_percent"] > 100 ||
+            !value.ContainsKey("duty_percent") || !(value["duty_percent"] is int) || (int)value["duty_percent"] < (Object.Equals(value.ContainsKey("tier") ? value["tier"] : null,"unrestricted") ? 0 : 40) || (int)value["duty_percent"] > 100 ||
             !value.ContainsKey("owned") || !(value["owned"] is bool) ||
             !value.ContainsKey("physical_write_verified") || !Object.Equals(value["physical_write_verified"],false) ||
             !value.ContainsKey("ticket_ms") || !Object.Equals(value["ticket_ms"],250) || !value.ContainsKey("lease_ms") || !Object.Equals(value["lease_ms"],1000))
@@ -109,7 +109,7 @@ internal sealed class NativeSessionClient : IDisposable
     }
     internal NativeSessionReceipt SetDuty(int duty)
     {
-        if (duty < 40 || duty > 100) throw new ArgumentOutOfRangeException("duty");
+        if (duty < (Object.Equals(reply.ContainsKey("tier") ? reply["tier"] : null,"unrestricted") ? 0 : 40) || duty > 100) throw new ArgumentOutOfRangeException("duty");
         return Send(duty);
     }
     internal NativeSessionReceipt Close() { return Send(null); }

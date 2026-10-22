@@ -14,7 +14,10 @@ is created without overwriting an existing file. No upload or external message.
 
 Report fields: application/platform version, runtime/FPS/effect type, public USB
 VID/PID and device kinds, frame counters, anonymous device/plugin/sensor indexes,
-sensor units/values/age and fault flags. Device IDs, names/serials, capture names,
+sensor units/values/age and fault flags, plus `cooling_channels`: per anonymous
+motherboard fan control its support `tier`, `register_readback`, `software_mode`
+and `held_full` flags (no names, identities or readings). `diagnostics.get`
+lists the same as `cooling_support` with channel names. Device IDs, names/serials, capture names,
 paths, raw errors and macro/profile contents are omitted. Review before sharing.
 Full local `diagnostics.get` and `devices.list` are unchanged; this is a separate
 report with deliberately reduced identifying data.

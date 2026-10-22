@@ -86,6 +86,8 @@ pub async fn connect(helper: PathBuf) -> Result<NativeSessionClient<NativeBridge
     .await
 }
 
+/// `tiered` is `None` for the legacy verified record; otherwise the support
+/// tier and channel role written into the protected authorization (UAC).
 pub async fn authorize(
     helper: &std::path::Path,
     control: &str,
@@ -93,17 +95,27 @@ pub async fn authorize(
     rpm: &str,
     critical: u8,
     minimum: u8,
+    tiered: Option<(&str, freergb_control::channels::ChannelRole)>,
 ) -> Result<(), String> {
     let mut command = Command::new(helper);
+    command.args([
+        "--request-control-authorization",
+        control,
+        temperature,
+        rpm,
+        &critical.to_string(),
+        &minimum.to_string(),
+    ]);
+    if let Some((tier, role)) = tiered {
+        command.args([
+            tier,
+            match role {
+                freergb_control::channels::ChannelRole::Fan => "fan",
+                freergb_control::channels::ChannelRole::Pump => "pump",
+            },
+        ]);
+    }
     command
-        .args([
-            "--request-control-authorization",
-            control,
-            temperature,
-            rpm,
-            &critical.to_string(),
-            &minimum.to_string(),
-        ])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())

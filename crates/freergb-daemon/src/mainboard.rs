@@ -13,6 +13,28 @@ use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 const MAX_MESSAGE: usize = 256 * 1024;
 const STALE_MS: u64 = 5000;
 
+/// Protected inventory of what a control can reach (no I/O performed for it).
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct NativeSupport {
+    /// "verified" (audited register readback) or "lhm_supported".
+    pub tier: String,
+    pub register_readback: bool,
+    /// LHM already reports software mode: another tool owns it; never taken over.
+    pub software_mode: bool,
+    /// A crashed lower-tier worker's channel is held at 100% until reboot.
+    pub held_full: bool,
+}
+
+/// Public SMBIOS identity; unrestricted unlocks are bound to it.
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BoardIdentity {
+    pub manufacturer: String,
+    pub product: String,
+    pub bios_version: String,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NativeSensor {
@@ -22,6 +44,8 @@ struct NativeSensor {
     value: Option<f64>,
     age_ms: u64,
     control_available: bool,
+    #[serde(default)]
+    support: Option<NativeSupport>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -39,6 +63,8 @@ struct Snapshot {
     status: String,
     message: String,
     hardware: Vec<Hardware>,
+    #[serde(default)]
+    board: Option<BoardIdentity>,
 }
 
 impl Snapshot {
@@ -67,6 +93,15 @@ impl Snapshot {
         }
         if snapshot.status != "ready" && !snapshot.hardware.is_empty() {
             return Err("unavailable provider returned hardware".into());
+        }
+        if let Some(board) = &snapshot.board {
+            let bounded = |s: &str| s.len() <= 128 && !s.chars().any(char::is_control);
+            if !bounded(&board.manufacturer)
+                || !bounded(&board.product)
+                || !bounded(&board.bios_version)
+            {
+                return Err("invalid motherboard identity".into());
+            }
         }
         let mut ids = BTreeSet::new();
         let mut count = 0;
@@ -102,6 +137,14 @@ impl Snapshot {
                 if sensor.control_available && sensor.kind != "control" {
                     return Err("control capability on non-control sensor".into());
                 }
+                if let Some(support) = &sensor.support {
+                    if !sensor.control_available
+                        || !["verified", "lhm_supported"].contains(&support.tier.as_str())
+                        || support.register_readback != (support.tier == "verified")
+                    {
+                        return Err("invalid motherboard control support".into());
+                    }
+                }
             }
         }
         Ok(snapshot)
@@ -118,6 +161,7 @@ pub struct ProviderSummary {
     pub control_enabled: bool,
     pub rgb_supported: bool,
     pub age_ms: Option<u64>,
+    pub board: Option<BoardIdentity>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -140,6 +184,10 @@ pub struct Channel {
     pub writable: bool,
     pub physical_mapping: &'static str,
     pub electrical_mode: &'static str,
+    /// Raw native sensor identity (as used by sessions).
+    pub sensor_id: String,
+    pub hardware_name: String,
+    pub support: Option<NativeSupport>,
 }
 
 struct Cache {
@@ -221,7 +269,9 @@ impl MainboardProvider {
         let cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
         let age_ms = cache.snapshot.as_ref().map(|(_, at)| elapsed_ms(*at));
         let stale = cache.status == "ready" && age_ms.map_or(true, |age| age > STALE_MS);
+        let board = cache.snapshot.as_ref().and_then(|(s, _)| s.board.clone());
         ProviderSummary {
+            board,
             id: "mainboard.lhm",
             name: "LibreHardwareMonitor motherboard",
             status: if stale {
@@ -286,6 +336,9 @@ impl MainboardProvider {
                         writable: false,
                         physical_mapping: "unconfirmed",
                         electrical_mode: "unknown",
+                        sensor_id: sensor.id.clone(),
+                        hardware_name: hardware.name.clone(),
+                        support: sensor.support.clone(),
                     })
             })
             .collect()

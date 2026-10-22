@@ -12,19 +12,35 @@ pub struct SupervisedControl {
 
 impl SupervisedControl {
     pub fn new(
+        telemetry: TelemetryGuard,
+        now_ms: u64,
+        lease_ms: u64,
+        floor: u8,
+    ) -> Result<Self, String> {
+        Self::with_limits(telemetry, now_ms, lease_ms, floor, false)
+    }
+
+    /// `allow_stop` is the unrestricted unlock: floors below 20% (fan stop)
+    /// are accepted only with it.
+    pub fn with_limits(
         mut telemetry: TelemetryGuard,
         now_ms: u64,
         lease_ms: u64,
         floor: u8,
+        allow_stop: bool,
     ) -> Result<Self, String> {
         telemetry
             .check(now_ms)
             .map_err(|fault| format!("Unsafe initial telemetry: {fault:?}"))?;
         Ok(Self {
-            lease: LeaseGuard::new(now_ms, lease_ms, floor)?,
+            lease: LeaseGuard::with_floor(now_ms, lease_ms, floor, allow_stop)?,
             telemetry,
             fault: None,
         })
+    }
+
+    pub fn telemetry_warning(&self) -> Option<TelemetryFault> {
+        self.telemetry.warning()
     }
 
     pub fn observe(&mut self, reading: Reading<'_>, now_ms: u64) -> Result<(), TelemetryFault> {
@@ -97,7 +113,16 @@ pub struct LeaseGuard {
 }
 impl LeaseGuard {
     pub fn new(now_ms: u64, lease_ms: u64, floor: u8) -> Result<Self, String> {
-        if !(500..=3000).contains(&lease_ms) || !(20..=100).contains(&floor) {
+        Self::with_floor(now_ms, lease_ms, floor, false)
+    }
+    pub fn with_floor(
+        now_ms: u64,
+        lease_ms: u64,
+        floor: u8,
+        allow_stop: bool,
+    ) -> Result<Self, String> {
+        let lowest = if allow_stop { 0 } else { 20 };
+        if !(500..=3000).contains(&lease_ms) || !(lowest..=100).contains(&floor) {
             return Err("Lease must be 500..3000 ms and floor 20..100 percent".into());
         }
         let deadline = now_ms.checked_add(lease_ms).ok_or("Lease clock overflow")?;
@@ -333,5 +358,20 @@ mod tests {
         assert_eq!(g.poll(10), 100);
         assert_eq!(g.state(), GuardState::Stopped);
         assert!(LeaseGuard::new(u64::MAX, 1000, 40).is_err());
+        assert!(LeaseGuard::new(0, 1000, 0).is_err());
+        assert!(LeaseGuard::new(0, 1000, 19).is_err());
+        let mut stop = LeaseGuard::with_floor(0, 1000, 0, true).unwrap();
+        assert!(stop
+            .accept(
+                DutyLease {
+                    sequence: 1,
+                    issued_at_ms: 0,
+                    duty_percent: 0
+                },
+                0
+            )
+            .is_ok());
+        assert_eq!(stop.poll(0), 0);
+        assert_eq!(stop.poll(1000), 100);
     }
 }

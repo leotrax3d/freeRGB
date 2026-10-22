@@ -17,6 +17,7 @@ internal interface INativeControlPort
 internal interface INativeReturnEvidence
 {
     bool FirmwareReturnVerified { get; }
+    bool FirmwareReturned { get; }
     bool JournalCleared { get; }
 }
 // Receives acquisition timestamps from a trusted local sampler, never GUI data.
@@ -25,14 +26,20 @@ internal sealed class NativeTelemetryGuard
 {
     private readonly object gate = new object();
     private readonly double critical;
+    private readonly bool stallWarning;
     private long temperatureAt = -1, rpmAt = -1, lastNow = -1, stalledAt = -1;
     private double temperature, rpm;
     private string fault;
-    internal NativeTelemetryGuard(double critical)
+    internal NativeTelemetryGuard(double critical) : this(critical,false) { }
+    // Unrestricted channels may stop the fan (0%): a stall is then reported as a
+    // warning instead of a fault. Stale/invalid telemetry and heat still fault.
+    internal NativeTelemetryGuard(double critical, bool stallWarning)
     {
         if (Double.IsNaN(critical) || critical < 40 || critical > 100) throw new ArgumentException("Invalid critical temperature.");
         this.critical = critical;
+        this.stallWarning = stallWarning;
     }
+    internal string Warning { get { lock (gate) return stallWarning && stalledAt >= 0 && lastNow - stalledAt >= 1000 ? "fan_stalled" : null; } }
     internal void Observe(long now, long sampledAt, double celsius, double revolutions)
     {
         lock (gate)
@@ -48,7 +55,7 @@ internal sealed class NativeTelemetryGuard
             if (temperature >= critical) { fault = "temperature_critical"; return; }
             if (rpm < 100) { if (stalledAt < 0) stalledAt = sampledAt; }
             else stalledAt = -1;
-            if (stalledAt >= 0 && sampledAt - stalledAt >= 1000) fault = "fan_stalled";
+            if (!stallWarning && stalledAt >= 0 && sampledAt - stalledAt >= 1000) fault = "fan_stalled";
         }
     }
     internal string Check(long now)
@@ -61,7 +68,7 @@ internal sealed class NativeTelemetryGuard
             if (temperatureAt < 0 || rpmAt < 0 || now - temperatureAt > 1500 || now - rpmAt > 1500)
                 return fault = "telemetry_stale";
             if (temperature >= critical) return fault = "temperature_critical";
-            if (stalledAt >= 0 && now - stalledAt >= 1000) return fault = "fan_stalled";
+            if (!stallWarning && stalledAt >= 0 && now - stalledAt >= 1000) return fault = "fan_stalled";
             return null;
         }
     }
@@ -80,6 +87,11 @@ internal sealed class NativeControlSession
     private readonly INativeControlPort port;
     private readonly Func<long> clock;
     private readonly NativeTelemetryGuard telemetry;
+    // Null keeps the legacy (verified) receipt shape. Lower tiers return to the
+    // firmware mode captured in this worker's own LHM context on any fault.
+    private readonly string tier;
+    private readonly bool returnOnFault;
+    private bool faultReturned;
     private readonly string session = Nonce();
     private string ticket, state = "active", reason;
     private long issued, deadline, lastNow;
@@ -92,10 +104,11 @@ internal sealed class NativeControlSession
         using (var random = RandomNumberGenerator.Create()) random.GetBytes(bytes);
         return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
     }
-    private NativeControlSession(INativeControlPort port, Func<long> clock, NativeTelemetryGuard telemetry)
+    private NativeControlSession(INativeControlPort port, Func<long> clock, NativeTelemetryGuard telemetry, string tier = null, bool returnOnFault = false)
     {
         if (port == null || clock == null) throw new ArgumentNullException();
-        this.port = port; this.clock = clock; this.telemetry = telemetry;
+        if (returnOnFault && tier == null) throw new ArgumentException("Fault return requires an explicit tier.");
+        this.port = port; this.clock = clock; this.telemetry = telemetry; this.tier = tier; this.returnOnFault = returnOnFault;
         long before = clock();
         if (before < 0 || before > Int64.MaxValue - LeaseMs) throw new InvalidOperationException("Invalid session clock.");
         if (telemetry != null && telemetry.Check(before) != null) throw new InvalidOperationException("Fresh safe native telemetry required before acquisition.");
@@ -113,12 +126,19 @@ internal sealed class NativeControlSession
 #if NATIVE_CONTROL_TESTS
     internal static NativeControlSession ForTest(INativeControlPort port, Func<long> clock) { return new NativeControlSession(port, clock, null); }
     internal static NativeControlSession ForTest(INativeControlPort port, Func<long> clock, NativeTelemetryGuard telemetry) { return new NativeControlSession(port, clock, telemetry); }
+    internal static NativeControlSession ForTest(INativeControlPort port, Func<long> clock, NativeTelemetryGuard telemetry, string tier, bool returnOnFault) { return new NativeControlSession(port, clock, telemetry, tier, returnOnFault); }
 #else
     internal static NativeControlSession CreateProtected(JournaledNativeControl port, NativeTelemetryGuard telemetry, Func<long> clock)
     {
         BrokerService.CheckInstallation(true);
         if (telemetry == null) throw new ArgumentNullException("telemetry");
         return new NativeControlSession(port, clock, telemetry);
+    }
+    internal static NativeControlSession CreateTieredProtected(JournaledNativeControl port, NativeTelemetryGuard telemetry, Func<long> clock, NativeTier tier)
+    {
+        BrokerService.CheckInstallation(true);
+        if (telemetry == null) throw new ArgumentNullException("telemetry");
+        return new NativeControlSession(port, clock, telemetry, NativeTiers.Name(tier), tier != NativeTier.Verified);
     }
 #endif
     private long Now()
@@ -139,6 +159,14 @@ internal sealed class NativeControlSession
         state = "emergency"; reason = fault;
         try { port.SetDuty(100); duty = 100; }
         catch { state = "recovery_failed"; reason = fault + ":fallback_failed"; }
+        if (returnOnFault)
+        {
+            // A failed 100% write has already attempted the owned return; Release
+            // then only clears the journal. Never a low duty, never a fresh context.
+            try { port.Release(); faultReturned = !port.Owned; }
+            catch { state = "recovery_failed"; reason = fault + ":return_failed"; }
+            return;
+        }
         // Keep the reservation. An authenticated supervisor must explicitly
         // resolve/restore this channel; a lost client cannot silently release it.
     }
@@ -153,6 +181,21 @@ internal sealed class NativeControlSession
         }
     }
     internal Dictionary<string, object> View()
+    {
+        lock (gate)
+        {
+            var view = LegacyView();
+            if (tier == null) return view;
+            var evidence = port as INativeReturnEvidence;
+            bool finished = state == "closed" || faultReturned;
+            view.Add("tier",tier);
+            view.Add("firmware_returned",finished && evidence != null && evidence.FirmwareReturned);
+            view["journal_cleared"] = finished && evidence != null && evidence.JournalCleared;
+            view.Add("warning",telemetry == null ? null : telemetry.Warning);
+            return view;
+        }
+    }
+    private Dictionary<string, object> LegacyView()
     {
         lock (gate) return new Dictionary<string, object> {
             {"version",1}, {"session",session}, {"ticket",ticket}, {"sequence",sequence},

@@ -5,6 +5,9 @@ import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
+import { Banner } from "@/components/status";
+import { SupportBadge } from "./SupportBadge";
+import { channelTier, controlRefusal, tierLabel } from "./support";
 
 export function LiveSession() {
   useSlices("cooling_session", "cooling_channels", "monitoring_sensors", "providers");
@@ -21,10 +24,13 @@ export function LiveSession() {
   const { pending, error, run } = useAction();
   const busy = ["authorizing", "executing", "stopping"].includes(status?.state ?? "");
   const curve = curves?.[curveName];
+  const selected = channels?.find((c) => c.kind === "control" && c.reading.id === control);
+  const tier = channelTier(selected);
+  const refusal = controlRefusal(selected?.support);
   const selectionValid = channels?.some((c) => c.kind === "control" && c.reading.id === control)
     && channels?.some((c) => c.kind === "fan" && c.reading.id === rpm)
     && sensors?.some((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C" && s.sensor.id === temperature);
-  const ready = connected && status?.available && status.state !== "blocked" && !busy && confirmed && selectionValid && pending === null;
+  const ready = connected && status?.available && status.state !== "blocked" && !busy && confirmed && selectionValid && !refusal && pending === null;
   const start = (mode: "curve" | "calibration") => run("start", () => rpc("cooling.sessions.start", {
     mode, control_id: control, rpm_id: rpm, temperature_id: temperature, confirmed_fan: confirmed,
     ...(mode === "curve" ? { curve } : { critical_c: curve?.critical_c ?? 80 }),
@@ -35,11 +41,14 @@ export function LiveSession() {
       {!status?.available ? <p className="text-small text-text-subtle">Live control is unavailable. Enable the optional motherboard provider through the installer and restart the daemon.</p> : <>
         <div className="grid gap-3 md:grid-cols-2">
           {([ ["Fan output", "control", control, setControl], ["Matching fan RPM", "fan", rpm, setRpm] ] as const).map(([label, kind, value, set]) => (
-            <Select key={kind} label={label} placeholder={label} value={value} options={(channels ?? []).filter((c) => c.kind === kind).map((c) => ({ value: c.reading.id, label: `${c.name} · ${c.reading.id}` }))} onChange={(v) => { set(v); setConfirmed(false); }} />
+            <Select key={kind} label={label} placeholder={label} value={value} options={(channels ?? []).filter((c) => c.kind === kind).map((c) => ({ value: c.reading.id, label: kind === "control" ? `${c.name} · ${tierLabel(channelTier(c))} · ${c.reading.id}` : `${c.name} · ${c.reading.id}` }))} onChange={(v) => { set(v); setConfirmed(false); }} />
           ))}
           <Select label="Temperature source" placeholder="Temperature source" value={temperature} options={(sensors ?? []).filter((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C").map((s) => ({ value: s.sensor.id, label: `${s.sensor.name} · ${s.sensor.id}` }))} onChange={(v) => { setTemperature(v); setConfirmed(false); }} />
           <Select label="Saved curve" placeholder="Saved curve" value={curveName} options={Object.keys(curves ?? {}).map((name) => ({ value: name, label: name }))} onChange={setCurveName} />
         </div>
+        {selected && <SupportBadge tier={tier} />}
+        {refusal && <Banner tone="warn">{refusal}</Banner>}
+        {tier === "lhm_supported" && <p className="text-caption text-text-subtle">LHM-supported channels run reduced-speed curves only after a passed channel test; calibration (100 → 40 %) is available.</p>}
         <Checkbox checked={confirmed} onChange={setConfirmed}>I confirm this is a normal fan, not a pump, and the selected RPM belongs to it.</Checkbox>
         <p className="text-caption text-text-subtle">Live curves require a minimum of 40% and a critical temperature at most 100°C. Channel selection alone does not establish a physical header or PWM/DC mode.</p>
         <div className="flex flex-wrap gap-2">
@@ -48,7 +57,7 @@ export function LiveSession() {
         </div>
       </>}
       <div className="flex items-center gap-3 text-small">
-        <span>Session: {status?.state ?? "unavailable"}{status?.job_id != null ? ` · ${status.job_id}` : ""}</span>
+        <span>Session: {status?.state ?? "unavailable"}{status?.job_id != null ? ` · ${status.job_id}` : ""}{status?.tier ? ` · ${tierLabel(status.tier)}` : ""}</span>
         <Button variant="secondary" disabled={!connected || !busy || status?.job_id == null || pending !== null} onClick={() => run("stop", () => rpc("cooling.sessions.stop", { job_id: status?.job_id }))}>Stop and return to firmware</Button>
       </div>
       {(error || status?.error) && <p role="alert" className="text-small text-danger-text">{error || status?.error}</p>}

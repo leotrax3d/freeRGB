@@ -153,6 +153,14 @@ export interface ProviderSummary {
   message: string | null;
   age_ms: number | null;
 }
+/** Protected inventory: what a control can reach (DECISIONS.md #14). */
+export interface CoolingSupport {
+  tier: "verified" | "lhm_supported";
+  register_readback: boolean;
+  software_mode: boolean;
+  held_full: boolean;
+}
+export type SupportTier = "verified" | "lhm_supported" | "unrestricted" | "read_only";
 export interface CoolingChannel {
   provider: string;
   id: string;
@@ -161,6 +169,9 @@ export interface CoolingChannel {
   kind: "fan" | "control";
   reading: SensorReading;
   control_available: boolean;
+  sensor_id?: string;
+  hardware_name?: string;
+  support?: CoolingSupport | null;
 }
 export interface CoolingSession {
   available: boolean;
@@ -168,6 +179,7 @@ export interface CoolingSession {
   state: string;
   report: unknown;
   error: string | null;
+  tier?: SupportTier | null;
 }
 export interface ReactiveConfig {
   version: number;

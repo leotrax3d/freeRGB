@@ -1,7 +1,7 @@
 //! Owns cooling execution lifetimes and drains them before maintenance.
 //! The Windows service transport must supply an authenticated factory and trusted
 //! sampler. This module does not authorize hardware or expose a public listener.
-use crate::cooling_runtime::{self, ControlMode, RuntimeReport, SamplerFrame};
+use crate::cooling_runtime::{self, ControlMode, RuntimeLimits, RuntimeReport, SamplerFrame};
 use crate::native_session::NativeSessionClient;
 use freergb_control::maintenance::{
     MaintenanceGate, MaintenanceState, ReleaseEvidence, SessionToken,
@@ -84,7 +84,12 @@ impl CoolingHost {
 
     /// Production native sampler variant: initial values come only from the
     /// authenticated worker receipt, never from GUI/API arguments.
-    pub fn start_native<T, F>(&mut self, acquire: F, mode: ControlMode) -> Result<(), String>
+    pub fn start_native<T, F>(
+        &mut self,
+        acquire: F,
+        mode: ControlMode,
+        limits: RuntimeLimits,
+    ) -> Result<(), String>
     where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
         F: Future<Output = Result<NativeSessionClient<T>, String>> + Send + 'static,
@@ -106,7 +111,8 @@ impl CoolingHost {
                 epoch,
             )?;
             let (_sender, samples) = mpsc::channel(1);
-            cooling_runtime::run(client, mode, initial, samples, stopped, epoch).await
+            cooling_runtime::run_with_limits(client, mode, limits, initial, samples, stopped, epoch)
+                .await
         });
         self.execution = Some(Execution {
             token,

@@ -66,6 +66,14 @@ impl Bindings {
         json!({"config":self.config, "assignments":assignments, "error":self.error,
             "persistence_enabled":self.path.is_some()})
     }
+    /// User-assigned role for a channel identity (`Channel::id`), if any.
+    pub fn role(&self, channel_id: &str) -> Option<freergb_control::channels::ChannelRole> {
+        self.config
+            .bindings
+            .iter()
+            .find(|b| b.control_id == channel_id)
+            .map(|b| b.role)
+    }
     pub fn save(&mut self, config: ChannelBindings, channels: &[Channel]) -> Result<(), SaveError> {
         config.validate().map_err(SaveError::Invalid)?;
         let candidates = candidates(channels);
@@ -145,6 +153,9 @@ mod tests {
             writable: false,
             physical_mapping: "unconfirmed",
             electrical_mode: "unknown",
+            sensor_id: "control".into(),
+            hardware_name: "Board".into(),
+            support: None,
         };
         assert!(matches!(
             store.save(config.clone(), std::slice::from_ref(&channel)),

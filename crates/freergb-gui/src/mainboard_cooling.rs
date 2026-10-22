@@ -6,6 +6,43 @@ use freergb_control::FanCurve;
 use serde_json::json;
 use std::sync::mpsc;
 
+/// Display name of a support tier (DECISIONS.md #14).
+pub fn tier_label(tier: &str) -> &'static str {
+    match tier {
+        "verified" => "Verified",
+        "lhm_supported" => "LHM-supported",
+        "unrestricted" => "Unrestricted",
+        "read_only" => "Read-only",
+        _ => "Unknown",
+    }
+}
+
+/// Capability reported by the protected inventory for a channel entry.
+pub fn channel_tier(channel: &serde_json::Value) -> &'static str {
+    if channel["kind"] != "control" {
+        return "";
+    }
+    if channel["control_available"] != true {
+        return "read_only";
+    }
+    match channel["support"]["tier"].as_str() {
+        Some("verified") => "verified",
+        Some("lhm_supported") => "lhm_supported",
+        _ => "unknown",
+    }
+}
+
+/// Why the daemon refuses this control, if it does.
+pub fn refusal(channel: &serde_json::Value) -> Option<&'static str> {
+    if channel["support"]["software_mode"] == true {
+        Some("Another program already controls this header (software mode); freeRGB will not take it over.")
+    } else if channel["support"]["held_full"] == true {
+        Some("Held at 100% after a worker crash. Restart Windows to return it to firmware control.")
+    } else {
+        None
+    }
+}
+
 #[derive(Default)]
 pub struct MainboardCooling {
     control: String,
@@ -50,11 +87,18 @@ impl MainboardCooling {
                         .filter(|c| c["kind"] == kind)
                     {
                         if let Some(id) = channel["reading"]["id"].as_str() {
-                            ui.selectable_value(
-                                selected,
-                                id.to_owned(),
-                                format!("{} · {}", channel["name"].as_str().unwrap_or(kind), id),
-                            );
+                            let tier = channel_tier(channel);
+                            let label = if tier.is_empty() {
+                                format!("{} · {}", channel["name"].as_str().unwrap_or(kind), id)
+                            } else {
+                                format!(
+                                    "{} · {} · {}",
+                                    channel["name"].as_str().unwrap_or(kind),
+                                    tier_label(tier),
+                                    id
+                                )
+                            };
+                            ui.selectable_value(selected, id.to_owned(), label);
                         }
                     }
                 });
@@ -94,6 +138,22 @@ impl MainboardCooling {
         {
             self.confirmed = false;
         }
+        let selected = snapshot.control["cooling_channels"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|c| c["kind"] == "control" && c["reading"]["id"] == self.control.as_str());
+        let blocked = selected.and_then(refusal);
+        if let Some(channel) = selected {
+            let tier = channel_tier(channel);
+            ui.label(format!("Support: {}", tier_label(tier)));
+            if tier == "lhm_supported" {
+                ui.small("LHM-supported: reduced-speed curves need a passed channel test; calibration (100 → 40%) is available.");
+            }
+        }
+        if let Some(reason) = blocked {
+            ui.colored_label(egui::Color32::from_rgb(251, 191, 36), reason);
+        }
         ui.checkbox(
             &mut self.confirmed,
             "I confirm this is a normal fan, not a pump, and the selected RPM belongs to it.",
@@ -107,6 +167,7 @@ impl MainboardCooling {
             && !self.rpm.is_empty()
             && !self.temperature.is_empty()
             && status["state"] != "blocked"
+            && blocked.is_none()
             && !busy;
         ui.horizontal(|ui|{
             if ui.add_enabled(ready,egui::Button::new("Start current curve (UAC)")).clicked(){
@@ -120,9 +181,13 @@ impl MainboardCooling {
             }
         });
         ui.label(format!(
-            "Job {} · {}",
+            "Job {} · {}{}",
             status["job_id"],
-            status["state"].as_str().unwrap_or("unknown")
+            status["state"].as_str().unwrap_or("unknown"),
+            status["tier"]
+                .as_str()
+                .map(|t| format!(" · {}", tier_label(t)))
+                .unwrap_or_default()
         ));
         if let Some(error) = status["error"].as_str() {
             ui.colored_label(egui::Color32::LIGHT_RED, error);
@@ -133,5 +198,32 @@ impl MainboardCooling {
             });
         }
         ui.small("Closing the GUI leaves the daemon running. Use Stop to return this fan to firmware control.");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn tiers_and_refusals_follow_the_protected_inventory() {
+        let control = |support: serde_json::Value| json!({"kind":"control","control_available":true,"support":support});
+        assert_eq!(
+            channel_tier(&control(
+                json!({"tier":"lhm_supported","software_mode":false,"held_full":false})
+            )),
+            "lhm_supported"
+        );
+        assert_eq!(channel_tier(&control(serde_json::Value::Null)), "unknown");
+        assert_eq!(
+            channel_tier(&json!({"kind":"control","control_available":false})),
+            "read_only"
+        );
+        assert_eq!(channel_tier(&json!({"kind":"fan"})), "");
+        assert!(refusal(&control(json!({"tier":"verified","software_mode":true}))).is_some());
+        assert!(refusal(&control(json!({"tier":"verified","held_full":true}))).is_some());
+        assert!(refusal(&control(json!({"tier":"verified"}))).is_none());
+        assert_eq!(tier_label("unrestricted"), "Unrestricted");
     }
 }

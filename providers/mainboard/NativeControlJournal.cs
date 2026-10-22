@@ -9,13 +9,52 @@ using System.Text;
 using System.Threading;
 using System.Web.Script.Serialization;
 
+// Support tiers (DECISIONS.md #14). Verified needs audited register readback;
+// LhmSupported/Unrestricted trust LHM's software-mode setter and are guarded by
+// behaviour (RPM plausibility, telemetry, fail-safe return) instead.
+internal enum NativeTier { Verified, LhmSupported, Unrestricted }
+
+internal static class NativeTiers
+{
+    internal static string Name(NativeTier tier)
+    { return tier == NativeTier.Verified ? "verified" : tier == NativeTier.LhmSupported ? "lhm_supported" : "unrestricted"; }
+    internal static NativeTier Parse(object raw)
+    {
+        if (Object.Equals(raw,"verified")) return NativeTier.Verified;
+        if (Object.Equals(raw,"lhm_supported")) return NativeTier.LhmSupported;
+        if (Object.Equals(raw,"unrestricted")) return NativeTier.Unrestricted;
+        throw new System.IO.InvalidDataException("Unknown native support tier.");
+    }
+}
+// Tier/role/floor rules shared by the protected authorization, broker and worker.
+// Legacy records (no tier) keep the verified-only 40% fan / 100% pump rules.
+internal static class NativeAuthorizationRules
+{
+    internal static void Validate(IDictionary<string,object> value, int minimum, out NativeTier tier, out bool pump, out bool pumpUnlocked)
+    {
+        tier = value.ContainsKey("tier") ? NativeTiers.Parse(value["tier"]) : NativeTier.Verified;
+        if (value.ContainsKey("tier") && tier == NativeTier.Verified) throw new InvalidDataException("Verified authorizations use the legacy record.");
+        object role = value.ContainsKey("role") ? value["role"] : null;
+        if (role != null && !Object.Equals(role,"fan") && !Object.Equals(role,"pump")) throw new InvalidDataException("Invalid protected channel role.");
+        pump = Object.Equals(role,"pump");
+        pumpUnlocked = value.ContainsKey("pump_unlocked") && Object.Equals(value["pump_unlocked"],true);
+        if (value.ContainsKey("pump_unlocked") && (!pumpUnlocked || !pump || tier != NativeTier.Unrestricted))
+            throw new InvalidDataException("Pump reduction requires an unrestricted, separately confirmed pump.");
+        if (minimum < (tier == NativeTier.Unrestricted ? 0 : 40) || minimum > 100)
+            throw new InvalidDataException("Invalid protected duty floor for this tier.");
+        if (minimum < 100 && !(Object.Equals(role,"fan") || pumpUnlocked))
+            throw new InvalidDataException("Reduced commissioning duty requires explicit protected fan authorization.");
+    }
+}
 internal sealed class NativeControlIdentity
 {
     internal readonly string HardwareId, SensorId;
     internal readonly bool Pump;
     internal readonly Dictionary<string,object> Recovery;
-    internal NativeControlIdentity(string hardware, string sensor, bool pump, Dictionary<string,object> recovery = null)
-    { HardwareId = hardware; SensorId = sensor; Pump = pump; Recovery = recovery; }
+    // Null for the verified tier (unchanged journal shape); otherwise the tier name.
+    internal readonly string Tier;
+    internal NativeControlIdentity(string hardware, string sensor, bool pump, Dictionary<string,object> recovery = null, string tier = null)
+    { HardwareId = hardware; SensorId = sensor; Pump = pump; Recovery = recovery; Tier = tier; }
 }
 internal sealed class NativeControlJournal : IDisposable
 {
@@ -118,17 +157,30 @@ internal sealed class NativeControlJournal : IDisposable
         if (document["reservation"] == null) return null;
         var entry = document["reservation"] as Dictionary<string, object>;
         Guid identifier;
-        if (entry == null || (entry.Count != 5 && !(entry.Count == 6 && entry.ContainsKey("recovery"))) || !entry.ContainsKey("id") || !(entry["id"] is string) || !Guid.TryParseExact((string)entry["id"],"N",out identifier) ||
+        if (entry == null || entry.Count != 5 + (entry.ContainsKey("recovery") ? 1 : 0) + (entry.ContainsKey("tier") ? 1 : 0) || !entry.ContainsKey("id") || !(entry["id"] is string) || !Guid.TryParseExact((string)entry["id"],"N",out identifier) ||
             !entry.ContainsKey("backend") || !Object.Equals(entry["backend"],LhmPin.Backend) ||
             !entry.ContainsKey("hardware_id") || !(entry["hardware_id"] is string) || !IdentityText((string)entry["hardware_id"]) ||
             !entry.ContainsKey("sensor_id") || !(entry["sensor_id"] is string) || !IdentityText((string)entry["sensor_id"]) ||
             !entry.ContainsKey("pump") || !(entry["pump"] is bool))
             throw new InvalidDataException("Invalid control reservation; recovery required.");
-        if (entry.ContainsKey("recovery")) ValidateRecovery(entry["recovery"] as Dictionary<string,object>);
+        if (entry.ContainsKey("tier") && !Object.Equals(entry["tier"],"lhm_supported") && !Object.Equals(entry["tier"],"unrestricted"))
+            throw new InvalidDataException("Invalid control reservation tier; recovery required.");
+        if (entry.ContainsKey("recovery")) ValidateRecovery(entry["recovery"] as Dictionary<string,object>, entry.ContainsKey("tier"));
         return entry;
     }
-    private static void ValidateRecovery(Dictionary<string,object> value)
+    private static bool Lifetime(object value)
+    { return value is string && System.Text.RegularExpressions.Regex.IsMatch((string)value,"^[1-9][0-9]{0,9}:[1-9][0-9]{0,18}$"); }
+    private static void ValidateRecovery(Dictionary<string,object> value, bool tiered)
     {
+        // Channels without register readback record only lifetimes: a dead worker's
+        // channel is driven to 100% (no original mode is known), never to a low duty.
+        if (value != null && value.ContainsKey("kind") && Object.Equals(value["kind"],"lhm_fallback_v1"))
+        {
+            if (!tiered || value.Count != 3 || !value.ContainsKey("service_identity") || !Lifetime(value["service_identity"]) ||
+                !value.ContainsKey("worker_identity") || !Lifetime(value["worker_identity"]))
+                throw new InvalidDataException("Invalid native fallback recovery metadata.");
+            return;
+        }
         if (value == null || (value.Count != 7 && value.Count != 9) || !value.ContainsKey("kind") || !Object.Equals(value["kind"],"lhm_nct677x_registers_v1") ||
             !value.ContainsKey("chip") || !(value["chip"] is string) || !IdentityText((string)value["chip"]))
             throw new InvalidDataException("Invalid native recovery metadata.");
@@ -184,7 +236,9 @@ internal sealed class NativeControlJournal : IDisposable
             if (Read() != null) throw new InvalidOperationException("An unresolved native control intent exists; do not resume or acquire another channel.");
             string id = Guid.NewGuid().ToString("N");
             var entry = new Dictionary<string, object> { {"id",id}, {"backend",LhmPin.Backend}, {"hardware_id",identity.HardwareId}, {"sensor_id",identity.SensorId}, {"pump",identity.Pump} };
-            if (identity.Recovery != null) { ValidateRecovery(identity.Recovery); entry.Add("recovery",identity.Recovery); }
+            if (identity.Tier != null && identity.Tier != "lhm_supported" && identity.Tier != "unrestricted") throw new ArgumentException("Invalid native tier.");
+            if (identity.Recovery != null) { ValidateRecovery(identity.Recovery, identity.Tier != null); entry.Add("recovery",identity.Recovery); }
+            if (identity.Tier != null) entry.Add("tier",identity.Tier);
             Write(entry);
             return id;
         });

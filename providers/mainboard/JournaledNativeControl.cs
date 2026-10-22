@@ -10,6 +10,7 @@ internal sealed class JournaledNativeControl : INativeControlPort, INativeReturn
     private string reservation;
     private bool released;
     public bool FirmwareReturnVerified { get { lock (gate) return released && port is INativeReturnEvidence && ((INativeReturnEvidence)port).FirmwareReturnVerified; } }
+    public bool FirmwareReturned { get { lock (gate) return released && port is INativeReturnEvidence && ((INativeReturnEvidence)port).FirmwareReturned; } }
     public bool JournalCleared { get { lock (gate) return released && reservation == null; } }
     private JournaledNativeControl(INativeControlPort port, NativeControlJournal journal, NativeControlIdentity identity)
     { this.port = port; this.journal = journal; this.identity = identity; }

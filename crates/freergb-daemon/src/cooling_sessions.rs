@@ -2,9 +2,11 @@
 //! intent; the protected service authorizes/binds native sources and checks IO.
 use crate::{
     cooling_host::CoolingHost,
-    cooling_runtime::{ControlMode, RuntimeReport},
+    cooling_runtime::{ControlMode, RuntimeLimits, RuntimeReport},
     native_bridge,
 };
+use freergb_control::channels::ChannelRole;
+use freergb_control::fan_support::{self, ChannelEvidence, SupportTier};
 use freergb_control::FanCurve;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -25,11 +27,74 @@ pub struct StartRequest {
     pub curve: Option<FanCurve>,
     pub critical_c: Option<f32>,
 }
+
+/// Daemon-side facts about the selected control: the protected inventory's
+/// capability plus user evidence (bindings, channel test, unlock). Never taken
+/// from the request itself.
+#[derive(Clone, Copy, Debug)]
+pub struct SessionPolicy {
+    pub capability: SupportTier,
+    pub evidence: ChannelEvidence,
+}
+impl SessionPolicy {
+    /// Behaviour of earlier releases: verified chip, fan confirmed per request.
+    pub fn legacy() -> Self {
+        Self {
+            capability: SupportTier::Verified,
+            evidence: ChannelEvidence::default(),
+        }
+    }
+}
+
+/// Fully resolved execution: what is authorized and how the runtime is bounded.
+pub struct Plan {
+    pub request: StartRequest,
+    pub mode: ControlMode,
+    pub critical_c: u8,
+    /// Floor written into the protected authorization (enforced by the worker).
+    pub minimum_percent: u8,
+    pub tier: SupportTier,
+    pub role: ChannelRole,
+    pub limits: RuntimeLimits,
+}
+
 impl StartRequest {
+    #[cfg(test)]
     fn validate(&self) -> Result<(ControlMode, u8, u8), String> {
+        let (mode, critical, minimum, _, _) = self.check(&SessionPolicy::legacy())?;
+        Ok((mode, critical, minimum))
+    }
+
+    pub fn plan(self, policy: &SessionPolicy) -> Result<Plan, String> {
+        let (mode, critical_c, minimum_percent, tier, limits) = self.check(policy)?;
+        Ok(Plan {
+            request: self,
+            mode,
+            critical_c,
+            minimum_percent,
+            tier,
+            role: ChannelRole::Fan,
+            limits,
+        })
+    }
+
+    fn check(
+        &self,
+        policy: &SessionPolicy,
+    ) -> Result<(ControlMode, u8, u8, SupportTier, RuntimeLimits), String> {
         if !self.confirmed_fan {
             return Err("Explicit physical fan confirmation required; pumps excluded".into());
         }
+        if policy.evidence.role == Some(ChannelRole::Pump) {
+            return Err(
+                "This channel is assigned as a pump; pump sessions are not available here".into(),
+            );
+        }
+        let evidence = ChannelEvidence {
+            role: Some(ChannelRole::Fan),
+            ..policy.evidence
+        };
+        let limits = fan_support::limits(policy.capability, evidence)?;
         let sensor = |id: &str, kind: &str| -> Option<String> {
             if id.len() > 128
                 || !id
@@ -63,24 +128,46 @@ impl StartRequest {
             "curve" if self.critical_c.is_none() => {
                 let curve = self.curve.clone().ok_or("Curve required")?;
                 curve.validate()?;
-                if curve.minimum_percent < 40.0 || curve.critical_c > 100.0 {
-                    return Err("Native curve floor >=40%, critical <=100 C required".into());
+                if limits.floor_percent == 100 && limits.tier == SupportTier::LhmSupported {
+                    return Err("Pass the guided channel test before running a reduced-duty curve on this LHM-supported channel".into());
+                }
+                if curve.minimum_percent < f32::from(limits.floor_percent)
+                    || curve.critical_c > 100.0
+                {
+                    return Err(format!(
+                        "Native curve floor >={}%, critical <=100 C required",
+                        limits.floor_percent
+                    ));
                 }
                 let critical = curve.critical_c.floor() as u8;
                 let minimum = curve.minimum_percent.ceil() as u8;
-                Ok((ControlMode::Curve(curve), critical, minimum))
+                let runtime = RuntimeLimits {
+                    floor_percent: minimum,
+                    allow_stop: limits.allow_stop,
+                };
+                Ok((
+                    ControlMode::Curve(curve),
+                    critical,
+                    minimum,
+                    limits.tier,
+                    runtime,
+                ))
             }
             "calibration" if self.curve.is_none() => {
                 let critical = self.critical_c.unwrap_or(80.0);
                 if !(40.0..=100.0).contains(&critical) {
                     return Err("Calibration critical temperature must be 40..100 C".into());
                 }
+                // Calibration is a user-initiated measurement (100/80/60/40) and
+                // never goes below 40%, so it is offered on untested channels too.
                 Ok((
                     ControlMode::Calibration {
                         critical_c: critical,
                     },
                     critical.floor() as u8,
                     40,
+                    limits.tier,
+                    RuntimeLimits::default(),
                 ))
             }
             _ => Err("Expected curve or calibration with unambiguous parameters".into()),
@@ -94,10 +181,12 @@ pub struct Status {
     pub state: String,
     pub report: Option<RuntimeReport>,
     pub error: Option<String>,
+    /// Support tier of the current/last job ("verified", "lhm_supported", ...).
+    pub tier: Option<&'static str>,
 }
 type View = Arc<Mutex<Status>>;
 enum Command {
-    Start(u64, StartRequest),
+    Start(u64, Box<Plan>),
     Stop(u64),
 }
 pub struct CoolingSessions {
@@ -116,6 +205,7 @@ impl Default for CoolingSessions {
                 state: "disabled".into(),
                 report: None,
                 error: None,
+                tier: None,
             })),
             thread: None,
             next: 0,
@@ -162,8 +252,8 @@ impl CoolingSessions {
     pub fn status(&self) -> Status {
         self.view.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
-    pub fn start(&mut self, request: StartRequest) -> Result<u64, String> {
-        request.validate()?;
+    pub fn start(&mut self, request: StartRequest, policy: &SessionPolicy) -> Result<u64, String> {
+        let plan = request.plan(policy)?;
         let sender = self
             .sender
             .as_ref()
@@ -185,8 +275,12 @@ impl CoolingSessions {
             view.state = "authorizing".into();
             view.report = None;
             view.error = None;
+            view.tier = Some(plan.tier.as_str());
         }
-        if sender.try_send(Command::Start(self.next, request)).is_err() {
+        if sender
+            .try_send(Command::Start(self.next, Box::new(plan)))
+            .is_err()
+        {
             update(
                 &self.view,
                 "failed",
@@ -222,16 +316,18 @@ impl Drop for CoolingSessions {
 
 async fn worker(helper: PathBuf, view: View, mut commands: mpsc::Receiver<Command>) {
     while let Some(command) = commands.recv().await {
-        let Command::Start(id, request) = command else {
+        let Command::Start(id, plan) = command else {
             continue;
         };
-        let (mode, critical, minimum) = match request.validate() {
-            Ok(v) => v,
-            Err(error) => {
-                update(&view, "failed", None, Some(error));
-                continue;
-            }
-        };
+        let Plan {
+            request,
+            mode,
+            critical_c: critical,
+            minimum_percent: minimum,
+            tier,
+            role,
+            limits,
+        } = *plan;
         // Do not cancel an elevated authorization child: it may still publish
         // authorization after the requesting helper is dropped. Drain a queued
         // stop only after authorization finishes, before native acquisition.
@@ -242,6 +338,7 @@ async fn worker(helper: PathBuf, view: View, mut commands: mpsc::Receiver<Comman
             &request.rpm_id,
             critical,
             minimum,
+            tier.protected_name().map(|name| (name, role)),
         )
         .await;
         match commands.try_recv() {
@@ -257,7 +354,8 @@ async fn worker(helper: PathBuf, view: View, mut commands: mpsc::Receiver<Comman
             continue;
         }
         let mut host = CoolingHost::new(true, Instant::now());
-        if let Err(error) = host.start_native(native_bridge::connect(helper.clone()), mode) {
+        if let Err(error) = host.start_native(native_bridge::connect(helper.clone()), mode, limits)
+        {
             update(&view, "failed", None, Some(error));
             continue;
         }
@@ -267,7 +365,10 @@ async fn worker(helper: PathBuf, view: View, mut commands: mpsc::Receiver<Comman
             tokio::select! {
                 _=ticks.tick()=>{
                     match host.collect_finished().await {
-                        Ok(Some(report))=>{update(&view,"completed",Some(report),None);break;},
+                        Ok(Some(report))=>{
+                            let state = if report.fault.is_some() { "faulted" } else { "completed" };
+                            update(&view,state,Some(report),None);break;
+                        },
                         Ok(None)=>{},
                         Err(error)=>{update(&view,"blocked",None,Some(error));break;},
                     }
@@ -327,11 +428,114 @@ mod tests {
         assert!(r.validate().is_ok());
     }
 
+    fn policy(
+        capability: SupportTier,
+        role: Option<ChannelRole>,
+        test: bool,
+        unlocked: bool,
+    ) -> SessionPolicy {
+        SessionPolicy {
+            capability,
+            evidence: ChannelEvidence {
+                role,
+                test_passed: test,
+                unlocked,
+                pump_confirmed: false,
+            },
+        }
+    }
+
+    fn curve(minimum: f32) -> FanCurve {
+        let mut curve = FanCurve {
+            minimum_percent: minimum,
+            ..FanCurve::default()
+        };
+        for point in &mut curve.points {
+            point.duty_percent = point.duty_percent.max(minimum);
+        }
+        curve
+    }
+
+    #[test]
+    fn tiers_bound_curve_floors_and_protected_authorization() {
+        let mut r = request();
+        r.mode = "curve".into();
+        r.curve = Some(curve(40.0));
+        let legacy = r.plan(&SessionPolicy::legacy()).unwrap();
+        assert_eq!(
+            (
+                legacy.tier,
+                legacy.minimum_percent,
+                legacy.tier.protected_name()
+            ),
+            (SupportTier::Verified, 40, None)
+        );
+        let untested =
+            |r: StartRequest| r.plan(&policy(SupportTier::LhmSupported, None, false, false));
+        let mut r = request();
+        r.mode = "curve".into();
+        r.curve = Some(curve(40.0));
+        assert!(untested(r).err().unwrap().contains("guided channel test"));
+        let mut r = request();
+        r.mode = "curve".into();
+        r.curve = Some(curve(40.0));
+        let tested = r
+            .plan(&policy(SupportTier::LhmSupported, None, true, false))
+            .unwrap();
+        assert_eq!(
+            (tested.tier.protected_name(), tested.limits.allow_stop),
+            (Some("lhm_supported"), false)
+        );
+        let mut r = request();
+        r.mode = "curve".into();
+        r.curve = Some(curve(0.0));
+        assert!(r
+            .plan(&policy(SupportTier::LhmSupported, None, true, false))
+            .is_err());
+        let mut r = request();
+        r.mode = "curve".into();
+        r.curve = Some(curve(0.0));
+        let unlocked = r
+            .plan(&policy(SupportTier::LhmSupported, None, false, true))
+            .unwrap();
+        assert_eq!(
+            (
+                unlocked.tier,
+                unlocked.minimum_percent,
+                unlocked.limits.allow_stop
+            ),
+            (SupportTier::Unrestricted, 0, true)
+        );
+        // Calibration stays >=40% and is offered for untested LHM channels.
+        let calibration = request()
+            .plan(&policy(SupportTier::LhmSupported, None, false, false))
+            .unwrap();
+        assert_eq!(
+            (
+                calibration.minimum_percent,
+                calibration.limits,
+                calibration.tier
+            ),
+            (40, RuntimeLimits::default(), SupportTier::LhmSupported)
+        );
+        assert!(request()
+            .plan(&policy(
+                SupportTier::Verified,
+                Some(ChannelRole::Pump),
+                true,
+                false
+            ))
+            .is_err());
+        assert!(request()
+            .plan(&policy(SupportTier::ReadOnly, None, true, true))
+            .is_err());
+    }
+
     #[test]
     fn disabled_and_blocked_jobs_never_queue_acquisition() {
         let mut sessions = CoolingSessions::default();
         assert!(!sessions.status().available);
-        assert!(sessions.start(request()).is_err());
+        assert!(sessions.start(request(), &SessionPolicy::legacy()).is_err());
         assert!(sessions.stop(1).is_err());
         let (sender, mut receiver) = mpsc::channel(8);
         sessions.sender = Some(sender);
@@ -341,7 +545,7 @@ mod tests {
             None,
             Some("return unverified".into()),
         );
-        assert!(sessions.start(request()).is_err());
+        assert!(sessions.start(request(), &SessionPolicy::legacy()).is_err());
         assert!(receiver.try_recv().is_err());
     }
 }

@@ -156,3 +156,14 @@ does not authorize a write without this protected request. A fixed
 protected diagnostic artifacts, not GUI settings or a persistent control opt-in.
 
 Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).
+
+## Support tiers in the Rust runtime (2026-10-22)
+
+`run_with_limits` takes `RuntimeLimits {floor_percent, allow_stop}` derived from
+`freergb_control::fan_support::limits`; `run` keeps the legacy 40% floor. Fan stop
+(`allow_stop`) requires a worker that admitted `unrestricted`; it relaxes the
+running-fan start check and makes a stalled tachometer a warning. For lower tiers
+a supervision fault no longer drops the transport: the runtime sends `close` (100%,
+then the worker's owned firmware return) and reports `fault`; a worker-side fault
+return is accepted as such. Verified workers keep the previous hold-100%/recovery
+behaviour. Reports add `tier`, `return_evidence`, `fault`, `warning`.

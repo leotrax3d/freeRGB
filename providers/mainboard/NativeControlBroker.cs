@@ -36,14 +36,14 @@ internal sealed class NativeControlBroker : IDisposable
         BrokerService.CheckProtectedPath(path);
         if (new FileInfo(path).Length > 4096) throw new InvalidDataException("Control authorization too large.");
         var value=new JavaScriptSerializer { MaxJsonLength=4096,RecursionLimit=8 }.DeserializeObject(File.ReadAllText(path)) as Dictionary<string,object>;
-        if (value == null || (value.Count != 7 && value.Count != 8) || !Object.Equals(value["version"],1) ||
+        int optional = value == null ? 0 : (value.ContainsKey("role") ? 1 : 0) + (value.ContainsKey("tier") ? 1 : 0) + (value.ContainsKey("pump_unlocked") ? 1 : 0);
+        if (value == null || value.Count != 7 + optional || !Object.Equals(value["version"],1) ||
             !(value["floor_percent"] is int) || !(value["critical_c"] is int) ||
             (int)value["critical_c"] < 40 || (int)value["critical_c"] > 100)
             throw new InvalidDataException("Invalid protected commissioning authorization.");
         int minimum=(int)value["floor_percent"];
-        if ((minimum < 40 || minimum > 100) ||
-            (minimum < 100 && (!value.ContainsKey("role") || !Object.Equals(value["role"],"fan"))))
-            throw new InvalidDataException("Reduced commissioning duty requires explicit protected fan authorization.");
+        NativeTier tier; bool pump, pumpUnlocked;
+        NativeAuthorizationRules.Validate(value,minimum,out tier,out pump,out pumpUnlocked);
         DateTime expiry;
         if (!(value["expires_utc"] is string) || !DateTime.TryParseExact((string)value["expires_utc"],"o",System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.RoundtripKind,out expiry) || expiry.Kind != DateTimeKind.Utc || expiry <= DateTime.UtcNow || expiry > DateTime.UtcNow.AddMinutes(5))
@@ -185,16 +185,18 @@ internal sealed class NativeControlBroker : IDisposable
     }
     internal static int RequestAuthorization(string[] args)
     {
-        if (args.Length != 6) return 2;
+        // Legacy: control temperature rpm critical minimum. Tiered appends: tier role.
+        if (args.Length != 6 && args.Length != 8) return 2;
         foreach(int index in new[] {1,2,3})
             if (!System.Text.RegularExpressions.Regex.IsMatch(args[index],"^/lpc/[a-z0-9]+/[0-9]+/(control|temperature|fan)/[0-9]+$")) return 2;
         int critical,minimum;
         if (!Int32.TryParse(args[4],out critical) || critical < 40 || critical > 100 ||
-            !Int32.TryParse(args[5],out minimum) || minimum < 40 || minimum > 100) return 2;
+            !Int32.TryParse(args[5],out minimum) || minimum < (args.Length == 8 ? 0 : 40) || minimum > 100) return 2;
+        if (args.Length == 8 && ((args[6] != "lhm_supported" && args[6] != "unrestricted") || (args[7] != "fan" && args[7] != "pump"))) return 2;
         BrokerService.CheckProtectedPath(BrokerTransport.ServicePath);
         string sid;
         using (var user=WindowsIdentity.GetCurrent()) sid=user.User.Value;
-        var start=new ProcessStartInfo(BrokerTransport.ServicePath,"--authorize-control --consent "+sid+" "+String.Join(" ",args,1,5)) {
+        var start=new ProcessStartInfo(BrokerTransport.ServicePath,"--authorize-control --consent "+sid+" "+String.Join(" ",args,1,args.Length-1)) {
             UseShellExecute=true,Verb="runas",WindowStyle=ProcessWindowStyle.Hidden,
             WorkingDirectory=Environment.GetFolderPath(Environment.SpecialFolder.System)
         };

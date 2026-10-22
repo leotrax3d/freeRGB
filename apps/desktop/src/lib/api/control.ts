@@ -31,7 +31,9 @@ export const DEFAULT_CURVE: FanCurve = {
 /** Mirrors `FanCurve::validate`. */
 export function curveProblem(c: FanCurve): string | null {
   if (c.points.length < 2 || c.points.length > 16) return "A curve needs 2 to 16 points.";
-  if (c.minimum_percent < 20 || c.minimum_percent > 100) return "Minimum duty must be 20–100 %.";
+  // Mirrors FanCurve::validate. Native execution still enforces each channel's
+  // tier floor (40 % unless the channel is unlocked as unrestricted).
+  if (c.minimum_percent < 0 || c.minimum_percent > 100) return "Minimum duty must be 0–100 %.";
   if (c.critical_c < 40 || c.critical_c > 110) return "Critical temperature must be 40–110 °C.";
   if (c.hysteresis_c < 0 || c.hysteresis_c > 10) return "Hysteresis must be 0–10 °C.";
   for (const [i, p] of c.points.entries()) {

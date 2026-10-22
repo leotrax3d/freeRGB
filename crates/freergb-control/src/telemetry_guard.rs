@@ -26,6 +26,8 @@ pub struct TelemetryGuard {
     temperature: Option<(u64, f32)>,
     rpm: Option<(u64, f32)>,
     stalled_since: Option<u64>,
+    /// Unrestricted channels may stop the fan: a stall is then a warning only.
+    stall_warning: bool,
     fault: Option<TelemetryFault>,
 }
 
@@ -53,8 +55,25 @@ impl TelemetryGuard {
             temperature: None,
             rpm: None,
             stalled_since: None,
+            stall_warning: false,
             fault: None,
         })
+    }
+
+    /// Explicit opt-in for unlocked channels (fan stop allowed). Staleness,
+    /// invalid samples and the critical-temperature override stay faults.
+    pub fn allow_fan_stop(mut self) -> Self {
+        self.stall_warning = true;
+        self
+    }
+
+    /// Current non-fatal condition, if any (only with `allow_fan_stop`).
+    pub fn warning(&self) -> Option<TelemetryFault> {
+        (self.stall_warning
+            && self
+                .stalled_since
+                .is_some_and(|since| self.last_now.saturating_sub(since) >= 1000))
+        .then_some(TelemetryFault::Stalled)
     }
 
     fn latch(&mut self, fault: TelemetryFault) -> Result<(), TelemetryFault> {
@@ -103,7 +122,7 @@ impl TelemetryGuard {
             self.rpm = Some((reading.acquired_ms, reading.value));
             if reading.value < 100.0 {
                 let since = *self.stalled_since.get_or_insert(reading.acquired_ms);
-                if reading.acquired_ms - since >= 1000 {
+                if !self.stall_warning && reading.acquired_ms - since >= 1000 {
                     return self.latch(TelemetryFault::Stalled);
                 }
             } else {
@@ -129,9 +148,10 @@ impl TelemetryGuard {
         if now_ms - temp_at > 1500 || now_ms - rpm_at > 1500 {
             return self.latch(TelemetryFault::Stale);
         }
-        if self
-            .stalled_since
-            .is_some_and(|since| now_ms - since >= 1000)
+        if !self.stall_warning
+            && self
+                .stalled_since
+                .is_some_and(|since| now_ms - since >= 1000)
         {
             return self.latch(TelemetryFault::Stalled);
         }
@@ -144,6 +164,23 @@ mod tests {
     use super::*;
     fn guard() -> TelemetryGuard {
         TelemetryGuard::new("cpu".into(), "fan".into(), 80.0).unwrap()
+    }
+    #[test]
+    fn allowed_fan_stop_warns_but_heat_and_staleness_still_fault() {
+        let mut g = guard().allow_fan_stop();
+        sample(&mut g, "cpu", 0, 40.0).unwrap();
+        sample(&mut g, "fan", 0, 0.0).unwrap();
+        sample(&mut g, "fan", 1200, 0.0).unwrap();
+        sample(&mut g, "cpu", 1200, 40.0).unwrap();
+        assert_eq!(g.check(1300), Ok(()));
+        assert_eq!(g.warning(), Some(TelemetryFault::Stalled));
+        assert_eq!(g.check(2800), Err(TelemetryFault::Stale));
+        let mut hot = guard().allow_fan_stop();
+        assert_eq!(
+            sample(&mut hot, "cpu", 0, 80.0),
+            Err(TelemetryFault::Critical)
+        );
+        assert_eq!(guard().warning(), None);
     }
     fn sample(
         g: &mut TelemetryGuard,

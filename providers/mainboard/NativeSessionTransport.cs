@@ -23,6 +23,15 @@ internal static class NativeSessionTransport
         // No control acquisition before authenticating the peer.
         Run(pipe, NativeControlSession.CreateProtected(port, telemetry, clock));
     }
+    internal static void RunTieredProtected(NamedPipeServerStream pipe, JournaledNativeControl port, NativeTelemetryGuard telemetry, Func<long> clock, NativeTier tier)
+    {
+        BrokerService.CheckInstallation(true);
+        if (pipe == null || !pipe.IsConnected) throw new InvalidOperationException("Connected protected worker pipe required.");
+        var owner = (SecurityIdentifier)pipe.GetAccessControl().GetOwner(typeof(SecurityIdentifier));
+        if (!owner.IsWellKnown(WellKnownSidType.LocalSystemSid) || !BrokerTransport.IsServiceClient(pipe))
+            throw new InvalidOperationException("Native session client is not the registered protected service.");
+        Run(pipe, NativeControlSession.CreateTieredProtected(port, telemetry, clock, tier));
+    }
 #endif
     private static void Write(NamedPipeServerStream pipe, NativeControlSession session)
     {

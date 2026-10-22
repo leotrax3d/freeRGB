@@ -18,24 +18,27 @@ internal static class NativeControlWorker
         if (encoded.Length > 4096) throw new InvalidDataException("Control binding too large.");
         var binding=new JavaScriptSerializer { MaxJsonLength=2048,RecursionLimit=8 }.DeserializeObject(
             new System.Text.UTF8Encoding(false,true).GetString(Convert.FromBase64String(encoded))) as Dictionary<string,object>;
-        if (binding == null || (binding.Count != 5 && binding.Count != 6) || !Object.Equals(binding["version"],1) ||
+        int optional = binding == null ? 0 : (binding.ContainsKey("role") ? 1 : 0) + (binding.ContainsKey("tier") ? 1 : 0) + (binding.ContainsKey("pump_unlocked") ? 1 : 0);
+        if (binding == null || binding.Count != 5 + optional || !Object.Equals(binding["version"],1) ||
             !(binding["temperature_id"] is string) || !(binding["rpm_id"] is string) ||
             !(binding["floor_percent"] is int) || !(binding["critical_c"] is int))
             throw new InvalidDataException("Invalid native commissioning binding.");
         int minimum=(int)binding["floor_percent"];
-        if ((minimum < 40 || minimum > 100) ||
-            (minimum < 100 && (!binding.ContainsKey("role") || !Object.Equals(binding["role"],"fan"))))
-            throw new InvalidDataException("Reduced commissioning duty requires explicit protected fan authorization.");
+        NativeTier tier; bool pump, pumpUnlocked;
+        NativeAuthorizationRules.Validate(binding,minimum,out tier,out pump,out pumpUnlocked);
         string temperatureId=(string)binding["temperature_id"], rpmId=(string)binding["rpm_id"];
         if (temperatureId.Length > 512 || rpmId.Length > 512) throw new InvalidDataException("Sensor identity too large.");
-        var native=NativeControl.CreateCommissioningProtected(control,minimum);
-        var evidence=NativeNctEvidence.Create(control);
-        var guard=new NativeTelemetryGuard((int)binding["critical_c"]);
+        bool legacy = !binding.ContainsKey("tier");
+        // The legacy/verified path is unchanged: register evidence is mandatory.
+        var native=legacy ? NativeControl.CreateCommissioningProtected(control,minimum) : NativeControl.CreateTieredProtected(control,pump,minimum,tier,pumpUnlocked);
+        var evidence=legacy ? NativeNctEvidence.Create(control) : null;
+        var guard=new NativeTelemetryGuard((int)binding["critical_c"],!legacy && native.Tier == NativeTier.Unrestricted);
         var clock=Stopwatch.StartNew();
         Action sample=delegate {
             long acquired=clock.ElapsedMilliseconds;
             double celsius,rpm;
-            evidence.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
+            if (evidence != null) evidence.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
+            else NativeIsa.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
             guard.Observe(clock.ElapsedMilliseconds,acquired,celsius,rpm);
         };
         sample(); // Validated fresh data before any acquisition.
@@ -52,7 +55,8 @@ internal static class NativeControlWorker
             {
                 Console.WriteLine("ready"); Console.Out.Flush();
                 pipe.WaitForConnection();
-                NativeSessionTransport.RunProtected(pipe,JournaledNativeControl.CreateProtected(native,journal),guard,delegate { return clock.ElapsedMilliseconds; });
+                if (legacy) NativeSessionTransport.RunProtected(pipe,JournaledNativeControl.CreateProtected(native,journal),guard,delegate { return clock.ElapsedMilliseconds; });
+                else NativeSessionTransport.RunTieredProtected(pipe,JournaledNativeControl.CreateProtected(native,journal),guard,delegate { return clock.ElapsedMilliseconds; },native.Tier);
                 return 0;
             }
             finally

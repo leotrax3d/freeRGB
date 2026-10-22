@@ -79,9 +79,33 @@ channel test and outside the verified/LHM-supported lists.
    `build.rs`) and Inno Setup (`/DLhmVersion`) derive it. A later upgrade is one
    change plus a re-audit of the private metadata used by `NativeControl` and
    `NativeNctEvidence`.
-2. **Tiered native admission:** `NativeNctEvidence` becomes optional; without
-   it the adapter is created as LHM-supported with behavioural evidence
-   supplied by the Rust runtime. Keep mode-readback checks LHM exposes.
+2. **Tiered native admission** *(implemented, synthetic tests only)*:
+   `NativeNctEvidence` is optional. Missing register evidence
+   (`NativeEvidenceUnavailableException`: non-SuperIO backend, non-Nct677X chip,
+   unaudited Nct677X variant) admits the control as `lhm_supported` **only** when
+   the protected authorization names a lower tier; every other evidence failure
+   (vendor check, manual mode, ISA mutex) still refuses. Audited chips always keep
+   register readback, also when unlocked. Legacy/verified authorizations, worker
+   binding, journal entries and receipts are unchanged. Details:
+   * Authorization/binding gain `tier` (`lhm_supported`|`unrestricted`), `role`
+     (`fan`|`pump`) and `pump_unlocked`; `NativeAuthorizationRules` enforces
+     40% fan / 100% pump, 0% and pump reduction only for `unrestricted`.
+   * Journal entries gain `tier` and, without readback, recovery kind
+     `lhm_fallback_v1` (service/worker lifetimes only). Crash recovery of a dead
+     worker then drives the channel to a prepared 100% and holds it (reported as
+     `held_full`) instead of "restoring" from a fresh LHM context, which would
+     replay the crashed duty. The original firmware mode is only known inside
+     the worker that captured it.
+   * Lower-tier sessions return to the captured firmware mode inside the worker on
+     any fault (100% first, then owned `SetDefault`, then journal clear) and
+     report `tier`, `firmware_returned`, `warning`; verified sessions still hold
+     100% for register-verified recovery.
+   * Unrestricted telemetry treats a stalled fan as a warning; stale/invalid
+     telemetry and the critical temperature still fault.
+   * The snapshot reports `support` per control and the public SMBIOS `board`;
+     `cooling.channels.list`, sessions, `diagnostics.get`/`export` and both GUIs
+     show the tier. Rust runs lower tiers with `RuntimeLimits` and closes
+     gracefully (return to firmware) on supervision faults instead of blocking.
 3. **Multiple channels:** extend the durable native journal and the session
    host from one channel to all reserved channels (per-channel recovery
    records, release in any order, crash recovery for all).
