@@ -16,6 +16,7 @@ pub struct Logitech {
     handler: &'static str,
     hidpp_idx: u8,
     hidpp_zones: Vec<u8>,
+    hidpp_fp8070: bool,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
@@ -43,6 +44,34 @@ fn hidpp_call(
         last = Some("unexpected HID++ response");
     }
     Err(err(last.unwrap_or("HID++ request failed")))
+}
+fn discover_rgb_effects(h: &mut dyn Hid) -> Result<(u8, bool, usize), ModuleError> {
+    let mut response = hidpp_call(h, 0, 0, &[0x80, 0x71])?;
+    let mut feature = response.get(4).copied().unwrap_or(0);
+    let mut fp8070 = false;
+    if feature == 0 {
+        response = hidpp_call(h, 0, 0, &[0x80, 0x70])?;
+        feature = response.get(4).copied().unwrap_or(0);
+        fp8070 = true;
+    }
+    if feature == 0 {
+        return Err(err("Logitech RGB effects feature is unavailable"));
+    }
+    let count_data = if fp8070 {
+        Vec::new()
+    } else {
+        vec![0xff, 0xff, 0, 0, 0]
+    };
+    response = hidpp_call(h, feature, 0, &count_data)?;
+    let count = if fp8070 {
+        usize::from(response.get(4).copied().unwrap_or(0))
+    } else {
+        usize::from(u16::from_be_bytes([
+            response.get(5).copied().unwrap_or(0),
+            response.get(6).copied().unwrap_or(0),
+        ]))
+    };
+    Ok((feature, fp8070, count.clamp(1, 240)))
 }
 impl Module for Logitech {
     fn info(&self) -> ModuleInfo {
@@ -82,6 +111,8 @@ impl Module for Logitech {
         } else {
             20
         };
+        let lightspeed =
+            handler.contains("DetectLogitechWireless") || handler.contains("DetectLogitechWired");
         if handler.contains("HIDPP20") {
             let response = hidpp_call(h, 0, 0, &[0x80, 0x71])?;
             self.hidpp_idx = response.get(4).copied().unwrap_or(0);
@@ -106,8 +137,13 @@ impl Module for Logitech {
             if self.hidpp_zones.is_empty() {
                 return Err(err("Logitech HID++ device reported no RGB zones"));
             }
+        } else if lightspeed {
+            let (feature, fp8070, count) = discover_rgb_effects(h)?;
+            self.hidpp_idx = feature;
+            self.hidpp_fp8070 = fp8070;
+            self.hidpp_zones = (0..count).map(|n| n as u8).collect();
         }
-        let default_leds = if handler.contains("HIDPP20") {
+        let default_leds = if handler.contains("HIDPP20") || lightspeed {
             self.hidpp_zones.len()
         } else {
             default_leds
@@ -185,6 +221,22 @@ impl Module for Logitech {
                 hidpp_call(h, self.hidpp_idx, 0x10, &data[..colors.len() * 4])?;
             }
             hidpp_call(h, self.hidpp_idx, 0x70, &[])?;
+        } else if self.handler.contains("DetectLogitechWireless")
+            || self.handler.contains("DetectLogitechWired")
+        {
+            for (zone, color) in c.iter().enumerate() {
+                hidpp_call(
+                    h,
+                    self.hidpp_idx,
+                    if self.hidpp_fp8070 { 0x30 } else { 0x10 },
+                    &report::lightspeed_effect(
+                        self.hidpp_idx,
+                        self.hidpp_fp8070,
+                        zone as u8,
+                        *color,
+                    )[4..20],
+                )?;
+            }
         } else if self.handler.contains("MouseG203L") {
             h.write(&report::g203l(c)).map_err(err)?;
             h.write(&report::g203_apply()).map_err(err)?;
