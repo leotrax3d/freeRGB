@@ -1,0 +1,60 @@
+name: Website and shared GUI demo
+on:
+  push:
+    branches: [main]
+    paths: &website-paths
+      - 'apps/desktop/src/**'
+      - 'apps/desktop/index.html'
+      - 'apps/desktop/package*.json'
+      - 'apps/desktop/tsconfig.json'
+      - 'apps/desktop/vite.config.ts'
+      - 'website/**'
+      - 'assets/**'
+      - 'docs/WEBSITE_CONTENT.md'
+      - 'scripts/build-website.mjs'
+      - '.github/workflows/website.yml'
+  pull_request:
+    paths: *website-paths
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            apps/desktop/package-lock.json
+            website/package-lock.json
+      - run: npm ci --prefix apps/desktop
+      - run: npm ci --prefix website
+      - run: npm test --prefix apps/desktop
+      - name: Verify independent desktop frontend
+        run: npm run build --prefix apps/desktop
+      - name: Build website and isolated demo from shared UI
+        run: npm run build:site --prefix website
+        env:
+          BASE_PATH: ${{ vars.WEBSITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

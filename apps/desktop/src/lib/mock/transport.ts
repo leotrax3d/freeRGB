@@ -9,12 +9,12 @@ import type { DeviceSummary, EffectSpec, Slices } from "../api/types";
 import effectDefaults from "../api/fixtures/effects.json";
 import { mockSetup } from "./setup";
 
-let devices: DeviceSummary[] = [
+const initialDevices: DeviceSummary[] = [
   {
     info: {
       id: "mock:keyboard",
-      name: "K70 CORE (mock)",
-      vendor: "Corsair",
+      name: "RGB Keyboard (virtual)",
+      vendor: "Demo Hardware",
       kind: "Keyboard",
       usb_vid: null,
       usb_pid: null,
@@ -33,8 +33,8 @@ let devices: DeviceSummary[] = [
   {
     info: {
       id: "mock:link",
-      name: "iCUE LINK hub (mock)",
-      vendor: "Corsair",
+      name: "RGB Fan Hub (virtual)",
+      vendor: "Demo Hardware",
       kind: "FanHub",
       usb_vid: null,
       usb_pid: null,
@@ -75,7 +75,13 @@ let devices: DeviceSummary[] = [
   },
 ];
 
+function requiresCapture(effect: EffectSpec): boolean {
+  return ["audio_pulse", "audio_spectrum", "screen_ambience"].includes(effect.type)
+    || (effect.type === "layers" && effect.layers.some((layer) => requiresCapture(layer.effect)));
+}
+
 export function mockTransport(): Transport {
+  let devices = structuredClone(initialDevices);
   const listeners = new Set<SliceListener>();
   const setup = mockSetup(() => emit("modules_setup"));
   let effect = (effectDefaults as Record<string, EffectSpec>).rainbow_wave!;
@@ -119,7 +125,7 @@ export function mockTransport(): Transport {
     macro_status: { running: null, input_enabled: false, error: null },
     cooling_status: { hardware_control: false, reason: "Mock data: nothing is written.", error: null },
     sensor_graph: graph,
-    sensor_sources: { "[\"mock:link\",\"temperature:4\"]": "iCUE LINK hub (mock) / Coolant (mock)" },
+    sensor_sources: { "[\"mock:link\",\"temperature:4\"]": "RGB Fan Hub (virtual) / Coolant (mock)" },
     sensor_values: {
       now_ms: Date.now() - started,
       values: Object.fromEntries(Object.keys(graph.nodes).map((n) => [n, { value: 31.5, sampled_at_ms: 0, error: null }])),
@@ -136,6 +142,7 @@ export function mockTransport(): Transport {
       const p = (params ?? {}) as Record<string, unknown>;
       switch (method) {
         case "effects.set":
+          if (requiresCapture(params as EffectSpec)) throw new RpcError({ kind: "rpc", code: -32601, message: "Audio and screen capture effects require the native application and are unavailable in this demo." });
           effect = params as EffectSpec;
           emit("effect");
           return true as T;
@@ -215,7 +222,7 @@ export function mockTransport(): Transport {
           return true as T;
         case "macros.run":
         case "macros.cancel":
-          return true as T;
+          throw new RpcError({ kind: "rpc", code: -32601, message: "Macro execution is not simulated. The editor is available." });
         case "cooling.sensors.save":
           graph = (p.graph as SensorGraph);
           emit("sensor_graph");
@@ -244,6 +251,8 @@ export function mockTransport(): Transport {
           setup.lightTest();
           return true as T;
         case "modules.setup.cancel":
+          setup.cancel();
+          return true as T;
         case "modules.catalog.refresh":
           return true as T;
         default:
@@ -259,7 +268,7 @@ export function mockTransport(): Transport {
         listeners.delete(listener);
       };
     },
-    wantSlices: async () => {},
+    wantSlices: async (requested) => { requested.forEach(emit); },
     startService: async () => {},
     exportDiagnostics: async () => {
       throw new Error("Not available with mock data");
