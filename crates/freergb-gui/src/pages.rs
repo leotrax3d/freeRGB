@@ -260,6 +260,12 @@ impl Panels {
                         self.curve.points.push(CurvePoint { temperature_c: temperature, duty_percent: 100.0 });
                     }
                     ui.add(egui::Slider::new(&mut self.curve.minimum_percent, 0.0..=100.0).text("Minimum duty %"));
+                    for (limit, label) in [(&mut self.curve.max_rise_percent_per_s, "Step up %/s (0 = off)"), (&mut self.curve.max_fall_percent_per_s, "Step down %/s (0 = off)")] {
+                        let mut value = limit.unwrap_or(0.0);
+                        if ui.add(egui::Slider::new(&mut value, 0.0..=100.0).text(label)).changed() {
+                            *limit = (value >= 1.0).then_some(value);
+                        }
+                    }
                     ui.add(egui::Slider::new(&mut self.curve.critical_c, 40.0..=110.0).text("Emergency temperature °C"));
                     ui.add(egui::Slider::new(&mut self.curve.hysteresis_c, 0.0..=10.0).text("Cooling hysteresis °C"));
                     let validation = self.curve.validate();

@@ -19,8 +19,14 @@ internal sealed class BackgroundCurve
     private readonly double minimum, critical, hysteresis;
     private double? lastTemperature;
     private double lastDuty;
-    internal BackgroundCurve(double[] temperatures, double[] duties, double minimum, double critical, double hysteresis)
+    private double? rise, fall;     // Optional step limits, percent per second.
+    private long outputAt = -1;
+    private double output;
+    internal BackgroundCurve(double[] temperatures, double[] duties, double minimum, double critical, double hysteresis, double? rise = null, double? fall = null)
     {
+        foreach (double? rate in new[] { rise, fall })
+            if (rate.HasValue && (!Finite(rate.Value) || rate.Value < 1 || rate.Value > 100)) throw new InvalidDataException("Step limits must be 1..100 percent per second.");
+        this.rise = rise; this.fall = fall;
         if (temperatures == null || duties == null || temperatures.Length != duties.Length || temperatures.Length < 2 || temperatures.Length > 16)
             throw new InvalidDataException("A curve needs 2..16 points.");
         if (!Finite(minimum) || minimum < 0 || minimum > 100 || !Finite(critical) || critical < 40 || critical > 110 || !Finite(hysteresis) || hysteresis < 0 || hysteresis > 10)
@@ -60,6 +66,21 @@ internal sealed class BackgroundCurve
         if (target >= lastDuty || !lastTemperature.HasValue || t <= lastTemperature.Value - hysteresis)
         { lastDuty = target; lastTemperature = t; }
         return lastDuty;
+    }
+    // Update plus step limits; invalid/stale sensors and critical heat jump to 100%.
+    internal double UpdateAt(double? temperature, long ageMs, long now)
+    {
+        double target = Update(temperature, ageMs);
+        bool emergency = target >= 100 && (!lastTemperature.HasValue || (temperature.HasValue && temperature.Value >= critical));
+        double duty = target;
+        if (outputAt >= 0 && !emergency)
+        {
+            double seconds = Math.Max(0, now - outputAt) / 1000.0;
+            if (rise.HasValue) duty = Math.Min(duty, output + rise.Value * seconds);
+            if (fall.HasValue) duty = Math.Max(duty, output - fall.Value * seconds);
+        }
+        outputAt = now; output = duty;
+        return duty;
     }
 }
 
@@ -176,7 +197,8 @@ internal sealed class BackgroundChannelConfig
             config.Role = pump ? "pump" : "fan";
             if (!Object.Equals(rules["role"],config.Role)) throw new InvalidDataException("Background channel role required.");
             var curve = value.ContainsKey("curve") ? value["curve"] as Dictionary<string,object> : null;
-            if (curve == null || curve.Count != 4 || !(curve.ContainsKey("points") && curve["points"] is object[])) throw new InvalidDataException("Background curve required.");
+            int curveKeys = 4 + (curve != null && curve.ContainsKey("max_rise_percent_per_s") ? 1 : 0) + (curve != null && curve.ContainsKey("max_fall_percent_per_s") ? 1 : 0);
+            if (curve == null || curve.Count != curveKeys || !(curve.ContainsKey("points") && curve["points"] is object[])) throw new InvalidDataException("Background curve required.");
             var points = (object[])curve["points"];
             var temperatures = new double[points.Length]; var duties = new double[points.Length];
             for (int i = 0; i < points.Length; i++)
@@ -185,7 +207,9 @@ internal sealed class BackgroundChannelConfig
                 if (point == null || point.Count != 2 || !point.ContainsKey("temperature_c") || !point.ContainsKey("duty_percent")) throw new InvalidDataException("Invalid curve point.");
                 temperatures[i] = Number(point["temperature_c"]); duties[i] = Number(point["duty_percent"]);
             }
-            config.Curve = new BackgroundCurve(temperatures,duties,Number(curve["minimum_percent"]),Number(curve["critical_c"]),Number(curve["hysteresis_c"]));
+            config.Curve = new BackgroundCurve(temperatures,duties,Number(curve["minimum_percent"]),Number(curve["critical_c"]),Number(curve["hysteresis_c"]),
+                curve.ContainsKey("max_rise_percent_per_s") ? Number(curve["max_rise_percent_per_s"]) : (double?)null,
+                curve.ContainsKey("max_fall_percent_per_s") ? Number(curve["max_fall_percent_per_s"]) : (double?)null);
             if (config.Curve.Minimum < config.Floor || config.Curve.Critical > config.Critical)
                 throw new InvalidDataException("Curve must respect the channel floor and critical temperature.");
             if (value.ContainsKey("plausibility") && value["plausibility"] != null)
@@ -250,7 +274,7 @@ internal sealed class BackgroundChannelController
                 Warning = deviation;
             }
         }
-        double target = config.Curve.Update(session.Temperature, session.AgeMs);
+        double target = config.Curve.UpdateAt(session.Temperature, session.AgeMs, now);
         int duty = (int)Math.Ceiling(target);
         if (duty < config.Floor) duty = config.Floor;
         if (duty > 100) duty = 100;

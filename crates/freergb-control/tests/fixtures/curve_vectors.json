@@ -11,5 +11,16 @@
     {"temperature_c": 60, "age_ms": 0, "duty_percent": 73},
     {"temperature_c": null, "age_ms": 0, "duty_percent": 100},
     {"temperature_c": 30, "age_ms": 0, "duty_percent": 35}
+  ],
+  "rate_curve": {"points": [{"temperature_c": 25, "duty_percent": 30}, {"temperature_c": 50, "duty_percent": 55}, {"temperature_c": 75, "duty_percent": 100}], "minimum_percent": 25, "critical_c": 85, "hysteresis_c": 0, "max_rise_percent_per_s": 10, "max_fall_percent_per_s": 5},
+  "rate_steps": [
+    {"temperature_c": 20, "age_ms": 0, "now_ms": 0, "duty_percent": 30},
+    {"temperature_c": 50, "age_ms": 0, "now_ms": 1000, "duty_percent": 40},
+    {"temperature_c": 50, "age_ms": 0, "now_ms": 2000, "duty_percent": 50},
+    {"temperature_c": 50, "age_ms": 0, "now_ms": 3000, "duty_percent": 55},
+    {"temperature_c": 20, "age_ms": 0, "now_ms": 4000, "duty_percent": 50},
+    {"temperature_c": 90, "age_ms": 0, "now_ms": 4100, "duty_percent": 100},
+    {"temperature_c": 20, "age_ms": 0, "now_ms": 5100, "duty_percent": 95},
+    {"temperature_c": null, "age_ms": 0, "now_ms": 5200, "duty_percent": 100}
   ]
 }

@@ -186,6 +186,8 @@ export function CurvesSection() {
               onChange={(v) => setDraft({ ...draft, critical_c: v })}
             />
             <LimitSlider label="Hysteresis" unit="°C" value={draft.hysteresis_c} min={0} max={10} step={0.5} onChange={(v) => setDraft({ ...draft, hysteresis_c: v })} />
+            <LimitSlider label="Step up (0 = off)" unit="%/s" value={draft.max_rise_percent_per_s ?? 0} min={0} max={100} onChange={(v) => setDraft({ ...draft, max_rise_percent_per_s: v >= 1 ? v : undefined })} />
+            <LimitSlider label="Step down (0 = off)" unit="%/s" value={draft.max_fall_percent_per_s ?? 0} min={0} max={100} onChange={(v) => setDraft({ ...draft, max_fall_percent_per_s: v >= 1 ? v : undefined })} />
           </div>
           <div className="flex flex-col gap-1.5 rounded-control bg-surface p-3">
             <div className="flex justify-between text-small">

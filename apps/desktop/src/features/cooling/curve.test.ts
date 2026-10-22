@@ -33,3 +33,11 @@ describe("curve editing keeps curves valid", () => {
     }
   });
 });
+
+describe("step limits", () => {
+  it("accepts 1–100 %/s and rejects other values", () => {
+    expect(curveProblem({ ...DEFAULT_CURVE, max_rise_percent_per_s: 10, max_fall_percent_per_s: 5 })).toBeNull();
+    expect(curveProblem({ ...DEFAULT_CURVE, max_rise_percent_per_s: 0.5 })).toMatch(/Step limits/);
+    expect(curveProblem({ ...DEFAULT_CURVE, minimum_percent: 0, points: DEFAULT_CURVE.points })).toBeNull();
+  });
+});

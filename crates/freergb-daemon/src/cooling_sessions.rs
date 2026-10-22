@@ -102,6 +102,7 @@ impl StartRequest {
             minimum_percent: duty,
             critical_c: critical,
             hysteresis_c: 0.0,
+            ..FanCurve::default()
         });
         Ok(self)
     }

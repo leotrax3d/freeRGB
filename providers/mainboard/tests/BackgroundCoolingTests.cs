@@ -50,6 +50,18 @@ internal static class BackgroundCoolingTests
             double duty = evaluator.Update(temperature,Convert.ToInt64(step["age_ms"]));
             Assert(Math.Abs(duty - D(step["duty_percent"])) < 1e-3,"C# curve diverges from the shared Rust vectors at " + new JavaScriptSerializer().Serialize(step));
         }
+        var rated = (Dictionary<string,object>)document["rate_curve"];
+        var rp = (object[])rated["points"];
+        var rt = new double[rp.Length]; var rd = new double[rp.Length];
+        for (int i = 0; i < rp.Length; i++) { var p = (Dictionary<string,object>)rp[i]; rt[i] = D(p["temperature_c"]); rd[i] = D(p["duty_percent"]); }
+        var limited = new BackgroundCurve(rt,rd,D(rated["minimum_percent"]),D(rated["critical_c"]),D(rated["hysteresis_c"]),D(rated["max_rise_percent_per_s"]),D(rated["max_fall_percent_per_s"]));
+        foreach (Dictionary<string,object> step in (object[])document["rate_steps"])
+        {
+            double? temperature = step["temperature_c"] == null ? (double?)null : D(step["temperature_c"]);
+            double duty = limited.UpdateAt(temperature,Convert.ToInt64(step["age_ms"]),Convert.ToInt64(step["now_ms"]));
+            Assert(Math.Abs(duty - D(step["duty_percent"])) < 1e-3,"C# step limits diverge from the shared Rust vectors at " + new JavaScriptSerializer().Serialize(step));
+        }
+        Reject(delegate { new BackgroundCurve(rt,rd,25,85,0,0.5,null); },"Step limit below 1%/s accepted.");
     }
     private static void Plausibility()
     {

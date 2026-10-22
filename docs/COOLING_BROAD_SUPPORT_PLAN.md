@@ -137,9 +137,11 @@ channel test and outside the verified/LHM-supported lists.
    channel test, stop, tier/test badges, background and unlock sections match
    the Classic dialog.
 8. **Remaining controller features** from `FANCONTROL_PARITY.md`: manual
-   percentage *(implemented as `mode:"manual"`)*; still open: RPM targets,
-   rise/fall limits (need a curve-format change in Rust and the C# background
-   evaluator together), more curve types, cooling profiles.
+   percentage *(implemented as `mode:"manual"`)* and step-up/step-down limits
+   *(implemented: optional `max_rise_percent_per_s`/`max_fall_percent_per_s` on
+   curves, Rust and C# checked against shared vectors; invalid sensors and
+   critical heat still jump to 100% immediately)*; still open: RPM targets,
+   more curve types, cooling profiles.
 9. **Acceptance on the development board** for every package that touches
    hardware, with the user present; other boards via beta testers.
 

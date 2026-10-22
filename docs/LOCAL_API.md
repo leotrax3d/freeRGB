@@ -344,7 +344,9 @@ fields are `points:[{temperature_c,duty_percent}]`, `minimum_percent`, `critical
 `hysteresis_c`. There must be 2..16 points; temperatures -20..110 C strictly
 increase; duty never decreases and each duty is minimum..100%. Saved curves allow
 a minimum of 0..100%; native execution requires at least the channel's tier floor
-(40% unless unrestricted), critical 40..100 C, hysteresis 0..10 C, and the last point cannot exceed
+(40% unless unrestricted), critical 40..100 C, hysteresis 0..10 C, optional
+`max_rise_percent_per_s`/`max_fall_percent_per_s` 1..100 (step limits that never
+delay the 100% override for invalid sensors or critical heat), and the last point cannot exceed
 critical temperature. All numbers must be finite. Native authorization rounds the
 floor up and critical threshold down to whole units, conservatively.
 

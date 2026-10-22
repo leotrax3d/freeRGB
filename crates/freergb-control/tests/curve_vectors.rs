@@ -14,4 +14,17 @@ fn rust_curve_controller_matches_shared_vectors() {
         let expected = step["duty_percent"].as_f64().unwrap() as f32;
         assert!((duty - expected).abs() < 1e-3, "{step}: {duty}");
     }
+    let curve: FanCurve = serde_json::from_value(value["rate_curve"].clone()).unwrap();
+    let mut controller = CurveController::default();
+    for step in value["rate_steps"].as_array().unwrap() {
+        let temperature = step["temperature_c"].as_f64().map(|t| t as f32);
+        let duty = controller.update_at(
+            &curve,
+            temperature,
+            step["age_ms"].as_u64().unwrap(),
+            step["now_ms"].as_u64().unwrap(),
+        );
+        let expected = step["duty_percent"].as_f64().unwrap() as f32;
+        assert!((duty - expected).abs() < 1e-3, "{step}: {duty}");
+    }
 }

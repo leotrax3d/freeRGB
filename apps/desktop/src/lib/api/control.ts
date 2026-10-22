@@ -15,6 +15,9 @@ export interface FanCurve {
   minimum_percent: number;
   critical_c: number;
   hysteresis_c: number;
+  /** Optional step limits in %/s; never delay the critical-temperature override. */
+  max_rise_percent_per_s?: number;
+  max_fall_percent_per_s?: number;
 }
 
 export const DEFAULT_CURVE: FanCurve = {
@@ -44,6 +47,8 @@ export function curveProblem(c: FanCurve): string | null {
       return "Temperatures must increase and duty must not decrease.";
   }
   if (c.points[c.points.length - 1]!.temperature_c > c.critical_c) return "The curve extends beyond the critical temperature.";
+  for (const rate of [c.max_rise_percent_per_s, c.max_fall_percent_per_s])
+    if (rate !== undefined && (rate < 1 || rate > 100)) return "Step limits must be 1–100 %/s.";
   return null;
 }
 

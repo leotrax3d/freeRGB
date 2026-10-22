@@ -402,10 +402,11 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
             output.duty_percent
         } else if let ControlMode::Curve(curve) = &mode {
             curve_controller
-                .update(
+                .update_at(
                     curve,
                     Some(frame.temperature_c),
                     at.saturating_sub(frame.temperature_at_ms),
+                    at,
                 )
                 .ceil()
                 .clamp(f32::from(limits.floor_percent), 100.0) as u8

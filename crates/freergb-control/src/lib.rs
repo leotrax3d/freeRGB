@@ -24,6 +24,13 @@ pub struct FanCurve {
     pub minimum_percent: f32,
     pub critical_c: f32,
     pub hysteresis_c: f32,
+    /// Optional step-up limit (percent per second). Never delays the
+    /// critical-temperature or invalid-sensor override to 100%.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_rise_percent_per_s: Option<f32>,
+    /// Optional step-down limit (percent per second).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_fall_percent_per_s: Option<f32>,
 }
 
 impl Default for FanCurve {
@@ -46,6 +53,8 @@ impl Default for FanCurve {
             minimum_percent: 25.0,
             critical_c: 85.0,
             hysteresis_c: 2.0,
+            max_rise_percent_per_s: None,
+            max_fall_percent_per_s: None,
         }
     }
 }
@@ -79,6 +88,14 @@ impl FanCurve {
         if self.points.last().unwrap().temperature_c > self.critical_c {
             return Err("curve extends beyond critical temperature".into());
         }
+        for rate in [self.max_rise_percent_per_s, self.max_fall_percent_per_s]
+            .into_iter()
+            .flatten()
+        {
+            if !(1.0..=100.0).contains(&rate) {
+                return Err("step limits must be 1..100 percent per second".into());
+            }
+        }
         Ok(())
     }
 
@@ -111,6 +128,8 @@ impl FanCurve {
 pub struct CurveController {
     last_temperature: Option<f32>,
     last_duty: f32,
+    /// Rate-limited output and its time (only with step limits).
+    output: Option<(u64, f32)>,
 }
 
 impl CurveController {
@@ -135,6 +154,37 @@ impl CurveController {
             self.last_temperature = Some(t);
         }
         self.last_duty
+    }
+
+    /// `update` plus the curve's optional step limits. Invalid/stale sensors and
+    /// the critical temperature still jump to 100% immediately.
+    pub fn update_at(
+        &mut self,
+        curve: &FanCurve,
+        temperature: Option<f32>,
+        age_ms: u64,
+        now_ms: u64,
+    ) -> f32 {
+        let target = self.update(curve, temperature, age_ms);
+        let emergency = target >= 100.0
+            && (self.last_temperature.is_none()
+                || temperature.is_some_and(|t| t >= curve.critical_c));
+        let duty = match self.output {
+            Some((at, previous)) if !emergency => {
+                let seconds = now_ms.saturating_sub(at) as f32 / 1000.0;
+                let mut duty = target;
+                if let Some(rise) = curve.max_rise_percent_per_s {
+                    duty = duty.min(previous + rise * seconds);
+                }
+                if let Some(fall) = curve.max_fall_percent_per_s {
+                    duty = duty.max(previous - fall * seconds);
+                }
+                duty
+            }
+            _ => target,
+        };
+        self.output = Some((now_ms, duty));
+        duty
     }
 }
 
