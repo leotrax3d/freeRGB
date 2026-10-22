@@ -39,7 +39,13 @@ impl Module for CorsairPeripheralV2 {
         let id = table::identify(i);
         let handler = table::handler(i).ok_or_else(|| err("unsupported Corsair V2 HID device"))?;
         let leds = if handler.contains("Hardware") { 16 } else { 20 };
-        h.write(&report::direct(&[])).map_err(err)?;
+        let write_cmd = if handler.contains("Wireless") || handler.contains("Receiver") {
+            9
+        } else {
+            8
+        };
+        h.write(&report::set_mode(write_cmd, 2)).map_err(err)?;
+        h.write(&report::lighting_control(write_cmd)).map_err(err)?;
         self.leds = z
             .map(|x| x.iter().map(|q| q.leds).sum())
             .unwrap_or(leds)
@@ -78,12 +84,21 @@ impl Module for CorsairPeripheralV2 {
         if !self.active || c.len() != self.leds {
             return Err(err("invalid Corsair V2 frame"));
         }
-        let p = if self.handler.contains("Hardware") {
-            report::effect(c)
+        let mut data = Vec::with_capacity(c.len() * 3);
+        if self.handler.contains("Hardware") {
+            data.extend_from_slice(&[2, 0]);
+        }
+        for color in c {
+            data.extend_from_slice(&[color.r, color.g, color.b]);
+        }
+        let write_cmd = if self.handler.contains("Wireless") || self.handler.contains("Receiver") {
+            9
         } else {
-            report::direct(c)
+            8
         };
-        h.write(&p).map_err(err)?;
+        for packet in report::block_packets(write_cmd, &data) {
+            h.write(&packet).map_err(err)?;
+        }
         Ok(())
     }
     fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
