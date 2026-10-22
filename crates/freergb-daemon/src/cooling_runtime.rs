@@ -40,12 +40,16 @@ pub enum ControlMode {
     Curve(FanCurve),
     Calibration { critical_c: f32 },
 }
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct RuntimeReport {
     pub calibration: Option<CalibrationResult>,
     pub native_closed: bool,
     /// Requires authenticated register-return AND durable journal proof. A closed
     /// callback from older workers alone cannot authorize maintenance.
     pub maintenance_authorized: bool,
+    pub minimum_applied_percent: u8,
+    pub initial_rpm: f32,
+    pub last_rpm: f32,
 }
 enum Command {
     Duty(u8),
@@ -195,6 +199,7 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         _ => None,
     };
     let mut frame = initial;
+    let mut minimum_applied_percent = 100;
     let mut pending: Option<Pending> = None;
     let mut sequence = 0;
     let mut applied_calibration_sequence = None;
@@ -227,9 +232,11 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 let operation = pending.take().ok_or("Unmatched native receipt")?;
                 if operation.closing {
                     if receipt.state != SessionState::Closed || receipt.owned { return Err("Native return failed; recovery required".into()); }
-                    return Ok(RuntimeReport { calibration: result,native_closed: true,maintenance_authorized: receipt.firmware_return_verified && receipt.journal_cleared });
+                    return Ok(RuntimeReport { calibration: result,native_closed: true,maintenance_authorized: receipt.firmware_return_verified && receipt.journal_cleared,
+                        minimum_applied_percent, initial_rpm: initial.rpm,last_rpm: frame.rpm });
                 }
                 if receipt.state != SessionState::Active || !receipt.owned { return Err("Native session entered emergency; recovery required".into()); }
+                minimum_applied_percent = minimum_applied_percent.min(receipt.duty_percent);
                 applied_calibration_sequence = operation.calibration_sequence;
                 next_send = now(epoch).saturating_add(100);
             }

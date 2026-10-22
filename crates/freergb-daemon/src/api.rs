@@ -167,6 +167,26 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         "monitoring.sensors.list" => Ok(json!(lock(engine).monitoring_sensors())),
         "cooling.providers.list" => Ok(json!([lock(engine).mainboard.summary()])),
         "cooling.channels.list" => Ok(json!(lock(engine).mainboard.channels())),
+        "cooling.sessions.status" => Ok(json!(lock(engine).cooling_sessions.status())),
+        "cooling.sessions.start" => serde_json::from_value(params.clone())
+            .map_err(invalid_params)
+            .and_then(|request| {
+                lock(engine)
+                    .cooling_sessions
+                    .start(request)
+                    .map(|job| json!({"job_id":job}))
+                    .map_err(|error| (-32006, error))
+            }),
+        "cooling.sessions.stop" => params["job_id"]
+            .as_u64()
+            .ok_or_else(|| invalid_params("job_id required"))
+            .and_then(|job| {
+                lock(engine)
+                    .cooling_sessions
+                    .stop(job)
+                    .map(|()| json!(true))
+                    .map_err(|error| (-32006, error))
+            }),
         "cooling.bindings.get" => {
             let engine = lock(engine);
             Ok(engine.channel_bindings.view(&engine.mainboard.channels()))
@@ -351,6 +371,48 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cooling_sessions_disabled_and_invalid_requests_use_rpc_errors() {
+        use super::*;
+        use freergb_core::Rgb;
+        use freergb_effects::EffectSpec;
+        use std::sync::{Arc, Mutex};
+        let e: SharedEngine = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::BLACK },
+            30,
+        )));
+        let status = call(&e, r#"{"id":1,"method":"cooling.sessions.status"}"#);
+        assert_eq!(status["result"]["state"], "disabled");
+        assert_eq!(status["result"]["available"], false);
+        for (params, code) in [
+            (serde_json::json!({}), -32602),
+            (
+                serde_json::json!({"mode":"calibration","control_id":"/lpc/nct6701d/0/control/2","rpm_id":"/lpc/nct6701d/0/fan/2","temperature_id":"/lpc/nct6701d/0/temperature/1","confirmed_fan":true}),
+                -32006,
+            ),
+        ] {
+            let reply = call(
+                &e,
+                &serde_json::json!({"id":2,"method":"cooling.sessions.start","params":params})
+                    .to_string(),
+            );
+            assert_eq!(reply["error"]["code"], code);
+        }
+        assert_eq!(
+            call(
+                &e,
+                r#"{"id":3,"method":"cooling.sessions.stop","params":{}}"#
+            )["error"]["code"],
+            -32602
+        );
+        assert_eq!(
+            call(
+                &e,
+                r#"{"id":4,"method":"cooling.sessions.stop","params":{"job_id":1}}"#
+            )["error"]["code"],
+            -32006
+        );
+    }
     #[test]
     fn guarded_shutdown_requires_the_actual_executable() {
         let e: SharedEngine = Arc::new(Mutex::new(Engine::new(

@@ -92,14 +92,14 @@ new mainboard opt-in leave the existing service build unchanged.
 Protected installed state (`MAINBOARD_BROKER.md`): `installation.json` version 1
 inside the broker tree (`owner_sid`, `protocol_version`, `helper_sha256`); owner SID
 also lives in its protected HKLM service Parameters key. Parent
-`mainboard-maintenance-result.json` version 1 contains `action` (`install`/`remove`),
+`mainboard-maintenance-result.json` version 1 contains `action` (`prepare`/`install`/`remove`),
 `status` (`success`/`failed`), `message`, `updated_at_utc`. These are installation
 diagnostics, never GUI configuration or permission to execute a supplied path.
 
 **Remaining hardware work:** the broker bridges normal-user requests to the
 privileged reader. Dependency installation or a running service does not establish
 that a particular motherboard is supported or its fan/source labels are correct.
-Real fan writes, calibration and independent failsafe remain separate gated work.
+Limited CHA_FAN2 curve/calibration evidence exists; broad hardware/fault acceptance remains open.
 Motherboard RGB/ARGB HID access can work without these prerequisites; see
 `MAINBOARD_RGB.md` for the initial experimental backend.
 
@@ -115,4 +115,7 @@ state or register a service. Disposable-runner SCM acceptance uses compile-time
 synthetic readings to exercise protected install, a real standard-user client,
 failed-start rollback, update, tamper/owner rejection and removal. Real opt-in
 wizard/UAC/driver installation and reboot acceptance still need
-an isolated Windows machine; none were performed on the developer's PC.
+an isolated Windows machine. Existing local protected installation and limited
+CHA_FAN2 results are recorded in COOLING_ACCEPTANCE.md.
+
+Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).

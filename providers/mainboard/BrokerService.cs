@@ -25,6 +25,7 @@ internal sealed class BrokerService : ServiceBase
     private NativeControlBroker controlBroker;
     protected override void OnCustomCommand(int command)
     {
+        if (command == 129) { MainboardMaintenance.Service(controlBroker); return; }
         if (command != 128) throw new InvalidOperationException("Unsupported service command.");
         lock (gate)
         {
@@ -103,6 +104,7 @@ internal sealed class BrokerService : ServiceBase
         // Claim the name before starting hardware. A pre-existing pipe fails closed.
         pipe = BrokerTransport.CreateServer(BrokerTransport.PipeName, user);
         controlBroker = new NativeControlBroker(user);
+        MainboardMaintenance.Publish();
         readerThread = new Thread(ReadHardware) { IsBackground = true, Name = "freeRGB motherboard reader supervisor" };
         pipeThread = new Thread(Serve) { IsBackground = true, Name = "freeRGB motherboard snapshot server" };
         readerThread.Start(); pipeThread.Start();
@@ -256,6 +258,7 @@ internal sealed class BrokerService : ServiceBase
     private static int Main(string[] args)
     {
 #if BROKER_INSTALLER
+        if (args.Length > 0 && args[0] == "--authorize-control") return MainboardMaintenance.AuthorizeControl(args);
         if (args.Length != 0) return BrokerDeployment.Dispatch(args);
 #else
         if (args.Length != 0) return 2;

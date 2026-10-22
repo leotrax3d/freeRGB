@@ -2,8 +2,9 @@
 
 `providers/mainboard/NativeControl.cs` adds an owned adapter for the pinned LHM
 0.9.6 `Control` object. It is compiled into the motherboard helper but is **not
-called by the ordinary snapshot path**. The public service pipe/API remain
-read-only. There is now an explicit administrator-only fixed100 diagnostic through
+called by the ordinary snapshot path**. The snapshot pipe stays read-only;
+the separate protected live-session API requires fan confirmation and UAC.
+There is also an explicit administrator-only fixed100 diagnostic through
 `scripts/probe-mainboard-100.ps1 -ConsentToProbe`: it submits a protected one-use
 request and SCM command128, verifies registers and returns the original mode.
 Its `-CrashWorker` option tests recovery only during that100-percent operation.

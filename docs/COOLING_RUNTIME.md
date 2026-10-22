@@ -1,11 +1,11 @@
 # Rust cooling execution and hardware acceptance
 
-Updated 2026-10-21. This documents implemented execution code and its remaining
+Updated 2026-10-22. This documents implemented execution code and its remaining
 production boundaries. It does not announce enabled live fan control.
 
 Latest acceptance: `MAINBOARD_CONTROL_BRIDGE.md` documents the now-connected
-protected service/native sampler and successful actual constant100% Rust curve
-pilot on CHA_FAN2. The normal daemon/API/GUI and variable-duty paths remain gated.
+protected service/native sampler and successful actual 80% Rust curve/calibration
+pilot on CHA_FAN2. The additive session API and Classic dialog are implemented; interactive public-path acceptance remains.
 
 ## Rust execution
 
@@ -82,8 +82,8 @@ evidence. Missing proof, acquisition failure, task loss or timeout blocks furthe
 admission and replacement. Dropping execution aborts the task and closes transport;
 it never treats EOF as successful release. Ready is terminal. The elevated
 installer must still hold its existing shared native reservation mutex and use a
-  production maintenance handshake; its commissioning transport now reaches the
-  protected service, but installer draining remains unwired.
+production service handshake, now implemented with independent native drain.
+Same-version replacement passed; release acceptance remains open.
 
 Tests execute the actual runtime through duplex native-protocol peers: verified
 drain succeeds, missing proof and stuck acquisition block. Separate runtime tests
@@ -121,7 +121,7 @@ A separate test killed the exact lifetime/path/parent-matched protected worker
 during that100% diagnostic: the unchanged service supervisor restarted it,
 protected baseline recovery succeeded, and the journal was cleared. The probe's
 EOF/fault result in that crash test is expected, not a successful probe receipt.
-No reduced-duty test or productive curve acceptance has been performed.
+Subsequent 80% curves and calibration ran on the selected fan; sustained/public-path acceptance remains open.
 A telemetry-only AIO connection must never be
 accepted as a successfully controlled motherboard fan. The six current explicit
 interop tests include full Rust calibration against constant synthetic RPM and
@@ -129,21 +129,17 @@ require response_observed=false, no floor recommendation, hardware_verified=fals
 They also cover Rust curve execution/return and sampler-loss recovery ownership
 over the actual C# protocol on a current-user test pipe, without hardware access.
 
-## Remaining before public activation
+## Remaining acceptance
 
-- A production protected Rust host and authenticated sampler/native transport
-  startup wired into the real Windows service; public service requests remain
-  read-only, with a separate protected administrator fixed100 diagnostic.
-- Broader service/boot transition and driver/native-hang acceptance.
-- Service maintenance request/return acknowledgement tied to its global admission
-  lock, multiple channel reservations, and active-session installer acceptance.
-- Actual powered-fan and RGB-controller acceptance on supported hardware.
-- Only after that: additive documented daemon methods and both GUI integrations.
+The production Rust host, authenticated native sampler/transport, additive session
+API, Classic dialog and protected service maintenance handshake are implemented.
+Same-version active replacement passed on CHA_FAN2. Remaining gates:
 
-No public API/config file changed in this increment. The Tauri branch is untouched.
-Motherboard fan power and RGB/ARGB are separate backends. This work does not add
-universal RGB support or guarantee every manufacturer/chip; missing protocols must
-remain explicitly unsupported until their adapters are implemented and validated.
+- Interactive public API/Classic UAC and verified-return acceptance.
+- Broader service/boot transitions and driver/native-hang acceptance.
+- Release-to-release upgrade, rollback, actual uninstall and maintenance failures.
+- Multiple native channel reservations and modern-GUI live-session parity.
+- Wider fan/chip and RGB-controller hardware acceptance.
 
 ## Protected diagnostic files
 
@@ -158,3 +154,5 @@ does not authorize a write without this protected request. A fixed
 `mainboard-probe-result.json` contains `version:1`, matching `id`, and `result`
 (the worker result, including verification flags/readings or a fault). These are
 protected diagnostic artifacts, not GUI settings or a persistent control opt-in.
+
+Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).

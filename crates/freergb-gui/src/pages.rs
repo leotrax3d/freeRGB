@@ -21,6 +21,7 @@ enum UpdateCommand {
 }
 
 pub struct Panels {
+    mainboard_cooling: super::mainboard_cooling::MainboardCooling,
     channel_bindings: super::channel_bindings::BindingsPanel,
     custom_sensors: super::custom_sensors::CustomSensors,
     alerts: super::alerts::Alerts,
@@ -178,7 +179,7 @@ impl Default for Panels {
                 }
             }
         });
-        Self { channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
+        Self { mainboard_cooling:Default::default(),channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
@@ -238,7 +239,7 @@ impl Panels {
                         }
                         ui.small("Header/control pairing and PWM/DC mode require verification. RGB/ARGB is a separate connection.");
                     });
-                    ui.colored_label(egui::Color32::YELLOW, "Simulation — real fan/pump writes are not validated yet.");
+                    ui.colored_label(egui::Color32::YELLOW, "Curve editor and simulation; live fan control is a separate explicit action below.");
                     ui.label("Edit, save and preview a temperature curve. Missing or stale sensors select 100% duty.");
                     ui.horizontal(|ui| { ui.label("Name"); ui.text_edit_singleline(&mut self.curve_name); });
                     if let Some(curves) = snapshot.control.get("curves").and_then(Value::as_object) {
@@ -275,6 +276,7 @@ impl Panels {
                     ui.add(egui::Slider::new(&mut self.temperature, 20.0..=100.0).text("Simulated temperature °C"));
                     ui.label(format!("Target fan output: {:.1}% (preview)", self.curve.duty(Some(self.temperature), 0)));
                     self.custom_sensors.ui(ui,tx,snapshot,&self.curve);
+                    ui.collapsing("Live motherboard fan control (experimental)",|ui|{self.mainboard_cooling.show(ui,snapshot,tx,&self.curve);});
                 }
                 2 => {
                     ui.heading("Macros");

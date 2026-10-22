@@ -35,6 +35,9 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `cooling.curves.list` | – | Map of curve names to definitions |
 | `cooling.curves.save` / `cooling.curves.delete` | `{name,curve}` / `{name}` | Validate/store or delete curve |
 | `cooling.preview` | `{curve,temperature_c?,age_ms?}` | `{duty_percent,simulated:true}`; no hardware write |
+| `cooling.sessions.status` | – | Experimental live session `{available,job_id,state,report,error}`; independent of legacy preview `cooling.status` |
+| `cooling.sessions.start` | `{mode,control_id,temperature_id,rpm_id,confirmed_fan,curve?,critical_c?}` | `{job_id}`; asynchronous UAC authorization, then protected native acquisition |
+| `cooling.sessions.stop` | `{job_id:u64}` | `true` means stop queued; poll status for verified return |
 | `macros.list` | – | Map of named macro definitions |
 | `macros.save` / `macros.delete` | `{name,definition}` / `{name}` | Validate/store or delete |
 | `macros.run` / `macros.cancel` | `{name}` / – | Start saved definition or cancel subsequent steps |
@@ -290,3 +293,99 @@ The write-ahead recovery candidate adds protected metadata
 GUI configuration or public RPC parameter. No API method/field/error code or
 activation flag changes. Production session factory now requires the journaled
 port; the whole candidate remains unreachable from the snapshot CLI/service.
+
+## Experimental protected motherboard sessions (additive, 2026-10-22)
+
+`cooling.status` and all previews retain their existing behavior. Live control is
+available only through the separate `cooling.sessions.*` methods. The daemon must
+run on Windows with `--mainboard-library DIR`, without `--no-hardware`; the bundled
+helper and current protected service must be installed. `available=true` reports
+worker enablement, not verified service/hardware support. No session is persisted
+or replayed at startup. The current native journal permits one channel/job only.
+
+### Start parameters
+
+`cooling.sessions.start` rejects unknown fields. Required fields:
+
+| Field | Validation |
+|---|---|
+| `mode` | Exactly `curve` or `calibration` |
+| `control_id` | `/lpc/CHIP/INSTANCE/control/INDEX`; index 0..6 |
+| `temperature_id` | `/lpc/CHIP/INSTANCE/temperature/INDEX`; index 0..255 |
+| `rpm_id` | `/lpc/CHIP/INSTANCE/fan/INDEX`; index 0..6 |
+| `confirmed_fan` | Must be `true`: user physically confirms a normal fan and matching tachometer; pumps excluded |
+
+IDs are at most 128 ASCII alphanumeric, slash or underscore characters. CHIP must
+be nonempty; INSTANCE parses as u16. All three IDs must name the same native
+hardware parent. This is syntax validation only: native authorization/binding also
+validates the actual supported chip and existing source identities. It never
+infers a physical header or CPU/coolant identity from a sensor label.
+
+For `mode=curve`, `curve` is required and `critical_c` must be absent/null. Curve
+fields are `points:[{temperature_c,duty_percent}]`, `minimum_percent`, `critical_c`,
+`hysteresis_c`. There must be 2..16 points; temperatures -20..110 C strictly
+increase; duty never decreases and each duty is minimum..100%. Native minimum is
+40..100%, critical 40..100 C, hysteresis 0..10 C, and the last point cannot exceed
+critical temperature. All numbers must be finite. Native authorization rounds the
+floor up and critical threshold down to whole units, conservatively.
+
+For `mode=calibration`, `curve` must be absent/null; optional `critical_c` defaults
+to 80 C and must be 40..100 C. The bounded Rust calibration uses a 40% floor.
+The resulting minimum recommendation does not assert hardware verification.
+Neither mode accepts GUI-provided measurements or arbitrary native commands.
+
+Example (explicit user confirmation required before sending):
+
+```json
+{"jsonrpc":"2.0","id":10,"method":"cooling.sessions.start","params":{"mode":"calibration","control_id":"/lpc/nct6701d/0/control/2","rpm_id":"/lpc/nct6701d/0/fan/2","temperature_id":"/lpc/nct6701d/0/temperature/1","confirmed_fan":true,"critical_c":80}}
+```
+
+`{job_id:u64}` acknowledges queueing only. Each start launches the bundled helper
+which requests UAC via the installed protected maintenance executable. It writes
+short-lived, protected fan/source-specific authorization (four minutes); normal
+installation alone grants none. The daemon authorizer times out after 125 seconds.
+The service/worker perform independent native checks, telemetry/watchdog supervision
+and write-ahead recovery. Unsupported binding, stale sensors, stalled RPM or
+critical heat cannot be overridden by GUI assertions.
+
+### Status and stop
+
+`cooling.sessions.status` takes no parameters and returns:
+
+- `available:bool`, `job_id:u64|null` (daemon-lifetime identity).
+- `state`: `disabled`, `idle`, `authorizing`, `executing`, `stopping`, `completed`,
+  `stopped`, `failed`, or `blocked`.
+- `report:null|{calibration,native_closed,maintenance_authorized,minimum_applied_percent,initial_rpm,last_rpm}`.
+  `calibration` is null for curves, otherwise the calibration result. RPM values
+  are initial/last checked native readings; `minimum_applied_percent` is the
+  lowest acknowledged command, not a mechanically verified minimum.
+- `error:string|null`: asynchronous authorization, transport or runtime failure.
+
+`completed`/`stopped` after native execution require the authenticated firmware
+return and durable journal-clear proof (`maintenance_authorized=true`). A stop
+during authorization can yield `stopped` with no report because no acquisition was
+started. `failed` covers authorization/pre-start failure. `blocked` means uncertain
+native execution/return: inspect protected recovery state before daemon restart;
+new starts are refused. No failed outcome is evidence of successful return.
+
+`cooling.sessions.stop` requires `job_id` as u64 matching the active job. It returns
+`true` when queued, not when released. It may be repeated while active. During
+UAC authorization, stop waits for the authorization helper to finish before
+preventing acquisition; it does not dismiss the Windows prompt. Runtime stopping
+allows 20 seconds for checked return. Status polling remains available meanwhile.
+Closing either GUI does not stop the daemon/session. Daemon teardown closes the
+command channel and joins the dedicated worker, requesting checked native return.
+
+### Errors
+
+- `-32602`: malformed/missing/wrongly typed required fields or unknown start fields;
+  missing/non-u64 stop `job_id`.
+- `-32006`: semantic validation failure, confirmation missing, provider disabled,
+  active/blocked job, exhausted job identity, worker/queue unavailable, or stop ID
+  not active. Synchronous errors do not queue native acquisition.
+- Once a start is queued, UAC refusal/cancellation/timeout, unavailable or obsolete
+  installed service, invalid native source/binding and execution/return faults are
+  reported through `status.error` and its state, not a later RPC response.
+
+Legacy clients need not use these methods; API version remains 1. Hardware and
+release acceptance limits are recorded in [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).

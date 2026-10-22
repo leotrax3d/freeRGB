@@ -65,6 +65,7 @@ internal static class DeploymentTests
             Assert(rejected, "Broad or invalid owner accepted.");
         }
         Assert(BrokerDeployment.Dispatch(new[] { "--install", "missing-consent" }) == 2, "Missing consent accepted.");
+        Assert(BrokerDeployment.Dispatch(new[] { "--prepare-maintenance", "missing-consent" }) == 2, "Maintenance without consent accepted.");
     }
     private static int Main(string[] args)
     {

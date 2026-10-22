@@ -15,6 +15,14 @@ internal sealed class NativeControlBroker : IDisposable
     private readonly NamedPipeServerStream pipe;
     private readonly Thread thread;
     private volatile bool stopping;
+    private volatile bool maintenance;
+    private readonly object admission=new object();
+    private readonly ManualResetEvent idle=new ManualResetEvent(true);
+    internal void PrepareMaintenance()
+    {
+        lock (admission) maintenance=true;
+        if (!idle.WaitOne(20000)) throw new TimeoutException("Active native return did not finish; keep binaries and recovery state.");
+    }
     internal NativeControlBroker(SecurityIdentifier owner)
     {
         pipe=BrokerTransport.CreateServer(PipeName,owner);
@@ -28,10 +36,14 @@ internal sealed class NativeControlBroker : IDisposable
         BrokerService.CheckProtectedPath(path);
         if (new FileInfo(path).Length > 4096) throw new InvalidDataException("Control authorization too large.");
         var value=new JavaScriptSerializer { MaxJsonLength=4096,RecursionLimit=8 }.DeserializeObject(File.ReadAllText(path)) as Dictionary<string,object>;
-        if (value == null || value.Count != 7 || !Object.Equals(value["version"],1) ||
-            !Object.Equals(value["floor_percent"],100) || !(value["critical_c"] is int) ||
+        if (value == null || (value.Count != 7 && value.Count != 8) || !Object.Equals(value["version"],1) ||
+            !(value["floor_percent"] is int) || !(value["critical_c"] is int) ||
             (int)value["critical_c"] < 40 || (int)value["critical_c"] > 100)
-            throw new InvalidDataException("Only protected fixed100 commissioning authorization is accepted.");
+            throw new InvalidDataException("Invalid protected commissioning authorization.");
+        int minimum=(int)value["floor_percent"];
+        if ((minimum < 40 || minimum > 100) ||
+            (minimum < 100 && (!value.ContainsKey("role") || !Object.Equals(value["role"],"fan"))))
+            throw new InvalidDataException("Reduced commissioning duty requires explicit protected fan authorization.");
         DateTime expiry;
         if (!(value["expires_utc"] is string) || !DateTime.TryParseExact((string)value["expires_utc"],"o",System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.RoundtripKind,out expiry) || expiry.Kind != DateTimeKind.Utc || expiry <= DateTime.UtcNow || expiry > DateTime.UtcNow.AddMinutes(5))
@@ -51,6 +63,11 @@ internal sealed class NativeControlBroker : IDisposable
                 pipe.WaitForConnection();
                 if (stopping) return;
                 if (BrokerTransport.ReadRecord(pipe,2000,256) != "open") throw new InvalidDataException("Expected native session open.");
+                lock (admission)
+                {
+                    if (maintenance || stopping) throw new InvalidOperationException("Native control admission closed for maintenance.");
+                    idle.Reset();
+                }
                 var authorization=Authorization();
                 stage="worker_start";
                 string controlId=(string)authorization["control_id"];
@@ -87,7 +104,7 @@ internal sealed class NativeControlBroker : IDisposable
                             stage="session";
                             try
                             {
-                                while (!stopping)
+                                while (!stopping && !maintenance)
                                 {
                                     BrokerTransport.Write(pipe,Encoding.UTF8.GetBytes(reply+"\n"));
                                     var receipt=new JavaScriptSerializer { MaxJsonLength=2048 }.DeserializeObject(reply) as Dictionary<string,object>;
@@ -128,6 +145,7 @@ internal sealed class NativeControlBroker : IDisposable
             }
             finally
             {
+                idle.Set();
                 try { if (pipe.IsConnected) pipe.Disconnect(); }
                 catch (ObjectDisposedException) { }
                 catch (IOException) { }
@@ -163,6 +181,27 @@ internal sealed class NativeControlBroker : IDisposable
                 string request=BrokerTransport.ReadRecord(input,2000,2048);
                 BrokerTransport.Write(connection,Encoding.UTF8.GetBytes(request+"\n"));
             }
+        }
+    }
+    internal static int RequestAuthorization(string[] args)
+    {
+        if (args.Length != 6) return 2;
+        foreach(int index in new[] {1,2,3})
+            if (!System.Text.RegularExpressions.Regex.IsMatch(args[index],"^/lpc/[a-z0-9]+/[0-9]+/(control|temperature|fan)/[0-9]+$")) return 2;
+        int critical,minimum;
+        if (!Int32.TryParse(args[4],out critical) || critical < 40 || critical > 100 ||
+            !Int32.TryParse(args[5],out minimum) || minimum < 40 || minimum > 100) return 2;
+        BrokerService.CheckProtectedPath(BrokerTransport.ServicePath);
+        string sid;
+        using (var user=WindowsIdentity.GetCurrent()) sid=user.User.Value;
+        var start=new ProcessStartInfo(BrokerTransport.ServicePath,"--authorize-control --consent "+sid+" "+String.Join(" ",args,1,5)) {
+            UseShellExecute=true,Verb="runas",WindowStyle=ProcessWindowStyle.Hidden,
+            WorkingDirectory=Environment.GetFolderPath(Environment.SpecialFolder.System)
+        };
+        using (var process=Process.Start(start))
+        {
+            if (!process.WaitForExit(120000)) throw new TimeoutException("Control authorization did not finish.");
+            return process.ExitCode;
         }
     }
 }

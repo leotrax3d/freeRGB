@@ -8,7 +8,7 @@ begin
     'Optionale Zusatzkomponenten installieren',
     'Optionale Mainboard-Sensoren: LibreHardwareMonitor 0.9.6, bei Bedarf PawnIO 2.2.0 und .NET 4.8.' + #13#10#13#10 +
     'Geprüfte offizielle Downloads; UAC, Herstellerdialoge und Neustart möglich. PawnIO: signierte Standardedition wählen.' + #13#10#13#10 +
-    'Installiert oder aktualisiert auch den geschützten freeRGB-Sensordienst (Systemrechte, automatischer Dienststart). GUI/Daemon bleiben ohne Adminrechte. Lüfterregelung noch gesperrt; RGB/ARGB separat. Ohne Auswahl keine Zusatzinstallation.', False, False);
+    'Installiert oder aktualisiert auch den geschützten freeRGB-Sensordienst (Systemrechte, automatischer Dienststart). GUI/Daemon bleiben ohne Adminrechte. Experimentelle Lüfterregelung erfordert eine separate Bestätigung und UAC; RGB/ARGB separat. Ohne Auswahl keine Zusatzinstallation.', False, False);
   MainboardPage.Add('Benötigte Mainboard-Komponenten herunterladen und installieren (Internet erforderlich)');
   MainboardPage.Values[0] := False;
 end;

@@ -9,6 +9,7 @@ pub mod conflicts;
 pub mod control;
 pub mod cooling_host;
 pub mod cooling_runtime;
+pub mod cooling_sessions;
 pub mod custom_effects;
 pub mod engine;
 pub mod hardware;

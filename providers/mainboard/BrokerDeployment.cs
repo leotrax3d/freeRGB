@@ -361,7 +361,8 @@ internal static class BrokerDeployment
     {
         bool install = args.Length == 6 && args[0] == "--install" && args[1] == "--consent";
         bool remove = args.Length == 3 && args[0] == "--remove" && args[1] == "--consent";
-        if (!install && !remove) return 2;
+        bool prepare = args.Length == 3 && args[0] == "--prepare-maintenance" && args[1] == "--consent";
+        if (!install && !remove && !prepare) return 2;
         try
         {
             string sid = Owner(args[2]).Value;
@@ -383,19 +384,21 @@ internal static class BrokerDeployment
                     File.SetAccessControl(lockPath, acl);
                 }
                 BrokerService.CheckProtectedPath(maintenance.Name);
+                var owned = new BrokerRegistration(sid);
+                if (owned.Exists) { owned.ValidateOwner(); MainboardMaintenance.RequestIfSupported(); }
                 using (var controls = NativeControlJournal.CreateForMaintenance())
                     controls.Maintenance(delegate {
-                        if (install) Install(sid, args[3], args[4], args[5]); else Remove(sid);
+                        if (install) Install(sid, args[3], args[4], args[5]); else if (remove) Remove(sid);
                     });
-                Report(install ? "install" : "remove", "success", "Owned broker maintenance completed; fan writes remain disabled.");
+                Report(prepare ? "prepare" : install ? "install" : "remove", "success", "Owned broker maintenance completed; native return/journal gate passed.");
             }
-            Console.WriteLine(install ? "Protected mainboard broker installed and running. Fan writes remain disabled." : "Owned mainboard broker removed. Shared PawnIO and .NET are unchanged.");
+            Console.WriteLine(prepare ? "Native maintenance prepared; admission remains closed until service restart." : install ? "Protected mainboard broker installed and running. Live control requires separate authorization." : "Owned mainboard broker removed. Shared PawnIO and .NET are unchanged.");
             return 0;
         }
         catch (Exception error)
         {
             Console.Error.WriteLine(error.Message);
-            try { Report(install ? "install" : "remove", "failed", error.Message); }
+            try { Report(prepare ? "prepare" : install ? "install" : "remove", "failed", error.Message); }
             catch (Exception reportError) { Console.Error.WriteLine("Could not save maintenance diagnostic: " + reportError.GetType().Name); }
             return 1;
         }

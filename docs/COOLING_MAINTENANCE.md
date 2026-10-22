@@ -74,31 +74,19 @@ After replacement, a new supervisor validates recovery and starts a new gate.
 Gate-local tokens are not globally unique: a future authenticated transport must
 bind them to a unique supervisor lifetime and reject replies from old workers.
 
-## Remaining production integration
+## Production integration and limits
 
-The Rust `CoolingHost` now owns the actual runtime tasks, reserves admission
-before native acquisition and implements stop/drain with the private verified
-return receipt. Tests exercise successful drain, missing evidence and stuck
-acquisition. It permits only one channel until the durable journal supports more.
-This is executable integration logic, but still has no productive SCM/installer
-caller. See `COOLING_RUNTIME.md` for the exact remaining boundary.
+The daemon owns CoolingHost tasks; the protected service independently closes
+admission and drains the native worker through SCM command 129. Protected,
+nonce-bound request/ready files and checked firmware/journal return gate mutation.
+The installer holds the native reservation mutex through protected swap/removal.
+Setup also calls --prepare-maintenance before replacing application files.
+Failure/cancellation preserves binaries and recovery evidence. A prepared service
+keeps admission closed until restarted, including when Setup is cancelled.
 
-The existing C# service stop path now closes diagnostic admission and waits for
-bounded in-flight native work before forced termination. This gives the fixed100
-diagnostic time to verify return; it is not yet an active-curve maintenance
-handshake. Forced termination cannot assert return and leaves recovery intent.
-
-An in-memory gate alone cannot exclude another process or survive a supervisor
-crash. The service needs exclusive lifetime ownership, a maintenance handshake and
-an OS-level admission boundary shared with upgrade/uninstall. The installer must
-wait for authorization before stopping or replacing binaries and fail without
-deleting recovery evidence when authorization fails. Rollback must retain that
-boundary. Neither GUI participates in hardware shutdown decisions.
-
-Current acceptance is synthetic Rust testing: multiple sessions, admission refusal,
-exact/duplicate tokens, each missing proof, worker loss, timeout, clock reversal,
-overflow and non-extendable deadlines. Actual service/installer integration remains
-unchecked in `COOLING_IMPLEMENTATION_PLAN.md`.
+The existing 80% active same-version payload replacement passed on CHA_FAN2.
+This is not version-to-version upgrade, rollback, uninstall or fault acceptance.
+See [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md) for the exact evidence boundary.
 
 The feature-gated `freergb-cooling-guard-fixture --supervised` now combines the
 Rust telemetry/lease and maintenance policies in a real child process. A bounded
@@ -110,5 +98,5 @@ always reports `simulated=true` and `physical_write_verified=false`.
 
 Run `cargo test -p freergb-daemon --features cooling-fixture --test cooling_guard_process --locked`.
 The fixture is excluded from ordinary builds/installer packaging. It does not
-install a service, open a sensor backend or write hardware. Production supervisor
-authentication, process ownership, native I/O and installer handshake remain open.
+install a service, open a sensor backend or write hardware. The fixture does not prove production behavior; hardware/release acceptance limits
+are recorded in COOLING_ACCEPTANCE.md.

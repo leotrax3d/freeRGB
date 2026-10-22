@@ -29,7 +29,7 @@ internal sealed class NativeControl : INativeControlPort, INativeReturnEvidence
     public bool FirmwareReturnVerified { get { lock (reservation.Gate) return returnVerified && !owned; } }
     public bool JournalCleared { get { return false; } } // Only the journal wrapper can assert this.
 
-    private NativeControl(object control, bool pump)
+    private NativeControl(object control, bool pump, int? commissioningFloor = null)
     {
         if (control == null) throw new ArgumentNullException("control");
         Type type = control.GetType();
@@ -37,7 +37,8 @@ internal sealed class NativeControl : INativeControlPort, INativeReturnEvidence
         if (type.FullName != "LibreHardwareMonitor.Hardware.Control" || assembly.Name != "LibreHardwareMonitorLib" || assembly.Version != new Version(0, 9, 6, 0))
             throw new InvalidOperationException("Native control requires the pinned LHM 0.9.6 control implementation.");
         this.control = control;
-        floor = pump ? 100 : 40;
+        floor = pump ? 100 : (commissioningFloor ?? 40);
+        if (floor < 40 || floor > 100) throw new InvalidOperationException("Unsupported commissioning floor.");
         mode = type.GetProperty("ControlMode");
         value = type.GetProperty("SoftwareValue");
         cachedMode = type.GetField("_mode", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -62,12 +63,19 @@ internal sealed class NativeControl : INativeControlPort, INativeReturnEvidence
     { var adapter = new NativeControl(control,pump); adapter.evidence = evidence; return adapter; }
 #else
     internal static NativeControl CreateProtected(object control, bool pump)
+    { return CreateProtectedCore(control,pump,null); }
+    internal static NativeControl CreateCommissioningProtected(object control, int minimum)
+    {
+        if (minimum < 40 || minimum > 100) throw new InvalidOperationException("Invalid commissioning floor.");
+        return CreateProtectedCore(control,minimum == 100,minimum);
+    }
+    private static NativeControl CreateProtectedCore(object control, bool pump, int? minimum)
     {
         BrokerService.CheckInstallation(true);
         string expected = Path.Combine(BrokerService.RuntimePath, "LibreHardwareMonitorLib.dll");
         if (control == null || !String.Equals(Path.GetFullPath(control.GetType().Assembly.Location), expected, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Control object did not originate in the protected runtime.");
-        var adapter = new NativeControl(control, pump);
+        var adapter = new NativeControl(control, pump, minimum);
         adapter.evidence = NativeNctEvidence.Create(control);
         return adapter;
     }

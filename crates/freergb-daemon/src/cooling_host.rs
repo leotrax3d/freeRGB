@@ -29,6 +29,7 @@ pub struct CoolingHost {
     gate: MaintenanceGate,
     epoch: Instant,
     execution: Option<Execution>,
+    last_report: Option<RuntimeReport>,
 }
 
 impl CoolingHost {
@@ -38,6 +39,7 @@ impl CoolingHost {
             gate: MaintenanceGate::new(recovery_clear, 0),
             epoch,
             execution: None,
+            last_report: None,
         }
     }
 
@@ -130,6 +132,7 @@ impl CoolingHost {
                     },
                     self.now(),
                 )?;
+                self.last_report = Some(report.clone());
                 Ok(report)
             }
             failure => {
@@ -190,6 +193,9 @@ impl CoolingHost {
 
     pub fn state(&mut self) -> MaintenanceState {
         self.gate.poll(self.now())
+    }
+    pub fn last_report(&self) -> Option<&RuntimeReport> {
+        self.last_report.as_ref()
     }
 }
 

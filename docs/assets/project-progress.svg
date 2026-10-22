@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="206" viewBox="0 0 880 206" role="img" aria-labelledby="title desc">
-  <title id="title">freeRGB estimated overall product progress: 50%</title>
-  <desc id="desc">Engineering estimate dated 2026-10-21. Foundations and limited hardware acceptance exist. Production integration, broader hardware coverage and release acceptance remain. This is not a measured test pass rate.</desc>
+  <title id="title">freeRGB estimated overall product progress: 55%</title>
+  <desc id="desc">Engineering estimate dated 2026-10-22. Foundations and limited hardware acceptance exist. Production integration, broader hardware coverage and release acceptance remain. This is not a measured test pass rate.</desc>
   <rect width="880" height="206" rx="16" fill="#101827"/>
   <g font-family="Segoe UI,Arial,sans-serif">
     <text x="28" y="39" font-size="22" font-weight="700" fill="#f4f7ff">freeRGB · Product progress</text>
-    <text x="852" y="39" text-anchor="end" font-size="16" fill="#c3cee0">2026-10-21</text>
-    <text x="28" y="76" font-size="17" fill="#d9e3f4">Engineering estimate · approximately 50%</text>
+    <text x="852" y="39" text-anchor="end" font-size="16" fill="#c3cee0">2026-10-22</text>
+    <text x="28" y="76" font-size="17" fill="#d9e3f4">Engineering estimate · approximately 55%</text>
     <rect x="28" y="94" width="824" height="26" rx="13" fill="#334155"/>
-    <rect x="28" y="94" width="412" height="26" rx="13" fill="#38bdf8"/>
+    <rect x="28" y="94" width="453.2" height="26" rx="13" fill="#38bdf8"/>
     <text x="28" y="151" font-size="15" fill="#d9e3f4">Implemented foundations + partial hardware acceptance</text>
     <text x="28" y="179" font-size="15" fill="#c3cee0">Remaining: production integration · hardware coverage · release acceptance</text>
   </g>

@@ -66,6 +66,11 @@ internal sealed class NativeControlJournal : IDisposable
         BrokerService.CheckProtectedPath(root);
         return new NativeControlJournal(root,false,true);
     }
+    internal static NativeControlJournal CreateForService()
+    {
+        BrokerService.CheckInstallation(false);
+        return new NativeControlJournal(Path.GetDirectoryName(BrokerTransport.DirectoryPath),false);
+    }
 #endif
     private void Check(string file)
     {

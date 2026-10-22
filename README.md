@@ -30,12 +30,12 @@ no vendor software required.
 
 ## Project status
 
-*Last updated: 2026-10-21. Includes current working-tree implementations; this is
+*Last updated: 2026-10-22. Includes current working-tree implementations; this is
 not a claim that every change is already published in a release.*
 
-![Estimated overall product progress: 50 percent. Implemented foundations and partial hardware acceptance; integration and release work remain.](docs/assets/project-progress.svg)
+![Estimated overall product progress: 55 percent. Implemented foundations and partial hardware acceptance; integration and release work remain.](docs/assets/project-progress.svg)
 
-**Overall progress: approximately 50% (engineering estimate).** This covers the
+**Overall progress: approximately 55% (engineering estimate).** This covers the
 requested complete product, including motherboard cooling/RGB, installers, updates,
 macros and hardware acceptance. It is not a test pass rate, a measured percentage
 of supported hardware, or a promise of a delivery date. The tables below are the
@@ -53,26 +53,26 @@ Synthetic tests, real hardware tests and public UI availability are distinguishe
 | ✅ Effects | 11 built-ins: Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Radial Rainbow, Scanner, Twinkle, Audio Pulse, Audio Spectrum, Screen Ambience; custom layered effects | Further effects and richer layouts can be added; device coverage is separate |
 | ✅ Effect editor | Up to eight layers, blending, opacity, regions, named effect library | Further UX refinement and broader interactive acceptance |
 | ✅ Audio and screen lighting | Windows WASAPI loopback and primary-monitor capture; live RGB acceptance on existing Corsair hardware | Linux capture and real hardware acceptance |
-| ✅ Daemon and local API | `freergbd`, bounded JSON-RPC IPC, diagnostics, persisted state/profiles, virtual-device mode; no cloud account | New live motherboard-control methods after safety acceptance; keep existing API additive |
+| ✅ Daemon and local API | `freergbd`, bounded JSON-RPC IPC, diagnostics, persisted state/profiles, virtual-device mode; no cloud account | Additive live session methods implemented; interactive acceptance remains |
 | ✅ Profiles | Save/load profiles; Windows foreground-application rules with session opt-in and stability/debounce handling | Interactive application-switch acceptance and Linux integration |
-| 🟡 Classic GUI | Device/effect controls, canvas layout, profiles, cooling definitions/channel annotations/custom sources, macros, monitoring, diagnostics, updates | Product polish and productive live motherboard cooling controls |
+| 🟡 Classic GUI | Device/effect controls, canvas layout, profiles, cooling definitions/channel annotations/custom sources, macros, monitoring, diagnostics, updates | Explicit experimental live-session dialog implemented; interactive hardware acceptance remains |
 | 🟡 Modern GUI | Separate Tauri 2 + React implementation is being developed on `feature/tauri-gui`; shared daemon API is the compatibility boundary | Merge/release and feature parity; its current feature completion is tracked on that branch, not asserted here |
 | 🟡 Device plugins | TOML descriptions, explicit trusted process plugins, bounded I/O, timeout/crash isolation, lifecycle API/UI and Rust virtual reference | More adapters, broader hot-load UX and effect-process plugins; plugins are not sandboxed |
 | 🟡 Keyboard interaction | Daemon-owned per-key glow/fade overlay, K70 CORE key/LED mapping, optional Windows input helper, RPC editor and versioned configuration | Real typing-to-LED acceptance, more keyboards/layouts and Linux input |
 | 🟡 Macros | Visual/JSON editor; save/run/cancel; delay/repeat, colours/effects/brightness, opt-in Windows text/key/media/chord output; session-opt-in global hotkeys | Recording, device-specific macro key assignment, real native output/hotkey acceptance and Linux native input |
 | 🟡 Monitoring | Cached LINK RPM/temperatures, isolated motherboard sensor reader, histories with stale gaps, sensor alerts with debounce/hysteresis/acknowledgement, redacted diagnostic export | Verified CPU/GPU/coolant labels and sources across hardware; interactive acceptance |
 | ✅ Custom temperature sources | Daemon-owned Celsius graphs: input, offset, min/max/average/sum/subtraction and time averaging; validation and freshness propagation | Bind trusted sources to productive live control; additional source providers |
-| 🟡 Fan curves and calibration | Rust curve models/editor/storage/API, interpolation/hysteresis, temperature/stale-data policy; bounded calibration state machine and synthetic preview | Real reduced-duty calibration, verified minimum duty and productive hardware binding |
+| 🟡 Fan curves and calibration | Rust curve models/editor/storage/API, interpolation/hysteresis, temperature/stale-data policy; bounded calibration state machine and synthetic preview | Verified minimum duty and wider binding; CHA_FAN2 calibration ran but hardware_verified remains false |
 | 🟡 Channel assignment | Explicit header/control/RPM/fan-or-pump annotations, validation, persistence and Classic RPC editor | Physical/electrical confirmation across boards; annotations alone never authorize writes |
 | 🟡 Motherboard discovery | Optional pinned LibreHardwareMonitor/PawnIO provider, protected Windows service, bounded authenticated local transport; actual ASUS/Nuvoton inventory read successfully | Additional chip/board acceptance, confirmed labels and alternative providers; detection does not imply writable support |
-| 🟡 Native write evidence | Pinned Nct677X adapter captures original mode/command and checks actual command/mode registers; protected administrator diagnostic limited to 100% | Broader native backends and approved reduced-duty operation; shared-bit/EC variants and unsupported families remain blocked |
+| 🟡 Native write evidence | Pinned Nct677X adapter captures original mode/command and checks actual command/mode registers; protected fan-only authorization with a 40% minimum | Broader native backends and sustained reduced-duty acceptance; shared-bit/EC variants and unsupported families remain blocked |
 | 🟡 Crash recovery | Durable intent before writes; unresolved state blocks control/maintenance; protected original-state recovery with chip/process/service identity checks; real worker-crash test passed on the test board | Broader service/reboot/power-loss scenarios and multi-channel recovery; unresolved ownership must remain blocked |
-| 🟡 Independent supervision | Rust lease and temperature/RPM/stall policies; private native lease/interlock; Rust runtime keeps sensor/timer checks running while native I/O waits | Productive trusted sampler/host wiring, full process-boundary fault acceptance and validated handling of driver hangs |
-| 🟡 Protected curve execution | Rust runtime/owned host, authenticated service bridge and checked native sampler; actual constant100% curve with verified return passed on CHA_FAN2; six synthetic Rust/C# interoperability tests | Variable-duty hardware curves/calibration, normal daemon API/GUI callers and wider acceptance; see [bridge](docs/MAINBOARD_CONTROL_BRIDGE.md) |
+| 🟡 Independent supervision | Rust lease and temperature/RPM/stall policies; private native lease/interlock; Rust runtime keeps sensor/timer checks running while native I/O waits | Full process-boundary fault acceptance and validated handling of driver hangs |
+| 🟡 Protected curve execution | Rust runtime/owned host, authenticated service bridge and checked native sampler; actual 80% curve/calibration with verified return passed on CHA_FAN2; six synthetic Rust/C# interoperability tests | Interactive acceptance of the new session API/Classic dialog and wider hardware coverage; see [bridge](docs/MAINBOARD_CONTROL_BRIDGE.md) |
 | 🟡 Motherboard RGB/ARGB | Separate experimental ASUS USB backend (`0b05:19af`), manual ARGB lengths, protocol validation and mock tests; no PawnIO needed for this USB path | Actual header colour/fallback tests, setup UI, broader ASUS IDs and MSI/Gigabyte/ASRock/other protocols |
 | 🟡 Windows installer | Inno Setup, project icon, launcher entry point, independent Start Menu/desktop/autostart choices (**autostart defaults on**), optional manufacturer uninstallers, configuration preservation; CI lifecycle tests | Interactive vendor-uninstaller acceptance, cross-version upgrade and remaining prerequisite/UAC/reboot scenarios |
 | 🟡 Optional prerequisites | Explicit unchecked installer opt-in for verified LHM/PawnIO/missing .NET prerequisites and protected mainboard service; fixed hashes/publisher checks and failure/cancellation reporting | Wider clean-machine acceptance and alternate backends; these dependencies are not required for every RGB device |
-| 🟡 Safe maintenance | Protected reservation mutex and pending/corrupt-journal refusal; owned Rust runtime host closes admission and drains with verified return; service stop waits for bounded diagnostics; synthetic/disposable-service tests | Connect the Rust host to production service/installer admission; active-control upgrade/uninstall/rollback acceptance |
+| 🟡 Safe maintenance | Protected reservation mutex and pending/corrupt-journal refusal; owned Rust runtime host closes admission and drains with verified return; service stop waits for bounded diagnostics; synthetic/disposable-service tests | Service handshake implemented; same-version active replacement passed; release upgrade/uninstall/rollback acceptance remains |
 | 🟡 Automatic updates | Fixed GitHub Release source, stable-version selection, bounded downloads, SHA-256 verification, staging/install UI, optional periodic checks/downloads | First published release, real version-to-version update and failure recovery, Authenticode signing; installation remains a visible user action |
 | 🟡 GitHub and releases | Repository, Windows/Ubuntu CI, packaging/lifecycle workflows, installer artifacts and draft releases for version tags | Fresh acceptance for current changes, release publication, signing and release/branch protection policy |
 | 🟡 Linux | Shared Rust core/IPC, CI builds/tests, udev rules and systemd user unit | Real hardware acceptance, capture/native input parity and distribution packages |
@@ -81,6 +81,8 @@ Synthetic tests, real hardware tests and public UI availability are distinguishe
 both GUIs use its local API. C# remains at the pinned Windows/LHM boundary and
 Inno Setup handles Windows packaging. The project does not require SignalRGB,
 iCUE or FanControl to control supported devices.
+
+Current evidence and release gates: [cooling acceptance](docs/COOLING_ACCEPTANCE.md).
 
 Detailed implementation history and test records:
 [worklist](docs/WORKLIST.md), [testing](docs/TESTING.md),
@@ -99,20 +101,23 @@ On the **ASUS PRIME X870-P WIFI / Nuvoton NCT6701D** test system:
 - [x] Test only **100% duty** on the selected channel: observed approximately **1324 → 1709 RPM**, with native command-register verification.
 - [x] Verify return to the original firmware mode and clear the recovery journal only after verification; later RPM returned to approximately 1300.
 - [x] Kill the exact owned native worker during the 100% diagnostic; supervisor restart, protected baseline recovery and journal clearance succeeded.
-- [x] Execute the Rust curve host through the real authenticated service and dedicated native worker, using checked native temperature/RPM sampling; constant100% curve and verified return passed.
-- [ ] Accept reduced-duty response/calibration, sustained curves and temperature/RPM/stall fault handling on the productive path.
+- [x] Execute the Rust curve host through the real authenticated service and dedicated native worker, using checked native temperature/RPM sampling; 80% curve and verified return passed.
+- [x] Execute 100/80/60/40% calibration; 50% recommendation remains `hardware_verified=false`.
+- [x] Drain active 80% control before same-version service payload replacement.
+- [ ] Accept sustained curves and temperature/RPM/stall faults on real hardware.
 - [ ] Accept service/reboot failure cases and active-control upgrade/uninstall.
-- [ ] Expose accepted live control through the daemon API and both GUIs.
+- [x] Implement additive session API and thin Classic dialog.
+- [ ] Accept the public API/Classic path interactively; add modern-GUI live-session parity.
 
 These measurements establish progress on **one board and one fan channel**.
-Normal GUI/API motherboard fan control remains disabled. They do not validate
+Experimental live control requires explicit fan confirmation and UAC; public-path acceptance remains. These results do not validate
 every Nuvoton chip, another manufacturer's board, or motherboard RGB headers.
 Support for all manufacturers is the goal; each backend still needs implementation
 and validation. Fan power (PWM/DC) and lighting (5 V ARGB / 12 V RGB) are separate paths.
 
 ### Remaining delivery order
 
-1. Extend the verified constant100% protected path to accepted variable-duty curves/calibration and normal daemon callers.
+1. Accept the implemented session API/Classic dialog on the confirmed fan with verified return.
 2. Complete independent fault supervision, recovery and safe active-session maintenance.
 3. Perform reduced-duty, calibration, curve and failure acceptance on actual supported hardware.
 4. Add documented live daemon methods and thin UI controls; coordinate modern-GUI parity through the shared API.
@@ -136,7 +141,7 @@ Everything else is detected and listed, but never touched.
 | Corsair iCUE LINK AIO LCD screen (`1b1c:0c4e`) | 🔍 identified | Display content not supported |
 | Corsair Vengeance RGB DDR5 (SMBus) | 🔍 identified | Deferred: SMBus writes near SPD are risky |
 | ASUS AURA USB controller (`0b05:19af`) | 🧪 experimental backend | Explicit opt-in; RGB/ARGB header protocol implemented and mock-tested; real colour/fallback acceptance pending |
-| ASUS PRIME X870-P WIFI / NCT6701D | 🧪 limited hardware acceptance | Actual sensor reads, selected CHA_FAN2 100% diagnostic, firmware return and worker-crash recovery passed; normal live fan control not enabled |
+| ASUS PRIME X870-P WIFI / NCT6701D | 🧪 limited hardware acceptance | Sensor reads, CHA_FAN2 80% curve/calibration, verified return and same-version maintenance passed; wider acceptance open |
 | Razer Cobra (`1532:00a3`) | 🔍 identified | |
 
 Full details, test logs and confidence levels: [docs/DEVICES.md](docs/DEVICES.md) and

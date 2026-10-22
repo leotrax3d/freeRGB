@@ -99,8 +99,13 @@ fn main() -> Result<()> {
             .join("freergb-mainboard.exe");
         engine
             .mainboard
-            .start(helper, library.clone(), !args.no_hardware)
+            .start(helper.clone(), library.clone(), !args.no_hardware)
             .map_err(anyhow::Error::msg)?;
+        if !args.no_hardware && cfg!(windows) {
+            engine.cooling_sessions =
+                freergb_daemon::cooling_sessions::CoolingSessions::enable(helper)
+                    .map_err(anyhow::Error::msg)?;
+        }
     }
     if !args.no_state {
         if let Some(path) = state::default_path() {

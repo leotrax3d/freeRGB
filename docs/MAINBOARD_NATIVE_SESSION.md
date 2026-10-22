@@ -2,8 +2,9 @@
 
 `NativeControlSession` and `NativeSessionTransport` connect an owned native port
 to a bounded private worker pipe and lease watchdog. They are compiled into the
-helper but have **no production caller/listener/CLI activation**. Snapshot service,
-public JSON-RPC and installer opt-in remain read-only. No GUI/config format changes.
+helper and called by the protected dedicated worker. The snapshot service stays
+read-only; public cooling.sessions RPC exposes explicit experimental starts with UAC.
+Installer opt-in alone does not authorize control; shared config formats are unchanged.
 
 ## Trust boundary
 
@@ -87,10 +88,10 @@ supervisor to ignore physical verification or a failed recovery state.
 The watchdog is independent of blocked **pipe input**, not of a hung native call:
 the session/native object locks still serialize I/O. A stalled driver/callback can
 block fallback, and process death loses in-memory recovery state. Production
-activation remains blocked on a protected crash-recovery journal, worker lifetime
-and independently usable recovery/readback path. A returned callback is not
-physical hardware acknowledgment. No physical fan is currently driven by this
-transport.
+uses the protected crash-recovery journal, worker lifetime identity and checked
+recovery/readback path. A returned callback alone is not physical hardware
+acknowledgment. Limited CHA_FAN2 results are recorded in COOLING_ACCEPTANCE.md;
+driver hangs and broader fault acceptance remain open.
 
 ## Evidence
 
@@ -191,3 +192,5 @@ production permissions are deliberately unchanged. These tests do not establish
 SYSTEM authentication, registered-service identity or worker-lifetime binding for
 the Rust client; those remain required before production use. The C# fixture mode
 exists only in the test executable and never enters installer payloads.
+
+Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).

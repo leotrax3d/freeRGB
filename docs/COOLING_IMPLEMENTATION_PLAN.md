@@ -1,8 +1,8 @@
 # Mainboard cooling implementation checklist
 
-Updated 2026-10-21. This is the execution plan for the current cooling work;
+Updated 2026-10-22. This is the execution plan for the current cooling work;
 `PRODUCT_PLAN.md` remains the wider product backlog. A checked test is not hardware
-acceptance. Live mainboard control remains disabled.
+acceptance. Experimental live sessions require explicit confirmation and UAC.
 
 ## Architecture
 
@@ -61,13 +61,13 @@ policy there. Both GUIs consume the same additive daemon API.
 - [x] Owned Rust runtime host reserves admission before acquisition, limits to
       one native channel and drains with verified-return evidence. Healthy-command
       tests independently reject stale temperature and sustained stalled RPM.
-      Production service transport/sampler and installer callers remain missing.
+      Protected native transport/sampler and installer handshake are implemented.
 - [x] Actual Rust pilot -> authenticated service -> protected worker bridge,
       checked independent native sampler and verified firmware/journal return;
-      real constant100% curve passed on CHA_FAN2. Normal daemon/API/GUI callers,
-      variable-duty acceptance and installer drain remain missing. See
+      real 80% curve/calibration and same-version active drain passed on CHA_FAN2.
+      Public API/Classic interactive and release acceptance remain. See
       `MAINBOARD_CONTROL_BRIDGE.md` (supersedes the earlier transport status).
-- [ ] Run calibration and curves through the Rust supervisor/private native client.
+- [x] Run calibration and curves through the Rust supervisor/private native client.
 - [ ] Support multiple channels with backward-compatible journal reservations.
 - [ ] Retain explicit user channel/source selection and conservative pump limits.
 
@@ -79,9 +79,9 @@ policy there. Both GUIs consume the same additive daemon API.
       stop/swap/remove and refuses pending/invalid journal state. Local concurrent
       exclusion tested; disposable SCM acceptance passed for `983a67a`, run
       `39559255035` (unchanged service PID, executable hash and recovery bytes).
-- [ ] Connect the Rust admission/release handshake to the production supervisor.
-- [ ] Request return, await confirmed release, then stop/swap/remove binaries.
-- [ ] Unresolved or failed release blocks maintenance and preserves recovery files.
+- [x] Connect Rust execution to the protected supervisor and independent native maintenance drain.
+- [x] Request return, await confirmed release, then stop/swap/remove binaries (same-version hardware evidence).
+- [x] Unresolved or failed release blocks maintenance and preserves recovery files.
 - [ ] Test active-session upgrade/uninstall, timeout and rollback in disposable CI.
 - [ ] Keep optional prerequisites/control activation opt-in; no local installation
       or hardware writes as a side effect of development tests.
@@ -98,8 +98,12 @@ policy there. Both GUIs consume the same additive daemon API.
       exact owned worker termination/restart, native baseline return and empty journal.
 - [ ] Verify selected fan/pump, register effects, RPM response and firmware return.
 - [ ] Test command loss, sensor loss, process/service crash and restart recovery.
-- [ ] Only then add documented live daemon API and both GUI integrations.
-- [ ] Keep API additive and configurations versioned; document all changes.
+- [x] Add documented experimental live daemon API and Classic integration.
+- [ ] Modern-GUI live-session parity and interactive public-path acceptance.
+- [x] Keep API additive and configurations versioned; document all changes.
 
-Next implementation: supervisor process integration and maintenance admission. Do not
-skip recovery, maintenance or hardware acceptance to expose a live toggle early.
+Next acceptance: public-path UAC/return, sustained hardware/fault behavior and
+release-to-release upgrade/rollback/uninstall. Existing same-version results do
+not close these gates.
+
+Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).

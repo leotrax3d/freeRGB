@@ -56,6 +56,8 @@ Source: "mainboard-prerequisites.psm1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "mainboard-packages.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; Flags: dontcopy
+Source: "{#BinDir}\freergb-mainboard-service.exe"; Flags: dontcopy
+Source: "prepare-mainboard.ps1"; Flags: dontcopy
 Source: "..\..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -137,9 +139,19 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var ExitCode: Integer;
+var ExitCode: Integer; Parameters: String;
 begin
   Result := '';
+  ExtractTemporaryFile('freergb-mainboard-service.exe');
+  ExtractTemporaryFile('prepare-mainboard.ps1');
+  Parameters := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\prepare-mainboard.ps1') +
+    '" -MaintenanceBinary "' + ExpandConstant('{tmp}\freergb-mainboard-service.exe') + '"';
+  if WizardSilent then Parameters := Parameters + ' -Silent';
+  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Parameters, '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+    Result := 'Mainboard-Wartung konnte nicht gestartet werden. Programmdateien bleiben erhalten.'
+  else if ExitCode <> 0 then
+    Result := 'Mainboard-Rückgabe nicht bestätigt oder UAC abgebrochen. Programmdateien bleiben erhalten.';
+  if Result <> '' then Exit;
   if FileExists(ExpandConstant('{app}\freergbd.exe')) then begin
     ExtractTemporaryFile('freergb.exe');
     if not Exec(ExpandConstant('{tmp}\freergb.exe'), 'stop-installed-daemon --directory "' + ExpandConstant('{app}') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then

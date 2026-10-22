@@ -3,8 +3,8 @@
 The private native-session candidate now requires a `JournaledNativeControl`
 port. Before native acquisition, it durably writes an intent. It clears that
 intent only after the owned native release callback returns and ownership is
-relinquished. Live control is still not enabled: no production caller/listener
-constructs this chain, and the normal snapshot service is unchanged.
+relinquished and firmware return is verified. The protected worker constructs this
+chain for explicit live sessions; the ordinary snapshot service stays read-only.
 
 ## Location and version 1
 
@@ -97,10 +97,9 @@ The productive host still needs exclusive lifetime/admission integration and
 independent physical fallback acceptance. Upgrade/uninstall
 must coordinate with active sessions before stopping or replacing the worker;
 maintenance now refuses pending/invalid journal state and holds the reservation
-mutex through replacement/removal (see `COOLING_MAINTENANCE.md`), but does not yet
-provide that active-session release protocol. Multiple
+mutex through replacement/removal (see `COOLING_MAINTENANCE.md`), and now uses the protected active-session release handshake. Multiple
 channels, driver/native hangs, service/OS crash and power loss remain open. These
-requirements keep the candidate inactive despite passing synthetic tests.
+limits prevent broad release/hardware approval.
 
 ## Evidence
 
@@ -118,3 +117,5 @@ local tests use temporary directories and synthetic ports, never install a
 service/driver and never open Computer/SuperIO. Factory gates assert test-directory
 constructors are absent from production. Check the fresh SCM result separately
 from the already passed service-client identity fixture.
+
+Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).

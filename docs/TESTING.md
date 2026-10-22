@@ -405,3 +405,10 @@ Journal baseline554f1c5 completed successfully in CI39483452355 and
 Package39483452206 as well as the broker/native quick runs. The later typed
 client also compiled into the current local installer and passed Inno model
 checks; its own fresh CI/Package remains separate.
+
+## 2026-10-22 session API integration
+
+See [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md) for current local results and
+hardware/release limits, and [LOCAL_API.md](LOCAL_API.md) for additive live-session
+parameters and errors. Native test passes remain synthetic unless explicitly
+identified as the existing CHA_FAN2 hardware evidence in that record.

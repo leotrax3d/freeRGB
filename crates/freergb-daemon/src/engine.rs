@@ -91,6 +91,7 @@ pub struct Diagnostics {
 }
 
 pub struct Engine {
+    pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
     pub controls: crate::control::Controls,
@@ -272,6 +273,7 @@ impl Engine {
             keyboard: Default::default(),
             controls: Default::default(),
             mainboard: Default::default(),
+            cooling_sessions: Default::default(),
             sensor_refresh_at: None,
             plugins: Default::default(),
             workers: Vec::new(),

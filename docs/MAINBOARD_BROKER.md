@@ -150,8 +150,10 @@ explicit mainboard opt-in/UAC. Remaining acceptance:
   across directory switches. Fixture reads/SCM success do not establish native
   hardware lifecycle safety. Never load service code from the writable app/cache.
 * Real LHM/PawnIO enumeration across motherboard families and confirmed physical
-  channel/source labels. No such driver-backed operation was tested on this PC.
+  channel/source labels. The selected ASUS/NCT6701D channel has limited hardware acceptance; see COOLING_ACCEPTANCE.md.
 
-Fan/header pairing, PWM/DC mode, safe minimums, calibration, actual writes and an
-independent failsafe remain separate gated work. Motherboard RGB/ARGB uses a
+Broad fan/header pairing, PWM/DC mode and verified minimums remain gated.
+CHA_FAN2 curve/calibration and same-version maintenance results are recorded in COOLING_ACCEPTANCE.md. Motherboard RGB/ARGB uses a
 different backend; see `MAINBOARD_RGB.md`.
+
+Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).

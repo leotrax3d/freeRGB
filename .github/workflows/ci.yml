@@ -91,3 +91,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/smoke-daemon.ps1 -WithPlugin
+
+      - name: Isolated live cooling API disabled/error cases (no hardware)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-cooling-session-api.ps1 -Daemon ./target/release/freergbd.exe

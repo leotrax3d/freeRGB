@@ -1,10 +1,10 @@
 # Protected native session bridge (commissioning only)
 
-Updated 2026-10-21. The actual end-to-end path passed on ASUS PRIME X870-P WIFI,
+Updated 2026-10-22. The actual end-to-end path passed on ASUS PRIME X870-P WIFI,
 NCT6701D, CHA_FAN2: Rust curve host -> user relay -> authenticated SYSTEM service
 -> dedicated protected native worker -> checked register write -> verified original
-firmware return and empty durable journal. This test ran a constant100% curve.
-It does not establish variable-duty/calibration or FanControl feature parity.
+firmware return and empty durable journal. An 80% curve and 100/80/60/40% calibration also ran and returned.
+The 50% recommendation remains hardware_verified=false; no FanControl parity is claimed.
 
 ## Executable path
 
@@ -53,8 +53,7 @@ Normal setup does not create authorization. The protected file
 
 The timestamp is an expired format example. Authorization must be administrator/
 SYSTEM-owned, non-reparse and not user-writable, unexpired and no more than five
-minutes ahead. Only floor100 is accepted; it is a commissioning limit, not a
-physical pump-role assertion. Sensor labels are still not verified CPU/coolant
+minutes ahead. Fan floors 40..100 are accepted with protected role="fan". Reduced pump control is excluded. Sensor labels are still not verified CPU/coolant
 identities. The test board's selected temperature is a SuperIO source only.
 
 `scripts/test-mainboard-pilot.ps1 -ConsentToProbe` creates a two-minute protected
@@ -65,7 +64,9 @@ output. `mainboard-control-last-error.json` records version1, stage and error ty
 without session/ticket secrets. A pre-session worker startup failure may also
 produce `mainboard-worker-last-error.txt` for protected local diagnostics.
 
-The normal live daemon API and both GUIs remain gated. Productive variable curves,
-real calibration, active-control installer drain, additional chip families and
-complete service/OS/driver fault acceptance remain open. The host's maintenance
-method is executable but not yet an installer/service maintenance handshake.
+The additive cooling.sessions API and Classic dialog use this protected path.
+Each start requests UAC; the protected service maintenance handshake drains before
+replacement/removal. Same-version active replacement passed. Public-path interactive
+acceptance, release upgrades/rollback/uninstall and service/OS/driver faults remain open.
+
+Current integration and hardware/release evidence: [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).

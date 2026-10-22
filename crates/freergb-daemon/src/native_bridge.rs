@@ -85,3 +85,37 @@ pub async fn connect(helper: PathBuf) -> Result<NativeSessionClient<NativeBridge
     })
     .await
 }
+
+pub async fn authorize(
+    helper: &std::path::Path,
+    control: &str,
+    temperature: &str,
+    rpm: &str,
+    critical: u8,
+    minimum: u8,
+) -> Result<(), String> {
+    let mut command = Command::new(helper);
+    command
+        .args([
+            "--request-control-authorization",
+            control,
+            temperature,
+            rpm,
+            &critical.to_string(),
+            &minimum.to_string(),
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .kill_on_drop(true);
+    #[cfg(windows)]
+    command.creation_flags(0x0800_0000);
+    let status = tokio::time::timeout(Duration::from_secs(125), command.status())
+        .await
+        .map_err(|_| "UAC authorization timed out; no control started")?
+        .map_err(|error| format!("Control authorization failed: {error}"))?;
+    if !status.success() {
+        return Err("Mainboard control authorization was refused or cancelled".into());
+    }
+    Ok(())
+}
