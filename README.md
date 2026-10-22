@@ -1,15 +1,16 @@
-<div align="center">
 <p align="center">
-  <img src="logo.png" alt="free RGB" width="300">
+  <img src="assets/brand/github-banner.svg" alt="freeRGB — Open-source RGB control for Windows and Linux" width="100%">
 </p>
-  
-# FreeRGB
 
-**Open, lightweight RGB control for Windows and Linux – written in Rust.**
+# freeRGB
 
-An independent alternative to SignalRGB: a small background service drives your RGB
-hardware directly, a native GUI and a local API control it. No cloud account, no telemetry,
-no vendor software required.
+**Open-source RGB control for Windows and Linux, powered by Rust.**
+
+<!-- progress:start -->
+**Delivery checklist: 51.4% complete — 19 of 37 milestones; 18 remaining.**
+
+[View completed and remaining work](docs/STATUS.md). Automatically calculated from the delivery checklist; milestones are equally weighted, not an estimate of effort or release readiness.
+<!-- progress:end -->
 
 [![CI](https://img.shields.io/github/actions/workflow/status/leotrax3d/FreeRGB/ci.yml?style=flat-square&label=CI)](https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-early%20development-orange?style=flat-square)
@@ -19,140 +20,90 @@ no vendor software required.
 [![Downloads](https://img.shields.io/github/downloads/leotrax3d/FreeRGB/total?style=flat-square&color=10A37F&label=Downloads)](https://github.com/leotrax3d/FreeRGB/releases)
 [![Views](https://hits.sh/github.com/leotrax3d/FreeRGB.svg?label=Views&color=10A37F&style=flat-square)](https://github.com/leotrax3d/FreeRGB)
 
-</div>
+freeRGB combines a background RGB service, a desktop interface and a local API.
+The service keeps running when the interface closes. No cloud account or vendor
+application is required for supported devices.
 
-> [!WARNING]
-> freeRGB is **early-stage software**. It talks to real hardware, including fan and pump
-> controllers. Read [Safety](#safety) before you run it, and never run it at the same time
-> as SignalRGB or iCUE.
+[Get started](#getting-started) · [Device support](#device-support) · [Project status](#project-status) · [Documentation](#documentation)
 
----
+> [!IMPORTANT]
+> Early development. Device support is limited, experimental integrations require
+> explicit opt-in, and experimental motherboard fan control requires physical fan confirmation and UAC.
+> Close other RGB controllers before accessing real devices.
+
+## What freeRGB offers
+
+- **Lighting:** 11 built-in effects, audio-reactive lighting, screen ambience,
+  per-device brightness and placement on a shared effect canvas.
+- **Custom effects:** a layered editor with blending, opacity, regions and a saved library.
+- **Profiles:** saved configurations and optional Windows foreground-application rules.
+- **Automation:** visual/JSON macro editing, run/cancel, delays, repeats and lighting
+  actions; optional Windows keyboard/media output and global shortcuts.
+- **Monitoring:** cached RPM/temperature readings, histories, sensor alerts,
+  custom Celsius source graphs and redacted diagnostic exports.
+- **Extensibility:** declarative device descriptions and explicitly trusted,
+  isolated device-plugin processes.
+- **Local control:** JSON-RPC over a Windows named pipe or Linux user socket.
+
+Implementation and hardware acceptance are tracked separately below. Windows
+capture/input features do not yet have Linux parity.
 
 ## Project status
 
-*Last updated: 2026-10-22. Includes current working-tree implementations; this is
-not a claim that every change is already published in a release.*
+The [delivery checklist](docs/STATUS.md) consolidates the product plan, worklist,
+cooling execution plan and feature-specific documentation. Completed items describe
+the named implementation milestone; acceptance and release milestones have their
+own open tasks.
 
-![Estimated overall product progress: 55 percent. Implemented foundations and partial hardware acceptance; integration and release work remain.](docs/assets/project-progress.svg)
-
-**Overall progress: approximately 55% (engineering estimate).** This covers the
-requested complete product, including motherboard cooling/RGB, installers, updates,
-macros and hardware acceptance. It is not a test pass rate, a measured percentage
-of supported hardware, or a promise of a delivery date. The tables below are the
-authoritative feature inventory; individual tasks differ greatly in effort.
-
-**Legend:** ✅ implemented · 🟡 partial / acceptance still required · ⬜ missing.
-“Implemented” describes the named capability, not universal device support.
-Synthetic tests, real hardware tests and public UI availability are distinguished.
-
-### Implemented features and remaining work
-
-| Area | Already implemented | Still missing / acceptance required |
+| Area | Available or implemented | Remaining |
 |---|---|---|
-| ✅ RGB engine | RGB/HSV, colour correction, LED layouts, shared canvas, frames, per-device brightness; isolated device workers, reconnect and hot-plug | Broader hardware coverage and multi-hour combined-device soak tests |
-| ✅ Effects | 11 built-ins: Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Radial Rainbow, Scanner, Twinkle, Audio Pulse, Audio Spectrum, Screen Ambience; custom layered effects | Further effects and richer layouts can be added; device coverage is separate |
-| ✅ Effect editor | Up to eight layers, blending, opacity, regions, named effect library | Further UX refinement and broader interactive acceptance |
-| ✅ Audio and screen lighting | Windows WASAPI loopback and primary-monitor capture; live RGB acceptance on existing Corsair hardware | Linux capture and real hardware acceptance |
-| ✅ Daemon and local API | `freergbd`, bounded JSON-RPC IPC, diagnostics, persisted state/profiles, virtual-device mode; no cloud account | Additive live session methods implemented; interactive acceptance remains |
-| ✅ Profiles | Save/load profiles; Windows foreground-application rules with session opt-in and stability/debounce handling | Interactive application-switch acceptance and Linux integration |
-| 🟡 Classic GUI | Device/effect controls, canvas layout, profiles, cooling definitions/channel annotations/custom sources, macros, monitoring, diagnostics, updates | Explicit experimental live-session dialog implemented; interactive hardware acceptance remains |
-| 🟡 Modern GUI | Separate Tauri 2 + React implementation is being developed on `feature/tauri-gui`; shared daemon API is the compatibility boundary | Merge/release and feature parity; its current feature completion is tracked on that branch, not asserted here |
-| 🟡 Device plugins | TOML descriptions, explicit trusted process plugins, bounded I/O, timeout/crash isolation, lifecycle API/UI and Rust virtual reference | More adapters, broader hot-load UX and effect-process plugins; plugins are not sandboxed |
-| 🟡 Keyboard interaction | Daemon-owned per-key glow/fade overlay, K70 CORE key/LED mapping, optional Windows input helper, RPC editor and versioned configuration | Real typing-to-LED acceptance, more keyboards/layouts and Linux input |
-| 🟡 Macros | Visual/JSON editor; save/run/cancel; delay/repeat, colours/effects/brightness, opt-in Windows text/key/media/chord output; session-opt-in global hotkeys | Recording, device-specific macro key assignment, real native output/hotkey acceptance and Linux native input |
-| 🟡 Monitoring | Cached LINK RPM/temperatures, isolated motherboard sensor reader, histories with stale gaps, sensor alerts with debounce/hysteresis/acknowledgement, redacted diagnostic export | Verified CPU/GPU/coolant labels and sources across hardware; interactive acceptance |
-| ✅ Custom temperature sources | Daemon-owned Celsius graphs: input, offset, min/max/average/sum/subtraction and time averaging; validation and freshness propagation | Bind trusted sources to productive live control; additional source providers |
-| 🟡 Fan curves and calibration | Rust curve models/editor/storage/API, interpolation/hysteresis, temperature/stale-data policy; bounded calibration state machine and synthetic preview | Verified minimum duty and wider binding; CHA_FAN2 calibration ran but hardware_verified remains false |
-| 🟡 Channel assignment | Explicit header/control/RPM/fan-or-pump annotations, validation, persistence and Classic RPC editor | Physical/electrical confirmation across boards; annotations alone never authorize writes |
-| 🟡 Motherboard discovery | Optional pinned LibreHardwareMonitor/PawnIO provider, protected Windows service, bounded authenticated local transport; actual ASUS/Nuvoton inventory read successfully | Additional chip/board acceptance, confirmed labels and alternative providers; detection does not imply writable support |
-| 🟡 Native write evidence | Pinned Nct677X adapter captures original mode/command and checks actual command/mode registers; protected fan-only authorization with a 40% minimum | Broader native backends and sustained reduced-duty acceptance; shared-bit/EC variants and unsupported families remain blocked |
-| 🟡 Crash recovery | Durable intent before writes; unresolved state blocks control/maintenance; protected original-state recovery with chip/process/service identity checks; real worker-crash test passed on the test board | Broader service/reboot/power-loss scenarios and multi-channel recovery; unresolved ownership must remain blocked |
-| 🟡 Independent supervision | Rust lease and temperature/RPM/stall policies; private native lease/interlock; Rust runtime keeps sensor/timer checks running while native I/O waits | Full process-boundary fault acceptance and validated handling of driver hangs |
-| 🟡 Protected curve execution | Rust runtime/owned host, authenticated service bridge and checked native sampler; actual 80% curve/calibration with verified return passed on CHA_FAN2; six synthetic Rust/C# interoperability tests | Interactive acceptance of the new session API/Classic dialog and wider hardware coverage; see [bridge](docs/MAINBOARD_CONTROL_BRIDGE.md) |
-| 🟡 Motherboard RGB/ARGB | Separate experimental ASUS USB backend (`0b05:19af`), manual ARGB lengths, protocol validation and mock tests; no PawnIO needed for this USB path | Actual header colour/fallback tests, setup UI, broader ASUS IDs and MSI/Gigabyte/ASRock/other protocols |
-| 🟡 Windows installer | Inno Setup, project icon, launcher entry point, independent Start Menu/desktop/autostart choices (**autostart defaults on**), optional manufacturer uninstallers, configuration preservation; CI lifecycle tests | Interactive vendor-uninstaller acceptance, cross-version upgrade and remaining prerequisite/UAC/reboot scenarios |
-| 🟡 Optional prerequisites | Explicit unchecked installer opt-in for verified LHM/PawnIO/missing .NET prerequisites and protected mainboard service; fixed hashes/publisher checks and failure/cancellation reporting | Wider clean-machine acceptance and alternate backends; these dependencies are not required for every RGB device |
-| 🟡 Safe maintenance | Protected reservation mutex and pending/corrupt-journal refusal; owned Rust runtime host closes admission and drains with verified return; service stop waits for bounded diagnostics; synthetic/disposable-service tests | Service handshake implemented; same-version active replacement passed; release upgrade/uninstall/rollback acceptance remains |
-| 🟡 Automatic updates | Fixed GitHub Release source, stable-version selection, bounded downloads, SHA-256 verification, staging/install UI, optional periodic checks/downloads | First published release, real version-to-version update and failure recovery, Authenticode signing; installation remains a visible user action |
-| 🟡 GitHub and releases | Repository, Windows/Ubuntu CI, packaging/lifecycle workflows, installer artifacts and draft releases for version tags | Fresh acceptance for current changes, release publication, signing and release/branch protection policy |
-| 🟡 Linux | Shared Rust core/IPC, CI builds/tests, udev rules and systemd user unit | Real hardware acceptance, capture/native input parity and distribution packages |
+| RGB engine and effects | Shared canvas, device workers, reconnect/hot-plug, effects and layered editor | Broader device coverage and extended combined-device soak tests |
+| Desktop interface | Classic egui interface for devices, effects, profiles, macros and monitoring | Modern Tauri/React interface integration, release and feature parity |
+| Profiles and automation | Persistence, Windows application rules, macro execution and opt-in shortcuts | Macro recording, device-specific macro keys and native interaction acceptance |
+| Reactive keyboard lighting | Daemon overlay, explicit K70 CORE mapping, optional Windows capture | Real typing-to-LED acceptance, more layouts/keyboards and Linux capture |
+| Monitoring and sensors | Histories, alerts, custom source graphs and optional protected motherboard reader | Verified source/channel identities and broader CPU/GPU/coolant coverage |
+| Cooling | Curve editor/storage, daemon-owned protected sessions, explicit Classic live dialog and verified return | Public-path interactive acceptance, sustained hardware/fault validation, multi-channel support, modern-GUI live parity and release maintenance acceptance |
+| Motherboard RGB/ARGB | Separate experimental ASUS USB backend | Real header colour/fallback acceptance, setup UI and more manufacturers |
+| Plugins | Device descriptions, process lifecycle/API and virtual reference | Hardware plugin acceptance, effect plugins and installation/hot reload |
+| Windows distribution | Installer, configuration preservation, CI lifecycle harness and verified update staging | Published signed release, cross-version update/rollback and interactive installer acceptance |
+| Linux | Shared Rust core/IPC, CI, udev rules and systemd user unit | Hardware acceptance, capture/input parity and distribution packages |
 
-**Workspace:** 14 Rust crates. Hardware/business policy belongs in the daemon;
-both GUIs use its local API. C# remains at the pinned Windows/LHM boundary and
-Inno Setup handles Windows packaging. The project does not require SignalRGB,
-iCUE or FanControl to control supported devices.
+**Next priorities:** finish protected cooling integration and fault acceptance;
+expose accepted controls through the daemon and both interfaces; complete modern
+GUI integration; validate distribution and expand hardware/platform coverage.
 
-Current evidence and release gates: [cooling acceptance](docs/COOLING_ACCEPTANCE.md).
+Existing hardware results include an 80% curve, 100/80/60/40% calibration and
+verified return on one confirmed channel. The minimum recommendation remains
+unverified. Same-version active service replacement passed; release upgrades,
+rollback and uninstall remain open. The additive session API and Classic dialog
+still need interactive public-path acceptance. See the
+[current acceptance record](docs/COOLING_ACCEPTANCE.md),
+[cooling execution plan](docs/COOLING_IMPLEMENTATION_PLAN.md) and
+[protected bridge](docs/MAINBOARD_CONTROL_BRIDGE.md) for acceptance boundaries.
 
-Detailed implementation history and test records:
-[worklist](docs/WORKLIST.md), [testing](docs/TESTING.md),
-[product plan](docs/PRODUCT_PLAN.md), [FanControl parity](docs/FANCONTROL_PARITY.md),
-[mainboard cooling checklist](docs/COOLING_IMPLEMENTATION_PLAN.md),
-[local API](docs/LOCAL_API.md), [macros](docs/MACROS.md),
-[custom sensors](docs/CUSTOM_SENSORS.md), [keyboard interaction](docs/KEYBOARD_REACTIVE.md),
-[mainboard RGB](docs/MAINBOARD_RGB.md).
+## Device support
 
-### Actual motherboard hardware progress
+Support is specific to a device/protocol, not an entire vendor.
 
-On the **ASUS PRIME X870-P WIFI / Nuvoton NCT6701D** test system:
-
-- [x] Install the protected service with explicit authorization; reuse the existing PawnIO driver.
-- [x] Read actual sensor/control candidates; distinguish the Corsair AIO tachometer from the newly attached CHA_FAN2 fan.
-- [x] Test only **100% duty** on the selected channel: observed approximately **1324 → 1709 RPM**, with native command-register verification.
-- [x] Verify return to the original firmware mode and clear the recovery journal only after verification; later RPM returned to approximately 1300.
-- [x] Kill the exact owned native worker during the 100% diagnostic; supervisor restart, protected baseline recovery and journal clearance succeeded.
-- [x] Execute the Rust curve host through the real authenticated service and dedicated native worker, using checked native temperature/RPM sampling; 80% curve and verified return passed.
-- [x] Execute 100/80/60/40% calibration; 50% recommendation remains `hardware_verified=false`.
-- [x] Drain active 80% control before same-version service payload replacement.
-- [ ] Accept sustained curves and temperature/RPM/stall faults on real hardware.
-- [ ] Accept service/reboot failure cases and active-control upgrade/uninstall.
-- [x] Implement additive session API and thin Classic dialog.
-- [ ] Accept the public API/Classic path interactively; add modern-GUI live-session parity.
-
-These measurements establish progress on **one board and one fan channel**.
-Experimental live control requires explicit fan confirmation and UAC; public-path acceptance remains. These results do not validate
-every Nuvoton chip, another manufacturer's board, or motherboard RGB headers.
-Support for all manufacturers is the goal; each backend still needs implementation
-and validation. Fan power (PWM/DC) and lighting (5 V ARGB / 12 V RGB) are separate paths.
-
-### Remaining delivery order
-
-1. Accept the implemented session API/Classic dialog on the confirmed fan with verified return.
-2. Complete independent fault supervision, recovery and safe active-session maintenance.
-3. Perform reduced-duty, calibration, curve and failure acceptance on actual supported hardware.
-4. Add documented live daemon methods and thin UI controls; coordinate modern-GUI parity through the shared API.
-5. Expand motherboard fan/RGB backends and hardware coverage.
-6. Finish macro recording/key assignment, sensor-source acceptance, installer/update/signing and Linux acceptance.
-
-Process plugin demo (after a release build):
-`freergbd --no-hardware --no-state --virtual-device --plugin examples/plugins/virtual-windows.json`.
-Use the Linux manifest on Linux. Native plugins are explicitly trusted code, not sandboxed.
-
-### Supported hardware
-
-Only devices whose protocol has been verified on real hardware are ever written to.
-Everything else is detected and listed, but never touched.
-
-| Device | Status | Notes |
+| Device or integration | Status | Scope |
 |---|---|---|
-| Corsair **K70 CORE RGB** (`1b1c:1bfd`) | ✅ **Validated** | Per-key lighting (107 keys, ISO/ANSI), ~21 FPS, 20-min soak passed |
-| Corsair **iCUE LINK System Hub** (`1b1c:0c3f`) | 🧪 **Experimental** (opt-in) | Lighting confirmed for RX/LX fans, Titan RX AIO pump head and LCD ring; ~50 FPS; fan/pump RPM watchdog |
-| Corsair iCUE LINK child devices | ✅ detected | RX, LX, QX fans, Titan AIOs, LCD; Commander DUO recognised (no LEDs) |
-| Corsair iCUE LINK AIO LCD screen (`1b1c:0c4e`) | 🔍 identified | Display content not supported |
-| Corsair Vengeance RGB DDR5 (SMBus) | 🔍 identified | Deferred: SMBus writes near SPD are risky |
-| ASUS AURA USB controller (`0b05:19af`) | 🧪 experimental backend | Explicit opt-in; RGB/ARGB header protocol implemented and mock-tested; real colour/fallback acceptance pending |
-| ASUS PRIME X870-P WIFI / NCT6701D | 🧪 limited hardware acceptance | Sensor reads, CHA_FAN2 80% curve/calibration, verified return and same-version maintenance passed; wider acceptance open |
-| Razer Cobra (`1532:00a3`) | 🔍 identified | |
+| Corsair K70 CORE RGB (`1b1c:1bfd`) | Validated | Per-key RGB; ISO/ANSI mapping |
+| Corsair iCUE LINK System Hub (`1b1c:0c3f`) | Experimental, opt-in | Confirmed lighting on selected RX/LX fans, Titan RX AIO head and LCD ring; RPM watchdog |
+| ASUS AURA USB (`0b05:19af`) | Experimental backend | Protocol/mock tests; physical RGB/ARGB header acceptance pending |
+| Motherboard fan control | Experimental explicit sessions | Fan confirmation and UAC required; limited channel evidence, wider acceptance open |
+| Other identified devices | Discovery only | Identification does not imply lighting, display or cooling control |
 
-Full details, test logs and confidence levels: [docs/DEVICES.md](docs/DEVICES.md) and
-[docs/PROTOCOLS.md](docs/PROTOCOLS.md).
+The AIO LCD display content and DDR5 RGB control are not supported.
+For exact IDs, evidence and limitations, see [devices](docs/DEVICES.md),
+[protocols](docs/PROTOCOLS.md) and [motherboard support](docs/MAINBOARD_SUPPORT.md).
 
----
+## Getting started
 
-## Quick start
+### Build from source
 
-Requirements: Rust 1.80+ (stable). On Windows the MSVC toolchain; on Linux `libudev-dev`
-and the usual X11/Wayland development packages for the GUI.
+Requires Rust 1.80+ and platform build dependencies. Windows needs the MSVC
+toolchain and Visual Studio C++ Build Tools; Linux needs HID, GUI and audio/capture
+development packages. See [installation](docs/INSTALL.md) for the complete list.
 
 ```bash
 git clone https://github.com/leotrax3d/FreeRGB.git
@@ -160,157 +111,91 @@ cd FreeRGB
 cargo build --release
 ```
 
-Quit SignalRGB / iCUE first. Then:
+### Try without hardware
+
+Run the daemon and GUI in separate terminals:
 
 ```bash
-# What is connected, and what would freeRGB drive? (read-only)
-cargo run --release -p freergb-cli -- discover
-
-# Start the background service (add --enable-link-hub for iCUE LINK fans/AIO)
-cargo run --release -p freergb-daemon --bin freergbd
-
-# Control it from a second terminal …
-cargo run --release -p freergb-cli -- ctl color.set '{"color":"#00ffff"}'
-cargo run --release -p freergb-cli -- ctl profiles.save '{"name":"Evening"}'
-
-# … or with the GUI
+cargo run --release -p freergb-daemon --bin freergbd -- --no-hardware --no-state --virtual-device
 cargo run --release -p freergb-gui
 ```
 
-Explicitly stopping the daemon (`ctl daemon.shutdown` or Ctrl+C) requests return
-of owned devices to hardware control. Closing the GUI leaves the daemon running.
-Restoration failures must be reported and retained rather than treated as success.
+### Connect supported hardware
 
-Installing the binaries, Linux udev rules and a systemd user service: [docs/INSTALL.md](docs/INSTALL.md).
+Close competing RGB applications, then discover devices read-only:
 
-### Command-line tools
-
-| Command | What it does |
-|---|---|
-| `freergb discover` | Lists HID devices and the adapter that would drive them (read-only) |
-| `freergb bragi probe` | Reads firmware, mode and layout of a Corsair Bragi keyboard (read-only) |
-| `freergb bragi color #ff0000` / `effect rainbow` / `key-walk` | Short hardware tests on the K70 CORE |
-| `freergb link-probe [--software-window]` | iCUE LINK hub: firmware, child devices, fan RPM, temperatures |
-| `freergb link-light-test` | Reversible colour test on the iCUE LINK chain with RPM watchdog |
-| `freergb link-restore` | Puts the iCUE LINK hub back into hardware mode |
-| `freergb validate-device <file.toml>` | Checks a device description without touching hardware |
-| `freergb ctl <method> [json]` | Calls any [local API](docs/LOCAL_API.md) method on the running service |
-
----
-
-## How it works
-
-```
-freergb-gui ─┐                                   ┌─ worker ─ K70 CORE
-freergb-cli ─┼─ JSON-RPC (named pipe / socket) ─ freergbd ─ engine ─┼─ worker ─ iCUE LINK hub
-other apps ──┘                                   └─ worker ─ …
+```bash
+cargo run --release -p freergb-cli -- discover
+cargo run --release -p freergb-daemon --bin freergbd
 ```
 
-* **Engine:** an effect renders onto a shared canvas; every device samples its region,
-  gets brightness/colour correction applied, and receives the newest frame on its own
-  worker thread. A slow device skips frames instead of slowing the others down.
-* **Protocols** are pure, unit-tested packet encoders plus a small state machine per device,
-  developed against simulators before they ever touch hardware.
-* **Local API** only — no network port. Windows named pipe `\\.\pipe\freergb`, Linux socket
-  `$XDG_RUNTIME_DIR/freergb.sock` (mode 0600).
+Open the GUI from another terminal:
 
-| Crate | Purpose |
+```bash
+cargo run --release -p freergb-gui
+```
+
+The experimental iCUE LINK hub requires `--enable-link-hub` on the daemon.
+Closing the GUI leaves the daemon running. Ctrl+C or `daemon.shutdown` requests
+adapter-specific return to hardware control; failures must remain visible.
+
+Windows installer builds and Linux service/permission setup are documented in
+[INSTALL.md](docs/INSTALL.md). Update staging exists; a published release and a
+successful real version-to-version update remain delivery milestones.
+
+## Architecture
+
+The daemon owns device access, effect rendering, state, profiles and control
+policy. Desktop interfaces and the CLI use the same local API. Each device has
+an isolated worker so a slow device can skip frames without blocking others.
+
+The Classic interface uses egui. A separate Tauri 2/React interface is under
+development; this README does not claim it has reached release parity.
+Optional Windows motherboard access uses a protected service/native boundary.
+
+See [architecture](docs/ARCHITECTURE.md), [decisions](docs/DECISIONS.md) and
+[local API](docs/LOCAL_API.md).
+
+## Safety and privacy
+
+- Unsupported devices have no write adapter; experimental adapters require their
+  documented activation. Detection alone never authorizes control.
+- No firmware or flash writes. Cooling and lighting are separate control paths.
+- LINK access is opt-in and uses an RPM watchdog. Productive motherboard cooling
+  remains gated on independent supervision, verified return and hardware acceptance.
+- Device return is adapter-specific. Experimental ASUS lighting fallback does
+  not restore previous user settings. Unresolved cooling recovery blocks control
+  and maintenance.
+- Common competing RGB processes are detected; simultaneous access can disrupt
+  vendor interfaces.
+- The control API is local: named pipe on Windows, user socket on Linux.
+  Process plugins are trusted executable code, **not sandboxed**.
+- Ordinary RGB installation requires no motherboard driver. Optional Windows
+  motherboard prerequisites require explicit setup opt-in.
+
+See [security](docs/SECURITY.md), [plugin trust](docs/PLUGIN_SYSTEM.md) and
+[cooling safety](docs/COOLING_SAFETY.md).
+
+## Documentation
+
+| Topic | Reference |
 |---|---|
-| `freergb-core` | Colours (RGB/HSV), colour correction, LED layouts, canvas, frames |
-| `freergb-device-api` | Device and transport traits, virtual device, mock transport |
-| `freergb-protocols` | Vendor adapters (Corsair Bragi, iCUE LINK), adapter registry |
-| `freergb-hid` | HID discovery and transport (hidapi, native backends) |
-| `freergb-effects` | Built-in effects |
-| `freergb-daemon` | `freergbd`: engine, API, IPC, hardware scan, state and profiles |
-| `freergb-client` | Blocking client for the local API |
-| `freergb-cli` | `freergb` command-line tool |
-| `freergb-gui` | Native GUI (egui/eframe) |
-
-More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DECISIONS.md](docs/DECISIONS.md).
-
----
-
-## Safety
-
-freeRGB is written to fail safe:
-
-* **Unknown devices are never written to.** Detection is read-only; only adapters marked
-  *Experimental* or *Validated* are opened.
-* **No firmware or flash writes.** Device property writes go through an allowlist (today
-  only the hardware/software mode switch).
-* **Cooling hardware is opt-in.** The iCUE LINK hub is only driven with `--enable-link-hub`.
-  While freeRGB controls it, an RPM watchdog checks fans and pump every 2 s and returns the
-  hub to hardware mode on any slowdown, then refuses to reconnect until restart.
-* **Return is evidence-based.** Owned devices attempt their adapter-specific hardware
-  fallback on shutdown. The experimental ASUS RGB fallback does not restore previous
-  user settings. Mainboard cooling requires verified firmware-mode return before
-  clearing its journal; unresolved recovery blocks further control and maintenance.
-* **Other RGB software is detected.** While SignalRGB, iCUE or OpenRGB runs, `freergbd` hands
-  all hardware back and leaves it alone (shown in the GUI); it resumes when they are closed.
-  Concurrent access can lock up a device's vendor interface until it is re-plugged.
-
-Details: [docs/SECURITY.md](docs/SECURITY.md).
-
----
-
-## Roadmap
-
-- [x] Platform-independent RGB core with tests
-- [x] Virtual device and simulators
-- [x] First real device (Corsair K70 CORE)
-- [x] Background service with local API, state and profiles
-- [x] iCUE LINK hub: fans, AIO, LCD ring (experimental)
-- [x] Basic native GUI
-- [ ] Longer hardware soak tests, then iCUE LINK out of experimental
-- [x] Declarative device descriptions (first plugin stage)
-- [x] Per-device placement on the effect canvas (layout editor in the GUI)
-- [ ] More vendors: ASUS AURA, Razer, Logitech, …
-- [x] Audio-reactive effects (pulse, spectrum)
-- [x] Screen ambience
-- [x] Effect editor (layers, blend modes, library)
-- [x] Macro editor/execution and opt-in Windows global shortcuts
-- [x] Monitoring histories, sensor alerts and daemon-owned custom temperature graphs
-- [x] Reactive keyboard overlay and K70 key mapping (live typing acceptance pending)
-- [x] Windows installer, launcher, shortcut/autostart choices and optional prerequisites
-- [x] GitHub update checking, verified downloads and staging
-- [x] Protected mainboard sensor service and limited real 100% fan/recovery diagnostic
-- [ ] Production protected fan curves/calibration, independent fault acceptance and safe active-session maintenance
-- [ ] Live motherboard fan API and both GUI integrations after acceptance
-- [ ] Broad motherboard PWM/DC and RGB/ARGB coverage across manufacturers
-- [ ] Macro recording, device-specific macro keys and native input acceptance
-- [ ] Published signed release, real cross-version update/rollback and vendor-uninstaller acceptance
-- [x] Linux udev rules and systemd user unit ([packaging/linux](packaging/linux))
-- [ ] Hardware testing on Linux, packaging
-
-Full roadmap: [docs/ROADMAP.md](docs/ROADMAP.md).
-
----
-
-## How devices are added
-
-New device support follows a fixed, reproducible process
-([docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md)):
-
-1. Identify the device (VID/PID, HID usage pages) – read-only.
-2. Document the protocol with sources and a confidence level per field.
-3. Implement it as a pure packet encoder and test it against a simulator.
-4. Verify read-only on hardware (the device must report its own IDs back correctly).
-5. Run reversible colour tests and confirm visually, then mark the device *Validated*.
-
-No code from other RGB software is copied; only interface facts are used, with their
-source documented.
-
----
+| Current delivery checklist and progress calculation | [Status](docs/STATUS.md) |
+| Product scope and implementation history | [Product plan](docs/PRODUCT_PLAN.md) · [Worklist](docs/WORKLIST.md) |
+| Setup and updates | [Installation](docs/INSTALL.md) · [Updates](docs/UPDATES.md) |
+| Device evidence and contribution process | [Devices](docs/DEVICES.md) · [Protocols](docs/PROTOCOLS.md) · [Reverse engineering](docs/REVERSE_ENGINEERING.md) |
+| Cooling implementation and remaining parity | [Execution plan](docs/COOLING_IMPLEMENTATION_PLAN.md) · [FanControl target](docs/FANCONTROL_PARITY.md) |
+| Automation and interaction | [Macros](docs/MACROS.md) · [Application profiles](docs/APPLICATION_PROFILES.md) · [Keyboard reactions](docs/KEYBOARD_REACTIVE.md) |
+| Sensors and troubleshooting | [Monitoring](docs/MONITORING.md) · [Custom sources](docs/CUSTOM_SENSORS.md) · [Diagnostics](docs/DIAGNOSTICS.md) |
+| Development and verification | [API](docs/LOCAL_API.md) · [Plugins](docs/PLUGIN_SYSTEM.md) · [Testing](docs/TESTING.md) · [Handoff](docs/HANDOFF.md) |
 
 ## Contributing
 
-Bug reports and device information are welcome, especially:
+Device reports, reproducible bugs and Linux testing are welcome. Include the
+relevant version, platform, device IDs and redacted diagnostics. New adapters
+need documented protocol evidence, simulator tests and explicit hardware acceptance.
 
-* `freergb discover --all` output for devices that are not supported yet,
-* results of the read-only probes on other Corsair devices,
-* testing on Linux.
-
-Before opening a pull request, run:
+Before submitting code:
 
 ```bash
 cargo fmt --all -- --check
@@ -318,25 +203,15 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-Current internal state and next steps: [docs/HANDOFF.md](docs/HANDOFF.md).
-
----
-
-## Disclaimer
-
-freeRGB is an independent project. It is not affiliated with, endorsed by or supported by
-Corsair, WhirlwindFX (SignalRGB), ASUS, Razer or any other hardware vendor. All product
-names are trademarks of their respective owners. Use at your own risk.
+For documentation changes, also run `python scripts/update-readme-progress.py --check`.
+When changing delivery status, update [STATUS.md](docs/STATUS.md) with supporting
+evidence and run `python scripts/update-readme-progress.py`.
 
 ## License
 
-Licensed under either of
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+Contributions use the same terms unless explicitly stated otherwise.
 
-* Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-* MIT license ([LICENSE-MIT](LICENSE-MIT))
+freeRGB is independent and is not affiliated with or endorsed by hardware vendors
+or other RGB software projects. Product names belong to their respective owners.
 
-at your option.
-
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion
-in freeRGB by you, as defined in the Apache-2.0 license, shall be dual licensed as above,
-without any additional terms or conditions.

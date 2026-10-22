@@ -85,3 +85,12 @@ Local checks on 2026-10-22:
 The fresh isolated API smoke check is included in Windows CI after the release
 build. CI status for the eventual commit must be checked separately; local Windows
 results do not establish Linux success or disposable-runner SCM acceptance.
+
+## Concurrent documentation reconciliation
+
+The incoming main branch introduced an automated delivery checklist in STATUS.md.
+Its 51.4% (19/37 equally weighted milestones) measures checklist completion, not
+engineering effort. The earlier 55% estimate retained in the SVG is a different,
+rough historical estimate. README keeps the new generated checklist; no combined
+acceptance milestone was checked merely because the API/Classic implementation
+now builds. Incoming branding, website and README structure were preserved.
