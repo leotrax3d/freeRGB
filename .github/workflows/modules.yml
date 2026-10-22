@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'steelseries' || env.MODULE == 'msi-motherboard' || env.MODULE == 'das-keyboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'asus-legacy-usb' || env.MODULE == 'asus-aura-core' || env.MODULE == 'instant-mouse' || env.MODULE == 'sony-gamepad'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'steelseries' || env.MODULE == 'msi-motherboard' || env.MODULE == 'das-keyboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'asus-legacy-usb' || env.MODULE == 'asus-aura-core' || env.MODULE == 'instant-mouse' || env.MODULE == 'sony-gamepad' || env.MODULE == 'msi-keyboard'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -119,6 +119,10 @@ jobs:
             node scripts/openrgb/port-sony-gamepad-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-sony-gamepad
             git diff --exit-code -- modules/sony-gamepad/src/devices_table.rs
+          elif [ "$MODULE" = "msi-keyboard" ]; then
+            node scripts/openrgb/port-msi-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-msi-keyboard
+            git diff --exit-code -- modules/msi-keyboard/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1

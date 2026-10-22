@@ -29,6 +29,7 @@ members = [
     "modules/asus-aura-core",
     "modules/instant-mouse",
     "modules/sony-gamepad",
+    "modules/msi-keyboard",
 ]
 
 [workspace.package]
