@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use freergb_core::Rgb;
 pub fn v4(colors: &[Rgb], channels: usize, leds: usize) -> Vec<Vec<u8>> {
+    v4_zoned(colors, &vec![leds; channels])
+}
+pub fn v4_zoned(colors: &[Rgb], zones: &[usize]) -> Vec<Vec<u8>> {
     let mut data = vec![0; 72 + colors.len() * 3];
-    for n in 0..channels {
+    for (n, leds) in zones.iter().enumerate() {
         data[n * 2] = (leds >> 8) as u8;
-        data[n * 2 + 1] = leds as u8;
+        data[n * 2 + 1] = *leds as u8;
     }
     for (n, c) in colors.iter().enumerate() {
         let q = 72 + n * 3;
@@ -31,13 +34,16 @@ pub fn v4(colors: &[Rgb], channels: usize, leds: usize) -> Vec<Vec<u8>> {
     out
 }
 pub fn v3(colors: &[Rgb], channels: usize, leds: usize, marker: u8) -> Vec<Vec<u8>> {
+    v3_zoned(colors, &vec![leds; channels], marker)
+}
+pub fn v3_zoned(colors: &[Rgb], zones: &[usize], marker: u8) -> Vec<Vec<u8>> {
     let mut out = Vec::new();
     let mut z = vec![0; 64];
     z[0] = marker;
     z[1] = 0xbb;
-    for n in 0..channels {
+    for (n, leds) in zones.iter().enumerate() {
         z[n * 2 + 2] = (leds >> 8) as u8;
-        z[n * 2 + 3] = leds as u8;
+        z[n * 2 + 3] = *leds as u8;
     }
     out.push(z);
     let bytes: Vec<u8> = colors.iter().flat_map(|c| [c.r, c.g, c.b]).collect();
@@ -54,8 +60,15 @@ pub fn v3(colors: &[Rgb], channels: usize, leds: usize, marker: u8) -> Vec<Vec<u
     out
 }
 pub fn v2(colors: &[Rgb], channels: usize, leds: usize) -> Vec<Vec<u8>> {
+    v2_zoned(colors, &vec![leds; channels])
+}
+pub fn v2_zoned(colors: &[Rgb], zones: &[usize]) -> Vec<Vec<u8>> {
     let mut out = Vec::new();
-    for (z, chunk) in colors.chunks(leds).take(channels).enumerate() {
+    let mut offset = 0;
+    for (z, leds) in zones.iter().enumerate() {
+        let end = (offset + *leds).min(colors.len());
+        let chunk = &colors[offset..end];
+        offset = end;
         let bytes: Vec<u8> = chunk.iter().flat_map(|c| [c.r, c.g, c.b]).collect();
         let count = bytes.len().div_ceil(60);
         for (i, ch) in bytes.chunks(60).enumerate() {

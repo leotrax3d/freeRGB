@@ -17,6 +17,7 @@ pub struct Drgb {
     leds_per_channel: usize,
     version: u8,
     leds: usize,
+    zone_sizes: Vec<usize>,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
@@ -44,10 +45,11 @@ impl Module for Drgb {
         self.channels = d.channels;
         self.leds_per_channel = d.leds_per_channel;
         self.version = d.version;
-        self.leds = z
-            .map(|x| x.iter().map(|q| q.leds).sum())
-            .unwrap_or(d.channels * d.leds_per_channel)
-            .clamp(1, 8192);
+        self.zone_sizes = z
+            .map(|x| x.iter().map(|q| q.leds.clamp(1, 8192)).collect())
+            .unwrap_or_else(|| vec![d.leds_per_channel; d.channels]);
+        self.channels = self.zone_sizes.len().clamp(1, 36);
+        self.leds = self.zone_sizes.iter().sum::<usize>().clamp(1, 8192);
         self.active = true;
         Ok(Capabilities {
             name: table::identify(i).model.unwrap_or_else(|| "DRGB".into()),
@@ -64,10 +66,13 @@ impl Module for Drgb {
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: (0..self.channels)
-                .map(|n| Zone {
+            zones: self
+                .zone_sizes
+                .iter()
+                .enumerate()
+                .map(|(n, leds)| Zone {
                     name: format!("Channel {}", n + 1),
-                    leds: self.leds_per_channel,
+                    leds: *leds,
                 })
                 .collect(),
         })
@@ -84,10 +89,10 @@ impl Module for Drgb {
             return Err(err("invalid DRGB frame"));
         }
         let packets = match self.version {
-            4 => report::v4(c, self.channels, self.leds_per_channel),
-            3 => report::v3(c, self.channels, self.leds_per_channel, 0x60),
-            1 => report::v3(c, self.channels, self.leds_per_channel, 0x46),
-            2 => report::v2(c, self.channels, self.leds_per_channel),
+            4 => report::v4_zoned(c, &self.zone_sizes),
+            3 => report::v3_zoned(c, &self.zone_sizes, 0x60),
+            1 => report::v3_zoned(c, &self.zone_sizes, 0x46),
+            2 => report::v2_zoned(c, &self.zone_sizes),
             _ => return Err(err("unknown DRGB protocol version")),
         };
         for p in packets {
