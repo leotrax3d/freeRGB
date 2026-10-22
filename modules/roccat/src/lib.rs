@@ -36,7 +36,7 @@ impl Module for Roccat {
     fn initialize(
         &mut self,
         i: &InterfaceInfo,
-        _: &mut dyn Hid,
+        hid: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         let d = table::device(i).ok_or_else(|| err("unsupported Roccat device"))?;
         self.protocol = d.protocol;
@@ -45,6 +45,19 @@ impl Module for Roccat {
         self.column = d.column;
         self.version = d.version;
         self.active = true;
+        match self.protocol {
+            "keyboard" => {
+                hid.send_feature(&report::keyboard_direct_mode(self.version > 1))
+                    .map_err(err)?;
+            }
+            "kova" => {
+                hid.send_feature(&report::kova_init()).map_err(err)?;
+            }
+            "mouse" | "direct-mouse" => {
+                hid.send_feature(&report::direct_mode()).map_err(err)?;
+            }
+            _ => {}
+        }
         Ok(Capabilities {
             name: table::identify(i).model.unwrap_or_else(|| "Roccat".into()),
             kind: DeviceKind::Accessory,

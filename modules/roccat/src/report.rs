@@ -11,6 +11,19 @@ pub fn direct_mouse(colors: &[Rgb], report_id: u8, byte: u8, len: usize) -> Vec<
     }
     p
 }
+pub fn direct_mode() -> Vec<u8> {
+    vec![0x0e, 0x06, 0x01, 0x01, 0x00, 0xff]
+}
+pub fn keyboard_direct_mode(new_protocol: bool) -> Vec<u8> {
+    if new_protocol {
+        vec![0x0e, 0x05, 0x01, 0x00, 0x00]
+    } else {
+        vec![0x15, 0x00, 0x01]
+    }
+}
+pub fn kova_init() -> Vec<u8> {
+    vec![0x04, 0x00, 0x80]
+}
 pub fn mouse(colors: &[Rgb], len: usize) -> Vec<u8> {
     let mut p = vec![0; len];
     p[0] = 0x0d;
