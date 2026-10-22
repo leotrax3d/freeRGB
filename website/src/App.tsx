@@ -239,9 +239,9 @@ export default function App() {
         <header className="view-header"><div className="view-symbol"><Download size={18} /></div><div><h2>Install freeRGB</h2><p>The recommended download is selected for this operating system.</p></div></header>
         <div className="release-panel">
           <div className="release-icon"><Package size={20} /></div>
-          {release === undefined ? <div><span className="release-kicker">Latest release</span><h3>Checking GitHub Releases…</h3><p>Version and release notes are loaded directly from GitHub.</p></div>
-            : release === null ? <div><span className="release-kicker">Release status</span><h3>No published release yet</h3><p>Installers are currently produced by GitHub Actions. The website will switch to the published installer automatically when the first release is available.</p></div>
-              : <div><span className="release-kicker">Latest release · {new Date(release.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span><h3>{release.name} <small>{release.tag}</small></h3><p>{release.notes}</p><a href={release.url} target="_blank" rel="noreferrer">Full release notes <ArrowUpRight size={13} /></a></div>}
+          {release === undefined ? <div><h3>Checking GitHub Releases…</h3><p>Version and release notes are loaded directly from GitHub.</p></div>
+            : release === null ? <div><h3>No published release yet</h3><p>Installers are currently produced by GitHub Actions. The website will switch to the published installer automatically when the first release is available.</p></div>
+              : <div><p><time dateTime={release.publishedAt}>{new Date(release.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</time></p><h3>{release.name} <small>{release.tag}</small></h3><p>{release.notes}</p><a href={release.url} target="_blank" rel="noreferrer">Full release notes <ArrowUpRight size={13} /></a></div>}
         </div>
         <div className="install-list">
           <a className={platform === "windows" ? "recommended" : ""} href={windowsAsset?.url ?? websiteData.downloads.windows.url} target="_blank" rel="noreferrer"><Monitor size={20} /><span><b>{websiteData.downloads.windows.label}</b><small>{platform === "windows" ? `Recommended · ${windowsAsset ? "Download latest installer" : websiteData.downloads.windows.note}` : websiteData.downloads.windows.note}</small></span><ArrowUpRight size={15} /></a>

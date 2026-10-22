@@ -65,7 +65,6 @@ function NowPlaying() {
       <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/20" aria-hidden />
       <div className="relative flex flex-wrap items-end justify-between gap-4 p-5">
         <div className="flex flex-col gap-1">
-          <span className="text-caption font-medium uppercase tracking-wider text-text-muted">Now running</span>
           <span className="text-section font-semibold">{effect ? effectLabel(effect.type) : "—"}</span>
         </div>
         <Brightness />

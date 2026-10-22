@@ -34,7 +34,6 @@ export function Inspector() {
   return (
     <aside data-tour="inspector" aria-label="Effect settings" className="flex flex-col gap-4 rounded-card bg-surface-sunken p-4">
       <header className="flex flex-col gap-0.5 px-2">
-        <span className="text-caption uppercase tracking-wider text-text-subtle">Settings</span>
         <h2 className="text-title font-semibold">{effectLabel(effect.type)}</h2>
       </header>
       {effect.type === "layers" ? (

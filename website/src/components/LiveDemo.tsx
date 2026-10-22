@@ -6,7 +6,6 @@ export function LiveDemo() {
       <p>The desktop UI, built from the same source. Explore lighting, profiles, layout and simulated device setup without installing anything.</p>
     </div></header>
     <div className="demo-launch">
-      <span className="demo-label">Interactive demo · Virtual hardware</span>
       <h3>Your desk, simulated.</h3>
       <p>Launch the complete application in its own tab. Try virtual keyboards, fans and light strips. Downloads and readings are simulated; nothing connects to your hardware or local service.</p>
       <a className="button primary" href={url} target="_blank" rel="noreferrer">Launch live demo ↗</a>
