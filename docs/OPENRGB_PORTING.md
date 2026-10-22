@@ -155,6 +155,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `CoolerMasterController` | in progress | `8864179` | 38 detectors / 38 unique IDs | Generated full HID inventory and module scaffold; exact MM712 direct path added. Protocol-specific remaining Keyboard, ARGB, other mouse, monitor and desk paths remain to be replaced with byte-exact OpenRGB builders. No paths intentionally omitted; module tests and clippy green |
 | `CorsairPeripheralV2Controller` | in progress | `a7f9fae` | 37 detectors / 37 unique IDs | Generated inventory excludes only built-in K70 CORE/iCUE LINK IDs; brokered V2 initialization now sets render mode, selects wired/wireless command IDs, sends lighting-control setup, and streams OpenRGB color-block packets with exact 1,025-byte block framing. Per-device feature discovery and hardware endpoint selection remain to be ported. |
 | `DRGBController` | in progress | `fe6e040` | 33 detectors / 33 unique IDs | Generated complete device inventory and V1/V2/V3/V4 report builders are staged with byte-exact tests; optional configured zone sizes now flow into V1/V2/V3/V4 headers and frame splitting. Keepalive remains to be completed. |
+| `RoccatController` | in progress | — | 28 detectors / 28 unique IDs | Generator and common HID report builders added; keyboard packet variants, per-device LED layouts, feature-report initialization and wireless/interface aggregation still require completion. |
 
 
 The per-family status ledger is maintained below this inventory by the porting

@@ -1881,6 +1881,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-roccat"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+]
+
+[[package]]
 name = "freergb-module-steelseries"
 version = "0.1.0"
 dependencies = [
