@@ -8,7 +8,7 @@ pub static DETECTORS: &[Detector] = &[
         vid: 0x0951,
         pid: 0x1711,
         kind: "elite2",
-        leds: 106,
+        leds: 128,
     },
     Detector {
         name: "HyperX Alloy Elite 2 (HP)",
@@ -16,7 +16,7 @@ pub static DETECTORS: &[Detector] = &[
         vid: 0x03F0,
         pid: 0x058F,
         kind: "elite2",
-        leds: 106,
+        leds: 128,
     },
     Detector {
         name: "HyperX Alloy Elite 2",
@@ -24,7 +24,7 @@ pub static DETECTORS: &[Detector] = &[
         vid: 0x0951,
         pid: 0x1711,
         kind: "elite2",
-        leds: 106,
+        leds: 128,
     },
     Detector {
         name: "HyperX Alloy Elite 2 (HP)",
@@ -32,7 +32,7 @@ pub static DETECTORS: &[Detector] = &[
         vid: 0x03F0,
         pid: 0x058F,
         kind: "elite2",
-        leds: 106,
+        leds: 128,
     },
     Detector {
         name: "HyperX Alloy Elite RGB",
@@ -40,7 +40,7 @@ pub static DETECTORS: &[Detector] = &[
         vid: 0x0951,
         pid: 0x16BE,
         kind: "elite",
-        leds: 106,
+        leds: 128,
     },
     Detector {
         name: "HyperX Alloy FPS RGB",
@@ -168,19 +168,19 @@ pub static DEVICES: &[Device] = &[
         vid: 0x0951,
         pid: 0x1711,
         kind: "elite2",
-        leds: 106,
+        leds: 128,
     },
     Device {
         vid: 0x03F0,
         pid: 0x058F,
         kind: "elite2",
-        leds: 106,
+        leds: 128,
     },
     Device {
         vid: 0x0951,
         pid: 0x16BE,
         kind: "elite",
-        leds: 106,
+        leds: 128,
     },
     Device {
         vid: 0x0951,

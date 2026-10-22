@@ -71,6 +71,12 @@ impl Module for HyperX {
                     h.write(&report::origins(x)).map_err(err)?;
                 }
             }
+            "elite2" => {
+                h.write(&report::elite2_init()).map_err(err)?;
+                for p in report::elite2(c) {
+                    h.write(&p).map_err(err)?;
+                }
+            }
             "origins2" => {
                 for (i, x) in c.chunks(20).enumerate() {
                     h.write(&report::origins2(i as u8, x)).map_err(err)?;
@@ -96,6 +102,7 @@ impl Module for HyperX {
                 for ch in [0x01_u8, 0x02, 0x03] {
                     h.write(&report::channel(c, ch, ch)).map_err(err)?;
                 }
+                h.write(&report::extended(c)).map_err(err)?;
             }
             _ => {
                 for (i, x) in c.chunks(16).enumerate() {
