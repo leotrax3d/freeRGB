@@ -11,6 +11,7 @@ use freergb_module_api::{
 pub const MODULE_ID: &str = "gaizonggai";
 #[derive(Default)]
 pub struct G {
+    pid: u16,
     leds: usize,
     active: bool,
 }
@@ -36,6 +37,7 @@ impl Module for G {
     ) -> Result<Capabilities, ModuleError> {
         let d = table::device(i).ok_or_else(|| err("unsupported GaiZhongGai"))?;
         self.leds = d.leds;
+        self.pid = d.pid;
         self.active = true;
         Ok(Capabilities {
             name: table::identify(i)
@@ -61,7 +63,7 @@ impl Module for G {
         if !self.active || c.len() != self.leds {
             return Err(err("invalid frame"));
         }
-        for p in report::packets(c) {
+        for p in report::packets(self.pid, c) {
             h.write(&p).map_err(err)?;
         }
         Ok(())
