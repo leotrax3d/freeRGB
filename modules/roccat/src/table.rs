@@ -13,6 +13,10 @@ pub struct Device {
     pub vid: u16,
     pub pid: u16,
     pub protocol: &'static str,
+    pub leds: usize,
+    pub packet: usize,
+    pub column: usize,
+    pub version: u8,
 }
 pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = crate::devices_table::DETECTORS

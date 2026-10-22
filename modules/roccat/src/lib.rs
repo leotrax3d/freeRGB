@@ -13,6 +13,9 @@ pub const MODULE_ID: &str = "roccat";
 pub struct Roccat {
     protocol: &'static str,
     leds: usize,
+    packet: usize,
+    column: usize,
+    version: u8,
     active: bool,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
@@ -37,12 +40,10 @@ impl Module for Roccat {
     ) -> Result<Capabilities, ModuleError> {
         let d = table::device(i).ok_or_else(|| err("unsupported Roccat device"))?;
         self.protocol = d.protocol;
-        self.leds = match d.protocol {
-            "keyboard" => 120,
-            "mat" => 2,
-            "headset" => 1,
-            _ => 4,
-        };
+        self.leds = d.leds;
+        self.packet = d.packet;
+        self.column = d.column;
+        self.version = d.version;
         self.active = true;
         Ok(Capabilities {
             name: table::identify(i).model.unwrap_or_else(|| "Roccat".into()),
@@ -68,7 +69,7 @@ impl Module for Roccat {
         }
         match self.protocol {
             "keyboard" => {
-                for p in report::keyboard(colors, 436, 12, 1, false) {
+                for p in report::keyboard(colors, self.packet, self.column, self.version, false) {
                     h.write(&p).map_err(err)?;
                 }
             }
@@ -79,14 +80,14 @@ impl Module for Roccat {
                 h.write(&report::headset(colors[0])).map_err(err)?;
             }
             "mouse" => {
-                h.write(&report::mouse(colors, 46)).map_err(err)?;
+                h.write(&report::mouse(colors, self.packet)).map_err(err)?;
             }
             "kova" => {
-                h.write(&report::direct_mouse(colors, 0x0d, 0x2e, 46))
+                h.write(&report::direct_mouse(colors, 0x0d, 0x2e, self.packet))
                     .map_err(err)?;
             }
             _ => {
-                h.write(&report::direct_mouse(colors, 0x0d, 0x7a, 122))
+                h.write(&report::direct_mouse(colors, 0x0d, 0x7a, self.packet))
                     .map_err(err)?;
             }
         };

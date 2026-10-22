@@ -35,16 +35,38 @@ const protocol = (handler, name) => {
   if (handler.includes("Burst") || handler.includes("KonePro")) return "direct-mouse";
   return name.toLowerCase().includes("air") ? "direct-mouse" : "mouse";
 };
-const devices = detectors.map((device) => ({ ...device, protocol: protocol(device.handler, device.name) }));
+const metadata = (name, handler) => {
+  const p = protocol(handler, name);
+  if (p === "headset") return { p, leds: 1, packet: 16, column: 1, version: 1 };
+  if (p === "mat") return { p, leds: 2, packet: 9, column: 1, version: 1 };
+  if (p === "kova") return { p, leds: 2, packet: 46, column: 1, version: 1 };
+  if (p === "mouse") return { p, leds: 11, packet: 46, column: 1, version: 1 };
+  if (name.includes("Burst Pro Air")) return { p, leds: 4, packet: 30, column: 1, version: 2 };
+  if (name.includes("Burst Core")) return { p, leds: 1, packet: 11, column: 1, version: 1 };
+  if (name.includes("Burst Pro")) return { p, leds: 2, packet: 11, column: 1, version: 1 };
+  if (name.includes("Kone Pro Air")) return { p, leds: 2, packet: 16, column: 1, version: 2 };
+  if (name.includes("Kone Pro")) return { p, leds: 2, packet: 11, column: 1, version: 1 };
+  if (name.includes("Kone XP")) return { p, leds: 19, packet: 122, column: 1, version: 3 };
+  if (name.includes("Horde")) return { p, leds: 6, packet: 24, column: 1, version: 1 };
+  if (name.includes("Magma")) return { p, leds: 105, packet: 64, column: 5, version: 2 };
+  if (name.includes("Vulcan II Max")) return { p, leds: 148, packet: 567, column: 1, version: 2 };
+  if (name.includes("Vulcan II Mini")) return { p, leds: 69, packet: 345, column: 1, version: 2 };
+  if (name.includes("Vulcan II TKL")) return { p, leds: 85, packet: 320, column: 1, version: 2 };
+  if (name.includes("Vulcan II")) return { p, leds: 105, packet: 396, column: 1, version: 2 };
+  if (name.includes("Vulcan TKL")) return { p, leds: 85, packet: 436, column: 12, version: 1 };
+  if (name.includes("Vulcan")) return { p, leds: 105, packet: 436, column: 12, version: 1 };
+  return { p, leds: 105, packet: 436, column: 12, version: 1 };
+};
+const devices = detectors.map((device) => ({ ...device, ...metadata(device.name, device.handler) }));
 const out = [
   "// SPDX-License-Identifier: GPL-2.0-or-later",
   `// Generated from OpenRGB ${commit}.`,
   "use super::table::{Detector, Device};",
   "pub static DETECTORS: &[Detector] = &[",
-  ...devices.map((d) => `    Detector { name: ${JSON.stringify(d.name)}, handler: ${JSON.stringify(d.handler)}, vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.protocol)} },`),
+  ...devices.map((d) => `    Detector { name: ${JSON.stringify(d.name)}, handler: ${JSON.stringify(d.handler)}, vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.p)} },`),
   "];",
   "pub static DEVICES: &[Device] = &[",
-  ...devices.map((d) => `    Device { vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.protocol)} },`),
+  ...devices.map((d) => `    Device { vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.p)}, leds: ${d.leds}, packet: ${d.packet}, column: ${d.column}, version: ${d.version} },`),
   "];",
   "",
 ];
