@@ -9,6 +9,7 @@ pub mod channel_bindings;
 pub mod conflicts;
 pub mod control;
 pub mod cooling_host;
+pub mod cooling_profiles;
 pub mod cooling_runtime;
 pub mod cooling_sessions;
 pub mod custom_effects;

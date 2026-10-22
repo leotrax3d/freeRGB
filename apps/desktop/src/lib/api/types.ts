@@ -123,6 +123,7 @@ export interface Slices {
   cooling_bindings: ChannelBindingsView | null;
   cooling_background: CoolingBackground | null;
   cooling_support: CoolingSupportView | null;
+  cooling_profiles: CoolingProfiles | null;
   keyboard_reactive: KeyboardReactive | null;
   connection: Connection;
   devices: DeviceSummary[] | null;
@@ -215,6 +216,12 @@ export interface CoolingSupportView {
   unrestricted_enabled: boolean;
   board_identity_available: boolean;
   channels: Record<string, ChannelEvidenceView>;
+  error: string | null;
+}
+/** Named background channel sets. */
+export interface CoolingProfiles {
+  profiles: { name: string; channels: number }[];
+  active: string | null;
   error: string | null;
 }
 export interface ReactiveConfig {

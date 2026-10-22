@@ -194,6 +194,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             "cooling_session": get("cooling.sessions.status").unwrap_or(Value::Null),
             "cooling_background": get("cooling.background.get").unwrap_or(Value::Null),
             "cooling_support": get("cooling.support.get").unwrap_or(Value::Null),
+            "cooling_profiles": get("cooling.profiles.list").unwrap_or(Value::Null),
             "channel_bindings": get("cooling.bindings.get").unwrap_or(Value::Null),
             "monitoring_sensors": get("monitoring.sensors.list").unwrap_or(Value::Null),
         });

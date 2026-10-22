@@ -479,3 +479,19 @@ critical-temperature override to 100%, refusal of foreign software mode.
 `cooling.sessions.start` also accepts `mode:"manual"` with `duty_percent:0..100`
 (no curve, optional `critical_c`, default 80): a flat curve with the same floors
 (40% unless unrestricted), critical-temperature override and supervision.
+
+## Cooling profiles (additive, 2026-10-22)
+
+Named, switchable sets of background channel curves (per-user config
+`cooling-profiles.json`, at most 32 profiles, 8 channels each).
+
+* `cooling.profiles.list` -> `{profiles:[{name,channels}], active, error}`.
+* `cooling.profiles.save {name, channels?}` -> `true`. Names are 1..64 characters
+  without control characters or surrounding spaces; without `channels` the
+  current background set (`cooling.background.get` -> `saved`) is stored. Curves
+  are validated, duplicate channels refused. Saving never touches hardware.
+* `cooling.profiles.delete {name}` -> `{deleted}`.
+* `cooling.profiles.activate {name}` -> `true` when the hand-over started. Every
+  channel is re-resolved like `cooling.background.apply` (tier, channel test,
+  unlock); one channel no longer permitted fails the whole activation instead of
+  being dropped. The protected service then runs the profile (UAC).

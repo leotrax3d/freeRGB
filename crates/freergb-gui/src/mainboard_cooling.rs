@@ -51,6 +51,8 @@ pub struct MainboardCooling {
     confirmed: bool,
     confirmation: String,
     manual_duty: u8,
+    profile: String,
+    profile_name: String,
 }
 impl MainboardCooling {
     pub fn show(
@@ -273,6 +275,76 @@ impl MainboardCooling {
                     let _ = tx.send(Command { method: "cooling.background.apply", params: json!({"channels": []}) });
                 }
             });
+            let profiles = &snapshot.control["cooling_profiles"];
+            ui.label(format!(
+                "Cooling profiles (active: {})",
+                profiles["active"].as_str().unwrap_or("none")
+            ));
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_id_salt("cooling-profile")
+                    .selected_text(if self.profile.is_empty() {
+                        "Profile"
+                    } else {
+                        self.profile.as_str()
+                    })
+                    .show_ui(ui, |ui| {
+                        for entry in profiles["profiles"].as_array().into_iter().flatten() {
+                            if let Some(name) = entry["name"].as_str() {
+                                ui.selectable_value(
+                                    &mut self.profile,
+                                    name.to_owned(),
+                                    format!("{name} · {} channels", entry["channels"]),
+                                );
+                            }
+                        }
+                    });
+                if ui
+                    .add_enabled(
+                        snapshot.connected && !applying && !self.profile.is_empty(),
+                        egui::Button::new("Activate (UAC)"),
+                    )
+                    .clicked()
+                {
+                    let _ = tx.send(Command {
+                        method: "cooling.profiles.activate",
+                        params: json!({"name": self.profile}),
+                    });
+                }
+                if ui
+                    .add_enabled(
+                        snapshot.connected && !self.profile.is_empty(),
+                        egui::Button::new("Delete"),
+                    )
+                    .clicked()
+                {
+                    let _ = tx.send(Command {
+                        method: "cooling.profiles.delete",
+                        params: json!({"name": self.profile}),
+                    });
+                    self.profile.clear();
+                }
+            });
+            ui.horizontal(|ui| {
+                ui.text_edit_singleline(&mut self.profile_name);
+                let name = self.profile_name.trim().to_owned();
+                if ui
+                    .add_enabled(
+                        snapshot.connected && !name.is_empty(),
+                        egui::Button::new("Save current background as profile"),
+                    )
+                    .clicked()
+                {
+                    let _ = tx.send(Command {
+                        method: "cooling.profiles.save",
+                        params: json!({"name": name}),
+                    });
+                    self.profile = name;
+                    self.profile_name.clear();
+                }
+            });
+            if let Some(error) = profiles["error"].as_str() {
+                ui.colored_label(egui::Color32::LIGHT_RED, error);
+            }
             if let Some(error) = background["apply"]["error"].as_str() {
                 ui.colored_label(egui::Color32::LIGHT_RED, error);
             }

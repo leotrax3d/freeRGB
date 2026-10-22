@@ -6,6 +6,7 @@ import { SensorsSection } from "./SensorsSection";
 import { LiveSession } from "./LiveSession";
 import { BackgroundSection } from "./BackgroundSection";
 import { UnrestrictedSection } from "./UnrestrictedSection";
+import { ProfilesSection } from "./ProfilesSection";
 import { ChannelBindings } from "./ChannelBindings";
 
 export default function CoolingView() {
@@ -27,6 +28,7 @@ export default function CoolingView() {
         <CurvesSection />
         <LiveSession />
         <BackgroundSection />
+        <ProfilesSection />
         <UnrestrictedSection />
         <ChannelBindings />
         <SensorsSection />

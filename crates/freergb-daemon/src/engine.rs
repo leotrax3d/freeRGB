@@ -105,6 +105,7 @@ pub struct Engine {
     pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
     pub background: crate::background::Background,
     pub fan_support: crate::fan_support::FanSupport,
+    pub cooling_profiles: crate::cooling_profiles::CoolingProfiles,
     recorded_test_job: Option<u64>,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
@@ -290,6 +291,7 @@ impl Engine {
             cooling_sessions: Default::default(),
             background: Default::default(),
             fan_support: Default::default(),
+            cooling_profiles: Default::default(),
             recorded_test_job: None,
             sensor_refresh_at: None,
             plugins: Default::default(),
@@ -574,6 +576,8 @@ impl Engine {
                 .with_file(parent.join("cooling-background.json"));
             self.fan_support = std::mem::take(&mut self.fan_support)
                 .with_file(parent.join("cooling-fan-support.json"));
+            self.cooling_profiles = std::mem::take(&mut self.cooling_profiles)
+                .with_file(parent.join("cooling-profiles.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);
@@ -962,6 +966,29 @@ impl Engine {
             self.fan_support
                 .unlock_channel(identity, &channel.name, typed)
         }
+    }
+
+    /// Validate every channel of a cooling profile under the current policy
+    /// (tier, test, unlock) and hand it to the protected service (UAC). Unlike a
+    /// revocation re-apply, a channel that is no longer permitted fails the
+    /// activation instead of being dropped silently.
+    pub fn activate_profile(&mut self, name: &str) -> Result<(), String> {
+        let request = self
+            .cooling_profiles
+            .get(name)
+            .cloned()
+            .ok_or("Unknown cooling profile")?;
+        let mut entries = Vec::new();
+        for channel in &request.channels {
+            let policy = self.cooling_policy(&channel.control_id)?;
+            let bands = self.plausibility(&channel.control_id);
+            entries.push(
+                crate::background::protected_entry(channel, &policy, bands.as_ref())
+                    .map_err(|e| format!("{}: {e}", channel.control_id))?,
+            );
+        }
+        self.background.apply(request, entries)?;
+        self.cooling_profiles.mark_active(name)
     }
 
     /// After a revocation, re-validate the saved background channels under the

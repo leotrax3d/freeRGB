@@ -140,8 +140,9 @@ channel test and outside the verified/LHM-supported lists.
    percentage *(implemented as `mode:"manual"`)* and step-up/step-down limits
    *(implemented: optional `max_rise_percent_per_s`/`max_fall_percent_per_s` on
    curves, Rust and C# checked against shared vectors; invalid sensors and
-   critical heat still jump to 100% immediately)*; still open: RPM targets,
-   more curve types, cooling profiles.
+   critical heat still jump to 100% immediately)*; cooling profiles *(implemented: named
+   background channel sets, re-validated on activation, both GUIs)*; still open:
+   RPM targets, more curve types.
 9. **Acceptance on the development board** for every package that touches
    hardware, with the user present; other boards via beta testers.
 

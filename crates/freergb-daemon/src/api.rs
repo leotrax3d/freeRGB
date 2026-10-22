@@ -210,6 +210,46 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 let removed = engine.fan_support.revoke(control_id).map_err(|e| (-32000, e))?;
                 Ok(json!({"revoked": removed, "background_reapplied": removed && engine.reapply_background()}))
             }),
+        "cooling.profiles.list" => Ok(lock(engine).cooling_profiles.view()),
+        "cooling.profiles.save" => params["name"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| invalid_params("name required"))
+            .and_then(|name| {
+                let mut engine = lock(engine);
+                // Without explicit channels the current background set is saved.
+                let request = if params["channels"].is_null() {
+                    serde_json::from_value(engine.background.view()["saved"].clone())
+                        .map_err(invalid_params)?
+                } else {
+                    serde_json::from_value(json!({"channels": params["channels"]}))
+                        .map_err(invalid_params)?
+                };
+                engine
+                    .cooling_profiles
+                    .save(&name, request)
+                    .map(|()| json!(true))
+                    .map_err(invalid_params)
+            }),
+        "cooling.profiles.delete" => params["name"]
+            .as_str()
+            .ok_or_else(|| invalid_params("name required"))
+            .and_then(|name| {
+                lock(engine)
+                    .cooling_profiles
+                    .delete(name)
+                    .map(|removed| json!({"deleted": removed}))
+                    .map_err(|e| (-32000, e))
+            }),
+        "cooling.profiles.activate" => params["name"]
+            .as_str()
+            .ok_or_else(|| invalid_params("name required"))
+            .and_then(|name| {
+                lock(engine)
+                    .activate_profile(name)
+                    .map(|()| json!(true))
+                    .map_err(|e| (-32006, e))
+            }),
         "cooling.support.get" => {
             let engine = lock(engine);
             Ok(engine.fan_support.view(
