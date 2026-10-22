@@ -170,6 +170,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AsusMonitorController` | ported | `f3ec7cc` | 7 detectors / 7 unique IDs | Generated HID inventory, LED-count query, initialization and 65-byte direct color reports are covered by byte-exact tests. Omitted paths: serial metadata, monitor effect UI and readback beyond the upstream LED-count query. |
 | `CorsairCommanderCoreController` | ported | `b4a1387` | 7 detectors / 7 unique IDs | Generated inventory, optional seven-zone LED configuration and 97-byte channel reports are covered by byte-exact tests. Omitted paths: firmware/telemetry reads, fan tachometer data, startup handshakes and effect UI. |
 | `CorsairLightingNodeController` | ported | `9f3021d` | 7 detectors / 7 unique IDs | Generated inventory, optional two-zone configuration, software port-state packets, planar 50-byte direct updates and commit packets are covered by byte-exact tests. Omitted paths: firmware/telemetry reads, effect-mode UI and serial metadata. |
+| `EVGAUSBController` | ported | pending | 7 detectors / 15 unique IDs | Generated inventory and protocol-specific feature reports cover EVGA Z15/Z20 keyboards, X20 mouse/receiver and X12 mouse with byte-exact tests. Omitted paths: mode/profile persistence, wireless retry state, telemetry and device-specific key matrix naming. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
