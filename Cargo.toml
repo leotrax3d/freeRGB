@@ -30,6 +30,7 @@ members = [
     "modules/instant-mouse",
     "modules/sony-gamepad",
     "modules/msi-keyboard",
+    "modules/msi-laptop",
 ]
 
 [workspace.package]
