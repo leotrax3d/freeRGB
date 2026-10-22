@@ -7,6 +7,25 @@ use freergb_module_api::{InterfaceInfo, ModuleError};
 struct Fake {
     w: Vec<Vec<u8>>,
 }
+struct HidppFake {
+    w: Vec<Vec<u8>>,
+    reads: Vec<Vec<u8>>,
+}
+impl Hid for HidppFake {
+    fn write(&mut self, p: &[u8]) -> Result<usize, ModuleError> {
+        self.w.push(p.to_vec());
+        Ok(p.len())
+    }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        Ok(self.reads.remove(0))
+    }
+    fn send_feature(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        unreachable!()
+    }
+    fn get_feature(&mut self, _: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+}
 impl Hid for Fake {
     fn write(&mut self, p: &[u8]) -> Result<usize, ModuleError> {
         self.w.push(p.to_vec());
@@ -102,4 +121,48 @@ fn lifecycle() {
     m.frame(&vec![Rgb { r: 1, g: 2, b: 3 }; c.layout.leds.len()], &mut h)
         .unwrap();
     assert!(!h.w.is_empty())
+}
+#[test]
+fn hidpp_discovery_and_frame_are_brokered() {
+    let d = devices_table::DETECTORS
+        .iter()
+        .find(|x| x.handler == "DetectLogitechHIDPP20")
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: 0,
+        usage_page: 0xff00,
+        usage: 2,
+        product: None,
+    };
+    let mut reads = Vec::new();
+    let mut root = vec![0; 20];
+    root[..4].copy_from_slice(&[0x11, 2, 0, 7]);
+    root[4] = 5;
+    reads.push(root);
+    for page in 0..3 {
+        let mut zones = vec![0; 20];
+        zones[..4].copy_from_slice(&[0x11, 2, 5, 7]);
+        if page == 0 {
+            zones[6] = 0b0000_0110;
+        }
+        reads.push(zones);
+    }
+    reads.push(vec![0x11, 2, 5, 0x17]);
+    reads.push(vec![0x11, 2, 5, 0x77]);
+    let mut h = HidppFake {
+        w: Vec::new(),
+        reads,
+    };
+    let mut m = Logitech::default();
+    let c = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(c.layout.leds.len(), 2);
+    m.frame(
+        &[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }],
+        &mut h,
+    )
+    .unwrap();
+    assert_eq!(h.w[0], report::hidpp(0, 0, &[0x80, 0x71]));
+    assert_eq!(h.w.len(), 6);
 }
