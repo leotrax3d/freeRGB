@@ -23,6 +23,7 @@ members = [
     "modules/luxafor",
     "modules/msi-motherboard",
     "modules/asus-aura-usb",
+    "modules/steelseries",
 ]
 
 [workspace.package]
