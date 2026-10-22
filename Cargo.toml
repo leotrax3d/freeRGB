@@ -44,6 +44,7 @@ members = [
     "modules/corsair-commander-core",
     "modules/corsair-lighting-node",
     "modules/evga-usb",
+    "modules/a4tech",
     "modules/corsair-hydro-platinum",
     "modules/sinowealth",
 ]
