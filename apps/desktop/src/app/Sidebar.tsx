@@ -1,5 +1,5 @@
 import { useRef, type KeyboardEvent } from "react";
-import { BrandTiles } from "@/components/brand";
+import { BrandWordmark } from "@/components/brand";
 import { StatusDot } from "@/components/status";
 import { useDaemon } from "@/lib/store/daemon";
 import { cn } from "@/lib/utils";
@@ -62,8 +62,7 @@ export function Sidebar() {
   return (
     <nav ref={nav} onKeyDown={onKeyDown} aria-label="Main" className="flex w-60 shrink-0 flex-col gap-1 bg-bg px-3 pb-3 pt-5">
       <div className="mb-5 flex items-center gap-3 px-3">
-        <BrandTiles size={9} />
-        <span className="text-title font-semibold tracking-tight">freeRGB</span>
+        <BrandWordmark />
       </div>
       <button
         type="button"

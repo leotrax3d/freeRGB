@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/toast";
 import type { ModuleDeviceKind, SetupCard, SetupPhase } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { bytes, errorHint, PHASES } from "./model";
+import { errorHint, PHASES } from "./model";
 
 const KIND_ICONS: Partial<Record<ModuleDeviceKind, LucideIcon>> = {
   keyboard: Keyboard,
@@ -72,7 +72,7 @@ function PhaseLine({ card }: { card: SetupCard }) {
         )}
         aria-hidden
       />
-      {card.builtin && card.phase === "ready" ? "Ready · built in" : info.label}
+      {info.label}
     </span>
   );
 }
@@ -81,7 +81,7 @@ function Progress({ card }: { card: SetupCard }) {
   // Only measured values: no bar without a known total.
   if (card.phase !== "downloading" || !card.progress || card.progress.total <= 0) return null;
   const { done, total } = card.progress;
-  const pct = Math.round((done / total) * 100);
+  const pct = (done / total) * 100;
   return (
     <div className="flex flex-col gap-1">
       <div
@@ -92,11 +92,10 @@ function Progress({ card }: { card: SetupCard }) {
         aria-valuemax={total}
         aria-valuenow={done}
       >
-        <div className="h-full rounded-full bg-accent transition-[width] duration-(--duration-base)" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-caption text-text-subtle tabular">
-        {bytes(done)} of {bytes(total)}
-        {card.module && " · shared module"}
+        {Math.floor(pct)}%
       </span>
     </div>
   );
@@ -149,7 +148,7 @@ export const SetupCardView = memo(function SetupCardView({
           <h3 className="truncate text-body font-medium" title={card.name}>
             {card.name}
           </h3>
-          <PhaseLine card={card} />
+          {!(card.builtin && card.phase === "ready") && <PhaseLine card={card} />}
         </div>
         {selected !== undefined && onSelect && (
           <Checkbox checked={selected} onChange={onSelect} className="mt-1">
@@ -158,10 +157,6 @@ export const SetupCardView = memo(function SetupCardView({
         )}
       </header>
       <Progress card={card} />
-      {card.phase === "detected" && card.download_size !== null && !card.installed && selected !== undefined && (
-        <p className="text-caption text-text-subtle">Needs a {bytes(card.download_size)} module download.</p>
-      )}
-      {card.phase === "detected" && card.installed && <p className="text-caption text-text-subtle">Module already installed.</p>}
       {card.phase === "failed" && (
         <div className="flex flex-col gap-2">
           <p className="rounded-chip bg-danger/10 px-2.5 py-1.5 text-caption text-danger-text">{hint}</p>

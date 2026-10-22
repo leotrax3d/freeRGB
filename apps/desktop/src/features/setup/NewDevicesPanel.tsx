@@ -2,7 +2,7 @@ import { History, PackageCheck } from "lucide-react";
 import { useState } from "react";
 import { Section } from "@/components/page";
 import { Button } from "@/components/ui/button";
-import { bytes, isWorking, newDevices, selectable, selectionSize, supported } from "./model";
+import { isWorking, newDevices, selectable, supported } from "./model";
 import { SetupCardView } from "./SetupCard";
 import { useSetup } from "./useSetup";
 
@@ -24,7 +24,6 @@ export function NewDevicesPanel() {
   const working = fresh.filter(isWorking);
   const offer = fresh.filter(selectable);
   const chosen = offer.filter((c) => !deselected.has(c.key)).map((c) => c.key);
-  const size = selectionSize(cards, chosen);
   if (fresh.length === 0 && attention.length === 0) return null;
 
   return (
@@ -41,7 +40,6 @@ export function NewDevicesPanel() {
             </div>
             {offer.length > 0 && working.length === 0 && (
               <div className="flex items-center gap-2">
-                {size.bytes > 0 && <span className="text-small text-text-subtle tabular">{bytes(size.bytes)}</span>}
                 <Button variant="ghost" size="sm" onClick={() => void setup.dismiss(offer.map((c) => c.key))}>
                   Not now
                 </Button>

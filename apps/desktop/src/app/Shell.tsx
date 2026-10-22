@@ -67,7 +67,7 @@ export function Shell() {
   useEffect(preloadViews, []);
   useFirstRunTour();
   return (
-    <div className="flex h-full bg-bg">
+    <div className="relative flex h-full min-h-0 overflow-hidden bg-bg">
       <Sidebar />
       <main className="my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-panel bg-surface">
         <div className="flex-1 overflow-y-auto">

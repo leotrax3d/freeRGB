@@ -1,29 +1,13 @@
 import { cn } from "@/lib/utils";
+import ring from "../../../../assets/brand/ring-dark.svg";
+import wordmark from "../../../../assets/brand/wordmark-dark.svg";
 
-const TILES = [
-  { letter: "R", color: "bg-danger" },
-  { letter: "G", color: "bg-accent" },
-  { letter: "B", color: "bg-info" },
-] as const;
+/** Shared project artwork, also used by the website. */
+export function BrandWordmark({ className }: { className?: string }) {
+  return <img src={wordmark} alt="freeRGB" className={cn("h-8 w-auto shrink-0", className)} draggable={false} />;
+}
 
-/** The logo's three R/G/B tiles; `letters` shows the glyphs at larger sizes. */
-export function BrandTiles({ size = 10, letters = false, className }: { size?: number; letters?: boolean; className?: string }) {
-  return (
-    <span className={cn("inline-flex items-end gap-[3px]", className)} aria-hidden>
-      {TILES.map((t) => (
-        <span
-          key={t.letter}
-          className={cn(t.color, "grid place-items-center font-semibold text-text")}
-          style={{
-            width: size,
-            height: size * 1.55,
-            borderRadius: size * 0.28,
-            fontSize: size * 0.8,
-          }}
-        >
-          {letters ? t.letter : null}
-        </span>
-      ))}
-    </span>
-  );
+/** Compatibility name for existing icon placements; renders the current ring logo. */
+export function BrandTiles({ size = 10, className }: { size?: number; letters?: boolean; className?: string }) {
+  return <img src={ring} alt="" aria-hidden className={cn("inline-block shrink-0", className)} style={{ width: size * 3 + 6, height: size * 3 + 6 }} draggable={false} />;
 }

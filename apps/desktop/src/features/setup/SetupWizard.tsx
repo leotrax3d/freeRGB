@@ -5,32 +5,30 @@ import { Banner } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDaemon } from "@/lib/store/daemon";
-import type { SetupCard } from "@/lib/api/types";
-import { bytes, defaultSelection, isWorking, overallProgress, selectable, selectionSize, summary, supported } from "./model";
+import type { ModulesStatus, SetupCard } from "@/lib/api/types";
+import { defaultSelection, isWorking, overallProgress, selectable, summary, supported } from "./model";
 import { SetupCardView } from "./SetupCard";
 import { useSetup } from "./useSetup";
 
 /** Overall bar: measured bytes while downloading, otherwise an activity line. */
-function Overall({ cards }: { cards: SetupCard[] }) {
-  const status = useDaemon((s) => s.modules_setup);
+function Overall({ cards, status }: { cards: SetupCard[]; status: ModulesStatus }) {
   const progress = overallProgress(status);
   const s = summary(cards);
-  const downloading = status?.job.running && progress !== null && progress < 1;
   return (
     <div className="flex flex-col gap-2" aria-live="polite">
       <div className="flex items-baseline justify-between text-small">
         <span className="text-text">
           {s.working > 0 ? `Setting up ${s.working} of ${s.total}` : `${s.ready} ready${s.failed ? ` · ${s.failed} failed` : ""}`}
         </span>
-        {downloading && status && (
+        {progress !== null && (
           <span className="text-text-subtle tabular">
-            {bytes(status.job.bytes_done)} of {bytes(status.job.bytes_total)}
+            {Math.floor(progress * 100)}%
           </span>
         )}
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-surface-raised">
-        {downloading ? (
-          <div className="h-full rounded-full bg-accent transition-[width] duration-(--duration-base)" style={{ width: `${Math.round(progress! * 100)}%` }} />
+        {progress !== null ? (
+          <div className="h-full rounded-full bg-accent" style={{ width: `${progress * 100}%` }} />
         ) : s.working > 0 ? (
           // Not measurable (verifying, connecting): activity, not a percentage.
           <div className="h-full w-1/3 rounded-full bg-accent/70 animate-[setup-activity_1.4s_var(--ease-out)_infinite]" />
@@ -95,7 +93,6 @@ export function SetupWizard() {
   const [closed, setClosed] = useState(false);
   const cards = useMemo(() => status?.cards ?? [], [status?.cards]);
   const devices = cards.filter((c) => c.phase !== "unsupported");
-  const unsupported = cards.filter((c) => c.phase === "unsupported");
 
   useEffect(() => heading.current?.focus(), []);
   // Preselect once cards arrive; later arrivals are added, user choices stay.
@@ -110,7 +107,6 @@ export function SetupWizard() {
   const stage = active.length === 0 ? "select" : runCards.some(isWorking) || status.job.running ? "working" : "done";
   const searching = status.catalog.state === "loading";
   const chosen = [...selected].filter((k) => cards.some((c) => c.key === k && selectable(c)));
-  const size = selectionSize(cards, chosen);
   const ready = cards.filter((c) => c.phase === "ready" && !c.builtin);
 
   const finish = async () => {
@@ -128,7 +124,7 @@ export function SetupWizard() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="setup-title"
-      className="fixed inset-0 z-40 flex justify-center overflow-y-auto bg-bg animate-[fade-in_var(--duration-base)_var(--ease-out)]"
+      className="absolute inset-0 z-40 flex justify-center overflow-y-auto bg-bg animate-[fade-in_var(--duration-base)_var(--ease-out)]"
     >
       <div className="flex w-full max-w-4xl flex-col gap-6 px-8 py-10">
         <header className="flex flex-col gap-1">
@@ -137,7 +133,7 @@ export function SetupWizard() {
           </h1>
           <p className="text-body text-text-muted">
             {stage === "select" &&
-              "freeRGB looked for lighting devices. Supported ones are selected; freeRGB downloads only the modules they need."}
+              "Choose the devices you want to set up."}
             {stage === "working" && (simulated ? "Simulated setup — keep this tab open. Nothing is downloaded or installed." : "You can close this window — setup continues in the background service.")}
             {stage === "done" && "Everything that could be set up is ready. You can change devices later under Devices."}
           </p>
@@ -162,7 +158,7 @@ export function SetupWizard() {
           </div>
         )}
 
-        {stage !== "select" && <Overall cards={runCards} />}
+        {stage !== "select" && <Overall cards={runCards} status={status} />}
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
           {devices.map((c, i) => (
@@ -182,19 +178,6 @@ export function SetupWizard() {
           ))}
         </div>
 
-        {unsupported.length > 0 && (
-          <details className="flex flex-col gap-3">
-            <summary className="cursor-pointer text-small text-text-subtle">
-              {unsupported.length} device{unsupported.length === 1 ? "" : "s"} not yet supported
-            </summary>
-            <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
-              {unsupported.map((c, i) => (
-                <SetupCardView key={c.key} card={c} index={i} compact />
-              ))}
-            </div>
-          </details>
-        )}
-
         {stage === "done" && <LightTest ready={ready} />}
         {setup.error && stage !== "done" && <p className="text-small text-danger-text">{setup.error}</p>}
 
@@ -205,12 +188,6 @@ export function SetupWizard() {
                 Skip for now
               </Button>
               <div className="flex items-center gap-3">
-                {chosen.length > 0 && (
-                  <span className="text-small text-text-subtle tabular">
-                    {size.bytes > 0 ? `${bytes(size.bytes)} download` : "No download needed"}
-                    {size.unknown && " (size partly unknown)"}
-                  </span>
-                )}
                 <Button variant="primary" disabled={chosen.length === 0 || setup.pending === "start"} onClick={() => void start(chosen)}>
                   Set up{chosen.length > 0 ? ` ${chosen.length} device${chosen.length === 1 ? "" : "s"}` : ""}
                 </Button>

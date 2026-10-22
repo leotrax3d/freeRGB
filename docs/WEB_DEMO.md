@@ -47,6 +47,13 @@ die früher verwendeten Hardwaremarken/-modelle im fertigen JavaScript ab.
 Das Audit ergänzt die CSP; es ersetzt keinen allgemeinen JavaScript-Sicherheitsaudit.
 
 Die Simulation verwendet neutrale Gerätenamen und arbeitet im Arbeitsspeicher.
+Einrichtung, Fortschrittsanimation, Scrolllayout und Logos liegen im gemeinsamen
+UI-Code und gelten ebenso für die native Tauri-Anwendung. Fortschritt wird
+bildweise bis zu den gemessenen Werten interpoliert; ein Phasenwechsel kann
+kurz auf das Ende der Balkenanimation warten. Abbruch bleibt sofort wirksam.
+Bei reduzierter Bewegung entfällt die Interpolation. Website und Anwendung
+verwenden die vorhandenen Ring-/Wortmarken aus `assets/brand`; Tauri verwendet
+die Projekt-Icons aus `assets/icons` direkt.
 Effekte, Helligkeit, Layout, Profile, Kurven und Editoren verwenden dieselbe
 RPC-/Slice-Grenze wie die echte Oberfläche. Geräteeinrichtung zeigt simulierte
 Downloads, Verifikation, Fehler, Wiederholung und Abbruch. Es wird nichts

@@ -1,9 +1,10 @@
 import { useAction } from "@/lib/store/useAction";
 import { rpc, useDaemon } from "@/lib/store/daemon";
+import { usePresentedSetup } from "./usePresentedSetup";
 
 /** Setup state from the service plus its commands. All work runs in the service. */
 export function useSetup() {
-  const status = useDaemon((s) => s.modules_setup);
+  const status = usePresentedSetup(useDaemon((s) => s.modules_setup));
   const action = useAction();
   const call = (key: string, method: string, params?: unknown) => action.run(key, () => rpc(method, params));
   return {
