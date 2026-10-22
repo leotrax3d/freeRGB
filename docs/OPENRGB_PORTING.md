@@ -154,6 +154,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `CorsairPeripheralController` | ported | `64ae9a6` | 39 detectors / 39 unique IDs | Generated detector inventory and brokered HID module cover Corsair Peripheral, K65 Mini and K55 RGB PRO XT packet paths; no device paths omitted. Workspace tests, clippy and standalone source-archive build green |
 | `CoolerMasterController` | ported | `8864179` | 38 detectors / 38 unique IDs | Generated full HID inventory, optional zone sizing and byte-exact packet builders cover the shared direct, keyboard, ARGB, mouse and MM712 HID paths. Omitted paths: OpenRGB effect/profile UI, firmware and telemetry reads, monitor/desk mode controls, and device-specific key-matrix naming. |
 | `SonyGamepadController` | ported | `7ee2503` | 5 detectors / 5 unique IDs | Generated inventory and byte-exact USB DualShock 4 and DualSense lightbar/player-light reports cover all five HID registrations. Omitted paths: Bluetooth CRC framing, adaptive-trigger/gamepad controls, effect UI and wireless readback. |
+| `AsusAuraCoreController` | ported | `eaf22fe` | 5 detector registrations / 5 generated HID IDs | Generated inventory and byte-exact Aura Core direct/chunked reports cover desktop and SCAR HID registrations. Omitted paths: laptop-specific feature-report sequencing, effect/profile UI, power configuration and readback. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
