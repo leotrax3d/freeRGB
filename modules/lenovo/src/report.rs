@@ -1,5 +1,26 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use freergb_core::Rgb;
+pub fn legacy_software_mode() -> Vec<u8> {
+    let mut p = vec![0; 192];
+    p[0] = 0x07;
+    p[1] = 0xb2;
+    p
+}
+pub fn gen7_direct_on(pid: u16) -> Vec<u8> {
+    let mut p = vec![0; 960];
+    p[0] = 0x07;
+    p[1] = 0xd0;
+    if pid == 0xc197 || pid == 0xc195 {
+        p[2] = 2;
+        p[3] = 0;
+    } else {
+        p[2] = 0xc0;
+        p[3] = 3;
+    }
+    p[4] = 1;
+    p[5] = 1;
+    p
+}
 pub fn legacy(pid: u16, colors: &[Rgb]) -> Vec<Vec<u8>> {
     let mut out = Vec::new();
     let groups: Vec<(u8, &[u16])> = match pid {
@@ -117,17 +138,12 @@ pub fn k500(colors: &[Rgb]) -> Vec<Vec<u8>> {
             p[0x31 + byte as usize] |= 1 << bit;
         }
     }
-    if let Some(c) = colors.first() {
-        p[0x11..0x14].copy_from_slice(&[c.r, c.g, c.b]);
-    }
-    if colors.len() > 1 {
-        let c = colors[1];
-        p[0x15..0x18].copy_from_slice(&[c.r, c.g, c.b]);
-    }
-    if colors.len() > 2 {
-        let c = colors[2];
-        p[0x19..0x1c].copy_from_slice(&[c.r, c.g, c.b]);
-    }
+    let custom = colors
+        .iter()
+        .copied()
+        .find(|c| c.r != 0 || c.g != 0 || c.b != 0)
+        .unwrap_or(Rgb { r: 0, g: 0, b: 0 });
+    p[0x11..0x14].copy_from_slice(&[custom.r, custom.g, custom.b]);
     vec![feature, p]
 }
 #[cfg(test)]

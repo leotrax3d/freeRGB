@@ -44,7 +44,11 @@ impl Module for Lenovo {
         self.pid = d.pid;
         self.active = true;
         if self.protocol == "legacy" {
-            h.send_feature(&[7, 0xb2]).map_err(err)?;
+            h.send_feature(&report::legacy_software_mode())
+                .map_err(err)?;
+        } else if self.protocol == "gen7-8" {
+            h.send_feature(&report::gen7_direct_on(self.pid))
+                .map_err(err)?;
         }
         Ok(Capabilities {
             name: table::identify(i).model.unwrap_or_else(|| "Lenovo".into()),
