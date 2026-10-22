@@ -27,6 +27,7 @@ members = [
     "modules/thermaltake-riing",
     "modules/logitech",
     "modules/corsair-peripheral",
+    "modules/coolermaster",
 ]
 
 [workspace.package]
