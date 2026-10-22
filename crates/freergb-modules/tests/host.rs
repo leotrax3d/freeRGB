@@ -2,7 +2,7 @@
 //! restart limit and unplug handling.
 use freergb_core::{Frame, Rgb};
 use freergb_device_api::{DeviceError, DeviceId, HidTransport, RgbDevice, TransportError};
-use freergb_module_api::InterfaceInfo;
+use freergb_module_api::{InterfaceInfo, Zone};
 use freergb_modules::host::{Launch, ModuleDevice, MAX_CONSECUTIVE_FAILURES, REQUEST_TIMEOUT};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -86,6 +86,24 @@ fn frames_are_bundled_brokered_and_shutdown_releases() {
         vec![vec![0, 0xAB], vec![1, 255, 0, 0, 1, 2, 3], vec![2, 255]],
         "one report per frame, not per LED"
     );
+}
+
+#[test]
+fn optional_zone_configuration_reaches_module_and_changes_layout() {
+    let wire = Wire::default();
+    let mut d = device("ok", &wire);
+    d.set_zones(Some(vec![
+        Zone {
+            name: "Header 1".into(),
+            leds: 12,
+        },
+        Zone {
+            name: "Header 2".into(),
+            leds: 3,
+        },
+    ]));
+    d.connect().unwrap();
+    assert_eq!(d.layout().leds.len(), 15);
 }
 
 #[test]

@@ -67,7 +67,7 @@ UTF-8 JSON lines on stdin/stdout, one message per line, at most 256 KiB.
 |---|---|
 | `hello` | `{id, version, family, api}` – must be `api: 1` |
 | `identify {interface}` | `{supported, model, kind, reason}` – table lookup, no I/O |
-| `initialize {interface}` | capabilities `{name, kind, layout, firmware, restore, zones}` |
+| `initialize {interface, zones?}` | capabilities `{name, kind, layout, firmware, restore, zones}`; optional `zones` is a list of `{name, leds}` supplied by user configuration for families whose LED count is not discoverable (for example Thermaltake Riing) |
 | `frame {rgb}` | `true`; `rgb` = base64 of `r g b` bytes for all LEDs in layout order (one message per frame, never per LED) |
 | `status` | `{ok, detail}` |
 | `shutdown {final_color}` | `true` after the device is released |

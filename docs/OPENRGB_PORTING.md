@@ -145,7 +145,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `RazerController` | ported | existing reference module | 125 supported subset | ARGB, keyboard layouts, receivers and hardware effects omitted |
 | `RedragonController` | ported | `4a55e3c` | 11 | Direct only; effects/profile persistence omitted |
 | `LuxaforController` | ported | `8e7b1d2` | 1 | Direct only; Fade/Strobe/Wave/Pattern omitted |
-| `ThermaltakeRiingController` | blocked | `4a55e3c` | 51 | User-sized headers require the new optional `initialize.zones` protocol parameter; standard/Quad/Trio paths not yet ported |
+| `ThermaltakeRiingController` | unblocked / next | pending | 51 | Optional `initialize.zones` protocol parameter is now available; standard/Quad/Trio paths remain to port |
 
 
 The per-family status ledger is maintained below this inventory by the porting
