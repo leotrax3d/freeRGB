@@ -38,7 +38,13 @@ impl SamplerFrame {
 }
 pub enum ControlMode {
     Curve(FanCurve),
-    Calibration { critical_c: f32 },
+    Calibration {
+        critical_c: f32,
+    },
+    /// Guided channel test (100/70/50%), same supervision as calibration.
+    ChannelTest {
+        critical_c: f32,
+    },
 }
 /// Duty limits for this execution, derived from the channel's support tier
 /// (`freergb_control::fan_support::limits`). The default is the verified/legacy
@@ -210,7 +216,9 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
             }
             curve.critical_c
         }
-        ControlMode::Calibration { critical_c } => *critical_c,
+        ControlMode::Calibration { critical_c } | ControlMode::ChannelTest { critical_c } => {
+            *critical_c
+        }
     };
     let mut telemetry = TelemetryGuard::new("temperature".into(), "rpm".into(), critical)?;
     if limits.allow_stop {
@@ -276,6 +284,9 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
     let mut calibration = match mode {
         ControlMode::Calibration { critical_c } => {
             Some(Calibration::new(ChannelRole::Fan, critical_c, at)?)
+        }
+        ControlMode::ChannelTest { critical_c } => {
+            Some(Calibration::channel_test(ChannelRole::Fan, critical_c, at)?)
         }
         _ => None,
     };

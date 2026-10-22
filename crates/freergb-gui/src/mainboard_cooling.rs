@@ -147,6 +147,11 @@ impl MainboardCooling {
         if let Some(channel) = selected {
             let tier = channel_tier(channel);
             ui.label(format!("Support: {}", tier_label(tier)));
+            let evidence = &snapshot.control["cooling_support"]["channels"][self.control.as_str()];
+            ui.label(format!(
+                "Channel test: {}",
+                evidence["test"].as_str().unwrap_or("none")
+            ));
             if tier == "lhm_supported" {
                 ui.small("LHM-supported: reduced-speed curves need a passed channel test; calibration (100 → 40%) is available.");
             }
@@ -175,6 +180,9 @@ impl MainboardCooling {
             }
             if ui.add_enabled(ready,egui::Button::new("Calibrate fan (UAC)")).clicked(){
                 let _=tx.send(Command {method:"cooling.sessions.start",params:json!({"mode":"calibration","control_id":self.control,"temperature_id":self.temperature,"rpm_id":self.rpm,"confirmed_fan":self.confirmed,"critical_c":curve.critical_c})});
+            }
+            if ui.add_enabled(ready,egui::Button::new("Run channel test (UAC)")).on_hover_text("100 → 70 → 50% (never below 40%), then firmware control").clicked(){
+                let _=tx.send(Command {method:"cooling.sessions.start",params:json!({"mode":"channel_test","control_id":self.control,"temperature_id":self.temperature,"rpm_id":self.rpm,"confirmed_fan":self.confirmed,"critical_c":curve.critical_c})});
             }
             if ui.add_enabled(snapshot.connected && busy,egui::Button::new("Stop and return to firmware")).clicked(){
                 let _=tx.send(Command {method:"cooling.sessions.stop",params:json!({"job_id":status["job_id"]})});

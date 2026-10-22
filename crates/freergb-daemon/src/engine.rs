@@ -104,6 +104,8 @@ pub struct CoolingSupportEntry {
 pub struct Engine {
     pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
     pub background: crate::background::Background,
+    pub fan_support: crate::fan_support::FanSupport,
+    recorded_test_job: Option<u64>,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
     pub controls: crate::control::Controls,
@@ -287,6 +289,8 @@ impl Engine {
             mainboard: Default::default(),
             cooling_sessions: Default::default(),
             background: Default::default(),
+            fan_support: Default::default(),
+            recorded_test_job: None,
             sensor_refresh_at: None,
             plugins: Default::default(),
             workers: Vec::new(),
@@ -568,6 +572,8 @@ impl Engine {
                 .with_file(parent.join("cooling-channel-bindings.json"));
             self.background = std::mem::take(&mut self.background)
                 .with_file(parent.join("cooling-background.json"));
+            self.fan_support = std::mem::take(&mut self.fan_support)
+                .with_file(parent.join("cooling-fan-support.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);
@@ -735,6 +741,7 @@ impl Engine {
     /// Renders one frame at `now` and offers it to every connected device.
     /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
+        self.record_channel_test();
         let has_keyboard = self.conflicts.is_empty()
             && self.workers.iter().any(|w| {
                 let view = guard(&w.view);
@@ -886,13 +893,65 @@ impl Engine {
             Some(support) if support.tier == "verified" => SupportTier::Verified,
             Some(_) => SupportTier::LhmSupported,
         };
+        let identity = self.channel_identity(control_id);
+        let unlock = identity.as_ref().and_then(|i| self.fan_support.unlock(i));
         Ok(crate::cooling_sessions::SessionPolicy {
             capability,
             evidence: ChannelEvidence {
                 role: self.channel_bindings.role(&channel.id),
-                ..ChannelEvidence::default()
+                test_passed: identity
+                    .as_ref()
+                    .is_some_and(|i| self.fan_support.passed_test(i).is_some()),
+                unlocked: unlock.is_some(),
+                pump_confirmed: unlock.is_some_and(|u| u.pump_confirmed),
             },
         })
+    }
+
+    /// Board/firmware/channel identity of a native control, if the protected
+    /// inventory reports the board.
+    pub fn channel_identity(
+        &self,
+        control_id: &str,
+    ) -> Option<crate::fan_support::ChannelIdentity> {
+        let board = self.mainboard.summary().board;
+        self.mainboard
+            .channels()
+            .iter()
+            .find(|c| c.kind == "control" && c.sensor_id == control_id)
+            .and_then(|c| crate::fan_support::ChannelIdentity::of(board.as_ref(), c))
+    }
+
+    /// Tested duty/RPM pairs of a passed channel test for this exact identity.
+    pub fn plausibility(&self, control_id: &str) -> Option<crate::background::Plausibility> {
+        let identity = self.channel_identity(control_id)?;
+        self.fan_support
+            .passed_test(&identity)
+            .map(|t| t.tested.iter().map(|d| (d.duty_percent, d.rpm)).collect())
+    }
+
+    /// Store a finished guided channel test once (bound to its identity).
+    fn record_channel_test(&mut self) {
+        let status = self.cooling_sessions.status();
+        if status.state != "completed"
+            || status.mode.as_deref() != Some("channel_test")
+            || status.job_id.is_none()
+            || status.job_id == self.recorded_test_job
+        {
+            return;
+        }
+        self.recorded_test_job = status.job_id;
+        let (Some(control_id), Some(result)) = (
+            status.control_id.as_deref(),
+            status.report.as_ref().and_then(|r| r.calibration.as_ref()),
+        ) else {
+            return;
+        };
+        if let Some(identity) = self.channel_identity(control_id) {
+            if let Err(error) = self.fan_support.record_test(identity, result) {
+                tracing::warn!(%error, "channel test result not saved");
+            }
+        }
     }
 
     /// All cached sensor providers, without introducing non-RGB devices into devices.list.

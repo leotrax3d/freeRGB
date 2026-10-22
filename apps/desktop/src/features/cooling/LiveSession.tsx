@@ -10,7 +10,8 @@ import { SupportBadge } from "./SupportBadge";
 import { channelTier, controlRefusal, tierLabel } from "./support";
 
 export function LiveSession() {
-  useSlices("cooling_session", "cooling_channels", "monitoring_sensors", "providers");
+  useSlices("cooling_session", "cooling_channels", "monitoring_sensors", "providers", "cooling_support");
+  const support = useDaemon((s) => s.cooling_support);
   const status = useDaemon((s) => s.cooling_session);
   const channels = useDaemon((s) => s.cooling_channels);
   const sensors = useDaemon((s) => s.monitoring_sensors);
@@ -31,7 +32,8 @@ export function LiveSession() {
     && channels?.some((c) => c.kind === "fan" && c.reading.id === rpm)
     && sensors?.some((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C" && s.sensor.id === temperature);
   const ready = connected && status?.available && status.state !== "blocked" && !busy && confirmed && selectionValid && !refusal && pending === null;
-  const start = (mode: "curve" | "calibration") => run("start", () => rpc("cooling.sessions.start", {
+  const evidence = support?.channels[control];
+  const start = (mode: "curve" | "calibration" | "channel_test") => run("start", () => rpc("cooling.sessions.start", {
     mode, control_id: control, rpm_id: rpm, temperature_id: temperature, confirmed_fan: confirmed,
     ...(mode === "curve" ? { curve } : { critical_c: curve?.critical_c ?? 80 }),
   }));
@@ -48,12 +50,14 @@ export function LiveSession() {
         </div>
         {selected && <SupportBadge tier={tier} />}
         {refusal && <Banner tone="warn">{refusal}</Banner>}
+        {selected && <p className="text-caption text-text-subtle">Channel test: {evidence?.test ?? "none"}{evidence?.tested ? " · " + evidence.tested.map((t) => `${t.duty_percent} % → ${Math.round(t.rpm)} RPM`).join(", ") : ""}. The test runs 100 → 70 → 50 % (never below 40 %) and returns the fan to firmware control; a new BIOS or board invalidates it.</p>}
         {tier === "lhm_supported" && <p className="text-caption text-text-subtle">LHM-supported channels run reduced-speed curves only after a passed channel test; calibration (100 → 40 %) is available.</p>}
         <Checkbox checked={confirmed} onChange={setConfirmed}>I confirm this is a normal fan, not a pump, and the selected RPM belongs to it.</Checkbox>
         <p className="text-caption text-text-subtle">Live curves require a minimum of 40% and a critical temperature at most 100°C. Channel selection alone does not establish a physical header or PWM/DC mode.</p>
         <div className="flex flex-wrap gap-2">
           <Button disabled={!ready || !curve || curve.minimum_percent < 40 || curve.critical_c > 100} onClick={() => start("curve")}>Start saved curve (UAC)</Button>
           <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("calibration")}>Calibrate fan (UAC)</Button>
+          <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("channel_test")}>Run channel test (UAC)</Button>
         </div>
       </>}
       <div className="flex items-center gap-3 text-small">

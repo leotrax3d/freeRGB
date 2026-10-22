@@ -123,8 +123,13 @@ channel test and outside the verified/LHM-supported lists.
    background curve of the same channel. Configuration only via the elevated,
    consented `--configure-cooling`; status in `mainboard-control-status.json`;
    API `cooling.background.*`; both GUIs edit and observe.
-5. **Guided channel test + identification, unrestricted unlock** in the service API and both GUIs
-   (which header is which fan, pump marking, tier display).
+5. **Guided channel test + identification** *(implemented, synthetic tests only)*:
+   `mode:"channel_test"` (100/70/50%, pumps excluded), results bound to
+   board/BIOS/channel in `cooling-fan-support.json`, used for the 40% LHM floor
+   and background RPM plausibility; pump marking via channel bindings; tier and
+   test state in both GUIs. Runtime plausibility is enforced by the background
+   controller; short interactive curve sessions rely on telemetry/stall guards.
+   **Unrestricted unlock** (safeguard section above) follows as its own step.
 6. **Diagnostics report** (opt-in, anonymised: board model, chip, tier, test
    result) so LHM-supported chips can be promoted with evidence.
 7. **Modern GUI live control** (parity with the Classic dialog).

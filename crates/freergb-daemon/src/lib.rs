@@ -13,6 +13,7 @@ pub mod cooling_runtime;
 pub mod cooling_sessions;
 pub mod custom_effects;
 pub mod engine;
+pub mod fan_support;
 pub mod hardware;
 pub mod ipc;
 pub mod keyboard;

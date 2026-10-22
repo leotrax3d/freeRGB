@@ -437,3 +437,19 @@ GUI or daemon (`COOLING_BROAD_SUPPORT_PLAN.md`, work package 4).
   `--configure-cooling` re-validates and writes the protected
   `mainboard-control-channels.json`, then reloads (service command 130). An empty
   list disables background control.
+
+## Guided channel test and channel evidence (additive, 2026-10-22)
+
+* `cooling.sessions.start` accepts `mode:"channel_test"` (same fields as
+  `calibration`, fans only). It runs 100 -> 70 -> 50% (authorized floor 50%, never
+  below 40%) under calibration supervision and returns the channel to firmware.
+  `cooling.sessions.status` adds `mode` and `control_id`; the calibration report
+  adds `tested:[{duty_percent,rpm}]` and `monotonic_response`.
+* A completed test is stored by the daemon (`cooling-fan-support.json`), bound to
+  board manufacturer/product, BIOS version, hardware and control identity. It
+  passes with a monotonic response (each lower duty >= 5% lower RPM, all >= 100
+  RPM). A passed test allows LHM-supported curves down to 40% and supplies the
+  RPM bands for background plausibility. Any identity change makes it `stale`.
+* `cooling.support.get` -> `{unrestricted_enabled, board_identity_available,
+  channels:{CONTROL_ID:{test,tested,unlock}}, error}`; `test` is `none`, `passed`,
+  `failed` or `stale`.

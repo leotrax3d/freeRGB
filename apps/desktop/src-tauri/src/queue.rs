@@ -21,6 +21,7 @@ pub const ALLOWED: &[&str] = &[
     "cooling.sessions.stop",
     "cooling.background.get",
     "cooling.background.apply",
+    "cooling.support.get",
     "keyboard.reactive.get",
     "keyboard.reactive.configure",
     "keyboard.reactive.disable",

@@ -122,6 +122,7 @@ export interface Slices {
   cooling_session: CoolingSession | null;
   cooling_bindings: ChannelBindingsView | null;
   cooling_background: CoolingBackground | null;
+  cooling_support: CoolingSupportView | null;
   keyboard_reactive: KeyboardReactive | null;
   connection: Connection;
   devices: DeviceSummary[] | null;
@@ -203,6 +204,18 @@ export interface CoolingBackground {
   saved: { channels: BackgroundChannel[] };
   apply: { state: "idle" | "applying" | "applied" | "failed"; error: string | null };
   service: { version: 1; error: string | null; updated_utc: string; channels: BackgroundServiceChannel[] } | null;
+}
+/** Per-channel evidence: guided test and unrestricted unlock (bound to board/BIOS/channel). */
+export interface ChannelEvidenceView {
+  test: "none" | "passed" | "failed" | "stale";
+  tested: { duty_percent: number; rpm: number }[] | null;
+  unlock: "none" | "stale" | "disabled" | "unlocked" | "unlocked_pump";
+}
+export interface CoolingSupportView {
+  unrestricted_enabled: boolean;
+  board_identity_available: boolean;
+  channels: Record<string, ChannelEvidenceView>;
+  error: string | null;
 }
 export interface ReactiveConfig {
   version: number;

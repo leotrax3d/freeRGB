@@ -153,19 +153,27 @@ impl StartRequest {
                     runtime,
                 ))
             }
-            "calibration" if self.curve.is_none() => {
+            mode @ ("calibration" | "channel_test") if self.curve.is_none() => {
                 let critical = self.critical_c.unwrap_or(80.0);
                 if !(40.0..=100.0).contains(&critical) {
                     return Err("Calibration critical temperature must be 40..100 C".into());
                 }
-                // Calibration is a user-initiated measurement (100/80/60/40) and
-                // never goes below 40%, so it is offered on untested channels too.
+                // Calibration (100/80/60/40) and the guided channel test (100/70/50)
+                // are user-initiated measurements that never go below 40%, so they
+                // are offered on untested channels too. The test authorizes 50%.
+                let test = mode == "channel_test";
                 Ok((
-                    ControlMode::Calibration {
-                        critical_c: critical,
+                    if test {
+                        ControlMode::ChannelTest {
+                            critical_c: critical,
+                        }
+                    } else {
+                        ControlMode::Calibration {
+                            critical_c: critical,
+                        }
                     },
                     critical.floor() as u8,
-                    40,
+                    if test { 50 } else { 40 },
                     limits.tier,
                     RuntimeLimits::default(),
                 ))
@@ -183,6 +191,9 @@ pub struct Status {
     pub error: Option<String>,
     /// Support tier of the current/last job ("verified", "lhm_supported", ...).
     pub tier: Option<&'static str>,
+    /// Mode and native control of the current/last job.
+    pub mode: Option<String>,
+    pub control_id: Option<String>,
 }
 type View = Arc<Mutex<Status>>;
 enum Command {
@@ -206,6 +217,8 @@ impl Default for CoolingSessions {
                 report: None,
                 error: None,
                 tier: None,
+                mode: None,
+                control_id: None,
             })),
             thread: None,
             next: 0,
@@ -276,6 +289,8 @@ impl CoolingSessions {
             view.report = None;
             view.error = None;
             view.tier = Some(plan.tier.as_str());
+            view.mode = Some(plan.request.mode.clone());
+            view.control_id = Some(plan.request.control_id.clone());
         }
         if sender
             .try_send(Command::Start(self.next, Box::new(plan)))

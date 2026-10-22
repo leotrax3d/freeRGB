@@ -182,6 +182,13 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     .map_err(|error| (-32006, error))
             }),
         "cooling.background.get" => Ok(lock(engine).background.view()),
+        "cooling.support.get" => {
+            let engine = lock(engine);
+            Ok(engine.fan_support.view(
+                engine.mainboard.summary().board.as_ref(),
+                &engine.mainboard.channels(),
+            ))
+        }
         "cooling.background.apply" => serde_json::from_value(params.clone())
             .map_err(invalid_params)
             .and_then(|request: crate::background::BackgroundRequest| {
@@ -191,8 +198,9 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     let policy = engine
                         .cooling_policy(&channel.control_id)
                         .map_err(|error| (-32006, error))?;
+                    let bands = engine.plausibility(&channel.control_id);
                     entries.push(
-                        crate::background::protected_entry(channel, &policy, None)
+                        crate::background::protected_entry(channel, &policy, bands.as_ref())
                             .map_err(invalid_params)?,
                     );
                 }
