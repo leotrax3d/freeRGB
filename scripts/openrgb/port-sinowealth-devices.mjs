@@ -12,8 +12,10 @@ for (const m of s.matchAll(/^\s*#define\s+([A-Za-z0-9_]+)\s+(0x[0-9A-Fa-f]+)/gm)
 const ds = [];
 for (const m of s.matchAll(/REGISTER_HID_DETECTOR(?:_[A-Z]+)?\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z0-9_]+)/g)) if (v.has(m[3]) && v.has(m[4])) ds.push({ name: m[1], handler: m[2], vid: v.get(m[3]), pid: v.get(m[4]) });
 if (ds.length !== 13) throw new Error(`expected 13 detectors, found ${ds.length}`);
-const kind = (d) => d.handler.includes("Mouse") || d.handler.includes("GMOW") || d.handler.includes("Xenon") ? "mouse" : "keyboard";
-const leds = (d) => kind(d) === "mouse" ? 3 : 106;
-const out = ["// SPDX-License-Identifier: GPL-2.0-or-later", `// Generated from OpenRGB ${commit}.`, "use super::table::{Detector,Device};", "pub static DETECTORS:&[Detector]= &[", ...ds.map((d) => `Detector{name:${JSON.stringify(d.name)},handler:${JSON.stringify(d.handler)},vid:${d.vid},pid:${d.pid},kind:${JSON.stringify(kind(d))},leds:${leds(d)}},`), "];", "pub static DEVICES:&[Device]= &[", ...Array.from(new Map(ds.map((d) => [`${d.vid}:${d.pid}`, d])).values()).map((d) => `Device{vid:${d.vid},pid:${d.pid},kind:${JSON.stringify(kind(d))},leds:${leds(d)}},`), "];", ""];
+const protocol = (d) => d.handler.includes("GMOW") ? "gmow" : d.handler.includes("ZetFury") ? "zet" : d.handler.includes("Xenon") ? "xenon" : d.handler.includes("Keyboard10c") ? "k10c" : d.handler.includes("Keyboard16") ? "k16" : d.handler.includes("Keyboard") || d.handler.includes("GenesisKeyboard") ? "keyboard" : "mouse";
+const kind = (d) => protocol(d) === "keyboard" || protocol(d) === "k10c" || protocol(d) === "k16" ? "keyboard" : "mouse";
+const leds = (d) => ({ gmow: 0, zet: 7, xenon: 1, k10c: 170, k16: 132, keyboard: 86, mouse: 1 }[protocol(d)]);
+const row = (name, d) => `${name}{vid:${d.vid},pid:${d.pid},protocol:${JSON.stringify(protocol(d))},kind:${JSON.stringify(kind(d))},leds:${leds(d)}}`;
+const out = ["// SPDX-License-Identifier: GPL-2.0-or-later", `// Generated from OpenRGB ${commit}.`, "use super::table::{Detector,Device};", "pub static DETECTORS:&[Detector]= &[", ...ds.map((d) => `Detector{name:${JSON.stringify(d.name)},handler:${JSON.stringify(d.handler)},vid:${d.vid},pid:${d.pid},protocol:${JSON.stringify(protocol(d))},kind:${JSON.stringify(kind(d))},leds:${leds(d)}},`), "];", "pub static DEVICES:&[Device]= &[", ...Array.from(new Map(ds.map((d) => [`${d.vid}:${d.pid}:${protocol(d)}`, d])).values()).map((d) => `Device{vid:${d.vid},pid:${d.pid},protocol:${JSON.stringify(protocol(d))},kind:${JSON.stringify(kind(d))},leds:${leds(d)}},`), "];", ""];
 fs.writeFileSync("modules/sinowealth/src/devices_table.rs", out.join("\n"));
 console.log(`generated ${ds.length} Sinowealth detectors`);

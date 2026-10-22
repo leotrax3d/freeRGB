@@ -12,6 +12,7 @@ pub const MODULE_ID: &str = "sinowealth";
 #[derive(Default)]
 pub struct Sinowealth {
     kind: &'static str,
+    protocol: &'static str,
     leds: usize,
     active: bool,
 }
@@ -37,6 +38,7 @@ impl Module for Sinowealth {
     ) -> Result<Capabilities, ModuleError> {
         let d = table::device(i).ok_or_else(|| err("unsupported Sinowealth device"))?;
         self.kind = d.kind;
+        self.protocol = d.protocol;
         self.leds = d.leds;
         self.active = true;
         Ok(Capabilities {
@@ -67,11 +69,25 @@ impl Module for Sinowealth {
         if !self.active || c.len() != self.leds {
             return Err(err("invalid Sinowealth frame"));
         }
-        if self.kind == "mouse" {
-            h.write(&report::mouse(c, 1)).map_err(err)?;
-        } else {
-            for x in c.chunks(16) {
-                h.write(&report::direct(x)).map_err(err)?;
+        match self.protocol {
+            "zet" => {
+                h.write(&report::zet(c)).map_err(err)?;
+            }
+            "xenon" => {
+                h.write(&report::xenon(c[0])).map_err(err)?;
+            }
+            "k10c" => {
+                h.write(&report::k10c(c)).map_err(err)?;
+            }
+            "k16" => {
+                h.write(&report::k16(c)).map_err(err)?;
+            }
+            "keyboard" => {
+                h.write(&report::keyboard(c)).map_err(err)?;
+            }
+            "gmow" => {}
+            _ => {
+                h.write(&report::mouse(c, 1)).map_err(err)?;
             }
         }
         Ok(())
