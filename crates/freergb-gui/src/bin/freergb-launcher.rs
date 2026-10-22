@@ -16,11 +16,11 @@ fn installed_library(directory: &std::path::Path) -> Option<std::ffi::OsString> 
     let state: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
     if state["version"] != 1
         || state["enabled"] != true
-        || state["library"] != "providers/lhm-0.9.6"
+        || state["library"] != freergb_core::lhm::LIBRARY_DIRECTORY
     {
         return None;
     }
-    let library = directory.join("providers").join("lhm-0.9.6");
+    let library = directory.join(freergb_core::lhm::LIBRARY_DIRECTORY);
     library
         .join("LibreHardwareMonitorLib.dll")
         .is_file()
@@ -142,33 +142,33 @@ mod tests {
     fn installed_provider_requires_version_consent_fixed_path_and_runtime() {
         let directory =
             std::env::temp_dir().join(format!("freergb-launcher-provider-{}", std::process::id()));
-        std::fs::create_dir_all(directory.join("providers/lhm-0.9.6")).unwrap();
+        let library = directory.join(freergb_core::lhm::LIBRARY_DIRECTORY);
+        let provider = |version: u8, enabled: bool, path: &str| {
+            serde_json::json!({"version": version, "enabled": enabled, "library": path}).to_string()
+        };
+        std::fs::create_dir_all(&library).unwrap();
         assert!(installed_library(&directory).is_none());
         std::fs::write(
-            directory.join("providers/lhm-0.9.6/LibreHardwareMonitorLib.dll"),
+            library.join("LibreHardwareMonitorLib.dll"),
             b"test fixture, never loaded",
         )
         .unwrap();
         for state in [
-            r#"{"version":2,"enabled":true,"library":"providers/lhm-0.9.6"}"#,
-            r#"{"version":1,"enabled":false,"library":"providers/lhm-0.9.6"}"#,
-            r#"{"version":1,"enabled":true,"library":"../../elsewhere"}"#,
+            provider(2, true, freergb_core::lhm::LIBRARY_DIRECTORY),
+            provider(1, false, freergb_core::lhm::LIBRARY_DIRECTORY),
+            provider(1, true, "../../elsewhere"),
+            provider(1, true, "providers/lhm-0.0.0"),
         ] {
             std::fs::write(directory.join("mainboard-provider.json"), state).unwrap();
             assert!(installed_library(&directory).is_none());
         }
         std::fs::write(
             directory.join("mainboard-provider.json"),
-            r#"{"version":1,"enabled":true,"library":"providers/lhm-0.9.6"}"#,
+            provider(1, true, freergb_core::lhm::LIBRARY_DIRECTORY),
         )
         .unwrap();
         assert!(installed_library(&directory).is_some());
-        std::fs::remove_file(directory.join("mainboard-provider.json")).unwrap();
-        std::fs::remove_file(directory.join("providers/lhm-0.9.6/LibreHardwareMonitorLib.dll"))
-            .unwrap();
-        std::fs::remove_dir(directory.join("providers/lhm-0.9.6")).unwrap();
-        std::fs::remove_dir(directory.join("providers")).unwrap();
-        std::fs::remove_dir(directory).unwrap();
+        std::fs::remove_dir_all(directory).unwrap();
     }
     #[test]
     fn motherboard_option_is_explicit_and_cannot_enable_hardware_in_demo() {

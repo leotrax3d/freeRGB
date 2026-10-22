@@ -119,7 +119,7 @@ internal sealed class NativeControlJournal : IDisposable
         var entry = document["reservation"] as Dictionary<string, object>;
         Guid identifier;
         if (entry == null || (entry.Count != 5 && !(entry.Count == 6 && entry.ContainsKey("recovery"))) || !entry.ContainsKey("id") || !(entry["id"] is string) || !Guid.TryParseExact((string)entry["id"],"N",out identifier) ||
-            !entry.ContainsKey("backend") || !Object.Equals(entry["backend"],"lhm_0_9_6") ||
+            !entry.ContainsKey("backend") || !Object.Equals(entry["backend"],LhmPin.Backend) ||
             !entry.ContainsKey("hardware_id") || !(entry["hardware_id"] is string) || !IdentityText((string)entry["hardware_id"]) ||
             !entry.ContainsKey("sensor_id") || !(entry["sensor_id"] is string) || !IdentityText((string)entry["sensor_id"]) ||
             !entry.ContainsKey("pump") || !(entry["pump"] is bool))
@@ -183,7 +183,7 @@ internal sealed class NativeControlJournal : IDisposable
         return Locked(delegate {
             if (Read() != null) throw new InvalidOperationException("An unresolved native control intent exists; do not resume or acquire another channel.");
             string id = Guid.NewGuid().ToString("N");
-            var entry = new Dictionary<string, object> { {"id",id}, {"backend","lhm_0_9_6"}, {"hardware_id",identity.HardwareId}, {"sensor_id",identity.SensorId}, {"pump",identity.Pump} };
+            var entry = new Dictionary<string, object> { {"id",id}, {"backend",LhmPin.Backend}, {"hardware_id",identity.HardwareId}, {"sensor_id",identity.SensorId}, {"pump",identity.Pump} };
             if (identity.Recovery != null) { ValidateRecovery(identity.Recovery); entry.Add("recovery",identity.Recovery); }
             Write(entry);
             return id;

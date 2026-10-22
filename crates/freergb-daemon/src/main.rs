@@ -47,9 +47,14 @@ struct Args {
     /// Manual LED counts for four ARGB headers; zero disables that header.
     #[arg(long, default_value="0,0,0,0", value_parser=parse_argb_counts, requires="enable_asus_aura")]
     asus_argb_leds: [u16; 4],
-    /// Opt in to read-only motherboard sensors using a trusted LHM 0.9.6 directory.
-    /// Requires separately installed/running PawnIO; never installs a driver.
-    #[arg(long, value_name = "DIR")]
+    #[arg(
+        long,
+        value_name = "DIR",
+        help = format!(
+            "Opt in to read-only motherboard sensors using a trusted LHM {} directory. Requires separately installed/running PawnIO; never installs a driver.",
+            freergb_core::lhm::VERSION
+        )
+    )]
     mainboard_library: Option<std::path::PathBuf>,
     /// Target frames per second.
     #[arg(long, default_value_t = 30)]

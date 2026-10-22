@@ -6,7 +6,7 @@ $sources = @('Mainboard.cs','BrokerTransport.cs','BrokerCache.cs','BrokerService
     (Resolve-Path -LiteralPath (Join-Path "$PSScriptRoot/../providers/mainboard" $_)).Path
 }
 $fixture = Join-Path $directory 'broker-tests.exe'
-& $compiler /nologo /target:exe /main:BrokerTests /platform:x64 /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll "/out:$fixture" @sources
+& $compiler /nologo /target:exe /main:BrokerTests /platform:x64 /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll "/out:$fixture" @sources (Join-Path $directory 'LhmPin.g.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Broker tests compilation failed.' }
 & $fixture
 if ($LASTEXITCODE -ne 0) { throw 'Broker acceptance failed.' }

@@ -73,10 +73,11 @@ channel test and outside the verified/LHM-supported lists.
 
 ## Work packages
 
-1. **LHM version:** stay on v0.9.6 (latest stable). Centralise the pin (today
-   repeated in `mainboard-packages.json`, `BrokerDeployment.cs` line ~269,
-   `Mainboard.cs`, daemon/launcher help texts) so a later upgrade is one change
-   plus a re-audit of the private metadata used by `NativeControl` and
+1. **LHM version** *(implemented)*: stay on v0.9.6 (latest stable). The pin now
+   exists only in `packaging/windows/mainboard-packages.json`; PowerShell
+   (`Get-LhmPin`), C# (generated `LhmPin.g.cs`), Rust (`freergb_core::lhm` via
+   `build.rs`) and Inno Setup (`/DLhmVersion`) derive it. A later upgrade is one
+   change plus a re-audit of the private metadata used by `NativeControl` and
    `NativeNctEvidence`.
 2. **Tiered native admission:** `NativeNctEvidence` becomes optional; without
    it the adapter is created as LHM-supported with behavioural evidence

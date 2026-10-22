@@ -15,7 +15,9 @@ $metadata = cargo metadata --format-version 1 --no-deps | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'cargo metadata failed' }
 $version = ($metadata.packages | Where-Object { $_.name -eq 'freergb-gui' }).version
 if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Release tag must match the Cargo workspace version.' }
-& $Compiler "/DAppVersion=$version" "/DBinDir=$binPath" "/DOutputDir=$outputPath" "$PSScriptRoot/freergb.iss"
+Import-Module "$PSScriptRoot/mainboard-prerequisites.psm1" -Force
+$lhmPin = Get-LhmPin (Read-MainboardPackages "$PSScriptRoot/mainboard-packages.json")
+& $Compiler "/DAppVersion=$version" "/DLhmVersion=$($lhmPin.Version)" "/DBinDir=$binPath" "/DOutputDir=$outputPath" "$PSScriptRoot/freergb.iss"
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
 $installer = Join-Path $outputPath "freeRGB-$version-windows-x86_64-setup.exe"
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLowerInvariant()

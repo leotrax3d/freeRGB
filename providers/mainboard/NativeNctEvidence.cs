@@ -24,7 +24,7 @@ internal sealed class NativeNctEvidence : INativeControlEvidence
             throw new InvalidOperationException("Native register verification currently requires the audited Nct677X backend.");
         Type type = chip.GetType();
         string name = type.GetProperty("Chip").GetValue(chip,null).ToString();
-        // These use separate per-channel mode/command registers in pinned 0.9.6.
+        // These use separate per-channel mode/command registers in the pinned LHM version (LhmPin).
         // Shared-bit/EC/curve schemes (NCT668x) are deliberately excluded.
         if (Array.IndexOf(new[] { "NCT6771F","NCT6776F","NCT6779D","NCT6791D","NCT6792D","NCT6792DA","NCT6793D","NCT6795D","NCT6796D","NCT6796DR","NCT6796DS","NCT6797D","NCT6798D","NCT6799D","NCT6701D","NCT5585D","NCT610XD" },name) < 0)
             throw new InvalidOperationException("Native register scheme is not audited for this chip.");

@@ -34,8 +34,8 @@ internal sealed class NativeControl : INativeControlPort, INativeReturnEvidence
         if (control == null) throw new ArgumentNullException("control");
         Type type = control.GetType();
         AssemblyName assembly = type.Assembly.GetName();
-        if (type.FullName != "LibreHardwareMonitor.Hardware.Control" || assembly.Name != "LibreHardwareMonitorLib" || assembly.Version != new Version(0, 9, 6, 0))
-            throw new InvalidOperationException("Native control requires the pinned LHM 0.9.6 control implementation.");
+        if (type.FullName != "LibreHardwareMonitor.Hardware.Control" || assembly.Name != "LibreHardwareMonitorLib" || assembly.Version != LhmPin.Assembly)
+            throw new InvalidOperationException("Native control requires the pinned LHM " + LhmPin.Version + " control implementation.");
         this.control = control;
         floor = pump ? 100 : (commissioningFloor ?? 40);
         if (floor < 40 || floor > 100) throw new InvalidOperationException("Unsupported commissioning floor.");

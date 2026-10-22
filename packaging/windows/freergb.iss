@@ -4,6 +4,9 @@
 #ifndef BinDir
   #define BinDir "..\..\target\release"
 #endif
+#ifndef LhmVersion
+  #error Pass /DLhmVersion; build-installer.ps1 reads it from mainboard-packages.json
+#endif
 #ifndef OutputDir
   #define OutputDir "..\..\target\dist"
 #endif
@@ -89,7 +92,7 @@ Filename: "{app}\freergb.exe"; Parameters: "stop-installed-daemon --directory ""
 [UninstallDelete]
 Type: files; Name: "{app}\mainboard-provider.json"
 Type: files; Name: "{app}\mainboard-install-result.json"
-Type: filesandordirs; Name: "{app}\providers\lhm-0.9.6"
+Type: filesandordirs; Name: "{app}\providers\lhm-{#LhmVersion}"
 
 [Code]
 function RemoveOwnedAutostart: Boolean;

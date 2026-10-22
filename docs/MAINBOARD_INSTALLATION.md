@@ -14,11 +14,18 @@ maintenance executable, through Windows UAC. Our own distribution signing remain
 pending. It does
 not elevate the entire GUI/daemon or grant general users access to PawnIO.
 
-Pinned components in `packaging/windows/mainboard-packages.json`, version 1:
+Pinned components in `packaging/windows/mainboard-packages.json`, version 1. This
+manifest is the **only** place that names the LHM version: the installer, the
+helper/broker build (generated `LhmPin.g.cs`), the Rust launcher/daemon
+(`freergb_core::lhm`, read by `crates/freergb-core/build.rs`) and the Inno Setup
+script (`/DLhmVersion` from `build-installer.ps1`) derive it from there.
+`Read-MainboardPackages` rejects LHM download URLs that name another tag. An LHM
+upgrade is one manifest change plus a re-audit of the private LHM metadata used
+by `NativeControl.cs`/`NativeNctEvidence.cs` and a rerun of the native tests:
 
 | Component | Source | Behavior |
 |---|---|---|
-| LibreHardwareMonitor 0.9.6 | Official GitHub release | Download unmodified archive; deploy flat runtime DLLs, excluding reference GUI/dependencies specific to it |
+| LibreHardwareMonitor (pinned: 0.9.6) | Official GitHub release | Download unmodified archive; deploy flat runtime DLLs, excluding reference GUI/dependencies specific to it |
 | PawnIO 2.2.0 | Official GitHub release | If the driver is missing, launch verified official installer with its own interactive/license dialogs; use signed standard edition |
 | .NET Framework 4.8 | Official Microsoft installer | Only if registry Release < 528040; passive installation without forced restart |
 

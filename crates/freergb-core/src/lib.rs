@@ -9,6 +9,7 @@ pub mod canvas;
 pub mod color;
 pub mod frame;
 pub mod layout;
+pub mod lhm;
 pub mod screen;
 
 pub use audio::AudioFeatures;

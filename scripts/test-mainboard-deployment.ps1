@@ -8,7 +8,7 @@ $sources = @('Mainboard.cs','BrokerTransport.cs','BrokerCache.cs','BrokerService
 }
 $manifest = (Resolve-Path -LiteralPath "$PSScriptRoot/../packaging/windows/mainboard-packages.json").Path
 $fixture = Join-Path $directory 'deployment-tests.exe'
-& $compiler /nologo /target:exe /main:DeploymentTests /platform:x64 /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/out:$fixture" @sources (Join-Path $directory 'BrokerBuild.cs')
+& $compiler /nologo /target:exe /main:DeploymentTests /platform:x64 /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/out:$fixture" @sources (Join-Path $directory 'BrokerBuild.cs') (Join-Path $directory 'LhmPin.g.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Deployment tests compilation failed.' }
 if ($VerifyRuntime) {
     Import-Module "$PSScriptRoot/../packaging/windows/mainboard-prerequisites.psm1" -Force

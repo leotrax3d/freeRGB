@@ -67,7 +67,7 @@ internal static class Mainboard
     private static Dictionary<string, object> Initialize()
     {
         string dll = Path.Combine(library, "LibreHardwareMonitorLib.dll");
-        if (!File.Exists(dll)) return Empty("missing_library", "LibreHardwareMonitor 0.9.6 library and its runtime dependencies are required.");
+        if (!File.Exists(dll)) return Empty("missing_library", "LibreHardwareMonitor " + LhmPin.Version + " library and its runtime dependencies are required.");
         // Never start/install a driver or ask for elevation from the helper.
         bool running = false;
         using (var driver = new ServiceController("PawnIO"))
@@ -90,8 +90,8 @@ internal static class Mainboard
         };
         Assembly assembly = Assembly.LoadFrom(dll);
         Version version = assembly.GetName().Version;
-        if (version.Major != 0 || version.Minor != 9 || version.Build != 6)
-            return Empty("missing_library", "This provider requires the verified LibreHardwareMonitor 0.9.6 runtime.");
+        if (version.Major != LhmPin.Assembly.Major || version.Minor != LhmPin.Assembly.Minor || version.Build != LhmPin.Assembly.Build)
+            return Empty("missing_library", "This provider requires the verified LibreHardwareMonitor " + LhmPin.Version + " runtime.");
         computer = Activator.CreateInstance(assembly.GetType("LibreHardwareMonitor.Hardware.Computer", true));
         // Default Computer settings are memory-only. No persisted control settings
         // are loaded. Only motherboard/SuperIO groups are enabled, never USB/GPU.

@@ -12,6 +12,7 @@ if (-not $DownloadOnly -and -not (Test-Path -LiteralPath (Join-Path $root 'freer
 if (-not $CacheDirectory) { $CacheDirectory = Join-Path $env:TEMP ('freeRGB-prerequisites-' + [guid]::NewGuid().ToString('N')) }
 $CacheDirectory = [IO.Path]::GetFullPath($CacheDirectory)
 $manifest = Read-MainboardPackages (Join-Path $PSScriptRoot 'mainboard-packages.json')
+$lhmPin = Get-LhmPin $manifest
 $resultPath = Join-Path $root 'mainboard-install-result.json'
 $result = @{version=1;status='failed';restart_required=$false;message='Installation did not complete.'}
 try {
@@ -41,7 +42,7 @@ try {
         $start = Start-Process -FilePath (Join-Path $env:WINDIR 'System32\sc.exe') -ArgumentList 'start PawnIO' -Verb RunAs -WindowStyle Hidden -Wait -PassThru
         if ($start.ExitCode -notin @(0,1056)) { throw 'PawnIO driver did not start. Restart Windows or check its installer.' }
     }
-    $libraryRoot = Join-Path $root 'providers\lhm-0.9.6'
+    $libraryRoot = Join-Path $root ($lhmPin.LibraryDirectory -replace '/','\')
     Install-LhmRuntime $libraryArchive $libraryRoot $manifest $CacheDirectory
     if ($result.restart_required) {
         $result.status='restart_required';$result.message='Prerequisites require a restart. Restart Windows, then rerun Setup with the mainboard option to install the protected sensor service.'
@@ -58,7 +59,7 @@ try {
     $maintenance = Start-Process -FilePath $broker -ArgumentList $arguments -WorkingDirectory (Join-Path $env:WINDIR 'System32') -Verb RunAs -WindowStyle Hidden -Wait -PassThru
     if ($maintenance.ExitCode -ne 0) { throw 'Protected sensor service setup failed or was cancelled. Diagnostic: %ProgramFiles%\freeRGB\mainboard-maintenance-result.json. Existing service rollback is attempted automatically.' }
     # Fixed relative path: neither GUI config nor arbitrary executable arguments.
-    $provider = @{version=1;enabled=$true;library='providers/lhm-0.9.6'} | ConvertTo-Json
+    $provider = @{version=1;enabled=$true;library=$lhmPin.LibraryDirectory} | ConvertTo-Json
     [IO.File]::WriteAllText((Join-Path $root 'mainboard-provider.json'),$provider)
     $result.status = if ($result.restart_required) { 'restart_required' } else { 'prepared' }
     $result.message='Protected mainboard sensor service installed. GUI and daemon remain unelevated. Fan control remains gated; physical channel labels and hardware compatibility still require validation.'
