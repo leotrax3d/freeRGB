@@ -137,3 +137,27 @@ shape. Recovery semantics without readback:
   never releases it, clears the intent and reports `held_full` until the
   snapshot worker restarts (the hardware stays at 100% until reboot). A living
   original worker still blocks recovery.
+
+## Multiple channels (journal version 2, 2026-10-22)
+
+The journal holds one reservation per channel (at most 16). With zero or one
+pending reservation it keeps the exact version-1 file (`reservation`), so single
+channel and empty states stay readable by older releases; with two or more it
+writes `{"version":2,"reservations":[...]}` (older readers refuse it, which keeps
+rollback from erasing pending state). Rules:
+
+* A channel already present is never reserved again.
+* Another channel may be reserved only while every existing entry has a running
+  owner (its recorded `worker_identity` is alive); an entry without lifetime
+  evidence or with a dead owner is an unresolved orphan and blocks all new
+  reservations until recovery.
+* `Complete` removes only its own transaction, so releases happen in any order.
+* Recovery checks every entry on its own: entries of a still-running original
+  worker are skipped, each other entry is restored and cleared independently,
+  and a failed restore keeps only its own intent.
+* Maintenance refuses while any entry is pending.
+
+Each protected worker still owns exactly one channel in its own process. The
+interactive daemon bridge is a single-instance pipe, so live GUI sessions run one
+at a time; several channels run concurrently through the protected background
+controller (work package 4).

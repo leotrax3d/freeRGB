@@ -209,13 +209,16 @@ internal static class Mainboard
 #if NATIVE_CONTROL_WORKER
         using (var journal=NativeControlJournal.CreateProtected())
         {
-            var current=journal.Pending();
-            var provenance=current != null && current.ContainsKey("recovery") ? current["recovery"] as Dictionary<string,object> : null;
-            bool active=provenance != null && provenance.ContainsKey("worker_identity") &&
-                !Object.Equals(provenance["worker_identity"],BrokerTransport.CurrentProcessIdentity()) &&
-                provenance.ContainsKey("service_identity") && Object.Equals(provenance["service_identity"],BrokerTransport.ServiceIdentity()) &&
-                BrokerTransport.ProcessIdentityAlive((string)provenance["worker_identity"]);
-            if (!active) journal.Recover(delegate(Dictionary<string,object> pending) {
+            // Every pending channel is checked on its own; a still-running original
+            // worker of this service lifetime keeps its reservation.
+            Func<Dictionary<string,object>,bool> active=delegate(Dictionary<string,object> current) {
+                var provenance=current.ContainsKey("recovery") ? current["recovery"] as Dictionary<string,object> : null;
+                return provenance != null && provenance.ContainsKey("worker_identity") &&
+                    !Object.Equals(provenance["worker_identity"],BrokerTransport.CurrentProcessIdentity()) &&
+                    provenance.ContainsKey("service_identity") && Object.Equals(provenance["service_identity"],BrokerTransport.ServiceIdentity()) &&
+                    BrokerTransport.ProcessIdentityAlive((string)provenance["worker_identity"]);
+            };
+            journal.Recover(delegate(Dictionary<string,object> pending) {
                 var matches=new List<object>();
                 foreach (object board in (IEnumerable)Get(computer,"Hardware")) FindControl(board,(string)pending["sensor_id"],matches,0);
                 if (matches.Count != 1 || Get(Get(matches[0],"Hardware"),"Identifier").ToString() != (string)pending["hardware_id"])
@@ -227,7 +230,7 @@ internal static class Mainboard
                 bool recovered=NativeControl.RecoverFallbackProtected(Get(matches[0],"Control"),recorded,out heldFull);
                 if (heldFull) held.Add((string)pending["hardware_id"] + "|" + (string)pending["sensor_id"]);
                 return recovered;
-            });
+            },active);
         }
 #endif
         var clock = Stopwatch.StartNew();

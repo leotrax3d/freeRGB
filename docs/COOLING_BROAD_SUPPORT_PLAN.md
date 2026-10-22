@@ -106,9 +106,12 @@ channel test and outside the verified/LHM-supported lists.
      `cooling.channels.list`, sessions, `diagnostics.get`/`export` and both GUIs
      show the tier. Rust runs lower tiers with `RuntimeLimits` and closes
      gracefully (return to firmware) on supervision faults instead of blocking.
-3. **Multiple channels:** extend the durable native journal and the session
-   host from one channel to all reserved channels (per-channel recovery
-   records, release in any order, crash recovery for all).
+3. **Multiple channels** *(implemented, synthetic tests only)*: journal version
+   2 with one entry per channel, legacy v1 shape kept for 0/1 entries, liveness
+   based admission, any-order release, per-channel crash recovery
+   (`MAINBOARD_CONTROL_RECOVERY.md`). Interactive GUI sessions stay one at a
+   time (single-instance bridge pipe); concurrent channels run in the protected
+   background controller.
 4. **Background control:** the protected service starts the saved per-channel
    curves at boot/login without a GUI session; GUI only edits and observes.
 5. **Guided channel test + identification, unrestricted unlock** in the service API and both GUIs
