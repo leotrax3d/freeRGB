@@ -22,6 +22,7 @@ members = [
     "modules/redragon-mouse",
     "modules/luxafor",
     "modules/steelseries",
+    "modules/msi-motherboard",
 ]
 
 [workspace.package]
