@@ -39,6 +39,7 @@ members = [
     "modules/hyperx-keyboard",
     "modules/hyperx-mouse",
     "modules/gaizonggai",
+    "modules/lianli",
     "modules/corsair-hydro-platinum",
     "modules/sinowealth",
 ]
