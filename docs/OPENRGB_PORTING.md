@@ -145,12 +145,12 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `RazerController` | ported | existing reference module | 125 supported subset | ARGB, keyboard layouts, receivers and hardware effects omitted |
 | `RedragonController` | ported | `4a55e3c` | 11 | Direct only; effects/profile persistence omitted |
 | `LuxaforController` | ported | `8e7b1d2` | 1 | Direct only; Fade/Strobe/Wave/Pattern omitted |
-| `ThermaltakeRiingController` | ported | pending | 51 | Base/Quad/Trio direct HID packet paths and optional zones supported; firmware/serial reads and Quad keepalive omitted |
+| `ThermaltakeRiingController` | ported | `e90c42a` | 51 | Base/Quad/Trio direct HID packet paths and optional zones supported; firmware/serial reads and Quad keepalive omitted |
 | `MSIMotherboardController` | ported | `55000e9` | 124 detectors / 123 unique IDs | 112/162/185/761-byte HID protocols; serial/path reads omitted; frame API sends direct RGB state |
 | `AsusAuraUSBController` | ported | `063d720` | 100 detectors / 100 non-built-in IDs | Common 0xEC/0x40 direct HID framing; built-in 0b05:19af omitted; controller-specific effects omitted |
 | `SteelSeriesController` | ported | `aa96e26` | 76 detectors / 76 unique IDs | Generic 64-byte RGB report path; device-specific Apex, Arctis, receiver, layout and effect paths omitted |
 | `ThermaltakeRiingController` | ported | `e90c42a` | 51 detectors / 51 unique IDs | Base 65-byte, Quad 193-byte and Trio chunked 65-byte direct paths; firmware/serial reads and Quad keepalive omitted |
-| `LogitechController` | in progress | pending | 55 detectors / 48 unique IDs | Generator and HID inventory staged; HID++/Lightspeed, keyboard, mouse, headset and X56 protocol paths still being ported |
+| `LogitechController` | in progress | `1af9ea2` | 55 detectors / 48 unique IDs | Generator and HID inventory staged; G213 and G203 direct reports ported; HID++/Lightspeed, remaining keyboard, mouse, headset and X56 paths still being ported |
 
 
 The per-family status ledger is maintained below this inventory by the porting
