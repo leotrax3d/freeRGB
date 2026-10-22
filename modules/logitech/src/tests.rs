@@ -52,6 +52,10 @@ fn bytes() {
         &report::x56_color(Rgb { r: 1, g: 2, b: 3 })[..6],
         &[9, 0, 3, 1, 2, 3]
     );
+    assert_eq!(
+        &report::g933(1, Rgb { r: 1, g: 2, b: 3 })[..10],
+        &[0x11, 0xff, 4, 0x3a, 1, 1, 1, 2, 3, 2]
+    );
 }
 #[test]
 fn lifecycle() {
