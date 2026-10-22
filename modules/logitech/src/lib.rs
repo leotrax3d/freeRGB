@@ -34,19 +34,33 @@ impl Module for Logitech {
         &mut self,
         i: &InterfaceInfo,
         z: Option<&[Zone]>,
-        _: &mut dyn Hid,
+        h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         let id = table::identify(i);
         let handler = table::handler(i).ok_or_else(|| err("unsupported Logitech HID device"))?;
         if !id.supported {
             return Err(err("unsupported Logitech HID device"));
         }
+        let default_leds = if handler.contains("KeyboardG213") {
+            5
+        } else if handler.contains("MouseG203") {
+            3
+        } else if handler.contains("KeyboardG815") || handler.contains("KeyboardG915") {
+            117
+        } else {
+            20
+        };
         self.leds = z
             .map(|x| x.iter().map(|q| q.leds).sum())
-            .unwrap_or(20)
+            .unwrap_or(default_leds)
             .clamp(1, 240);
         self.active = true;
         self.handler = handler;
+        if handler.contains("KeyboardG815") {
+            for p in report::g815_init() {
+                h.write(&p).map_err(err)?;
+            }
+        }
         Ok(Capabilities {
             name: id.model.unwrap_or_else(|| "Logitech".into()),
             kind: DeviceKind::Accessory,
@@ -86,6 +100,11 @@ impl Module for Logitech {
         } else if self.handler.contains("MouseG203") {
             h.write(&report::g203(c)).map_err(err)?;
             h.write(&report::g203_apply()).map_err(err)?;
+        } else if self.handler.contains("KeyboardG815") {
+            for (n, color) in c.iter().enumerate() {
+                h.write(&report::g815_little(0x04u8.saturating_add(n as u8), *color))
+                    .map_err(err)?;
+            }
         } else {
             for x in c.chunks(20) {
                 h.write(&report::direct(x)).map_err(err)?;

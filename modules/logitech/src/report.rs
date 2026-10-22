@@ -30,3 +30,18 @@ pub fn g203_apply() -> [u8; 20] {
     p[0..4].copy_from_slice(&[0x11, 0xff, 0x12, 0x70]);
     p
 }
+pub fn g815_little(key: u8, c: Rgb) -> [u8; 20] {
+    let mut p = [0; 20];
+    p[0..8].copy_from_slice(&[0x11, 0xff, 0x10, 0x1f, key, c.r, c.g, c.b]);
+    p
+}
+pub fn g815_init() -> [[u8; 20]; 4] {
+    let mut a = [[0; 20]; 4];
+    a[0][0..4].copy_from_slice(&[0x11, 0xff, 0x08, 0x3e]);
+    a[1][0..4].copy_from_slice(&[0x11, 0xff, 0x08, 0x1e]);
+    a[2][0..4].copy_from_slice(&[0x11, 0xff, 0x0f, 0x1e]);
+    a[2][0x10] = 1;
+    a[3][0..5].copy_from_slice(&[0x11, 0xff, 0x0f, 0x1e, 1]);
+    a[3][0x10] = 1;
+    a
+}
