@@ -129,6 +129,11 @@ pub fn keyboard(
     protocol: u8,
     big_endian: bool,
 ) -> Vec<Vec<u8>> {
+    const MINI_MAP: [usize; 69] = [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21, 23, 24, 25, 26,
+        27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 45, 46, 48, 49, 50, 51, 52,
+        53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 64, 65, 66, 68, 70, 71, 72, 73, 74, 75, 76,
+    ];
     let packet_count = packet_length.div_ceil(64);
     let header_length = if packet_length > 255 { 4 } else { 3 };
     let data_length = 64 - header_length;
@@ -147,12 +152,19 @@ pub fn keyboard(
         packets[0][4] = (packet_length >> 8) as u8;
     }
     for (index, color) in colors.iter().enumerate() {
-        let column = index / column_length;
-        let row = index % column_length;
-        let logical = column * 3 * column_length + row;
         for (channel, value) in [(0, color.r), (1, color.g), (2, color.b)] {
-            let offset =
-                logical + channel * column_length + if protocol == 1 { header_length } else { 0 };
+            let offset = if packet_length == 320 && colors.len() == 85 {
+                index + channel * colors.len()
+            } else {
+                let slot = if packet_length == 345 && colors.len() == 69 {
+                    MINI_MAP[index]
+                } else {
+                    index
+                };
+                let column = slot / column_length;
+                let row = slot % column_length;
+                column * 3 * column_length + row + channel * column_length
+            } + if protocol == 1 { header_length } else { 0 };
             let (packet, byte) = if protocol == 1 {
                 (offset / 64, offset % 64 + 1)
             } else {
