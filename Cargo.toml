@@ -35,6 +35,7 @@ members = [
     "modules/lenovo",
     "modules/nzxt-hue2",
     "modules/nollie",
+    "modules/evision-keyboard",
 ]
 
 [workspace.package]
