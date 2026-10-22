@@ -1,150 +1,257 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import {
-  Activity, AudioLines, Blend, Cable, Download, Github, Keyboard,
-  Layers3, MonitorUp, Palette, PlugZap, Save, ShieldCheck, SlidersHorizontal,
-  Monitor, Terminal,
+  Activity, ArrowUpRight, AudioLines, Cable, Check, CircleHelp, Cpu, Download, Fan,
+  Github, Keyboard, Layers, LayoutDashboard, Monitor, MonitorUp, Package, PlugZap,
+  Search, Settings, ShieldCheck, Sparkles, Terminal, type LucideIcon,
 } from "lucide-react"
-import appIcon from "../../assets/icons/freergb.png"
-import lightLogo from "../../assets/light.svg"
-import flatLogo from "../../assets/light_no-gradient.svg"
-import monochromeLogo from "../../assets/monochrome.svg"
-import refinedLogo from "../../assets/refined.svg"
-import { Button } from "./components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card"
-import { Separator } from "./components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs"
+import wordmark from "../../assets/brand/wordmark-dark.svg"
+import appIcon from "../../assets/icons/freergb-32.png"
+import bundledWebsiteContent from "../../docs/WEBSITE_CONTENT.md?raw"
 
 const repo = "https://github.com/leotrax3d/FreeRGB"
-const logoChoices = [appIcon, lightLogo, flatLogo, monochromeLogo, refinedLogo]
 
-function pickLogo() {
-  if (typeof window === "undefined") return logoChoices[0]
-  const previous = window.sessionStorage.getItem("freergb-logo")
-  const available = logoChoices.filter((logo) => logo !== previous)
-  const selected = available[Math.floor(Math.random() * available.length)]
-  window.sessionStorage.setItem("freergb-logo", selected)
-  return selected
+type Platform = "windows" | "linux" | "other"
+type Feature = {
+  icon: LucideIcon
+  title: string
+  color: "red" | "green" | "blue" | "purple" | "cyan" | "amber"
 }
 
-const activeLogo = pickLogo()
+type WebsiteData = {
+  featureDetails: Record<string, { description: string; details: string[] }>
+  devices: { name: string; id: string; scope: string }[]
+  downloads: Record<"windows" | "linux" | "source", { label: string; url: string; note: string }>
+  faq: { question: string; answer: string }[]
+}
 
-const features = [
-  { icon: Palette, title: "RGB-Effekte", text: "11 integrierte Effekte: Solid, Rainbow Wave, Breathing, Gradient, Colour Cycle, Scanner, Twinkle und mehr." },
-  { icon: Layers3, title: "Effekt-Editor", text: "Eigene Effekte aus bis zu acht Ebenen, Regionen, Deckkraft und verschiedenen Blend-Modi erstellen." },
-  { icon: AudioLines, title: "Audio-Reaktivität", text: "Audio Pulse und Audio Spectrum reagieren unter Windows direkt auf die lokale Systemwiedergabe." },
-  { icon: MonitorUp, title: "Screen Ambience", text: "Farben des Hauptmonitors werden mit etwa 30 Bildern pro Sekunde auf das RGB-Layout übertragen." },
-  { icon: Blend, title: "Geräte-Layout", text: "Geräte per Drag-and-drop auf einem gemeinsamen Effekt-Canvas positionieren und gemeinsam beleuchten." },
-  { icon: Save, title: "Profile", text: "Beleuchtung, Helligkeit und Effekte als benannte Profile speichern und wiederherstellen." },
-  { icon: Keyboard, title: "Makros", text: "Abläufe für Farbe, Helligkeit, Effekte, Verzögerungen, Texte, Tasten und Tastenkombinationen bauen." },
-  { icon: Activity, title: "Monitoring", text: "Verfügbare Drehzahlen und Temperaturen mit Verlauf, lokalen Warnregeln und Hysterese anzeigen." },
-  { icon: SlidersHorizontal, title: "Lüfterkurven", text: "Kurven mit Interpolation, Mindestleistung, kritischer Temperatur und Fallback-Verhalten simulieren." },
-  { icon: Cable, title: "Lokale API", text: "JSON-RPC per Windows Named Pipe oder Unix Socket – ohne offenen Netzwerk-Port." },
-  { icon: PlugZap, title: "Plugin-System", text: "Deklarative TOML-Gerätebeschreibungen und aktivierbare Prozess-Plugins für Erweiterungen." },
-  { icon: ShieldCheck, title: "Hardware-Sicherheit", text: "Nur bekannte Adapter werden beschrieben; Rückgabe und Konflikterkennung sind eingebaut." },
+type Group = {
+  id: string
+  nav: string
+  title: string
+  description: string
+  icon: LucideIcon
+  features: Feature[]
+}
+
+const groups: Group[] = [
+  {
+    id: "light", nav: "Light", title: "Light", icon: Sparkles,
+    description: "Create one lighting system from every supported device.",
+    features: [
+      { icon: Sparkles, title: "Lighting", color: "green" },
+      { icon: LayoutDashboard, title: "Layout", color: "purple" },
+      { icon: Layers, title: "Profiles", color: "blue" },
+    ],
+  },
+  {
+    id: "hardware", nav: "Hardware", title: "Hardware", icon: Cpu,
+    description: "See what is connected, what it is doing, and how it is being cooled.",
+    features: [
+      { icon: Cpu, title: "Devices", color: "blue" },
+      { icon: Fan, title: "Cooling", color: "cyan" },
+      { icon: Activity, title: "Monitoring", color: "amber" },
+    ],
+  },
+  {
+    id: "automation", nav: "Automation", title: "Automation", icon: Keyboard,
+    description: "Make lighting respond to sound, the screen, or a sequence you define.",
+    features: [
+      { icon: AudioLines, title: "Audio reactive", color: "red" },
+      { icon: MonitorUp, title: "Screen ambience", color: "purple" },
+      { icon: Keyboard, title: "Macros", color: "green" },
+    ],
+  },
+  {
+    id: "platform", nav: "Open platform", title: "Open platform", icon: PlugZap,
+    description: "Extend freeRGB without giving up local control or opening a network service.",
+    features: [
+      { icon: Cable, title: "Local API", color: "blue" },
+      { icon: PlugZap, title: "Plugin system", color: "purple" },
+      { icon: ShieldCheck, title: "Safety and privacy", color: "green" },
+    ],
+  },
 ]
 
+type ReleaseInfo = {
+  tag: string
+  name: string
+  url: string
+  publishedAt: string
+  notes: string
+  assets: { name: string; url: string }[]
+}
+
+function parseWebsiteContent(markdown: string): WebsiteData {
+  const json = markdown.match(/```json\s*([\s\S]*?)```/i)?.[1]
+  if (!json) throw new Error("WEBSITE_CONTENT.md does not contain a JSON block")
+  return JSON.parse(json) as WebsiteData
+}
+
+const bundledWebsiteData = parseWebsiteContent(bundledWebsiteContent)
+
+function SideLink({ href, icon: Icon, active, children }: { href: string; icon: LucideIcon; active: boolean; children: ReactNode }) {
+  return <a className={`side-link${active ? " active" : ""}`} href={href} aria-current={active ? "location" : undefined}><Icon size={16} /><span>{children}</span></a>
+}
+
+function FeatureRow({ feature, content }: { feature: Feature; content: WebsiteData["featureDetails"][string] }) {
+  const Icon = feature.icon
+  return <article className="feature-row">
+    <div className={`feature-mark ${feature.color}`}><Icon size={19} /></div>
+    <div className="feature-copy"><h3>{feature.title}</h3><p>{content.description}</p></div>
+    <ul>{content.details.map((detail) => <li key={detail}><Check size={12} />{detail}</li>)}</ul>
+  </article>
+}
+
 export default function App() {
-  const [platform, setPlatform] = useState("windows")
+  const [activeSection, setActiveSection] = useState("overview")
+  const [platform, setPlatform] = useState<Platform>("other")
+  const [release, setRelease] = useState<ReleaseInfo | null | undefined>(undefined)
+  const [websiteData, setWebsiteData] = useState<WebsiteData>(bundledWebsiteData)
+  const sections = [
+    { id: "overview", label: "Overview", icon: Sparkles },
+    ...groups.slice(0, 3).map(({ id, nav: label, icon }) => ({ id, label, icon })),
+    { id: "compatibility", label: "Compatibility", icon: Search },
+    { id: "platform", label: "Open platform", icon: PlugZap },
+    { id: "install", label: "Install", icon: Download },
+    { id: "faq", label: "FAQ", icon: CircleHelp },
+  ]
+  const activeLabel = sections.find(({ id }) => id === activeSection)?.label ?? "Overview"
+  const windowsAsset = release?.assets.find(({ name }) => /windows.*(setup|installer).*\.exe$/i.test(name) || /setup\.exe$/i.test(name))
+  const installTarget = platform === "windows"
+    ? { label: windowsAsset ? "Download for Windows" : "View Windows builds", href: windowsAsset?.url ?? websiteData.downloads.windows.url }
+    : platform === "linux"
+      ? { label: "Install on Linux", href: websiteData.downloads.linux.url }
+      : { label: "View install options", href: "#install" }
 
   useEffect(() => {
-    const value = `${navigator.userAgent} ${navigator.platform}`.toLowerCase()
-    if (value.includes("linux") && !value.includes("android")) setPlatform("linux")
-
     let favicon = document.querySelector<HTMLLinkElement>("link[rel='icon']")
-    if (!favicon) {
-      favicon = document.createElement("link")
-      favicon.rel = "icon"
-      document.head.appendChild(favicon)
-    }
-    favicon.href = activeLogo
+    if (!favicon) { favicon = document.createElement("link"); favicon.rel = "icon"; document.head.appendChild(favicon) }
+    favicon.href = appIcon
+
+    const system = `${navigator.userAgent} ${navigator.platform}`.toLowerCase()
+    if (system.includes("windows")) setPlatform("windows")
+    else if (system.includes("linux") && !system.includes("android")) setPlatform("linux")
   }, [])
 
-  return <div className="min-h-screen bg-background text-foreground">
-    <header className="border-b">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
-        <a href="#" className="flex items-center gap-2 text-sm font-semibold">
-          <img src={activeLogo} alt="freeRGB" className="size-8 rounded-md object-contain" />
-          freeRGB
-        </a>
-        <nav className="hidden items-center gap-6 text-sm text-muted-foreground sm:flex">
-          <a className="text-foreground" href="#funktionen">Funktionen</a>
-          <a className="transition-colors hover:text-foreground" href="#download">Download</a>
-          <a className="transition-colors hover:text-foreground" href={`${repo}/blob/main/docs/INSTALL.md`}>Installation</a>
-          <a className="transition-colors hover:text-foreground" href={`${repo}/blob/main/docs/DEVICES.md`}>Geräte</a>
-        </nav>
-        <Button size="sm" variant="outline" asChild>
-          <a href={repo} target="_blank" rel="noreferrer"><Github data-icon="inline-start" />GitHub</a>
-        </Button>
-      </div>
+  useEffect(() => {
+    fetch("https://raw.githubusercontent.com/leotrax3d/FreeRGB/main/docs/WEBSITE_CONTENT.md", { cache: "no-cache" })
+      .then((response) => {
+        if (!response.ok) throw new Error(`GitHub returned ${response.status}`)
+        return response.text()
+      })
+      .then((markdown) => setWebsiteData(parseWebsiteContent(markdown)))
+      .catch(() => { /* The bundled Markdown remains the offline/private-repository fallback. */ })
+  }, [])
+
+  useEffect(() => {
+    fetch("https://api.github.com/repos/leotrax3d/FreeRGB/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+      .then(async (response) => {
+        if (response.status === 404) return null
+        if (!response.ok) throw new Error(`GitHub returned ${response.status}`)
+        const data = await response.json() as { tag_name: string; name: string | null; html_url: string; published_at: string; body: string | null; assets: { name: string; browser_download_url: string }[] }
+        return { tag: data.tag_name, name: data.name || data.tag_name, url: data.html_url, publishedAt: data.published_at, notes: data.body || "No release notes were provided.", assets: data.assets.map((asset) => ({ name: asset.name, url: asset.browser_download_url })) }
+      })
+      .then(setRelease)
+      .catch(() => setRelease(null))
+  }, [])
+
+  useEffect(() => {
+    let queued = false
+    const update = () => {
+      if (queued) return
+      queued = true
+      requestAnimationFrame(() => {
+        const marker = window.scrollY + window.innerHeight * 0.32
+        let current = sections[0].id
+        for (const { id } of sections) {
+          const element = document.getElementById(id)
+          if (element && element.offsetTop <= marker) current = id
+        }
+        setActiveSection(current)
+        queued = false
+      })
+    }
+    update()
+    window.addEventListener("scroll", update, { passive: true })
+    window.addEventListener("resize", update)
+    return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update) }
+  }, [])
+
+  return <div className="site-frame">
+    <header className="mobile-header">
+      <div className="mobile-top"><a href="#overview"><img src={wordmark} alt="freeRGB" /></a><span>{activeLabel}</span><a className="icon-link" href={repo} target="_blank" rel="noreferrer" aria-label="Open GitHub"><Github size={18} /></a></div>
+      <nav aria-label="Current website section">{sections.map(({ id, label }) => <a key={id} href={`#${id}`} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "location" : undefined}>{label}</a>)}</nav>
     </header>
 
-    <main id="funktionen" className="mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28">
-      <section className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-        <img src={activeLogo} alt="freeRGB Logo" className="size-20 rounded-2xl object-contain" />
-        <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-6xl">Alle Funktionen von freeRGB</h1>
-        <p className="max-w-2xl text-pretty text-lg leading-8 text-muted-foreground">Offene, lokale RGB-Steuerung ohne Cloud-Konto und Telemetrie. Der aktuelle Funktionsumfang auf einen Blick.</p>
+    <aside className="sidebar">
+      <a className="wordmark" href="#overview"><img src={wordmark} alt="freeRGB" /></a>
+      <nav aria-label="Website sections">
+        <span className="nav-label">Product</span>
+        <SideLink href="#overview" icon={Sparkles} active={activeSection === "overview"}>Overview</SideLink>
+        {groups.slice(0, 3).map((group) => <SideLink key={group.id} href={`#${group.id}`} icon={group.icon} active={activeSection === group.id}>{group.nav}</SideLink>)}
+        <span className="nav-label second">Project</span>
+        <SideLink href="#compatibility" icon={Search} active={activeSection === "compatibility"}>Compatibility</SideLink>
+        <SideLink href="#platform" icon={PlugZap} active={activeSection === "platform"}>Open platform</SideLink>
+        <SideLink href="#install" icon={Download} active={activeSection === "install"}>Install</SideLink>
+        <SideLink href="#faq" icon={CircleHelp} active={activeSection === "faq"}>FAQ</SideLink>
+        <a className="side-link" href={`${repo}/blob/main/docs/INSTALL.md`} target="_blank" rel="noreferrer"><Settings size={16} /><span>Documentation</span><ArrowUpRight className="external" size={13} /></a>
+      </nav>
+      <div className="sidebar-spacer" />
+      <a className="github-link" href={repo} target="_blank" rel="noreferrer"><Github size={16} />View on GitHub</a>
+    </aside>
+
+    <main className="workspace">
+      <section id="overview" className="overview view-section">
+        <div className="overview-copy">
+          <h1>Control lighting, cooling, and devices from one place.</h1>
+          <p className="lead">freeRGB runs on your machine and talks directly to supported hardware. It does not require an account, telemetry, or an open network port.</p>
+          <div className="actions"><a className="button primary" href="#light">Explore features</a><a className="button secondary" href={installTarget.href} target={platform === "other" ? undefined : "_blank"} rel={platform === "other" ? undefined : "noreferrer"}><Download size={15} />{installTarget.label}</a></div>
+        </div>
+        <div className="overview-index">
+          {groups.map((group) => <a href={`#${group.id}`} key={group.id}><group.icon size={17} /><span><b>{group.title}</b><small>{group.description}</small></span><ArrowUpRight size={14} /></a>)}
+        </div>
       </section>
 
-      <section id="download" className="mx-auto mt-16 max-w-4xl">
-        <Tabs value={platform} onValueChange={setPlatform}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex flex-col gap-1"><h2 className="text-2xl font-semibold tracking-tight">freeRGB installieren</h2><p className="text-sm text-muted-foreground">Der passende Installationsweg wurde für dein System vorausgewählt.</p></div>
-            <TabsList>
-              <TabsTrigger value="windows"><Monitor />Windows</TabsTrigger>
-              <TabsTrigger value="linux"><Terminal />Linux</TabsTrigger>
-            </TabsList>
-          </div>
+      {groups.slice(0, 3).map((group) => <section id={group.id} className="catalog view-section" key={group.id}>
+        <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2><p>{group.description}</p></div></header>
+        <div className="feature-list">{group.features.map((feature) => <FeatureRow key={feature.title} feature={feature} content={websiteData.featureDetails[feature.title]} />)}</div>
+      </section>)}
 
-          <TabsContent value="windows" className="mt-6">
-            <Card>
-              <CardHeader><CardTitle>Windows 10 / 11</CardTitle><CardDescription>Der Installer wird derzeit über den GitHub-Paket-Workflow erzeugt. Ein öffentlicher Release ist noch nicht verfügbar.</CardDescription></CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="rounded-xl bg-muted p-4 font-mono text-sm text-muted-foreground">git clone https://github.com/leotrax3d/FreeRGB.git<br />cd FreeRGB<br />cargo install --path crates/freergb-gui</div>
-                <p className="text-sm leading-6 text-muted-foreground">Für den normalen HID-Zugriff werden keine Administratorrechte benötigt. SignalRGB und iCUE müssen vor der Hardware-Nutzung geschlossen werden.</p>
-              </CardContent>
-              <CardFooter className="flex flex-col gap-3 sm:flex-row">
-                <Button asChild><a href={`${repo}/actions/workflows/package.yml`} target="_blank" rel="noreferrer"><Download data-icon="inline-start" />Windows-Builds öffnen</a></Button>
-                <Button variant="outline" asChild><a href={`${repo}/archive/refs/heads/main.zip`}><Download data-icon="inline-start" />Quellcode als ZIP</a></Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="linux" className="mt-6">
-            <Card>
-              <CardHeader><CardTitle>Linux</CardTitle><CardDescription>Linux wird gebaut und getestet, die Nutzung mit echter Hardware ist derzeit noch nicht validiert.</CardDescription></CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="rounded-xl bg-muted p-4 font-mono text-sm text-muted-foreground">git clone https://github.com/leotrax3d/FreeRGB.git<br />cd FreeRGB<br />cargo install --path crates/freergb-gui</div>
-                <p className="text-sm leading-6 text-muted-foreground">Zusätzlich werden die in der Installationsdokumentation aufgeführten Systembibliotheken und udev-Regeln benötigt.</p>
-              </CardContent>
-              <CardFooter className="flex flex-col gap-3 sm:flex-row">
-                <Button asChild><a href={`${repo}/archive/refs/heads/main.tar.gz`}><Download data-icon="inline-start" />Quellcode als TAR.GZ</a></Button>
-                <Button variant="outline" asChild><a href={`${repo}/blob/main/docs/INSTALL.md#linux`} target="_blank" rel="noreferrer"><Terminal data-icon="inline-start" />Linux-Anleitung</a></Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-        </Tabs>
+      <section id="compatibility" className="catalog view-section">
+        <header className="view-header"><div className="view-symbol"><Search size={18} /></div><div><h2>Hardware support</h2><p>See which hardware classes and capabilities are currently available.</p></div></header>
+        <div className="device-list">
+          <div className="device-head"><span>Hardware class</span><span>Current scope</span></div>
+          {websiteData.devices.map((device) => <article className="device-row" key={device.name}><div><b>{device.name}</b><code>{device.id}</code></div><p>{device.scope}</p></article>)}
+        </div>
+        <p className="section-note">Availability depends on the underlying protocol and safety validation. See the device documentation for exact limitations.</p>
       </section>
 
-      <Separator className="my-16" />
+      {groups.slice(3).map((group) => <section id={group.id} className="catalog view-section" key={group.id}>
+        <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2><p>{group.description}</p></div></header>
+        <div className="feature-list">{group.features.map((feature) => <FeatureRow key={feature.title} feature={feature} content={websiteData.featureDetails[feature.title]} />)}</div>
+      </section>)}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map(({ icon: Icon, title, text }) =>
-          <Card key={title}>
-            <CardHeader>
-              <div className="flex size-10 items-center justify-center rounded-lg bg-muted"><Icon className="size-5" /></div>
-              <CardTitle className="pt-4">{title}</CardTitle>
-              <CardDescription>{text}</CardDescription>
-            </CardHeader>
-          </Card>
-        )}
+      <section id="install" className="install view-section">
+        <header className="view-header"><div className="view-symbol"><Download size={18} /></div><div><h2>Install freeRGB</h2><p>The recommended download is selected for this operating system.</p></div></header>
+        <div className="release-panel">
+          <div className="release-icon"><Package size={20} /></div>
+          {release === undefined ? <div><span className="release-kicker">Latest release</span><h3>Checking GitHub Releases…</h3><p>Version and release notes are loaded directly from GitHub.</p></div>
+            : release === null ? <div><span className="release-kicker">Release status</span><h3>No published release yet</h3><p>Installers are currently produced by GitHub Actions. The website will switch to the published installer automatically when the first release is available.</p></div>
+              : <div><span className="release-kicker">Latest release · {new Date(release.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span><h3>{release.name} <small>{release.tag}</small></h3><p>{release.notes}</p><a href={release.url} target="_blank" rel="noreferrer">Full release notes <ArrowUpRight size={13} /></a></div>}
+        </div>
+        <div className="install-list">
+          <a className={platform === "windows" ? "recommended" : ""} href={windowsAsset?.url ?? websiteData.downloads.windows.url} target="_blank" rel="noreferrer"><Monitor size={20} /><span><b>{websiteData.downloads.windows.label}</b><small>{platform === "windows" ? `Recommended · ${windowsAsset ? "Download latest installer" : websiteData.downloads.windows.note}` : websiteData.downloads.windows.note}</small></span><ArrowUpRight size={15} /></a>
+          <a className={platform === "linux" ? "recommended" : ""} href={websiteData.downloads.linux.url} target="_blank" rel="noreferrer"><Terminal size={20} /><span><b>{websiteData.downloads.linux.label}</b><small>{platform === "linux" ? `Recommended · ${websiteData.downloads.linux.note}` : websiteData.downloads.linux.note}</small></span><ArrowUpRight size={15} /></a>
+          <a href={websiteData.downloads.source.url} target="_blank" rel="noreferrer"><Github size={20} /><span><b>{websiteData.downloads.source.label}</b><small>{websiteData.downloads.source.note}</small></span><ArrowUpRight size={15} /></a>
+        </div>
       </section>
 
-      <section className="mt-16 flex flex-col gap-5 rounded-xl border bg-card p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-        <div className="flex flex-col gap-1"><h2 className="font-semibold">Frühe Entwicklungsphase</h2><p className="max-w-2xl text-sm leading-6 text-muted-foreground">Corsair K70 CORE ist validiert. Der iCUE LINK Hub ist experimentell und muss ausdrücklich aktiviert werden.</p></div>
-        <Button asChild><a href={`${repo}/blob/main/docs/DEVICES.md`} target="_blank" rel="noreferrer">Hardware-Status</a></Button>
+      <section id="faq" className="faq view-section">
+        <header className="view-header"><div className="view-symbol"><CircleHelp size={18} /></div><div><h2>Frequently asked questions</h2><p>Practical answers about setup, privacy, conflicts, and hardware support.</p></div></header>
+        <div className="faq-list">{websiteData.faq.map(({ question, answer }) => <details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>)}</div>
       </section>
+
+      <footer><span>freeRGB</span><span>MIT or Apache 2.0</span><a href={repo}>Source on GitHub</a></footer>
     </main>
-
-    <footer className="border-t"><div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between lg:px-8"><span>freeRGB</span><span>MIT oder Apache 2.0 · Unabhängiges Open-Source-Projekt.</span></div></footer>
   </div>
 }
