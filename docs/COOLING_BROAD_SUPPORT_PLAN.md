@@ -11,8 +11,15 @@ covers the chip families nearly all boards use (Nuvoton NCT67xx/NCT6687D,
 ITE IT86xx/IT87xx, Fintek, Winbond), with PawnIO for register access. Coverage
 is validated by its user base; a successful setter call is trusted. freeRGB
 already loads LHM through PawnIO and a protected broker, but its production
-gate (`NativeControl.CreateProtectedCore` -> `NativeNctEvidence.Create`) only
-admits Nuvoton chips with separate mode registers and audited readback.
+gate (`NativeControl.CreateProtectedCore` -> `NativeNctEvidence.Create`) admits
+17 Nuvoton chips with separate per-channel mode/command registers and audited
+readback (NCT6771F ... NCT6799D, NCT6701D, NCT5585D, NCT610XD). Refused today:
+ITE IT86xx/IT87xx (most Gigabyte/ASRock), Fintek, Winbond, Nuvoton NCT668x
+(e.g. NCT6687D on many MSI boards) and embedded-controller readings.
+
+LHM version (checked 2026-10-22): v0.9.6 (2026-02-14) is the latest stable
+release, which freeRGB already pins. No upgrade is required now; chips newer
+than 0.9.6 would need an unreleased LHM build and are out of scope.
 
 ## Support tiers
 
@@ -43,9 +50,11 @@ The tier is shown in the GUI and the diagnostics report for every channel.
 
 ## Work packages
 
-1. **LHM upgrade** to the current release for newer chips; re-audit the private
-   metadata used by the zero-duty workaround and `NativeNctEvidence`, rerun the
-   synthetic callback tests. (Prerequisite for coverage.)
+1. **LHM version:** stay on v0.9.6 (latest stable). Centralise the pin (today
+   repeated in `mainboard-packages.json`, `BrokerDeployment.cs` line ~269,
+   `Mainboard.cs`, daemon/launcher help texts) so a later upgrade is one change
+   plus a re-audit of the private metadata used by `NativeControl` and
+   `NativeNctEvidence`.
 2. **Tiered native admission:** `NativeNctEvidence` becomes optional; without
    it the adapter is created as LHM-supported with behavioural evidence
    supplied by the Rust runtime. Keep mode-readback checks LHM exposes.
@@ -64,7 +73,7 @@ The tier is shown in the GUI and the diagnostics report for every channel.
 9. **Acceptance on the development board** for every package that touches
    hardware, with the user present; other boards via beta testers.
 
-Order: 1 -> 2 -> 3 -> 4 -> 5, then 6-8 in parallel where independent; 9
+Order: 1 (small) -> 2 -> 3 -> 4 -> 5, then 6-8 in parallel where independent; 9
 accompanies each hardware-facing step.
 
 ## Explicit risks accepted
