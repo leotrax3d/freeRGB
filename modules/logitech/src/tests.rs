@@ -31,7 +31,15 @@ fn bytes() {
     assert_eq!(
         &report::direct(&[Rgb { r: 1, g: 2, b: 3 }])[..4],
         &[2, 1, 2, 3]
-    )
+    );
+    assert_eq!(
+        &report::g213(2, Rgb { r: 1, g: 2, b: 3 })[..10],
+        &[0x11, 0xff, 0x0c, 0x3a, 2, 1, 1, 2, 3, 2]
+    );
+    assert_eq!(
+        &report::g203(&[Rgb { r: 1, g: 2, b: 3 }])[..9],
+        &[0x11, 0xff, 0x12, 0x10, 1, 1, 2, 3, 0]
+    );
 }
 #[test]
 fn lifecycle() {
