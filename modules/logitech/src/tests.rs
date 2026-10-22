@@ -41,6 +41,18 @@ fn bytes() {
         &[0x11, 0xff, 0x12, 0x10, 1, 1, 2, 3, 0]
     );
     assert_eq!(
+        &report::g203l_init()[..7],
+        &[0x11, 0xff, 0x0e, 0x50, 1, 3, 7]
+    );
+    assert_eq!(
+        &report::g203l(&[
+            Rgb { r: 1, g: 2, b: 3 },
+            Rgb { r: 4, g: 5, b: 6 },
+            Rgb { r: 7, g: 8, b: 9 },
+        ])[..17],
+        &[0x11, 0xff, 0x12, 0x10, 1, 1, 2, 3, 2, 4, 5, 6, 3, 7, 8, 9, 0xff]
+    );
+    assert_eq!(
         &report::g815_little(0x04, Rgb { r: 1, g: 2, b: 3 })[..8],
         &[0x11, 0xff, 0x10, 0x1f, 4, 1, 2, 3]
     );

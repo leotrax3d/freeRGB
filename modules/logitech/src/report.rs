@@ -25,6 +25,21 @@ pub fn g203(colors: &[Rgb]) -> [u8; 20] {
     p[16] = 0xff;
     p
 }
+pub fn g203l_init() -> [u8; 20] {
+    let mut p = [0; 20];
+    p[0..7].copy_from_slice(&[0x11, 0xff, 0x0e, 0x50, 1, 3, 7]);
+    p
+}
+pub fn g203l(colors: &[Rgb]) -> [u8; 20] {
+    let mut p = [0; 20];
+    p[0..4].copy_from_slice(&[0x11, 0xff, 0x12, 0x10]);
+    for (n, c) in colors.iter().take(3).enumerate() {
+        let q = 4 + n * 4;
+        p[q..q + 4].copy_from_slice(&[(n + 1) as u8, c.r, c.g, c.b]);
+    }
+    p[0x10] = 0xff;
+    p
+}
 pub fn g203_apply() -> [u8; 20] {
     let mut p = [0; 20];
     p[0..4].copy_from_slice(&[0x11, 0xff, 0x12, 0x70]);

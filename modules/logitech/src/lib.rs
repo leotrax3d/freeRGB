@@ -60,6 +60,9 @@ impl Module for Logitech {
             .clamp(1, 240);
         self.active = true;
         self.handler = handler;
+        if handler.contains("MouseG203L") {
+            h.write(&report::g203l_init()).map_err(err)?;
+        }
         if handler.contains("KeyboardG815") {
             for p in report::g815_init() {
                 h.write(&p).map_err(err)?;
@@ -108,6 +111,9 @@ impl Module for Logitech {
             for (zone, color) in c.iter().enumerate() {
                 h.write(&report::g213(zone, *color)).map_err(err)?;
             }
+        } else if self.handler.contains("MouseG203L") {
+            h.write(&report::g203l(c)).map_err(err)?;
+            h.write(&report::g203_apply()).map_err(err)?;
         } else if self.handler.contains("MouseG203") {
             h.write(&report::g203(c)).map_err(err)?;
             h.write(&report::g203_apply()).map_err(err)?;
