@@ -24,6 +24,7 @@ members = [
     "modules/steelseries",
     "modules/msi-motherboard",
     "modules/das-keyboard",
+    "modules/asus-aura-usb",
 ]
 
 [workspace.package]

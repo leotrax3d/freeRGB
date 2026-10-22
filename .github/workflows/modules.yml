@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'steelseries' || env.MODULE == 'msi-motherboard' || env.MODULE == 'das-keyboard'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'steelseries' || env.MODULE == 'msi-motherboard' || env.MODULE == 'das-keyboard' || env.MODULE == 'asus-aura-usb'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -102,6 +102,9 @@ jobs:
           elif [ "$MODULE" = "das-keyboard" ]; then
             node scripts/openrgb/port-das-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/das-keyboard/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-usb" ]; then
+            node scripts/openrgb/port-asus-aura-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/asus-aura-usb/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
