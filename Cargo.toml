@@ -29,6 +29,7 @@ members = [
     "modules/corsair-peripheral",
     "modules/coolermaster",
     "modules/corsair-peripheral-v2",
+    "modules/drgb",
 ]
 
 [workspace.package]
