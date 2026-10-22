@@ -33,6 +33,7 @@ members = [
     "modules/roccat",
     "modules/cherry",
     "modules/lenovo",
+    "modules/nzxt-hue2",
 ]
 
 [workspace.package]
