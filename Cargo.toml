@@ -41,6 +41,7 @@ members = [
     "modules/gaizonggai",
     "modules/lianli",
     "modules/asus-monitor",
+    "modules/corsair-commander-core",
     "modules/corsair-hydro-platinum",
     "modules/sinowealth",
 ]

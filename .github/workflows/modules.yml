@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry' || env.MODULE == 'lenovo' || env.MODULE == 'nzxt-hue2' || env.MODULE == 'nollie' || env.MODULE == 'evision-keyboard' || env.MODULE == 'hyperx-keyboard' || env.MODULE == 'hyperx-mouse' || env.MODULE == 'gaizonggai' || env.MODULE == 'lianli' || env.MODULE == 'asus-monitor' || env.MODULE == 'corsair-hydro-platinum' || env.MODULE == 'sinowealth'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry' || env.MODULE == 'lenovo' || env.MODULE == 'nzxt-hue2' || env.MODULE == 'nollie' || env.MODULE == 'evision-keyboard' || env.MODULE == 'hyperx-keyboard' || env.MODULE == 'hyperx-mouse' || env.MODULE == 'gaizonggai' || env.MODULE == 'lianli' || env.MODULE == 'asus-monitor' || env.MODULE == 'corsair-commander-core' || env.MODULE == 'corsair-hydro-platinum' || env.MODULE == 'sinowealth'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -165,6 +165,10 @@ jobs:
             node scripts/openrgb/port-lianli-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-lianli
             git diff --exit-code -- modules/lianli/src/devices_table.rs
+          elif [ "$MODULE" = "corsair-commander-core" ]; then
+            node scripts/openrgb/port-corsair-commander-core-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-corsair-commander-core
+            git diff --exit-code -- modules/corsair-commander-core/src/devices_table.rs
           elif [ "$MODULE" = "asus-monitor" ]; then
             node scripts/openrgb/port-asus-monitor-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-asus-monitor

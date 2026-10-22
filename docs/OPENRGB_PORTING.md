@@ -168,6 +168,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `GaiZongGaiKeyboardController` | ported | `65913ad` | 9 detectors / 9 unique IDs | Generated inventory and PID-specific 65-byte chunk reports cover keyboard, dial, light-board and RGB-hub paths with byte-exact tests. Omitted paths: dynamic hub length discovery/readback, effect UI and device-specific matrix maps. |
 | `LianLiController` | ported | `1a9911e` | 9 detectors / 9 unique IDs | Generated HID inventory and 64-byte channel reports cover Uni Hub SL/AL variants, Strimer L Connect and GA II Trinity HID paths with byte-exact tests. Omitted paths: non-HID Universal Screen/legacy discovery, dynamic serial/readback and effect/profile UI. |
 | `AsusMonitorController` | ported | `f3ec7cc` | 7 detectors / 7 unique IDs | Generated HID inventory, LED-count query, initialization and 65-byte direct color reports are covered by byte-exact tests. Omitted paths: serial metadata, monitor effect UI and readback beyond the upstream LED-count query. |
+| `CorsairCommanderCoreController` | ported | pending | 7 detectors / 7 unique IDs | Generated inventory, optional seven-zone LED configuration and 97-byte channel reports are covered by byte-exact tests. Omitted paths: firmware/telemetry reads, fan tachometer data, startup handshakes and effect UI. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
