@@ -38,6 +38,7 @@ members = [
     "modules/evision-keyboard",
     "modules/hyperx-keyboard",
     "modules/hyperx-mouse",
+    "modules/gaizonggai",
     "modules/corsair-hydro-platinum",
     "modules/sinowealth",
 ]
