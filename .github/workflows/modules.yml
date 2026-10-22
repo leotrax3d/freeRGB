@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'asus-aura-core' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'sony-gamepad'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'asus-aura-core' || env.MODULE == 'gigabyte-aorus-laptop' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'sony-gamepad'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -100,6 +100,10 @@ jobs:
             node scripts/openrgb/port-asus-aura-core-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-asus-aura-core
             git diff --exit-code -- modules/asus-aura-core/src/devices_table.rs
+          elif [ "$MODULE" = "gigabyte-aorus-laptop" ]; then
+            node scripts/openrgb/port-gigabyte-aorus-laptop-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-gigabyte-aorus-laptop
+            git diff --exit-code -- modules/gigabyte-aorus-laptop/src/devices_table.rs
           elif [ "$MODULE" = "asus-aura-usb" ]; then
             node scripts/openrgb/port-asus-aura-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/asus-aura-usb/src/devices_table.rs

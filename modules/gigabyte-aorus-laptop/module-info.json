@@ -1,0 +1,1 @@
+{"id":"gigabyte-aorus-laptop","name":"Gigabyte Aorus Laptop","version":"0.1.0","api":1,"license":"GPL-2.0-or-later","transport":"usb-hid","vendor":{"vid":"0414","name":"Gigabyte"},"detectors":4,"omitted":["Bluetooth and non-HID control paths"]}
