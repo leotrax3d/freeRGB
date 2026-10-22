@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pub mod devices_table;
+pub mod magic;
 pub mod report;
 pub mod table;
 use freergb_core::{Led, LedLayout, Rgb};
@@ -33,9 +34,17 @@ impl Module for Hydro {
         &mut self,
         i: &InterfaceInfo,
         z: Option<&[Zone]>,
-        _: &mut dyn Hid,
+        h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         table::device(i).ok_or_else(|| err("unsupported Corsair Hydro device"))?;
+        for (data, command) in [
+            (magic::MAGIC_1, 1_u8),
+            (magic::MAGIC_2, 2),
+            (magic::MAGIC_3, 3),
+        ] {
+            h.write(&report::magic(data, command, command))
+                .map_err(err)?;
+        }
         self.channels = z
             .map(|x| x.iter().map(|q| q.leds.clamp(0, 32)).collect())
             .unwrap_or_else(|| vec![16]);
