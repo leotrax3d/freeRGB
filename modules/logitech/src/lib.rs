@@ -20,6 +20,30 @@ pub struct Logitech {
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
 }
+fn hidpp_call(
+    h: &mut dyn Hid,
+    feature: u8,
+    function: u8,
+    data: &[u8],
+) -> Result<Vec<u8>, ModuleError> {
+    let expected = function & 0xf0;
+    let mut last = None;
+    for _ in 0..3 {
+        h.write(&report::hidpp(feature, function, data))
+            .map_err(err)?;
+        let response = h.read(20, 250).map_err(err)?;
+        if response.len() >= 4
+            && response[0] == 0x11
+            && response[1] == 2
+            && response[2] == feature
+            && response[3] & 0xf0 == expected
+        {
+            return Ok(response);
+        }
+        last = Some("unexpected HID++ response");
+    }
+    Err(err(last.unwrap_or("HID++ request failed")))
+}
 impl Module for Logitech {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
@@ -59,20 +83,14 @@ impl Module for Logitech {
             20
         };
         if handler.contains("HIDPP20") {
-            let response = h
-                .write(&report::hidpp(0, 0, &[0x80, 0x71]))
-                .and_then(|_| h.read(20, 250))
-                .map_err(err)?;
+            let response = hidpp_call(h, 0, 0, &[0x80, 0x71])?;
             self.hidpp_idx = response.get(4).copied().unwrap_or(0);
             if self.hidpp_idx == 0 {
                 return Err(err("Logitech HID++ RGB feature is unavailable"));
             }
             let mut zones = Vec::new();
             for page in 0..3u8 {
-                let response = h
-                    .write(&report::hidpp(self.hidpp_idx, 0, &[0, page, 0]))
-                    .and_then(|_| h.read(20, 250))
-                    .map_err(err)?;
+                let response = hidpp_call(h, self.hidpp_idx, 0, &[0, page, 0])?;
                 for bit in 0..112u8 {
                     if page == 0 && bit == 0 {
                         continue;
@@ -164,15 +182,9 @@ impl Module for Logitech {
                         .unwrap_or(n as u8);
                     data[n * 4..n * 4 + 4].copy_from_slice(&[zone, color.r, color.g, color.b]);
                 }
-                h.write(&report::hidpp(
-                    self.hidpp_idx,
-                    0x10,
-                    &data[..colors.len() * 4],
-                ))
-                .map_err(err)?;
+                hidpp_call(h, self.hidpp_idx, 0x10, &data[..colors.len() * 4])?;
             }
-            h.write(&report::hidpp(self.hidpp_idx, 0x70, &[]))
-                .map_err(err)?;
+            hidpp_call(h, self.hidpp_idx, 0x70, &[])?;
         } else if self.handler.contains("MouseG203L") {
             h.write(&report::g203l(c)).map_err(err)?;
             h.write(&report::g203_apply()).map_err(err)?;
