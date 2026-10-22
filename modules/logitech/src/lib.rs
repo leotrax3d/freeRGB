@@ -122,6 +122,10 @@ impl Module for Logitech {
             117
         } else if handler.contains("G600") {
             1
+        } else if handler.contains("MouseGPRO") {
+            1
+        } else if handler.contains("MouseG303") || handler.contains("MouseG403") {
+            2
         } else {
             20
         };
