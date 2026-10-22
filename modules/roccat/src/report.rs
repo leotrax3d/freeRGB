@@ -103,49 +103,44 @@ pub fn keyboard(
     protocol: u8,
     big_endian: bool,
 ) -> Vec<Vec<u8>> {
-    let mut p = vec![0; packet_length];
-    let header = if packet_length > 255 { 2 } else { 1 };
-    p[0] = if protocol == 1 { 0x0d } else { 0x11 };
-    if header == 1 {
-        p[1] = packet_length as u8;
-    } else if big_endian {
-        p[1] = (packet_length >> 8) as u8;
-        p[2] = packet_length as u8;
-    } else {
-        p[1] = packet_length as u8;
-        p[2] = (packet_length >> 8) as u8;
+    let packet_count = packet_length.div_ceil(64);
+    let header_length = if packet_length > 255 { 4 } else { 3 };
+    let data_length = 64 - header_length;
+    let mut packets = vec![vec![0; 65]; packet_count];
+    for (index, packet) in packets.iter_mut().enumerate() {
+        packet[1] = 0xa1;
+        packet[2] = if protocol > 1 { (index + 1) as u8 } else { 1 };
     }
-    let offset = header + 1;
-    p[offset] = 0;
-    p[offset + 1] = 0;
-    p[offset + 2] = 0xff;
-    p[offset + 3] = if protocol == 1 { 0 } else { 0xff };
-    p[offset + 4] = 0;
-    let channel = packet_length.saturating_sub(2) / 3;
-    for (i, c) in colors.iter().enumerate() {
-        let led = i / column_length * column_length + i % column_length;
-        let q = offset + 6 + led;
-        if q + 2 * channel < packet_length.saturating_sub(2) {
-            p[q] = c.r;
-            p[q + channel] = c.g;
-            p[q + 2 * channel] = c.b;
+    if header_length == 3 {
+        packets[0][3] = packet_length as u8;
+    } else if big_endian {
+        packets[0][3] = (packet_length >> 8) as u8;
+        packets[0][4] = packet_length as u8;
+    } else {
+        packets[0][3] = packet_length as u8;
+        packets[0][4] = (packet_length >> 8) as u8;
+    }
+    for (index, color) in colors.iter().enumerate() {
+        let column = index / column_length;
+        let row = index % column_length;
+        let logical = column * 3 * column_length + row;
+        for (channel, value) in [(0, color.r), (1, color.g), (2, color.b)] {
+            let offset =
+                logical + channel * column_length + if protocol == 1 { header_length } else { 0 };
+            let (packet, byte) = if protocol == 1 {
+                (offset / 64, offset % 64 + 1)
+            } else {
+                (
+                    offset / data_length,
+                    offset % data_length + header_length + 1,
+                )
+            };
+            if packet < packets.len() && byte < 65 {
+                packets[packet][byte] = value;
+            }
         }
     }
-    let checksum: u16 = p[..packet_length.saturating_sub(2)]
-        .iter()
-        .map(|x| u16::from(*x))
-        .sum();
-    if packet_length >= 2 {
-        p[packet_length - 2] = checksum as u8;
-        p[packet_length - 1] = (checksum >> 8) as u8;
-    }
-    p.chunks(64)
-        .map(|chunk| {
-            let mut r = vec![0; 65];
-            r[1..1 + chunk.len()].copy_from_slice(chunk);
-            r
-        })
-        .collect()
+    packets
 }
 
 #[cfg(test)]
@@ -175,7 +170,9 @@ mod tests {
     }
     #[test]
     fn keyboard_checksum_is_little_endian() {
-        let p = keyboard(&[Rgb { r: 1, g: 2, b: 3 }], 26, 5, 2, false).concat();
-        assert_eq!(&p[25..27], &[41, 2]);
+        let p = keyboard(&[Rgb { r: 1, g: 2, b: 3 }], 26, 5, 2, false);
+        assert_eq!(p.len(), 1);
+        assert_eq!(&p[0][1..4], &[0xa1, 1, 26]);
+        assert_eq!((p[0][4], p[0][9], p[0][14]), (1, 2, 3));
     }
 }
