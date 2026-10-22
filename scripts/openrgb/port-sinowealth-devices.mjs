@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import fs from "node:fs";
+import path from "node:path";
+const [, , root = "openrgb", commit = "unknown"] = process.argv;
+const d = path.join(root, "Controllers", "SinowealthController");
+const files = [];
+const walk = (x) => { for (const e of fs.readdirSync(x, { withFileTypes: true })) { const p = path.join(x, e.name); if (e.isDirectory()) walk(p); else if (/\.(cpp|h)$/.test(e.name)) files.push(p); } };
+walk(d);
+const s = files.map((x) => fs.readFileSync(x, "utf8")).join("\n");
+const v = new Map();
+for (const m of s.matchAll(/^\s*#define\s+([A-Za-z0-9_]+)\s+(0x[0-9A-Fa-f]+)/gm)) v.set(m[1], m[2]);
+const ds = [];
+for (const m of s.matchAll(/REGISTER_HID_DETECTOR(?:_[A-Z]+)?\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z0-9_]+)/g)) if (v.has(m[3]) && v.has(m[4])) ds.push({ name: m[1], handler: m[2], vid: v.get(m[3]), pid: v.get(m[4]) });
+if (ds.length !== 13) throw new Error(`expected 13 detectors, found ${ds.length}`);
+const kind = (d) => d.handler.includes("Mouse") || d.handler.includes("GMOW") || d.handler.includes("Xenon") ? "mouse" : "keyboard";
+const leds = (d) => kind(d) === "mouse" ? 3 : 106;
+const out = ["// SPDX-License-Identifier: GPL-2.0-or-later", `// Generated from OpenRGB ${commit}.`, "use super::table::{Detector,Device};", "pub static DETECTORS:&[Detector]= &[", ...ds.map((d) => `Detector{name:${JSON.stringify(d.name)},handler:${JSON.stringify(d.handler)},vid:${d.vid},pid:${d.pid},kind:${JSON.stringify(kind(d))},leds:${leds(d)}},`), "];", "pub static DEVICES:&[Device]= &[", ...Array.from(new Map(ds.map((d) => [`${d.vid}:${d.pid}`, d])).values()).map((d) => `Device{vid:${d.vid},pid:${d.pid},kind:${JSON.stringify(kind(d))},leds:${leds(d)}},`), "];", ""];
+fs.writeFileSync("modules/sinowealth/src/devices_table.rs", out.join("\n"));
+console.log(`generated ${ds.length} Sinowealth detectors`);

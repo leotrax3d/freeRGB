@@ -38,6 +38,7 @@ members = [
     "modules/evision-keyboard",
     "modules/hyperx-keyboard",
     "modules/corsair-hydro-platinum",
+    "modules/sinowealth",
 ]
 
 [workspace.package]

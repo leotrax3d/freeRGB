@@ -161,8 +161,23 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `NZXTHue2Controller` | ported | `9cf428d` | 21 detectors / 21 unique IDs | Dynamic device-list discovery, channel LED sizing, direct 64-byte RGB packets and apply packets are ported with byte-exact tests. Omitted paths: effect-mode packets, fan telemetry/control, firmware/serial display and device-specific UI modes. |
 | `NollieController` | ported | `a8c6a79` | 16 detectors / 16 unique IDs | Generated detector inventory, configurable channel layouts, high-speed 1025-byte reports, fixed 65-byte chunk reports and update packets are covered by byte-exact tests. Omitted paths: effect/mode UI and serial/firmware reads. |
 | `EVisionKeyboardController` | ported | `4b0ce69` | 15 detectors / 15 unique IDs | Generated V1/V2 HID inventory, checksum-framed V1 color chunks and V2 dynamic-color packets are covered by byte-exact tests. Omitted paths: OpenRGB's matrix remapping, capability/profile reads, advanced effect-mode persistence and serial display. |
-| `HyperXKeyboardController` | ported | `94aef0a` | 20 detectors / 13 unique IDs | Generated full detector inventory and direct report builders for Origins, Origins 60/65, Origins 2 65, Eve 1800, Origins Core, Alloy Elite 2, Alloy Elite and Alloy FPS are covered by byte-exact tests. Omitted paths: profile/effect persistence, keepalive threads, serial display and OpenRGB matrix naming/layout UI. |
-| `CorsairHydroPlatinumController` | ported | `c5bc7b2` | 13 detectors / 13 unique IDs | Generated detector inventory, upstream startup magic tables, CRC-8 PEC framing, BGR lighting packets and optional fan-zone sizing are covered by byte-exact tests. Omitted paths: firmware telemetry/version reads, fan tachometer data and OpenRGB's keepalive/guard threading. |
+| `HyperXKeyboardController` | ported | `bdf915d` | 20 detectors / 13 unique IDs | Generated full detector inventory and direct report builders for Origins, Origins 60/65, Origins 2 65, Eve 1800, Origins Core, Alloy Elite 2, Alloy Elite and Alloy FPS are covered by byte-exact tests. Omitted paths: profile/effect persistence, keepalive threads, serial display and OpenRGB matrix naming/layout UI. |
+| `CorsairHydroPlatinumController` | ported | `eb52c62` | 13 detectors / 13 unique IDs | Generated detector inventory, upstream startup magic tables, CRC-8 PEC framing, BGR lighting packets and optional fan-zone sizing are covered by byte-exact tests. Omitted paths: firmware telemetry/version reads, fan tachometer data and OpenRGB's keepalive/guard threading. |
+| `SinowealthController` | in progress | pending | 13 detectors / 13 unique IDs | Inventory regenerated from the pinned OpenRGB checkout. Shared mouse, wireless, keyboard and legacy report paths are being split into generated HID metadata and byte-exact builders. |
+
+
+The per-family status ledger is maintained below this inventory by the porting
+workflow. A family may be marked blocked only for an actual non-HID transport,
+unclear upstream licensing or missing upstream hardware information. User-sized
+LED layouts use the optional initialize `zones` parameter documented in
+`docs/HARDWARE_MODULES.md`.
+
+
+The per-family status ledger is maintained below this inventory by the porting
+workflow. A family may be marked blocked only for an actual non-HID transport,
+unclear upstream licensing or missing upstream hardware information. User-sized
+LED layouts use the optional initialize `zones` parameter documented in
+`docs/HARDWARE_MODULES.md`.
 
 
 The per-family status ledger is maintained below this inventory by the porting
