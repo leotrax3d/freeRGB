@@ -39,7 +39,9 @@ impl Module for CoolerMaster {
         let id = table::identify(i);
         let handler =
             table::handler(i).ok_or_else(|| err("unsupported Cooler Master HID device"))?;
-        let leds = if handler.contains("Keyboard") {
+        let leds = if handler.contains("Mouse712") {
+            1
+        } else if handler.contains("Keyboard") {
             87
         } else if handler.contains("Mouse") {
             2
@@ -88,6 +90,10 @@ impl Module for CoolerMaster {
     fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
         if !self.active || c.len() != self.leds {
             return Err(err("invalid Cooler Master frame"));
+        }
+        if self.handler.contains("Mouse712") {
+            h.write(&report::mm712_direct(c[0])).map_err(err)?;
+            return Ok(());
         }
         let p = if self.handler.contains("Mouse") {
             report::mouse(c)

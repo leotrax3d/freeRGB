@@ -33,3 +33,9 @@ pub fn mouse(colors: &[Rgb]) -> [u8; PACKET] {
     }
     p
 }
+
+pub fn mm712_direct(c: Rgb) -> [u8; 65] {
+    let mut p = [0; 65];
+    p[1..7].copy_from_slice(&[0x5a, 0x81, 0x03, c.r, c.g, c.b]);
+    p
+}
