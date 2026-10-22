@@ -54,14 +54,29 @@ nächste beginnt:
 5. **Geführter Kanaltest und Zuordnung** in API und beiden GUIs (Plan:
    „Safeguards“ 1–2): RPM-Antwort bei 100/70/50 %, nie unter 40 %, Pumpen nur
    100 %, Laufzeit-Plausibilität mit Rückgabe an die Firmware.
+6. **Volle Freischaltung für ungetestete Hardware** (Plan: „Unrestricted
+   unlock“): globaler Schalter in den Einstellungen (Standard aus), danach pro
+   Kanal freischaltbar mit Risikohinweis und Eingabe des Kanalnamens als
+   Bestätigung. Freigeschaltete Kanäle (Stufe `unrestricted`) brauchen keinen
+   bestandenen Kanaltest, dürfen bis 0 % (Lüfterstopp) gesteuert werden,
+   Plausibilitätsabweichungen sind nur Warnungen, und auch Chips ohne
+   Rücklesen oder bekanntes Registerschema sind zulässig, solange LHM einen
+   `Control` mit Software-Modus liefert. Pumpen brauchen eine zweite, getrennte
+   Bestätigung. Die Freischaltung ist an Board, Chip und Kanal gebunden und
+   verfällt bei Änderung; sie ist jederzeit widerrufbar.
 
-Danach – wenn Zeit bleibt – Pakete 6–8 (Diagnosebericht, Live-Steuerung in der
+Danach – wenn Zeit bleibt – die Pakete 6–8 des Plans (Diagnosebericht, Live-Steuerung in der
 modernen GUI, fehlende Reglerfunktionen).
 
 ## Sicherheitsregeln, die trotz der Entscheidung bleiben
 
-* Pumpen und nicht zugeordnete Kanäle werden nie gedrosselt (nur 100 % bzw.
-  unangetastet). Untergrenze für Lüfter 40 %, bis ein Kanaltest anderes belegt.
+* Ohne Freischaltung: Pumpen und nicht zugeordnete Kanäle werden nie
+  gedrosselt, Lüfter nicht unter 40 %, bis ein Kanaltest anderes belegt. Mit
+  Freischaltung (Punkt 6) entfallen diese Grenzen für den betreffenden Kanal.
+* **Auch mit Freischaltung immer aktiv:** Rückgabe an den erfassten
+  Firmware-Modus bei Stopp, Absturz von Dienst/Daemon, Telemetrieverlust und
+  Watchdog-Ablauf; Übersteuerung auf 100 % bei kritischer Temperatur; keine
+  Übernahme eines Kanals, der schon im Software-Modus ist.
 * Jede Rückgabe stellt den vorher erfassten Firmware-Modus wieder her;
   Journal/Watchdog/Recovery gelten für jede Stufe.
 * Bestehende Tests dürfen nicht geschwächt werden; das bisherige

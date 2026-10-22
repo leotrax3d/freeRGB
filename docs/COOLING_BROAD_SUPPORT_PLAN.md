@@ -48,6 +48,29 @@ The tier is shown in the GUI and the diagnostics report for every channel.
 4. **No silent foreign takeover:** refuse channels already in software mode
    (other tools), as today.
 
+## Unrestricted unlock (owner decision, 2026-10-22)
+
+Users can unlock **full control** of a channel on untested hardware, like
+FanControl allows: any LHM `Control` with a software mode, without a passed
+channel test and outside the verified/LHM-supported lists.
+
+* Per channel, explicit and reversible: a dialog states the risks, the user
+  types the channel name to confirm; stored with board, chip and control
+  identity and invalidated when any of them changes (new BIOS, other board).
+* Unlocked channels get tier `unrestricted`, shown everywhere (GUI badge,
+  API, diagnostics, logs).
+* What it lifts: the channel-test requirement, the 40% floor (0% / fan stop
+  allowed), the RPM plausibility fault (it becomes a warning), chips without
+  readback or known register scheme.
+* What always stays, also when unlocked: return to the captured firmware mode
+  on stop, daemon/service crash, lost telemetry and watchdog expiry; the
+  critical-temperature override to 100%; refusal to take over a channel that
+  is already in software mode (another tool owns it).
+* Pumps: unlocking a channel marked as pump needs a second, separate
+  confirmation; the 100% default stays until the user changes the curve.
+* A global "unrestricted control" switch in settings (off by default) must be
+  on before any per-channel unlock is offered.
+
 ## Work packages
 
 1. **LHM version:** stay on v0.9.6 (latest stable). Centralise the pin (today
@@ -63,7 +86,7 @@ The tier is shown in the GUI and the diagnostics report for every channel.
    records, release in any order, crash recovery for all).
 4. **Background control:** the protected service starts the saved per-channel
    curves at boot/login without a GUI session; GUI only edits and observes.
-5. **Guided channel test + identification** in the service API and both GUIs
+5. **Guided channel test + identification, unrestricted unlock** in the service API and both GUIs
    (which header is which fan, pump marking, tier display).
 6. **Diagnostics report** (opt-in, anonymised: board model, chip, tier, test
    result) so LHM-supported chips can be promoted with evidence.
