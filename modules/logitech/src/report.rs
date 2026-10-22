@@ -98,6 +98,9 @@ pub fn x56_save() -> [u8; 64] {
     p[1] = 1;
     p
 }
+pub fn g600(mode: u8, speed: u16, c: Rgb) -> [u8; 8] {
+    [0xf1, c.r, c.g, c.b, mode, speed as u8, 0, 0]
+}
 pub fn g933(zone: usize, c: Rgb) -> [u8; 20] {
     let mut p = [0; 20];
     p[0..10].copy_from_slice(&[0x11, 0xff, 4, 0x3a, zone as u8, 1, c.r, c.g, c.b, 2]);

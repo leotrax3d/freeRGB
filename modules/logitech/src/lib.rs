@@ -51,6 +51,8 @@ impl Module for Logitech {
             3
         } else if handler.contains("KeyboardG815") || handler.contains("KeyboardG915") {
             117
+        } else if handler.contains("G600") {
+            1
         } else {
             20
         };
@@ -111,6 +113,8 @@ impl Module for Logitech {
             for (zone, color) in c.iter().enumerate() {
                 h.write(&report::g213(zone, *color)).map_err(err)?;
             }
+        } else if self.handler.contains("G600") {
+            h.send_feature(&report::g600(0, 3, c[0])).map_err(err)?;
         } else if self.handler.contains("MouseG203L") {
             h.write(&report::g203l(c)).map_err(err)?;
             h.write(&report::g203_apply()).map_err(err)?;
