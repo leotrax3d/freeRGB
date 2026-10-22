@@ -175,6 +175,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AresonController` | ported | `c7e2eaf` | 6 detectors / 6 unique IDs | Generated inventory and CRC-framed 17-byte direct reports cover ZET Gaming Edge Air and Redragon M914 NIX paths with byte-exact tests. Omitted paths: effect-mode UI, wireless retry state and profile persistence. |
 | `AnnePro2Controller` | ported | `cc11924` | 5 detectors / 5 unique IDs | Generated inventory and five-part 64-byte service reports cover the 61-LED Anne Pro 2 direct path with byte-exact tests. Omitted paths: wireless protocol, mode/profile persistence and key-matrix naming. |
 | `GigabyteRGBFusion2USBController` | ported | `cca73f4` | 5 detectors / 5 unique IDs | Generated inventory, optional addressable-zone sizing and 64-byte direct HID packets are covered by byte-exact tests. Omitted paths: non-HID/DMI discovery, calibration reads, hardware effects and dynamic motherboard layout probing. |
+| `RoyuanKeyboardController` | ported | `f80bb4e` | 5 detectors / 5 unique IDs | Generated inventory and byte-exact 65-byte Royuan service, direct-color and Skyloong user-picture reports cover Akko, Epomaker, Attack Shark and Skyloong HID paths. Omitted paths: readback/profile persistence, wireless retry state, full effect UI and key-matrix naming. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
