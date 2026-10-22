@@ -41,6 +41,36 @@ pub fn create(engine: &Engine) -> Value {
         "redaction":"Device IDs/names/serials, raw errors, capture names, paths and macro/profile contents omitted. Review before sharing."})
 }
 
+/// Opt-in fan-support evidence: board model, BIOS, chip, tier and channel-test
+/// outcome per anonymous control. No serials, names, readings or paths.
+pub fn cooling_hardware(engine: &Engine) -> Value {
+    let summary = engine.mainboard.summary();
+    let channels = engine.mainboard.channels();
+    let support = engine.fan_support.view(summary.board.as_ref(), &channels);
+    let controls: Vec<_> = channels
+        .iter()
+        .filter(|c| c.kind == "control" && c.control_available)
+        .enumerate()
+        .map(|(index, c)| {
+            let chip = c.sensor_id.split('/').nth(2).unwrap_or("unknown");
+            let evidence = &support["channels"][c.sensor_id.as_str()];
+            json!({
+                "channel": index + 1,
+                "chip": chip,
+                "tier": c.support.as_ref().map_or("unknown", |s| s.tier.as_str()),
+                "register_readback": c.support.as_ref().is_some_and(|s| s.register_readback),
+                "test": evidence["test"],
+                "unlocked": evidence["unlock"].as_str().is_some_and(|u| u.starts_with("unlocked")),
+            })
+        })
+        .collect();
+    json!({
+        "board": summary.board.map(|b| json!({"manufacturer": b.manufacturer, "product": b.product, "bios_version": b.bios_version})),
+        "lhm_version": freergb_core::lhm::VERSION,
+        "controls": controls,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,5 +91,12 @@ mod tests {
         assert!(!text.contains("PRIVATE") && !text.contains("virtual:"));
         assert!(report["devices"][0].get("serial").is_none());
         assert!(report["devices"][0].get("id").is_none());
+        assert!(
+            report.get("cooling_hardware").is_none(),
+            "cooling hardware is opt-in"
+        );
+        let cooling = cooling_hardware(&engine);
+        assert_eq!(cooling["controls"], json!([]));
+        assert_eq!(cooling["lhm_version"], freergb_core::lhm::VERSION);
     }
 }

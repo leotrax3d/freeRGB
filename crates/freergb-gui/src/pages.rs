@@ -326,6 +326,7 @@ impl Panels {
                     ui.heading("Monitoring");
                     self.alerts.ui(ui);
                     if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); }
+                    if ui.add_enabled(snapshot.connected,egui::Button::new("…with fan hardware details")).on_hover_text("Adds board model, BIOS, chip, support tier and channel-test result (no serials or readings).").clicked() { send("gui.export_diagnostics",serde_json::json!({"include_cooling_hardware":true})); }
                     if let Some(path)=&snapshot.exported_report { ui.label(format!("Report saved: {}",path.display())); }
                     ui.label("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
                     if let Some(entries) = snapshot.control["monitoring_sensors"].as_array() {

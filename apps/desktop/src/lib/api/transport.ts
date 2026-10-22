@@ -15,7 +15,7 @@ export interface Transport {
   startService(): Promise<void>;
   openClassic?(): Promise<void>;
   /** Saves the redacted diagnostics report; resolves to the file path. */
-  exportDiagnostics(): Promise<string>;
+  exportDiagnostics(includeCoolingHardware?: boolean): Promise<string>;
 }
 
 export class RpcError extends Error {
@@ -53,7 +53,7 @@ async function tauriTransport(): Promise<Transport> {
     wantSlices: (slices) => invoke("want_slices", { slices }),
     startService: () => invoke("start_service"),
     openClassic: () => invoke("open_classic"),
-    exportDiagnostics: () => invoke<string>("export_diagnostics"),
+    exportDiagnostics: (includeCoolingHardware) => invoke<string>("export_diagnostics", { includeCoolingHardware: includeCoolingHardware ?? false }),
   };
 }
 

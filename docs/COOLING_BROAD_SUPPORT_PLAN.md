@@ -130,8 +130,9 @@ channel test and outside the verified/LHM-supported lists.
    test state in both GUIs. Runtime plausibility is enforced by the background
    controller; short interactive curve sessions rely on telemetry/stall guards.
    **Unrestricted unlock** (safeguard section above) follows as its own step.
-6. **Diagnostics report** (opt-in, anonymised: board model, chip, tier, test
-   result) so LHM-supported chips can be promoted with evidence.
+6. **Diagnostics report** *(implemented)*: opt-in `cooling_hardware` section in
+   `diagnostics.export` (board model, BIOS, chip, tier, test result), button in
+   both GUIs; see `DIAGNOSTICS.md`.
 7. **Modern GUI live control** (parity with the Classic dialog).
 8. **Remaining controller features** from `FANCONTROL_PARITY.md` (manual
    percentage, RPM targets, rise/fall limits, more curve types, profiles).

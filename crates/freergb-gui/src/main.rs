@@ -122,7 +122,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                     let result = if c.method == "gui.load_app_profile" {
                         app_profiles::load_if_current(c.params)
                     } else if c.method == "gui.export_diagnostics" {
-                        match freergb_client::call("diagnostics.export", Value::Null) {
+                        match freergb_client::call("diagnostics.export", c.params.clone()) {
                             Ok(report) => match diagnostics::save(&report) {
                                 Ok(path) => {
                                     state

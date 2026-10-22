@@ -17,7 +17,14 @@ VID/PID and device kinds, frame counters, anonymous device/plugin/sensor indexes
 sensor units/values/age and fault flags, plus `cooling_channels`: per anonymous
 motherboard fan control its support `tier`, `register_readback`, `software_mode`
 and `held_full` flags (no names, identities or readings). `diagnostics.get`
-lists the same as `cooling_support` with channel names. Device IDs, names/serials, capture names,
+lists the same as `cooling_support` with channel names.
+
+Opt-in (`diagnostics.export {include_cooling_hardware:true}`, the second button in
+both GUIs): `cooling_hardware` adds the public SMBIOS board manufacturer/product,
+BIOS version, the pinned LHM version and per anonymous control its chip name,
+tier, register readback, channel-test state and whether it is unlocked. Purpose:
+promote LHM-supported chips with evidence. Still no serials, names, readings or
+paths; nothing is uploaded. Device IDs, names/serials, capture names,
 paths, raw errors and macro/profile contents are omitted. Review before sharing.
 Full local `diagnostics.get` and `devices.list` are unchanged; this is a separate
 report with deliberately reduced identifying data.

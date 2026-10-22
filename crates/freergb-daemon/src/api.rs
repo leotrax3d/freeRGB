@@ -299,7 +299,15 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             })
             .map(|()| json!(true)),
         "diagnostics.get" => Ok(json!(lock(engine).diagnostics())),
-        "diagnostics.export" => Ok(crate::report::create(&lock(engine))),
+        "diagnostics.export" => {
+            let engine = lock(engine);
+            let mut report = crate::report::create(&engine);
+            // Opt-in only: lets LHM-supported chips be promoted with evidence.
+            if params["include_cooling_hardware"] == true {
+                report["cooling_hardware"] = crate::report::cooling_hardware(&engine);
+            }
+            Ok(report)
+        }
         "effects.list" => Ok(json!(EffectSpec::NAMES)),
         "effects.default" => params
             .get("name")

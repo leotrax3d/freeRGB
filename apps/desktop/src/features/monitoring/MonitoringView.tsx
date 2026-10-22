@@ -125,6 +125,16 @@ function DiagnosticsExport() {
           >
             <FileDown /> {pending ? "Saving…" : "Save report"}
           </Button>
+          <Button
+            variant="secondary"
+            disabled={pending !== null}
+            title="Adds board model, BIOS version, fan chip, support tier and channel-test result per control (no serials or readings)."
+            onClick={() =>
+              run("export", async () => setPath(await (await transport()).exportDiagnostics(true)))
+            }
+          >
+            <FileDown /> Save report with fan hardware
+          </Button>
           {path && (
             <>
               <code className="min-w-0 flex-1 truncate font-mono text-caption text-text-muted" title={path}>
