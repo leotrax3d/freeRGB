@@ -161,6 +161,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `MSILaptopController` | ported | `28109fd` | 4 detectors / 4 unique IDs | Generated inventory and 64-byte MSI laptop feature-report builders cover Raider A18 and GE68HX keyboard/lightbar registrations. Omitted paths: 525-byte KLC batching, mode/profile UI, DMI model naming and feature readback. |
 | `AsusLegacyUSBController` | ported | `f42fa18` | 3 detectors / 3 unique IDs | Generated inventory and byte-exact legacy feature-report builders cover Cerberus Mech, Sagaris GK1100 and ROG Strix Claw HID registrations. Omitted paths: per-key matrix naming, effect/profile UI, serial reads and model-specific mode sequencing. |
 | `DasKeyboardController` | ported | `a3725e4` | 3 detectors / 3 unique IDs | Generated inventory and byte-exact Das Keyboard color/apply reports cover Q4, Q5 and Q5S HID registrations. Omitted paths: modern/traditional transport negotiation, firmware readback, per-key mapping and effect UI. |
+| `FnaticStreakController` | ported | `f70f578` | 3 detectors / 3 unique IDs | Generated inventory and byte-exact 64-byte direct color reports cover Fnatic Streak, miniStreak and Streak65 HID registrations. Omitted paths: transport negotiation, per-key matrix mapping, keepalive/profile persistence and effect UI. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
