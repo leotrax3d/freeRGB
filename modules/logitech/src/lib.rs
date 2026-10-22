@@ -100,6 +100,19 @@ impl Module for Logitech {
         } else if self.handler.contains("MouseG203") {
             h.write(&report::g203(c)).map_err(err)?;
             h.write(&report::g203_apply()).map_err(err)?;
+        } else if self.handler.contains("MouseG303")
+            || self.handler.contains("MouseG403")
+            || self.handler.contains("MouseGPRO")
+        {
+            let function = if self.handler.contains("MouseGPRO") {
+                0x3c
+            } else {
+                0x3a
+            };
+            for (zone, color) in c.iter().enumerate() {
+                h.write(&report::lightsync(function, zone, *color))
+                    .map_err(err)?;
+            }
         } else if self.handler.contains("KeyboardG815") {
             for (n, color) in c.iter().enumerate() {
                 h.write(&report::g815_little(0x04u8.saturating_add(n as u8), *color))

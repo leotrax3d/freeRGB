@@ -44,6 +44,10 @@ fn bytes() {
         &report::g815_little(0x04, Rgb { r: 1, g: 2, b: 3 })[..8],
         &[0x11, 0xff, 0x10, 0x1f, 4, 1, 2, 3]
     );
+    assert_eq!(
+        &report::lightsync(0x3a, 0, Rgb { r: 1, g: 2, b: 3 })[..10],
+        &[0x11, 1, 0x0e, 0x3a, 0, 1, 1, 2, 3, 2]
+    );
 }
 #[test]
 fn lifecycle() {

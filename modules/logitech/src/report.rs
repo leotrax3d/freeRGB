@@ -45,3 +45,10 @@ pub fn g815_init() -> [[u8; 20]; 4] {
     a[3][0x10] = 1;
     a
 }
+pub fn lightsync(function: u8, zone: usize, c: Rgb) -> [u8; 20] {
+    let mut p = [0; 20];
+    p[0..10].copy_from_slice(&[
+        0x11, 1, 0x0e, function, zone as u8, 0x01, c.r, c.g, c.b, 0x02,
+    ]);
+    p
+}
