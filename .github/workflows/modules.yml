@@ -120,6 +120,7 @@ jobs:
           - name: roccat
             run: |
               node scripts/openrgb/port-roccat-devices.mjs openrgb "$OPENRGB_COMMIT"
+              cargo fmt --package freergb-module-roccat
               git diff --exit-code -- modules/roccat/src/devices_table.rs
           else
             node scripts/openrgb/port-logitech-devices.mjs openrgb "$OPENRGB_COMMIT"
