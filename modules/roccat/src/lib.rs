@@ -63,7 +63,7 @@ impl Module for Roccat {
                     hid.write(&packet).map_err(err)?;
                 }
             }
-            "mouse" | "direct-mouse" | "kone-xp" => {
+            "mouse" | "kone-aimo" | "direct-mouse" | "kone-xp" => {
                 hid.send_feature(&report::direct_mode()).map_err(err)?;
             }
             _ => {}
@@ -96,8 +96,8 @@ impl Module for Roccat {
                     h.write(&p).map_err(err)?;
                 }
             }
-            "mat" => {
-                h.write(&report::mat(colors)).map_err(err)?;
+            "sense" => {
+                h.send_feature(&report::mat(colors)).map_err(err)?;
             }
             "headset" => {
                 h.write(&report::headset(colors[0])).map_err(err)?;
@@ -108,8 +108,12 @@ impl Module for Roccat {
             "mouse" => {
                 h.write(&report::mouse(colors, self.packet)).map_err(err)?;
             }
+            "kone-aimo" => {
+                h.send_feature(&report::mouse(colors, self.packet))
+                    .map_err(err)?;
+            }
             "kone-xp" => {
-                h.write(&report::direct_mouse(colors, 0x0d, 0x7a, self.packet))
+                h.send_feature(&report::direct_mouse(colors, 0x0d, 0x7a, self.packet))
                     .map_err(err)?;
             }
             "kova" => {
@@ -121,6 +125,10 @@ impl Module for Roccat {
             }
             "kone-pro-air" => {
                 h.write(&report::kone_pro_air(colors, true)).map_err(err)?;
+            }
+            "direct-mouse" => {
+                h.send_feature(&report::direct_mouse(colors, 0x0d, 0x7a, self.packet))
+                    .map_err(err)?;
             }
             _ => {
                 h.write(&report::direct_mouse(colors, 0x0d, 0x7a, self.packet))

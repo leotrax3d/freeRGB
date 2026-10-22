@@ -133,14 +133,14 @@ pub static DETECTORS: &[Detector] = &[
         handler: "DetectRoccatMouseControllers",
         vid: 0x1E7D,
         pid: 0x2E27,
-        protocol: "mouse",
+        protocol: "kone-aimo",
     },
     Detector {
         name: "Roccat Kone Aimo 16K",
         handler: "DetectRoccatMouseControllers",
         vid: 0x1E7D,
         pid: 0x2E2C,
-        protocol: "mouse",
+        protocol: "kone-aimo",
     },
     Detector {
         name: "Roccat Kone Pro",
@@ -182,14 +182,14 @@ pub static DETECTORS: &[Detector] = &[
         handler: "DetectRoccatSenseAimoControllers",
         vid: 0x1E7D,
         pid: 0x343A,
-        protocol: "mat",
+        protocol: "sense",
     },
     Detector {
         name: "Roccat Sense Aimo XXL",
         handler: "DetectRoccatSenseAimoControllers",
         vid: 0x1E7D,
         pid: 0x343B,
-        protocol: "mat",
+        protocol: "sense",
     },
     Detector {
         name: "Roccat Elo 7.1",
@@ -365,7 +365,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x2E27,
-        protocol: "mouse",
+        protocol: "kone-aimo",
         leds: 11,
         packet: 46,
         column: 1,
@@ -374,7 +374,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x2E2C,
-        protocol: "mouse",
+        protocol: "kone-aimo",
         leds: 11,
         packet: 46,
         column: 1,
@@ -428,7 +428,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x343A,
-        protocol: "mat",
+        protocol: "sense",
         leds: 2,
         packet: 9,
         column: 1,
@@ -437,7 +437,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x343B,
-        protocol: "mat",
+        protocol: "sense",
         leds: 2,
         packet: 9,
         column: 1,

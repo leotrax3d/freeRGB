@@ -30,11 +30,11 @@ const protocol = (handler, name) => {
   if (handler.includes("Horde")) return "horde";
   if (handler.includes("Vulcan")) return "keyboard";
   if (handler.includes("Elo")) return "headset";
-  if (handler.includes("Sense")) return "mat";
+  if (handler.includes("Sense")) return "sense";
   if (handler.includes("Kova")) return "kova";
   if (handler.includes("KoneProAir")) return "kone-pro-air";
   if (handler.includes("KoneXP")) return "kone-xp";
-  if (handler.includes("KoneAimo") || handler.includes("Mouse")) return "mouse";
+  if (handler.includes("KoneAimo") || handler.includes("Mouse")) return "kone-aimo";
   if (handler.includes("BurstProAir")) return "burst-pro-air";
   if (handler.includes("Burst") || handler.includes("KonePro")) return "direct-mouse";
   return name.toLowerCase().includes("air") ? "direct-mouse" : "mouse";
@@ -43,7 +43,8 @@ const metadata = (name, handler) => {
   const p = protocol(handler, name);
   if (p === "horde") return { p, leds: 6, packet: 24, column: 1, version: 1 };
   if (p === "headset") return { p, leds: 1, packet: 16, column: 1, version: 1 };
-  if (p === "mat") return { p, leds: 2, packet: 9, column: 1, version: 1 };
+  if (p === "sense") return { p, leds: 2, packet: 9, column: 1, version: 1 };
+  if (p === "kone-aimo") return { p, leds: 11, packet: 46, column: 1, version: 1 };
   if (p === "kova") return { p, leds: 2, packet: 46, column: 1, version: 1 };
   if (p === "mouse") return { p, leds: 11, packet: 46, column: 1, version: 1 };
   if (name.includes("Burst Pro Air")) return { p, leds: 4, packet: 30, column: 1, version: 2 };
