@@ -26,6 +26,9 @@ pub struct StartRequest {
     pub confirmed_fan: bool,
     pub curve: Option<FanCurve>,
     pub critical_c: Option<f32>,
+    /// Fixed duty for `mode:"manual"` (FanControl "manual percentage").
+    #[serde(default)]
+    pub duty_percent: Option<u8>,
 }
 
 /// Daemon-side facts about the selected control: the protected inventory's
@@ -65,10 +68,50 @@ impl StartRequest {
         Ok((mode, critical, minimum))
     }
 
+    /// Manual percentage is a flat curve: same floors, critical-temperature
+    /// override and supervision as any curve.
+    fn normalized(mut self) -> Result<Self, String> {
+        if self.mode != "manual" {
+            if self.duty_percent.is_some() {
+                return Err("duty_percent is only valid with mode=manual".into());
+            }
+            return Ok(self);
+        }
+        let duty = self
+            .duty_percent
+            .take()
+            .filter(|d| *d <= 100)
+            .ok_or("mode=manual requires duty_percent 0..100")?;
+        if self.curve.is_some() {
+            return Err("mode=manual takes no curve".into());
+        }
+        let critical = self.critical_c.take().unwrap_or(80.0);
+        let duty = f32::from(duty);
+        self.mode = "curve".into();
+        self.curve = Some(FanCurve {
+            points: vec![
+                freergb_control::CurvePoint {
+                    temperature_c: 0.0,
+                    duty_percent: duty,
+                },
+                freergb_control::CurvePoint {
+                    temperature_c: critical,
+                    duty_percent: duty,
+                },
+            ],
+            minimum_percent: duty,
+            critical_c: critical,
+            hysteresis_c: 0.0,
+        });
+        Ok(self)
+    }
+
     pub fn plan(self, policy: &SessionPolicy) -> Result<Plan, String> {
-        let (mode, critical_c, minimum_percent, tier, limits) = self.check(policy)?;
+        let request = self.normalized()?;
+        let (mode, critical_c, minimum_percent, tier, limits) = request.check(policy)?;
+        let this = request;
         Ok(Plan {
-            request: self,
+            request: this,
             mode,
             critical_c,
             minimum_percent,
@@ -558,6 +601,37 @@ mod tests {
         assert!(request()
             .plan(&policy(SupportTier::ReadOnly, None, true, true))
             .is_err());
+    }
+
+    #[test]
+    fn manual_percentage_is_a_flat_supervised_curve() {
+        let manual = |duty: u8| {
+            let mut r = request();
+            r.mode = "manual".into();
+            r.critical_c = None;
+            r.duty_percent = Some(duty);
+            r
+        };
+        let plan = manual(60).plan(&SessionPolicy::legacy()).unwrap();
+        assert_eq!((plan.minimum_percent, plan.critical_c), (60, 80));
+        assert!(
+            manual(30).plan(&SessionPolicy::legacy()).is_err(),
+            "40% floor applies"
+        );
+        assert!(manual(101).plan(&SessionPolicy::legacy()).is_err());
+        let unlocked = SessionPolicy {
+            capability: SupportTier::LhmSupported,
+            evidence: ChannelEvidence {
+                role: None,
+                test_passed: false,
+                unlocked: true,
+                pump_confirmed: false,
+            },
+        };
+        assert_eq!(manual(0).plan(&unlocked).unwrap().minimum_percent, 0);
+        let mut stray = request();
+        stray.duty_percent = Some(50);
+        assert!(stray.plan(&SessionPolicy::legacy()).is_err());
     }
 
     #[test]

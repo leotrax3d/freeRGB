@@ -50,6 +50,7 @@ pub struct MainboardCooling {
     temperature: String,
     confirmed: bool,
     confirmation: String,
+    manual_duty: u8,
 }
 impl MainboardCooling {
     pub fn show(
@@ -184,6 +185,10 @@ impl MainboardCooling {
             }
             if ui.add_enabled(ready,egui::Button::new("Run channel test (UAC)")).on_hover_text("100 → 70 → 50% (never below 40%), then firmware control").clicked(){
                 let _=tx.send(Command {method:"cooling.sessions.start",params:json!({"mode":"channel_test","control_id":self.control,"temperature_id":self.temperature,"rpm_id":self.rpm,"confirmed_fan":self.confirmed,"critical_c":curve.critical_c})});
+            }
+            ui.add(egui::Slider::new(&mut self.manual_duty, 0..=100).text("Fixed %"));
+            if ui.add_enabled(ready,egui::Button::new("Run fixed duty (UAC)")).on_hover_text("Below 40% only on unlocked channels; critical temperature still forces 100%").clicked(){
+                let _=tx.send(Command {method:"cooling.sessions.start",params:json!({"mode":"manual","control_id":self.control,"temperature_id":self.temperature,"rpm_id":self.rpm,"confirmed_fan":self.confirmed,"duty_percent":self.manual_duty})});
             }
             if ui.add_enabled(snapshot.connected && busy,egui::Button::new("Stop and return to firmware")).clicked(){
                 let _=tx.send(Command {method:"cooling.sessions.stop",params:json!({"job_id":status["job_id"]})});

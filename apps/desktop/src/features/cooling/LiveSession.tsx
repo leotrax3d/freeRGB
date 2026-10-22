@@ -22,6 +22,7 @@ export function LiveSession() {
   const [temperature, setTemperature] = useState("");
   const [curveName, setCurveName] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [manualDuty, setManualDuty] = useState(60);
   const { pending, error, run } = useAction();
   const busy = ["authorizing", "executing", "stopping"].includes(status?.state ?? "");
   const curve = curves?.[curveName];
@@ -33,9 +34,9 @@ export function LiveSession() {
     && sensors?.some((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C" && s.sensor.id === temperature);
   const ready = connected && status?.available && status.state !== "blocked" && !busy && confirmed && selectionValid && !refusal && pending === null;
   const evidence = support?.channels[control];
-  const start = (mode: "curve" | "calibration" | "channel_test") => run("start", () => rpc("cooling.sessions.start", {
+  const start = (mode: "curve" | "calibration" | "channel_test" | "manual") => run("start", () => rpc("cooling.sessions.start", {
     mode, control_id: control, rpm_id: rpm, temperature_id: temperature, confirmed_fan: confirmed,
-    ...(mode === "curve" ? { curve } : { critical_c: curve?.critical_c ?? 80 }),
+    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: manualDuty } : { critical_c: curve?.critical_c ?? 80 }),
   }));
   return (
     <Section title="Live motherboard fan control">
@@ -58,6 +59,10 @@ export function LiveSession() {
           <Button disabled={!ready || !curve || (curve.minimum_percent < 40 && support?.channels[control]?.unlock !== "unlocked" && support?.channels[control]?.unlock !== "unlocked_pump") || curve.critical_c > 100} onClick={() => start("curve")}>Start saved curve (UAC)</Button>
           <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("calibration")}>Calibrate fan (UAC)</Button>
           <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("channel_test")}>Run channel test (UAC)</Button>
+          <label className="flex items-center gap-2 text-small">Fixed duty
+            <input type="number" min={0} max={100} value={manualDuty} onChange={(e) => setManualDuty(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} className="w-16 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label="Fixed duty percent" /> %
+          </label>
+          <Button variant="secondary" disabled={!ready} onClick={() => start("manual")}>Run fixed duty (UAC)</Button>
         </div>
       </>}
       <div className="flex items-center gap-3 text-small">

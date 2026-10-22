@@ -473,3 +473,7 @@ down to 0% (fan stop), RPM deviations and stalls are warnings. Pumps leave 100%
 only after the pump confirmation, and are never calibrated or tested. Always
 active regardless: firmware return on stop/crash/telemetry loss/watchdog,
 critical-temperature override to 100%, refusal of foreign software mode.
+
+`cooling.sessions.start` also accepts `mode:"manual"` with `duty_percent:0..100`
+(no curve, optional `critical_c`, default 80): a flat curve with the same floors
+(40% unless unrestricted), critical-temperature override and supervision.

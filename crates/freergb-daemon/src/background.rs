@@ -46,6 +46,7 @@ pub fn protected_entry(
         confirmed_fan: channel.confirmed_fan,
         curve: Some(channel.curve.clone()),
         critical_c: None,
+        duty_percent: None,
     }
     .plan(policy)?;
     let mut entry = json!({
