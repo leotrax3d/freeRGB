@@ -24,6 +24,7 @@ members = [
     "modules/msi-motherboard",
     "modules/asus-aura-usb",
     "modules/steelseries",
+    "modules/thermaltake-riing",
 ]
 
 [workspace.package]
