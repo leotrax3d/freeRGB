@@ -168,7 +168,7 @@ pub static DETECTORS: &[Detector] = &[
         handler: "DetectRoccatKoneXPControllers",
         vid: 0x1E7D,
         pid: 0x2C8B,
-        protocol: "mouse",
+        protocol: "kone-xp",
     },
     Detector {
         name: "Roccat Kova",
@@ -410,11 +410,11 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x2C8B,
-        protocol: "mouse",
-        leds: 11,
-        packet: 46,
+        protocol: "kone-xp",
+        leds: 19,
+        packet: 122,
         column: 1,
-        version: 1,
+        version: 3,
     },
     Device {
         vid: 0x1E7D,

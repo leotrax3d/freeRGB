@@ -53,7 +53,7 @@ impl Module for Roccat {
             "kova" => {
                 hid.send_feature(&report::kova_init()).map_err(err)?;
             }
-            "mouse" | "direct-mouse" => {
+            "mouse" | "direct-mouse" | "kone-xp" => {
                 hid.send_feature(&report::direct_mode()).map_err(err)?;
             }
             _ => {}
@@ -94,6 +94,10 @@ impl Module for Roccat {
             }
             "mouse" => {
                 h.write(&report::mouse(colors, self.packet)).map_err(err)?;
+            }
+            "kone-xp" => {
+                h.write(&report::direct_mouse(colors, 0x0d, 0x7a, self.packet))
+                    .map_err(err)?;
             }
             "kova" => {
                 h.send_feature(&report::kova(colors)).map_err(err)?;
