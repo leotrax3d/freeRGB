@@ -16,11 +16,16 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
             && (d.interface < 0 || (d.interface == i.interface && d.usage_page == i.usage_page))
     });
     Identification {
-        supported: d.is_some(),
+        // The detector list covers multiple controller-specific upstream
+        // implementations; it is not sufficient to claim the common packet.
+        supported: false,
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::LightingController),
-        reason: d
-            .is_none()
-            .then(|| "no ASUS Aura HID detector for this interface".into()),
+        reason: Some(if d.is_some() {
+            "ASUS Aura detector is inventoried but its complete controller protocol is not ported"
+                .into()
+        } else {
+            "no ASUS Aura HID detector for this interface".into()
+        }),
     }
 }
