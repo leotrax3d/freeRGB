@@ -9,6 +9,8 @@ use freergb_module_api::{
     Restore, MODULE_API,
 };
 pub const MODULE_ID: &str = "roccat";
+#[cfg(test)]
+mod tests;
 #[derive(Default)]
 pub struct Roccat {
     protocol: &'static str,
