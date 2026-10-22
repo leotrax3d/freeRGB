@@ -2,29 +2,38 @@
 use freergb_core::Rgb;
 pub fn legacy(pid: u16, colors: &[Rgb]) -> Vec<Vec<u8>> {
     let mut out = Vec::new();
-    let groups: &[(u8, usize)] = match pid {
-        0xc968 => &[(1, 145), (2, 13), (3, 105), (4, 99)],
-        0xc935 => &[(1, 108)],
-        0xc956 => &[(1, 148)],
-        0xc957 | 0xc967 => &[(1, 145)],
-        _ => &[(1, colors.len())],
+    let groups: Vec<(u8, &[u16])> = match pid {
+        0xc968 => vec![
+            (1, crate::legacy_ids::Y760_KEYBOARD),
+            (2, crate::legacy_ids::Y760_LOGO),
+            (3, &crate::legacy_ids::Y760_VENTS[..26]),
+            (3, &crate::legacy_ids::Y760_VENTS[26..53]),
+            (3, &crate::legacy_ids::Y760_VENTS[53..79]),
+            (3, &crate::legacy_ids::Y760_VENTS[79..]),
+            (4, crate::legacy_ids::Y760_NEON),
+        ],
+        0xc935 => vec![(1, crate::legacy_ids::Y740_ALL)],
+        0xc956 => vec![(1, crate::legacy_ids::Y750_ALL)],
+        0xc957 | 0xc967 => vec![(1, crate::legacy_ids::Y760_KEYBOARD)],
+        _ => vec![(1, crate::legacy_ids::Y760_KEYBOARD)],
     };
     let mut offset = 0;
-    for (zone, count) in groups {
-        for group in colors[offset..(offset + count).min(colors.len())].chunks(47) {
+    for (zone, ids) in groups {
+        for group in ids.chunks(47) {
             let mut p = vec![0; 192];
             p[0] = 0x07;
             p[1] = 0xa0 + zone;
-            p[2] = group.len() as u8;
-            let base = offset;
-            for (i, c) in group.iter().enumerate() {
+            p[2] = group.len().min(colors.len().saturating_sub(offset)) as u8;
+            for (i, id) in group.iter().enumerate() {
                 let q = 4 + i * 4;
-                p[q] = (base + i) as u8;
-                p[q + 1..q + 4].copy_from_slice(&[c.r, c.g, c.b]);
+                p[q] = *id as u8;
+                if let Some(c) = colors.get(offset + i) {
+                    p[q + 1..q + 4].copy_from_slice(&[c.r, c.g, c.b]);
+                }
             }
             out.push(p);
         }
-        offset += *count;
+        offset += ids.len();
         if offset >= colors.len() {
             break;
         }
@@ -99,9 +108,15 @@ pub fn k500(colors: &[Rgb]) -> Vec<Vec<u8>> {
     feature[3] = 0x5a;
     let mut p = vec![0; 65];
     p[1] = 1;
-    p[2] = 0x08;
-    p[3] = 4;
-    p[4] = 2;
+    p[2] = 0x06;
+    p[3] = 2;
+    p[4] = 3;
+    for (n, c) in colors.iter().enumerate().take(104) {
+        if c.r != 0 || c.g != 0 || c.b != 0 {
+            let (byte, bit) = crate::k500_matrix::MATRIX[n];
+            p[0x31 + byte as usize] |= 1 << bit;
+        }
+    }
     if let Some(c) = colors.first() {
         p[0x11..0x14].copy_from_slice(&[c.r, c.g, c.b]);
     }
@@ -121,7 +136,7 @@ mod tests {
     #[test]
     fn legacy_header_is_exact() {
         let p = legacy(0xc956, &[Rgb { r: 1, g: 2, b: 3 }]);
-        assert_eq!(&p[0][..8], &[7, 0xa1, 1, 0, 0, 1, 2, 3]);
+        assert_eq!(&p[0][..8], &[7, 0xa1, 1, 0, 1, 1, 2, 3]);
     }
     #[test]
     fn gen7_header_is_exact() {

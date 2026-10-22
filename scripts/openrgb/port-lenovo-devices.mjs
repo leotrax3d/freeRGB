@@ -34,4 +34,26 @@ const meta = (d) => {
 const devices = detectors.map((d) => { const [protocol, leds] = meta(d); return { ...d, protocol, leds }; });
 const out = ["// SPDX-License-Identifier: GPL-2.0-or-later", `// Generated from OpenRGB ${commit}.`, "use super::table::{Detector, Device};", "pub static DETECTORS: &[Detector] = &[", ...devices.map((d) => `    Detector { name: ${JSON.stringify(d.name)}, handler: ${JSON.stringify(d.handler)}, vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.protocol)}, leds: ${d.leds} },`), "];", "pub static DEVICES: &[Device] = &[", ...devices.map((d) => `    Device { vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.protocol)}, leds: ${d.leds} },`), "];", ""];
 fs.writeFileSync("modules/lenovo/src/devices_table.rs", out.join("\n"));
+const matrix = source.match(/k500_matrix\[104\][^{]*\{([\s\S]*?)\};/);
+if (!matrix) throw new Error("missing K500 matrix");
+const pairs = [...matrix[1].matchAll(/\{\s*(\d+)\s*,\s*(\d+)\s*\}/g)].map((m) => `    (${m[1]}, ${m[2]}),`);
+if (pairs.length !== 104) throw new Error(`expected 104 K500 matrix entries, found ${pairs.length}`);
+fs.writeFileSync("modules/lenovo/src/k500_matrix.rs", ["// SPDX-License-Identifier: GPL-2.0-or-later", "pub static MATRIX: &[(u8, u8)] = &[", ...pairs, "];", ""].join("\n"));
+const ledArray = (name) => {
+  const m = source.match(new RegExp(`(?:const|static const|static)\\s+lenovo_led\\s+${name}\\[\\][^{]*\\{([\\s\\S]*?)\\};`));
+  if (!m) throw new Error(`missing Lenovo LED array ${name}`);
+  return [...m[1].matchAll(/\{\s*(0x[0-9A-Fa-f]+|\d+)\s*,/g)].map((x) => Number(x[1]));
+};
+const arrays = {
+  y760_keyboard: ledArray("legion_Y760_ansi_leds"),
+  y760_logo: ledArray("legion_Y760_logo"),
+  y760_vents: ledArray("legion_Y760_vents"),
+  y760_neon: ledArray("legion_Y760_neon"),
+  y750_extra: ledArray("legion_legion_Y750_additional_leds"),
+  y740_keyboard: ledArray("legion_Y740_17_ansi_leds"),
+  y740_extra: ledArray("legion_legion_Y740_additional_leds"),
+};
+const rustArray = (name, values) => [`pub static ${name}: &[u16] = &[`, ...values.map((v) => `    0x${v.toString(16)},`), "];", ""];
+const idsOut = ["// SPDX-License-Identifier: GPL-2.0-or-later", ...rustArray("Y760_KEYBOARD", arrays.y760_keyboard), ...rustArray("Y760_LOGO", arrays.y760_logo), ...rustArray("Y760_VENTS", arrays.y760_vents), ...rustArray("Y760_NEON", arrays.y760_neon), ...rustArray("Y750_ALL", [...arrays.y760_keyboard, ...arrays.y750_extra]), ...rustArray("Y740_ALL", [...arrays.y740_keyboard, ...arrays.y740_extra])];
+fs.writeFileSync("modules/lenovo/src/legacy_ids.rs", idsOut.join("\n"));
 console.log(`generated ${detectors.length} Lenovo detectors`);

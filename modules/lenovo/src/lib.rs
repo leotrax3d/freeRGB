@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pub mod devices_table;
+pub mod k500_matrix;
+pub mod legacy_ids;
 pub mod report;
 pub mod table;
 use freergb_core::{Led, LedLayout, Rgb};
