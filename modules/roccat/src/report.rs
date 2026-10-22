@@ -38,6 +38,51 @@ pub fn headset(c: Rgb) -> Vec<u8> {
     p
 }
 
+pub fn burst_pro_air(colors: &[Rgb]) -> Vec<u8> {
+    let mut p = vec![0; 30];
+    p[0..5].copy_from_slice(&[0x0f, 0x01, 0x4c, 0x06, 0x14]);
+    for (n, c) in colors.iter().enumerate().take(4) {
+        let q = 5 + n * 5;
+        p[q..q + 5].copy_from_slice(&[(n + 1) as u8, 0xff, c.r, c.g, c.b]);
+    }
+    p
+}
+
+pub fn kone_pro_air(colors: &[Rgb], direct: bool) -> Vec<u8> {
+    let mut p = vec![0; 16];
+    p[1..10].copy_from_slice(&[
+        0x10,
+        if direct { 0x10 } else { 0x50 },
+        0x0b,
+        if direct { 0 } else { 1 },
+        0x0b,
+        0xff,
+        0xff,
+        0xff,
+        0x0b,
+    ]);
+    for (n, c) in colors.iter().enumerate().take(2) {
+        let q = 10 + n * 3;
+        p[q..q + 3].copy_from_slice(&[c.r, c.g, c.b]);
+    }
+    p
+}
+
+pub fn kova(colors: &[Rgb]) -> Vec<u8> {
+    let mut p = vec![0; 28];
+    p[0] = 6;
+    p[1] = 28;
+    p[14] = 0x33;
+    for (idx, c) in colors.iter().enumerate().take(2) {
+        let q = if idx == 0 { 22 } else { 18 };
+        p[q..q + 4].copy_from_slice(&[0, c.r, c.g, c.b]);
+    }
+    let checksum: u16 = p[..26].iter().map(|x| u16::from(*x)).sum();
+    p[26] = checksum as u8;
+    p[27] = (checksum >> 8) as u8;
+    p
+}
+
 pub fn keyboard(
     colors: &[Rgb],
     packet_length: usize,
@@ -104,6 +149,16 @@ mod tests {
     #[test]
     fn mat_is_byte_exact() {
         assert_eq!(&mat(&[Rgb { r: 1, g: 2, b: 3 }])[..5], &[3, 1, 2, 3, 0xff]);
+    }
+    #[test]
+    fn burst_air_and_kova_are_byte_exact() {
+        let c = [Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }];
+        assert_eq!(
+            &burst_pro_air(&c)[..10],
+            &[0x0f, 1, 0x4c, 6, 0x14, 1, 0xff, 1, 2, 3]
+        );
+        let k = kova(&c);
+        assert_eq!(&k[18..26], &[0, 4, 5, 6, 0, 1, 2, 3]);
     }
     #[test]
     fn keyboard_checksum_is_little_endian() {

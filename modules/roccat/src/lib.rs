@@ -83,8 +83,14 @@ impl Module for Roccat {
                 h.write(&report::mouse(colors, self.packet)).map_err(err)?;
             }
             "kova" => {
-                h.write(&report::direct_mouse(colors, 0x0d, 0x2e, self.packet))
+                h.send_feature(&report::kova(colors)).map_err(err)?;
+            }
+            "burst-pro-air" => {
+                h.send_feature(&report::burst_pro_air(colors))
                     .map_err(err)?;
+            }
+            "kone-pro-air" => {
+                h.write(&report::kone_pro_air(colors, true)).map_err(err)?;
             }
             _ => {
                 h.write(&report::direct_mouse(colors, 0x0d, 0x7a, self.packet))

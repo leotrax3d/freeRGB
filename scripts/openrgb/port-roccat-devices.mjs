@@ -31,7 +31,9 @@ const protocol = (handler, name) => {
   if (handler.includes("Elo")) return "headset";
   if (handler.includes("Sense")) return "mat";
   if (handler.includes("Kova")) return "kova";
+  if (handler.includes("KoneProAir")) return "kone-pro-air";
   if (handler.includes("KoneAimo") || handler.includes("Mouse")) return "mouse";
+  if (handler.includes("BurstProAir")) return "burst-pro-air";
   if (handler.includes("Burst") || handler.includes("KonePro")) return "direct-mouse";
   return name.toLowerCase().includes("air") ? "direct-mouse" : "mouse";
 };

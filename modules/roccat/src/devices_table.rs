@@ -126,7 +126,7 @@ pub static DETECTORS: &[Detector] = &[
         handler: "DetectRoccatBurstProAirControllers",
         vid: 0x1E7D,
         pid: 0x2CA6,
-        protocol: "direct-mouse",
+        protocol: "burst-pro-air",
     },
     Detector {
         name: "Roccat Kone Aimo",
@@ -154,14 +154,14 @@ pub static DETECTORS: &[Detector] = &[
         handler: "DetectRoccatKoneProAirControllers",
         vid: 0x1E7D,
         pid: 0x2C8E,
-        protocol: "direct-mouse",
+        protocol: "kone-pro-air",
     },
     Detector {
         name: "Roccat Kone Pro Air (Wired)",
         handler: "DetectRoccatKoneProAirControllers",
         vid: 0x1E7D,
         pid: 0x2C92,
-        protocol: "direct-mouse",
+        protocol: "kone-pro-air",
     },
     Detector {
         name: "Roccat Kone XP",
@@ -356,7 +356,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x2CA6,
-        protocol: "direct-mouse",
+        protocol: "burst-pro-air",
         leds: 4,
         packet: 30,
         column: 1,
@@ -392,7 +392,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x2C8E,
-        protocol: "direct-mouse",
+        protocol: "kone-pro-air",
         leds: 2,
         packet: 16,
         column: 1,
@@ -401,7 +401,7 @@ pub static DEVICES: &[Device] = &[
     Device {
         vid: 0x1E7D,
         pid: 0x2C92,
-        protocol: "direct-mouse",
+        protocol: "kone-pro-air",
         leds: 2,
         packet: 16,
         column: 1,
