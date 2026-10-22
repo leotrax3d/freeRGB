@@ -22,6 +22,7 @@ members = [
     "modules/redragon-mouse",
     "modules/luxafor",
     "modules/msi-motherboard",
+    "modules/asus-aura-usb",
 ]
 
 [workspace.package]

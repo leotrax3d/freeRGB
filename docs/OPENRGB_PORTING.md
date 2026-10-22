@@ -146,7 +146,8 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `RedragonController` | ported | `4a55e3c` | 11 | Direct only; effects/profile persistence omitted |
 | `LuxaforController` | ported | `8e7b1d2` | 1 | Direct only; Fade/Strobe/Wave/Pattern omitted |
 | `ThermaltakeRiingController` | unblocked / next | pending | 51 | Optional `initialize.zones` protocol parameter is now available; standard/Quad/Trio paths remain to port |
-| `MSIMotherboardController` | ported | `6b578b2` | 124 detectors / 123 unique IDs | 112/162/185/761-byte HID protocols; serial/path reads omitted; frame API sends direct RGB state |
+| `MSIMotherboardController` | ported | `55000e9` | 124 detectors / 123 unique IDs | 112/162/185/761-byte HID protocols; serial/path reads omitted; frame API sends direct RGB state |
+| `AsusAuraUSBController` | ported | `fc70ae5` | 100 detectors / 100 non-built-in IDs | Common 0xEC/0x40 direct HID framing; built-in 0b05:19af omitted; controller-specific effects omitted |
 
 
 The per-family status ledger is maintained below this inventory by the porting
