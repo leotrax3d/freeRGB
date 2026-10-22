@@ -1,0 +1,45 @@
+[package]
+name = "freergb-desktop"
+description = "Modern freeRGB desktop GUI (Tauri); talks to freergbd only through the local API"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.80"
+
+# Own workspace: Tauri's dependency tree stays out of the main workspace and CI.
+[workspace]
+
+[[bin]]
+name = "freergb-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+freergb-client = { path = "../../../crates/freergb-client" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+
+[target."cfg(windows)".dependencies]
+# Same versions wry uses; only for the WebView2 memory target (src/memory.rs).
+webview2-com = "0.39"
+windows = "0.62"
+
+[dev-dependencies]
+freergb-effects = { path = "../../../crates/freergb-effects" }
+
+[lints.rust]
+# deny, not forbid: src/memory.rs needs one documented COM call.
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

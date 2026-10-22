@@ -1,7 +1,8 @@
 # Architecture
 
 ```
-freergb-gui ── freergb-client ──(JSON-RPC, local IPC)──▶ freergbd
+freergb-desktop (Tauri/React) ──┐
+freergb-gui (Classic/egui) ─────┴─ freergb-client ──(JSON-RPC, local IPC)──▶ freergbd
 freergb-cli ─────┐
 freergb-daemon ──┼─ freergb-protocols ── freergb-device-api ── freergb-core
                  ├─ freergb-hid ──────── freergb-device-api
@@ -47,7 +48,33 @@ Principles: transport, protocol and device function are separate; unknown device
 never written to; property writes go through an allowlist; `unsafe` is forbidden
 workspace-wide. Decisions: `DECISIONS.md`.
 
-## GUI (`freergb-gui`)
+## Desktop GUI (`apps/desktop`)
+
+Tauri/React is the default launcher target. The Rust bridge reuses `freergb-client`
+and an explicit RPC allowlist; the webview never accesses hardware. A serialized
+command worker coalesces slider writes by method/device after action barriers.
+A separate poller emits changed slices every second (five seconds when hidden),
+fetches optional data only for mounted views, and clears cached readings on loss
+of connection. Production builds embed the frontend using `tauri/custom-protocol`.
+The separate Cargo workspace keeps webview dependencies out of backend-only builds.
+
+Closing either GUI leaves the daemon running. `freergb-launcher --daemon-only`
+starts only the daemon, including the fixed installed motherboard-provider opt-in;
+Windows login startup uses this mode. `--classic` opens the optional Classic GUI.
+The desktop's service-start button delegates to this launcher when installed.
+
+Mainboard monitoring, native cooling sessions/calibration, channel annotations and
+keyboard reactions use the existing daemon APIs. Session authorization, watchdogs,
+native acquisition and verified hardware return remain daemon/service concerns.
+The GUI never infers that a channel annotation grants hardware write permission.
+
+Global macro hotkeys, foreground application profiles, sensor history/warnings and
+update installation remain Classic tools in this integration. Tauri can open the
+installed Classic executable. Hotkeys and application profiles require Classic to
+remain running. The mock transport is restricted to standalone browser previews;
+the desktop never falls back to fabricated data on a daemon error.
+
+## Classic GUI (`freergb-gui`)
 egui/eframe (glow backend). Contains no device or protocol code. A worker thread
 polls `devices.list`, `diagnostics.get` and `effects.get` once per second and sends
 queued commands (bursts from slider drags are coalesced per method). The window only

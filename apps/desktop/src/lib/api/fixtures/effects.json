@@ -1,0 +1,148 @@
+{
+  "audio_pulse": {
+    "background": {
+      "b": 0,
+      "g": 0,
+      "r": 0
+    },
+    "color": {
+      "b": 222,
+      "g": 155,
+      "r": 0
+    },
+    "sensitivity": 1.5,
+    "type": "audio_pulse"
+  },
+  "audio_spectrum": {
+    "background": {
+      "b": 0,
+      "g": 0,
+      "r": 0
+    },
+    "high": {
+      "b": 222,
+      "g": 155,
+      "r": 0
+    },
+    "low": {
+      "b": 80,
+      "g": 0,
+      "r": 255
+    },
+    "type": "audio_spectrum"
+  },
+  "breathing": {
+    "color": {
+      "b": 222,
+      "g": 155,
+      "r": 0
+    },
+    "period_ms": 3000,
+    "type": "breathing"
+  },
+  "color_cycle": {
+    "period_ms": 10000,
+    "type": "color_cycle"
+  },
+  "gradient": {
+    "angle_deg": 0.0,
+    "from": {
+      "b": 128,
+      "g": 0,
+      "r": 255
+    },
+    "to": {
+      "b": 222,
+      "g": 155,
+      "r": 0
+    },
+    "type": "gradient"
+  },
+  "layers": {
+    "layers": [
+      {
+        "blend": "normal",
+        "effect": {
+          "scale": 1.0,
+          "speed": 0.20000000298023224,
+          "type": "rainbow_wave"
+        },
+        "opacity": 1.0,
+        "region": null
+      },
+      {
+        "blend": "add",
+        "effect": {
+          "background": {
+            "b": 0,
+            "g": 0,
+            "r": 0
+          },
+          "color": {
+            "b": 255,
+            "g": 255,
+            "r": 255
+          },
+          "period_ms": 2000,
+          "type": "scanner",
+          "width": 0.10000000149011612
+        },
+        "opacity": 0.800000011920929,
+        "region": null
+      }
+    ],
+    "type": "layers"
+  },
+  "radial_rainbow": {
+    "scale": 1.0,
+    "speed": 0.30000001192092896,
+    "type": "radial_rainbow"
+  },
+  "rainbow_wave": {
+    "scale": 1.0,
+    "speed": 0.20000000298023224,
+    "type": "rainbow_wave"
+  },
+  "scanner": {
+    "background": {
+      "b": 0,
+      "g": 0,
+      "r": 0
+    },
+    "color": {
+      "b": 0,
+      "g": 0,
+      "r": 255
+    },
+    "period_ms": 2000,
+    "type": "scanner",
+    "width": 0.11999999731779099
+  },
+  "screen_ambience": {
+    "saturation": 1.399999976158142,
+    "type": "screen_ambience"
+  },
+  "solid": {
+    "color": {
+      "b": 222,
+      "g": 155,
+      "r": 0
+    },
+    "type": "solid"
+  },
+  "twinkle": {
+    "background": {
+      "b": 40,
+      "g": 0,
+      "r": 0
+    },
+    "color": {
+      "b": 255,
+      "g": 255,
+      "r": 255
+    },
+    "density": 0.15000000596046448,
+    "period_ms": 1200,
+    "type": "twinkle"
+  }
+}

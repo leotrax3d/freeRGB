@@ -30,6 +30,8 @@ fn installed_library(directory: &std::path::Path) -> Option<std::ffi::OsString> 
 #[derive(Default)]
 struct Options {
     demo: bool,
+    daemon_only: bool,
+    classic: bool,
     mainboard_library: Option<std::ffi::OsString>,
     asus_aura: bool,
     asus_argb_leds: Option<std::ffi::OsString>,
@@ -41,6 +43,12 @@ fn options(args: impl Iterator<Item = std::ffi::OsString>) -> Result<Options, &'
     while let Some(arg) = args.next() {
         if arg == "--demo" {
             options.demo = true;
+        }
+        if arg == "--daemon-only" {
+            options.daemon_only = true;
+        }
+        if arg == "--classic" {
+            options.classic = true;
         }
         if arg == "--mainboard-library" {
             options.mainboard_library = Some(
@@ -108,13 +116,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         command.spawn()?;
     }
-    Command::new(executable("freergb-gui")).spawn()?;
+    if !options.daemon_only {
+        Command::new(executable(if options.classic {
+            "freergb-gui"
+        } else {
+            "freergb-desktop"
+        }))
+        .spawn()?;
+    }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn launch_modes_are_explicit() {
+        let parse = |args: &[&str]| options(args.iter().map(std::ffi::OsString::from)).unwrap();
+        assert!(!parse(&[]).classic);
+        assert!(!parse(&[]).daemon_only);
+        assert!(parse(&["--classic"]).classic);
+        assert!(parse(&["--daemon-only"]).daemon_only);
+    }
     #[test]
     fn installed_provider_requires_version_consent_fixed_path_and_runtime() {
         let directory =

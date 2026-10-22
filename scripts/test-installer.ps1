@@ -83,7 +83,9 @@ try {
     }
     Assert-True (Test-Path -LiteralPath "$group/freeRGB.lnk") 'Start Menu should default on.'
     Assert-True (-not (Test-Path -LiteralPath $desktop)) 'Desktop should default off.'
-    Assert-True ((Get-Startup) -eq ('"' + (Join-Path $app 'freergb-launcher.exe') + '"')) 'Autostart should default on and quote spaces.'
+    Assert-True ((Get-Startup) -eq ('"' + (Join-Path $app 'freergb-launcher.exe') + '" --daemon-only')) 'Autostart should start only the daemon and quote spaces.'
+    Assert-True (Test-Path -LiteralPath "$app/freergb-desktop.exe") 'Modern desktop executable missing.'
+    Assert-True (Test-Path -LiteralPath "$group/freeRGB Classic.lnk") 'Classic fallback shortcut missing.'
     foreach ($file in @('install-mainboard.ps1','remove-mainboard.ps1','mainboard-prerequisites.psm1','mainboard-packages.json')) {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing optional prerequisite bootstrap file $file"
     }

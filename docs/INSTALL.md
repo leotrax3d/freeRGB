@@ -9,7 +9,11 @@ first; the daemon also detects common conflicts. Virtual demo mode can run along
 Installer artifact: `target/dist/freeRGB-0.1.0-windows-x86_64-setup.exe` after packaging.
 It installs per user with an uninstaller. Setup asks independently about Start Menu
 entries (including Demo), a desktop shortcut and login startup. Start Menu and
-**autostart default on**; desktop defaults off. All options are editable, with previous
+**autostart default on**; desktop defaults off.
+Windows login starts only the background daemon, without opening a GUI. The main
+shortcut opens Tauri; the separate **freeRGB Classic** shortcut opens the fallback.
+The modern GUI requires the Microsoft Edge WebView2 runtime on Windows.
+All options are editable, with previous
 choices retained on upgrades. Deselecting an option removes freeRGB's corresponding
 shortcut/startup entry. Default installation adds no driver/system service. An unchecked optional
 mainboard page can download/install prerequisites after explicit opt-in; see
@@ -53,15 +57,18 @@ cd FreeRGB
 cargo install --path crates/freergb-daemon   # freergbd
 cargo install --path crates/freergb-cli      # freergb
 cargo install --path crates/freergb-gui      # freergb-gui
+./scripts/build-desktop.ps1 -OutputDirectory "$env:USERPROFILE/.cargo/bin"
 ```
 
 Run `freergb-launcher` (or `freergb-launcher --demo` for the virtual demo).
-The launcher starts the daemon when needed and opens the GUI. No administrator
+The launcher starts the daemon when needed and opens Tauri. Use `--classic` to open
+the fallback or `--daemon-only` to start without any window. Desktop builds also
+require Node.js 22+ and npm. No administrator
 rights are needed for supported USB HID devices. For backend development the daemon
 also accepts `--enable-link-hub` for experimental LINK RGB.
 
 For source installations, autostart is not set up automatically. To start the service at logon, create a shortcut to
-`%USERPROFILE%\.cargo\bin\freergb-launcher.exe` in `shell:startup`.
+`%USERPROFILE%\.cargo\bin\freergb-launcher.exe --daemon-only` in `shell:startup`.
 
 State and profiles: `%APPDATA%\freeRGB\` (`state.json`, `profiles\`).
 
@@ -75,7 +82,8 @@ Build dependencies (Debian/Ubuntu names):
 ```bash
 sudo apt install build-essential pkg-config libudev-dev \
   libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
-  libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev
+  libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev \
+  libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 ```
 
 Build and install:
@@ -86,6 +94,12 @@ cd FreeRGB
 cargo install --path crates/freergb-daemon
 cargo install --path crates/freergb-cli
 cargo install --path crates/freergb-gui
+cd apps/desktop
+npm ci
+npm run build
+cargo build --manifest-path src-tauri/Cargo.toml --features tauri/custom-protocol --release --locked
+install -m 0755 src-tauri/target/release/freergb-desktop ~/.cargo/bin/freergb-desktop
+cd ../..
 ```
 
 ### Device permissions (udev)

@@ -58,11 +58,11 @@ own open tasks.
 | Area | Available or implemented | Remaining |
 |---|---|---|
 | RGB engine and effects | Shared canvas, device workers, reconnect/hot-plug, effects and layered editor | Broader device coverage and extended combined-device soak tests |
-| Desktop interface | Classic egui interface for devices, effects, profiles, macros and monitoring | Modern Tauri/React interface integration, release and feature parity |
+| Desktop interface | Integrated Tauri/React default with real daemon API; optional Classic fallback | Visual/platform acceptance and remaining Classic feature migration |
 | Profiles and automation | Persistence, Windows application rules, macro execution and opt-in shortcuts | Macro recording, device-specific macro keys and native interaction acceptance |
 | Reactive keyboard lighting | Daemon overlay, explicit K70 CORE mapping, optional Windows capture | Real typing-to-LED acceptance, more layouts/keyboards and Linux capture |
 | Monitoring and sensors | Histories, alerts, custom source graphs and optional protected motherboard reader | Verified source/channel identities and broader CPU/GPU/coolant coverage |
-| Cooling | Curve editor/storage, daemon-owned protected sessions, explicit Classic live dialog and verified return | Public-path interactive acceptance, sustained hardware/fault validation, multi-channel support, modern-GUI live parity and release maintenance acceptance |
+| Cooling | Curve editor/storage, daemon-owned protected sessions and calibration, live dialogs in Tauri and Classic, channel annotations | Public-path interactive acceptance, sustained hardware/fault validation, multi-channel support and release maintenance acceptance |
 | Motherboard RGB/ARGB | Separate experimental ASUS USB backend | Real header colour/fallback acceptance, setup UI and more manufacturers |
 | Plugins | Device descriptions, process lifecycle/API and virtual reference | Hardware plugin acceptance, effect plugins and installation/hot reload |
 | Windows distribution | Installer, configuration preservation, CI lifecycle harness and verified update staging | Published signed release, cross-version update/rollback and interactive installer acceptance |
@@ -111,14 +111,21 @@ cd FreeRGB
 cargo build --release
 ```
 
+The modern frontend additionally requires Node.js 22+ and npm. On Windows,
+`./scripts/build-desktop.ps1` builds it into `target/release` alongside the Rust
+binaries. See [installation](docs/INSTALL.md) for Linux instructions.
+
 ### Try without hardware
 
 Run the daemon and GUI in separate terminals:
 
 ```bash
 cargo run --release -p freergb-daemon --bin freergbd -- --no-hardware --no-state --virtual-device
-cargo run --release -p freergb-gui
 ```
+
+In the second terminal, run `cd apps/desktop`, `npm ci`, then `npm run tauri dev`.
+For the Classic fallback use `cargo run --release -p freergb-gui` from the root.
+Plain `npm run dev` is a labelled browser mock, not a hardware connection.
 
 ### Connect supported hardware
 
@@ -129,11 +136,15 @@ cargo run --release -p freergb-cli -- discover
 cargo run --release -p freergb-daemon --bin freergbd
 ```
 
-Open the GUI from another terminal:
+Open the built default GUI from another terminal (Windows):
 
 ```bash
-cargo run --release -p freergb-gui
+./target/release/freergb-launcher.exe
 ```
+
+Use `--classic` for the fallback. Windows login startup uses `--daemon-only`, so
+it opens no GUI. Settings in the modern GUI can open Classic for its remaining
+tools: global macro shortcuts, application profiles, history/warnings and updates.
 
 The experimental iCUE LINK hub requires `--enable-link-hub` on the daemon.
 Closing the GUI leaves the daemon running. Ctrl+C or `daemon.shutdown` requests
@@ -149,8 +160,10 @@ The daemon owns device access, effect rendering, state, profiles and control
 policy. Desktop interfaces and the CLI use the same local API. Each device has
 an isolated worker so a slow device can skip frames without blocking others.
 
-The Classic interface uses egui. A separate Tauri 2/React interface is under
-development; this README does not claim it has reached release parity.
+The default interface uses Tauri 2/React. Classic uses egui and remains available.
+The [integration checklist](docs/INTEGRATION_CHECKLIST.md) tracks verified builds,
+tests and outstanding visual/hardware/platform acceptance; full release parity
+is not yet claimed.
 Optional Windows motherboard access uses a protected service/native boundary.
 
 See [architecture](docs/ARCHITECTURE.md), [decisions](docs/DECISIONS.md) and

@@ -29,13 +29,34 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libudev-dev libxkbcommon-dev libwayland-dev \
             libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
-            libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev
+            libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Desktop frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+      - name: Desktop frontend tests
+        working-directory: apps/desktop
+        run: npm test
+      - name: Desktop frontend build
+        working-directory: apps/desktop
+        run: npm run build
+      - name: Desktop Rust tests
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+      - name: Desktop formatting
+        run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
+      - name: Desktop clippy
+        run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+      - name: Desktop build
+        run: cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features tauri/custom-protocol --locked
 
       - name: fmt
         run: cargo fmt --all -- --check

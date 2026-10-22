@@ -1,0 +1,55 @@
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+
+export type Tone = "ok" | "warn" | "error" | "idle";
+
+const DOT: Record<Tone, string> = {
+  ok: "bg-accent",
+  warn: "bg-warning",
+  error: "bg-danger",
+  idle: "bg-text-disabled",
+};
+
+/** Colour is never the only signal: the dot always comes with a label. */
+export function StatusDot({ tone, label, className }: { tone: Tone; label: string; className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-2 text-small text-text-muted", className)}>
+      <span className={cn("size-2 shrink-0 rounded-full", DOT[tone])} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+export function EmptyState({
+  icon,
+  title,
+  children,
+  action,
+}: {
+  icon?: ReactNode;
+  title: string;
+  children?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="mx-auto flex max-w-sm flex-col items-center gap-3 py-16 text-center">
+      {icon && <div className="mb-1 text-text-subtle [&_svg]:size-8">{icon}</div>}
+      <h2 className="text-title font-semibold">{title}</h2>
+      {children && <p className="text-small text-text-muted">{children}</p>}
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  );
+}
+
+export function Banner({ tone, children }: { tone: "warn" | "error" | "info"; children: ReactNode }) {
+  const styles = {
+    warn: "border-warning/30 bg-warning/10 text-[#fbbf24]",
+    error: "border-danger/30 bg-danger/10 text-danger-text",
+    info: "border-info/30 bg-info/10 text-info-text",
+  }[tone];
+  return (
+    <div role="status" className={cn("flex items-center gap-3 rounded-control border px-4 py-2.5 text-small", styles)}>
+      {children}
+    </div>
+  );
+}

@@ -6,6 +6,7 @@ if (-not $Compiler) {
 }
 if (-not $Compiler) { throw 'Inno Setup compiler not found. Pass -Compiler PATH or build using the GitHub Package workflow.' }
 $binPath = (Resolve-Path -LiteralPath $BinDir).Path
+& "$PSScriptRoot/../../scripts/build-desktop.ps1" -OutputDirectory $binPath
 & "$PSScriptRoot/../../scripts/build-mainboard-helper.ps1" -OutputDirectory $binPath -Mode Production
 & "$PSScriptRoot/../../scripts/build-keyboard-helper.ps1" -OutputDirectory $binPath
 $outputPath = [System.IO.Path]::GetFullPath($OutputDir)

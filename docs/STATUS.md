@@ -22,7 +22,7 @@ infer completion from a build, simulator, detected device or old pending CI note
 - [x] Classic desktop controls and local daemon API. Evidence: [architecture](ARCHITECTURE.md), [API](LOCAL_API.md).
 - [x] Reactive keyboard overlay, K70 mapping and optional Windows helper. Evidence: [keyboard reactions](KEYBOARD_REACTIVE.md).
 - [ ] Real keyboard typing, foreground-profile switching and GUI interaction acceptance. Evidence: [worklist](WORKLIST.md), [testing](TESTING.md).
-- [ ] Modern Tauri/React interface integration, release and feature parity. Separate GUI work remains outside main's completed milestones.
+- [ ] Modern Tauri/React interface integration, release and feature parity. Integration implemented on `codex/integrate-tauri-main`; visual/hardware/Linux and installer lifecycle acceptance remain open. Evidence: [integration checklist](INTEGRATION_CHECKLIST.md).
 
 ## Hardware and extensibility
 

@@ -32,7 +32,7 @@ CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
 SetupIconFile=..\..\assets\icons\freergb.ico
-UninstallDisplayIcon={app}\freergb-gui.exe
+UninstallDisplayIcon={app}\freergb-desktop.exe
 
 [Languages]
 Name: deutsch; MessagesFile: "compiler:Languages\German.isl"
@@ -46,6 +46,7 @@ Name: autostart; Description: "freeRGB bei der Windows-Anmeldung starten"; Group
 [Files]
 Source: "{#BinDir}\freergb-launcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BinDir}\freergb-desktop.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergbd.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-mainboard.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-keyboard-input.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -64,16 +65,18 @@ Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 [Icons]
 Name: "{group}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; Tasks: startmenu
 Name: "{group}\freeRGB Demo"; Filename: "{app}\freergb-launcher.exe"; Parameters: "--demo"; Tasks: startmenu
+Name: "{group}\freeRGB Classic"; Filename: "{app}\freergb-launcher.exe"; Parameters: "--classic"; Tasks: startmenu
 Name: "{group}\Uninstall freeRGB"; Filename: "{uninstallexe}"; Tasks: startmenu
 Name: "{autodesktop}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; Tasks: desktopicon
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "freeRGB"; ValueData: """{app}\freergb-launcher.exe"""; Tasks: autostart; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "freeRGB"; ValueData: """{app}\freergb-launcher.exe"" --daemon-only"; Tasks: autostart; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "freeRGB"; Flags: deletevalue; Check: RemoveOwnedAutostart
 
 [InstallDelete]
 Type: files; Name: "{group}\freeRGB.lnk"; Check: not WizardIsTaskSelected('startmenu')
 Type: files; Name: "{group}\freeRGB Demo.lnk"; Check: not WizardIsTaskSelected('startmenu')
+Type: files; Name: "{group}\freeRGB Classic.lnk"; Check: not WizardIsTaskSelected('startmenu')
 Type: files; Name: "{group}\Uninstall freeRGB.lnk"; Check: not WizardIsTaskSelected('startmenu')
 Type: files; Name: "{autodesktop}\freeRGB.lnk"; Check: not WizardIsTaskSelected('desktopicon')
 
@@ -95,7 +98,8 @@ begin
   Result := False;
   if not WizardIsTaskSelected('autostart') then
     if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'freeRGB', Value) then
-      Result := CompareText(Value, '"' + ExpandConstant('{app}\freergb-launcher.exe') + '"') = 0;
+      Result := (CompareText(Value, '"' + ExpandConstant('{app}\freergb-launcher.exe') + '"') = 0) or
+        (CompareText(Value, '"' + ExpandConstant('{app}\freergb-launcher.exe') + '" --daemon-only') = 0);
 end;
 
 #include "competitors.iss"
