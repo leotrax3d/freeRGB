@@ -141,16 +141,24 @@ fn hidpp_discovery_and_frame_are_brokered() {
     root[..4].copy_from_slice(&[0x11, 2, 0, 7]);
     root[4] = 5;
     reads.push(root);
+    let mut rgb_count = vec![0; 20];
+    rgb_count[..4].copy_from_slice(&[0x11, 2, 5, 7]);
+    rgb_count[6] = 2;
+    reads.push(rgb_count);
+    let mut perkey = vec![0; 20];
+    perkey[..4].copy_from_slice(&[0x11, 2, 0, 7]);
+    perkey[4] = 6;
+    reads.push(perkey);
     for page in 0..3 {
         let mut zones = vec![0; 20];
-        zones[..4].copy_from_slice(&[0x11, 2, 5, 7]);
+        zones[..4].copy_from_slice(&[0x11, 2, 6, 7]);
         if page == 0 {
             zones[6] = 0b0000_0110;
         }
         reads.push(zones);
     }
-    reads.push(vec![0x11, 2, 5, 0x17]);
-    reads.push(vec![0x11, 2, 5, 0x77]);
+    reads.push(vec![0x11, 2, 6, 0x17]);
+    reads.push(vec![0x11, 2, 6, 0x77]);
     let mut h = HidppFake {
         w: Vec::new(),
         reads,
@@ -164,5 +172,5 @@ fn hidpp_discovery_and_frame_are_brokered() {
     )
     .unwrap();
     assert_eq!(h.w[0], report::hidpp(0, 0, &[0x80, 0x71]));
-    assert_eq!(h.w.len(), 6);
+    assert_eq!(h.w.len(), 8);
 }

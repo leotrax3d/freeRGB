@@ -15,8 +15,10 @@ pub struct Logitech {
     leds: usize,
     handler: &'static str,
     hidpp_idx: u8,
+    hidpp_rgb_idx: u8,
     hidpp_zones: Vec<u8>,
     hidpp_fp8070: bool,
+    hidpp_perkey: bool,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
@@ -114,14 +116,17 @@ impl Module for Logitech {
         let lightspeed =
             handler.contains("DetectLogitechWireless") || handler.contains("DetectLogitechWired");
         if handler.contains("HIDPP20") {
-            let response = hidpp_call(h, 0, 0, &[0x80, 0x71])?;
-            self.hidpp_idx = response.get(4).copied().unwrap_or(0);
-            if self.hidpp_idx == 0 {
-                return Err(err("Logitech HID++ RGB feature is unavailable"));
-            }
+            let (rgb_idx, fp8070, rgb_count) = discover_rgb_effects(h)?;
+            self.hidpp_rgb_idx = rgb_idx;
+            self.hidpp_fp8070 = fp8070;
+            let response = hidpp_call(h, 0, 0, &[0x80, 0x81])?;
+            let perkey_idx = response.get(4).copied().unwrap_or(0);
             let mut zones = Vec::new();
             for page in 0..3u8 {
-                let response = hidpp_call(h, self.hidpp_idx, 0, &[0, page, 0])?;
+                if perkey_idx == 0 {
+                    break;
+                }
+                let response = hidpp_call(h, perkey_idx, 0, &[0, page, 0])?;
                 for bit in 0..112u8 {
                     if page == 0 && bit == 0 {
                         continue;
@@ -134,8 +139,12 @@ impl Module for Logitech {
                 }
             }
             self.hidpp_zones = zones;
-            if self.hidpp_zones.is_empty() {
-                return Err(err("Logitech HID++ device reported no RGB zones"));
+            self.hidpp_perkey = perkey_idx != 0 && !self.hidpp_zones.is_empty();
+            if self.hidpp_perkey {
+                self.hidpp_idx = perkey_idx;
+            } else {
+                self.hidpp_idx = rgb_idx;
+                self.hidpp_zones = (0..rgb_count).map(|n| n as u8).collect();
             }
         } else if lightspeed {
             let (feature, fp8070, count) = discover_rgb_effects(h)?;
@@ -207,7 +216,7 @@ impl Module for Logitech {
             }
         } else if self.handler.contains("G600") {
             h.send_feature(&report::g600(0, 3, c[0])).map_err(err)?;
-        } else if self.handler.contains("HIDPP20") {
+        } else if self.handler.contains("HIDPP20") && self.hidpp_perkey {
             for (offset, colors) in c.chunks(4).enumerate() {
                 let mut data = [0; 16];
                 for (n, color) in colors.iter().enumerate() {
@@ -221,6 +230,21 @@ impl Module for Logitech {
                 hidpp_call(h, self.hidpp_idx, 0x10, &data[..colors.len() * 4])?;
             }
             hidpp_call(h, self.hidpp_idx, 0x70, &[])?;
+        } else if self.handler.contains("HIDPP20") {
+            for (zone, color) in c.iter().enumerate() {
+                let frame = report::lightspeed_effect(
+                    self.hidpp_rgb_idx,
+                    self.hidpp_fp8070,
+                    zone as u8,
+                    *color,
+                );
+                hidpp_call(
+                    h,
+                    self.hidpp_rgb_idx,
+                    if self.hidpp_fp8070 { 0x30 } else { 0x10 },
+                    &frame[4..20],
+                )?;
+            }
         } else if self.handler.contains("DetectLogitechWireless")
             || self.handler.contains("DetectLogitechWired")
         {
