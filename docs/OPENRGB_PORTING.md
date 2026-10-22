@@ -154,7 +154,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AsusAuraCoreController` | partial | `ba82083` | 0 | 5 detector rows audited; desktop/laptop controller paths remain unsupported |
 | `InstantMouseController` | partial | `c834a99` | 4 | Four exact HID detectors audited. Direct one-LED lifecycle and six-report DPI-slot sequence are ported; OpenRGB effect-mode controls are not exposed by the module API. |
 | `SonyGamepadController` | partial | `47bfa79` | 0 | Five detector rows audited; DS4 runtime USB/Bluetooth detection, both CRC Bluetooth formats, and correct DualSense mode/brightness lifecycle remain unsupported. |
-| `MSIKeyboardController` | partial | pending | 0 | Four detector rows audited; MS_1565 and MSI_64 packet structures, zone layouts and mode lifecycles remain unsupported. |
+| `MSIKeyboardController` | partial | `634be02` | 0 | Four detector rows audited; MS_1565 and MSI_64 packet structures, zone layouts and mode lifecycles remain unsupported. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
