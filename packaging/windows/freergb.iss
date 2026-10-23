@@ -74,7 +74,7 @@ Source: "..\..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; Tasks: startmenu
+Name: "{group}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; AppUserModelID: "freeRGB.Desktop"; Tasks: startmenu
 Name: "{group}\freeRGB Demo"; Filename: "{app}\freergb-launcher.exe"; Parameters: "--demo"; Tasks: startmenu
 Name: "{group}\freeRGB Classic"; Filename: "{app}\freergb-launcher.exe"; Parameters: "--classic"; Tasks: startmenu
 Name: "{group}\Uninstall freeRGB"; Filename: "{uninstallexe}"; Tasks: startmenu
