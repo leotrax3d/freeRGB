@@ -2,12 +2,13 @@ import { Check, Download, RefreshCw, Search, Store, Trash2 } from "lucide-react"
 import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { rpc, useDaemon } from "@/lib/store/daemon";
 import { cn } from "@/lib/utils";
 import { Contact } from "@/components/Contact";
 import { ReportIssue } from "./ReportIssue";
 import { Stars } from "./Stars";
-import { defaults, matches, type MarketplaceStatus, type Package } from "./types";
+import { defaults, matches, sortPackages, type SortOrder, type MarketplaceStatus, type Package } from "./types";
 
 function EffectCard({ pkg, installed, status, disabled, run }: {
   pkg: Package; installed?: Package; status: MarketplaceStatus; disabled: boolean;
@@ -43,6 +44,7 @@ function EffectCard({ pkg, installed, status, disabled, run }: {
           <p className="mt-1 text-caption text-text-subtle">From the official catalog · No capture permissions</p>
         </div>
         <Stars id={pkg.id} name={pkg.name} ratings={status.packages.ratings} disabled={disabled} rate={(stars) => void run("marketplace.rate", { id: pkg.id, stars })} />
+        <p className="flex items-center gap-2 text-caption text-text-subtle"><Download className="size-3" aria-hidden />{status.packages.ratings.updated_at ? `${(status.packages.ratings.by_effect[pkg.id]?.downloads ?? 0).toLocaleString()} downloads` : "Download count not loaded"}</p>
         {installed && <fieldset className="flex flex-col gap-3" disabled={disabled}>
           <legend className="sr-only">{pkg.name} parameters</legend>
           {target.parameters.map((p) => <label key={p.key} className="flex flex-col gap-1 text-small">
@@ -73,7 +75,7 @@ export default function MarketplaceView() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [query, setQuery] = useState("");
-  const [onlyInstalled, setOnlyInstalled] = useState(false);
+  const [sortOrder, setSortOrder] = useState<SortOrder>("downloads");
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -103,7 +105,7 @@ export default function MarketplaceView() {
   const disabled = pending || !!status?.packages.job || mode === "mock";
   const installed = new Map(status?.packages.installed.map((p) => [p.id, p]));
   const packages = [...(status?.packages.catalog ?? []), ...(status?.packages.installed.filter((p) => !status.packages.catalog.some((c) => c.id === p.id)) ?? [])];
-  const visible = packages.filter((pkg) => matches(pkg, query, installed.has(pkg.id), onlyInstalled));
+  const visible = sortPackages(packages.filter((pkg) => matches(pkg, query, installed.has(pkg.id), false)), sortOrder, status?.packages.ratings.by_effect ?? {});
   return <>
     <PageHeader title="Effect Marketplace" />
     <div className="flex flex-col gap-5">
@@ -121,7 +123,8 @@ export default function MarketplaceView() {
       {status && !status.packages.ratings.configured && <p className="text-small text-text-muted">Shared star ratings will be available when the freeRGB team connects the rating service. No registration or login will be needed.</p>}
       {status?.packages.ratings.error && <p role="alert" className="text-small text-danger-text">{status.packages.ratings.error} Previously loaded scores may be out of date.</p>}
       {status?.packages.ratings.configured && <div className="flex items-center gap-3 text-caption text-text-subtle"><Button variant="ghost" disabled={status.packages.ratings.loading || !!status.packages.ratings.saving} onClick={() => void run("marketplace.ratings.refresh")}>Refresh ratings</Button>{status.packages.ratings.loading ? "Loading community ratings…" : status.packages.ratings.updated_at ? `Scores updated ${new Date(status.packages.ratings.updated_at * 1000).toLocaleTimeString()}` : "Community scores"}</div>}
-      <div className="flex flex-wrap items-center gap-4"><label className="relative min-w-48 flex-1"><Search className="absolute left-3 top-2.5 size-4 text-text-subtle" aria-hidden /><input aria-label="Search effects" placeholder="Search effects…" value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-control border border-border bg-surface-sunken pl-9 pr-3 text-small" /></label><label className="flex items-center gap-2 text-small"><input type="checkbox" checked={onlyInstalled} onChange={(e) => setOnlyInstalled(e.target.checked)} />Installed only</label><span className="text-caption text-text-subtle">{installed.size} installed</span></div>
+      <div className="flex flex-wrap items-center gap-4"><label className="relative min-w-48 flex-1"><Search className="absolute left-3 top-2.5 size-4 text-text-subtle" aria-hidden /><input aria-label="Search effects" placeholder="Search effects…" value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-control border border-border bg-surface-sunken pl-9 pr-3 text-small" /></label><span className="text-caption text-text-subtle">{installed.size} installed</span></div>
+      <div className="flex items-center gap-3 text-small"><span>Sort by</span><Select<SortOrder> label="Sort effects" value={sortOrder} onChange={setSortOrder} options={[{value:"downloads",label:"Most downloaded"},{value:"rating",label:"Highest rated"},{value:"name",label:"Name A–Z"}]} /></div>
       {!status && mode !== "mock" && !error && <p role="status" className="text-small text-text-muted">Connecting to the effect service…</p>}
       {status && visible.length === 0 && <p className="py-10 text-center text-small text-text-muted">No effects match your search.</p>}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-stretch gap-4">{status && visible.map((pkg) => <EffectCard key={pkg.id} pkg={pkg} installed={installed.get(pkg.id)} status={status} disabled={disabled} run={run} />)}</div>

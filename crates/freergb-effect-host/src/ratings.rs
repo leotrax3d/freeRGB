@@ -1,5 +1,4 @@
-//! Shared ratings using Supabase anonymous authentication. No registration UI,
-//! GitHub identity, device fingerprint or hardware information is sent here.
+//! Appwrite community client. Only a random anonymous identity is used for votes.
 use reqwest::blocking::{Client as Http, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -15,6 +14,132 @@ use std::{
 pub struct Summary {
     pub average: f64,
     pub count: u64,
+    pub downloads: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpListener;
+    #[test]
+    fn native_session_survives_restart_and_receipts_retry_without_new_identity() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/v1", listener.local_addr().unwrap());
+        let file = std::env::temp_dir().join(format!(
+            "freergb-appwrite-test-{}.json",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let server = std::thread::spawn(move || {
+            let replies = [
+                (
+                    "/account/sessions/anonymous",
+                    200,
+                    json!({"userId":"test-user"}),
+                    true,
+                ),
+                ("/account/jwts", 200, json!({"jwt":"test-jwt"}), false),
+                (
+                    "/functions/community-api/executions",
+                    200,
+                    json!({"responseStatusCode":503,"responseBody":"{}"}),
+                    false,
+                ),
+                ("/account/jwts", 200, json!({"jwt":"test-jwt"}), false),
+                (
+                    "/functions/community-api/executions",
+                    200,
+                    json!({"responseStatusCode":200,"responseBody":"{\"counted\":false}"}),
+                    false,
+                ),
+                (
+                    "/functions/community-api/executions",
+                    200,
+                    json!({"responseStatusCode":200,"responseBody":"{\"by_effect\":{\"aurora\":{\"average\":4,\"count\":2,\"downloads\":1}}}"}),
+                    false,
+                ),
+                ("/account/jwts", 200, json!({"jwt":"test-jwt"}), false),
+                (
+                    "/functions/community-api/executions",
+                    200,
+                    json!({"responseStatusCode":200,"responseBody":"{\"mine\":{\"aurora\":5}}"}),
+                    false,
+                ),
+            ];
+            let mut actions = Vec::new();
+            for (path, status, body, cookie) in replies {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
+                let mut bytes = Vec::new();
+                loop {
+                    let mut byte = [0];
+                    socket.read_exact(&mut byte).unwrap();
+                    bytes.push(byte[0]);
+                    if bytes.ends_with(b"\r\n\r\n") {
+                        break;
+                    }
+                }
+                let headers = String::from_utf8(bytes).unwrap();
+                assert!(headers.starts_with(&format!("POST /v1{path}")));
+                assert!(headers
+                    .to_lowercase()
+                    .contains("x-appwrite-project: test-project"));
+                if path == "/account/jwts" {
+                    assert!(headers.contains("a_session_test-project=test-cookie"));
+                }
+                let len = headers
+                    .lines()
+                    .find_map(|s| {
+                        s.to_lowercase()
+                            .strip_prefix("content-length: ")
+                            .and_then(|n| n.parse::<usize>().ok())
+                    })
+                    .unwrap();
+                let mut body_bytes = vec![0; len];
+                socket.read_exact(&mut body_bytes).unwrap();
+                if path.ends_with("executions") {
+                    let execution: Value = serde_json::from_slice(&body_bytes).unwrap();
+                    let payload: Value =
+                        serde_json::from_str(execution["body"].as_str().unwrap()).unwrap();
+                    if payload["action"] != "summary" {
+                        assert_eq!(execution["headers"]["x-freergb-jwt"], "test-jwt");
+                    }
+                    actions.push(payload["action"].as_str().unwrap().to_owned());
+                }
+                let body = body.to_string();
+                let cookie = if cookie {
+                    "Set-Cookie: a_session_test-project=test-cookie; HttpOnly; Path=/\r\n"
+                } else {
+                    ""
+                };
+                write!(socket,"HTTP/1.1 {status} OK\r\nContent-Type: application/json\r\n{cookie}Content-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            }
+            actions
+        });
+        let client = Client::new(url.clone(), "test-project".into(), file.clone(), true).unwrap();
+        assert!(client.download("aurora", "1.0.0").is_err());
+        drop(client);
+        let client = Client::new(url, "test-project".into(), file.clone(), true).unwrap();
+        let ratings = client.fetch(&["aurora".into()]).unwrap();
+        assert_eq!(ratings.by_effect["aurora"].downloads, 1);
+        assert_eq!(ratings.mine["aurora"], 5);
+        assert_eq!(
+            server.join().unwrap(),
+            ["download", "download", "summary", "mine"]
+        );
+        assert_eq!(
+            std::fs::read_dir(file.with_extension("downloads"))
+                .unwrap()
+                .count(),
+            0
+        );
+        std::fs::remove_file(&file).unwrap();
+        std::fs::remove_dir(file.with_extension("downloads")).unwrap();
+    }
 }
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Ratings {
@@ -26,27 +151,17 @@ pub struct Ratings {
     pub saving: Option<String>,
     pub error: Option<String>,
 }
-struct Config {
-    url: String,
-    key: String,
-}
 #[derive(Clone, Serialize, Deserialize)]
 struct Session {
-    access_token: String,
-    refresh_token: String,
-    user: User,
-    #[serde(default)]
-    expires_at: u64,
-}
-#[derive(Clone, Serialize, Deserialize)]
-struct User {
-    id: String,
+    cookie: String,
 }
 pub struct Client {
-    config: Config,
+    url: String,
+    project: String,
     http: Http,
     file: PathBuf,
     session: Mutex<Option<Session>>,
+    outbox: Mutex<()>,
 }
 fn now() -> u64 {
     SystemTime::now()
@@ -56,58 +171,48 @@ fn now() -> u64 {
 }
 fn safe_id(s: &str) -> bool {
     !s.is_empty()
-        && s.len() <= 64
+        && s.len() <= 128
         && s.bytes()
             .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
         && !s.contains("..")
 }
-fn response(response: Response) -> Result<Value, String> {
-    let status = response.status();
+fn response(reply: Response) -> Result<Value, String> {
+    let status = reply.status();
     if !status.is_success() {
         return Err(format!(
-            "Community service request failed (HTTP {}). Please retry later.",
+            "Community request failed (HTTP {}). Please retry; your identity was retained.",
             status.as_u16()
         ));
     }
     let mut bytes = Vec::new();
-    response
+    reply
         .take(128 * 1024 + 1)
         .read_to_end(&mut bytes)
-        .map_err(|_| "Could not read community response")?;
+        .map_err(|_| "Cannot read community response")?;
     if bytes.len() > 128 * 1024 {
         return Err("Community response exceeds size limit".into());
     }
-    if bytes.is_empty() {
-        return Ok(Value::Null);
-    }
-    serde_json::from_slice(&bytes).map_err(|_| "Invalid community service response".into())
+    serde_json::from_slice(&bytes).map_err(|_| "Invalid community response".into())
 }
 impl Client {
     pub fn configured(file: PathBuf) -> Result<Option<Self>, String> {
-        let url = std::env::var("FREERGB_SUPABASE_URL")
-            .ok()
-            .or_else(|| option_env!("FREERGB_SUPABASE_URL").map(str::to_owned))
-            .filter(|v| !v.is_empty());
-        let key = std::env::var("FREERGB_SUPABASE_PUBLISHABLE_KEY")
-            .ok()
-            .or_else(|| option_env!("FREERGB_SUPABASE_PUBLISHABLE_KEY").map(str::to_owned))
-            .filter(|v| !v.is_empty());
-        match (url, key) {
-            (None, None) => Ok(None),
-            (Some(url), Some(key)) => {
-                use sha2::{Digest, Sha256};
-                let namespace = hex::encode(Sha256::digest(url.trim_end_matches('/').as_bytes()));
-                let file =
-                    file.with_file_name(format!("ratings-session-{}.json", &namespace[..16]));
-                let development = cfg!(debug_assertions)
-                    && std::env::var("FREERGB_SUPABASE_DEV_HTTP").as_deref() == Ok("1");
-                Self::new(url, key, file, development).map(Some)
-            }
-            _ => Err("Community ratings need a Supabase project URL and publishable key".into()),
+        if cfg!(test) {
+            return Ok(None);
         }
+        let url = std::env::var("FREERGB_APPWRITE_ENDPOINT")
+            .unwrap_or_else(|_| "https://fra.cloud.appwrite.io/v1".into());
+        let project = std::env::var("FREERGB_APPWRITE_PROJECT_ID")
+            .unwrap_or_else(|_| "6adb5259001299138e7b".into());
+        if url.is_empty() && project.is_empty() {
+            return Ok(None);
+        }
+        use sha2::{Digest, Sha256};
+        let namespace = hex::encode(Sha256::digest(format!("{url}/{project}")));
+        let file = file.with_file_name(format!("appwrite-session-{}.json", &namespace[..16]));
+        Self::new(url, project, file, false).map(Some)
     }
-    fn new(url: String, key: String, file: PathBuf, development: bool) -> Result<Self, String> {
-        let parsed = reqwest::Url::parse(&url).map_err(|_| "Invalid community service URL")?;
+    fn new(url: String, project: String, file: PathBuf, development: bool) -> Result<Self, String> {
+        let parsed = reqwest::Url::parse(&url).map_err(|_| "Invalid Appwrite endpoint")?;
         let local = development
             && parsed.scheme() == "http"
             && matches!(parsed.host_str(), Some("127.0.0.1" | "localhost"));
@@ -117,138 +222,93 @@ impl Client {
             || parsed.password().is_some()
             || parsed.query().is_some()
             || parsed.fragment().is_some()
-            || parsed.path() != "/"
+            || parsed.path() != "/v1"
+            || !safe_id(&project)
         {
-            return Err(
-                "Community service needs an HTTPS origin without credentials, path or query".into(),
-            );
-        }
-        // Only public/publishable keys belong in distributed desktop builds.
-        if key.is_empty() || key.len() > 4096 || key.starts_with("sb_secret_") {
-            return Err("Use a Supabase publishable key, never a secret/service-role key".into());
-        }
-        if !key.starts_with("sb_publishable_") {
-            use base64::Engine;
-            let role = key
-                .split('.')
-                .nth(1)
-                .and_then(|part| {
-                    base64::engine::general_purpose::URL_SAFE_NO_PAD
-                        .decode(part)
-                        .ok()
-                })
-                .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-                .and_then(|v| v["role"].as_str().map(str::to_owned));
-            if role.as_deref() != Some("anon") {
-                return Err(
-                    "Use a Supabase publishable key or legacy anon key, never a service-role key"
-                        .into(),
-                );
-            }
+            return Err("Appwrite needs an HTTPS /v1 endpoint and public project ID".into());
         }
         let http = Http::builder()
             .connect_timeout(Duration::from_secs(5))
-            .timeout(Duration::from_secs(15))
+            .timeout(Duration::from_secs(45))
             .redirect(reqwest::redirect::Policy::none())
-            .user_agent(concat!("freeRGB/", env!("CARGO_PKG_VERSION")))
             .build()
-            .map_err(|_| "Could not initialize community client")?;
+            .map_err(|_| "Cannot initialize community client")?;
         Ok(Self {
-            config: Config {
-                url: url.trim_end_matches('/').into(),
-                key,
-            },
+            url,
+            project,
             http,
             file,
             session: Mutex::new(None),
+            outbox: Mutex::new(()),
         })
     }
-    fn request(&self, method: reqwest::Method, path: &str) -> reqwest::blocking::RequestBuilder {
+    fn request(&self, path: &str) -> reqwest::blocking::RequestBuilder {
         self.http
-            .request(method, format!("{}{path}", self.config.url))
-            .header("apikey", &self.config.key)
+            .post(format!("{}{path}", self.url))
+            .header("X-Appwrite-Project", &self.project)
             .header("Content-Type", "application/json")
     }
-    fn session(&self, create: bool, force: bool) -> Result<Option<Session>, String> {
+    fn jwt(&self, create: bool) -> Result<Option<String>, String> {
         let mut cached = self.session.lock().unwrap_or_else(|e| e.into_inner());
         if cached.is_none() && self.file.exists() {
-            let f = std::fs::File::open(&self.file)
-                .map_err(|_| "Could not read anonymous rating identity")?;
             let mut bytes = Vec::new();
-            f.take(64 * 1024 + 1)
+            std::fs::File::open(&self.file)
+                .map_err(|_| "Cannot read anonymous identity")?
+                .take(65537)
                 .read_to_end(&mut bytes)
-                .map_err(|_| "Could not read anonymous rating identity")?;
-            if bytes.len() > 64 * 1024 {
-                return Err("Invalid anonymous rating identity".into());
+                .map_err(|_| "Cannot read anonymous identity")?;
+            if bytes.len() > 65536 {
+                return Err("Invalid anonymous identity".into());
             }
-            *cached =
-                Some(serde_json::from_slice(&bytes).map_err(|_| {
-                    "Invalid anonymous rating identity; no new identity was created"
-                })?);
+            *cached = Some(
+                serde_json::from_slice(&bytes)
+                    .map_err(|_| "Invalid anonymous identity; retained without replacement")?,
+            );
         }
-        let current = cached.clone();
-        if current.is_none() && !create {
+        if cached.is_none() && !create {
             return Ok(None);
         }
-        if let Some(s) = &current {
-            Self::validate_session(s)?;
-            if !force && s.expires_at > now() + 60 {
-                return Ok(current);
-            }
-        }
-        let (path, body) = match &current {
-            Some(s) => (
-                "/auth/v1/token?grant_type=refresh_token",
-                json!({"refresh_token":s.refresh_token}),
-            ),
-            None => ("/auth/v1/signup", json!({})),
-        };
-        let value = response(
-            self.request(reqwest::Method::POST, path)
-                .body(body.to_string())
+        if cached.is_none() {
+            let reply = self
+                .request("/account/sessions/anonymous")
+                .body("{}")
                 .send()
-                .map_err(|_| "Anonymous ratings are temporarily unavailable")?,
+                .map_err(|_| "Anonymous session unavailable")?;
+            let name = format!("a_session_{}=", self.project);
+            let cookie = reply
+                .headers()
+                .get_all(reqwest::header::SET_COOKIE)
+                .iter()
+                .filter_map(|h| h.to_str().ok())
+                .map(|h| h.split(';').next().unwrap_or_default())
+                .find(|h| h.starts_with(&name))
+                .map(str::to_owned);
+            response(reply)?;
+            let session = Session {
+                cookie: cookie.ok_or("Appwrite did not return a native session cookie")?,
+            };
+            self.save(&session)?;
+            *cached = Some(session);
+        }
+        let session = cached.as_ref().ok_or("Anonymous identity unavailable")?;
+        if !session
+            .cookie
+            .starts_with(&format!("a_session_{}=", self.project))
+            || session.cookie.len() > 16384
+            || session.cookie.contains(['\r', '\n'])
+        {
+            return Err("Invalid anonymous identity".into());
+        }
+        let jwt = response(
+            self.request("/account/jwts")
+                .header(reqwest::header::COOKIE, &session.cookie)
+                .body("{}")
+                .send()
+                .map_err(|_| "Cannot authenticate anonymous identity")?,
         )?;
-        let expires_in = value["expires_in"]
-            .as_u64()
-            .filter(|v| *v > 0 && *v <= 86400);
-        let mut session: Session = serde_json::from_value(value)
-            .map_err(|_| "Anonymous sign-in is not enabled or the session response is invalid")?;
-        if session.expires_at == 0 {
-            session.expires_at =
-                now() + expires_in.ok_or("Anonymous session has no valid expiry")?;
-        }
-        Self::validate_session(&session)?;
-        if current
-            .as_ref()
-            .is_some_and(|s| s.user.id != session.user.id)
-        {
-            return Err("Anonymous identity changed unexpectedly".into());
-        }
-        // Keep JWT expiry away from the next write's refresh boundary.
-        if session.expires_at <= now() {
-            return Err("Community service returned an expired session".into());
-        }
-        session.user.id.make_ascii_lowercase();
-        self.save(&session)?;
-        *cached = Some(session.clone());
-        Ok(Some(session))
-    }
-    fn validate_session(s: &Session) -> Result<(), String> {
-        if s.access_token.is_empty()
-            || s.refresh_token.is_empty()
-            || s.access_token.len() > 16384
-            || s.refresh_token.len() > 16384
-            || s.user.id.len() != 36
-            || !s
-                .user
-                .id
-                .bytes()
-                .all(|b| b.is_ascii_hexdigit() || b == b'-')
-        {
-            return Err("Invalid anonymous rating identity".into());
-        }
-        Ok(())
+        Ok(Some(
+            jwt["jwt"].as_str().ok_or("Invalid anonymous JWT")?.into(),
+        ))
     }
     fn save(&self, session: &Session) -> Result<(), String> {
         let parent = self.file.parent().ok_or("No rating identity directory")?;
@@ -287,301 +347,139 @@ impl Client {
         }
         result
     }
-    pub fn fetch(&self) -> Result<Ratings, String> {
-        let data = response(
-            self.request(reqwest::Method::POST, "/rest/v1/rpc/effect_rating_summary")
-                .body("{}")
+
+    fn call(&self, body: Value, jwt: Option<&str>) -> Result<Value, String> {
+        let mut headers = json!({});
+        if let Some(jwt) = jwt {
+            headers["x-freergb-jwt"] = json!(jwt);
+        }
+        let body = json!({"body":body.to_string(),"async":false,"headers":headers});
+        let execution = response(
+            self.request("/functions/community-api/executions")
+                .body(body.to_string())
                 .send()
-                .map_err(|_| "Community ratings are temporarily unavailable")?,
+                .map_err(|_| "Community service unavailable")?,
         )?;
+        let status = execution["responseStatusCode"].as_u64().unwrap_or(0);
+        if !(200..300).contains(&status) {
+            return Err(format!(
+                "Community action failed (HTTP {status}). Please retry."
+            ));
+        }
+        serde_json::from_str(
+            execution["responseBody"]
+                .as_str()
+                .ok_or("Missing community response")?,
+        )
+        .map_err(|_| "Invalid community response".into())
+    }
+    pub fn fetch(&self, effects: &[String]) -> Result<Ratings, String> {
+        self.flush_downloads()?;
         let mut ratings = Ratings {
             configured: true,
             updated_at: Some(now()),
             ..Default::default()
         };
-        for row in data.as_array().ok_or("Invalid rating summary")? {
-            let id = row["effect_id"]
-                .as_str()
-                .ok_or("Invalid effect id in rating summary")?;
-            let average = row["average"].as_f64().ok_or("Invalid rating average")?;
-            let count = row["count"].as_u64().ok_or("Invalid rating count")?;
-            if !safe_id(id)
-                || !average.is_finite()
-                || !(1.0..=5.0).contains(&average)
-                || count == 0
-                || ratings.by_effect.len() >= 128
-                || ratings.by_effect.contains_key(id)
-            {
+        for chunk in effects.chunks(64) {
+            let data = self.call(json!({"action":"summary","effects":chunk}), None)?;
+            let entries: BTreeMap<String, Summary> =
+                serde_json::from_value(data["by_effect"].clone())
+                    .map_err(|_| "Invalid rating summary")?;
+            if entries.iter().any(|(id, s)| {
+                !safe_id(id) || !s.average.is_finite() || !(0.0..=5.0).contains(&s.average)
+            }) {
                 return Err("Invalid rating summary".into());
             }
-            ratings
-                .by_effect
-                .insert(id.into(), Summary { average, count });
+            ratings.by_effect.extend(entries);
         }
-        if let Some(session) = self.session(false, false)? {
-            let data = response(
-                self.request(reqwest::Method::GET, "/rest/v1/effect_ratings")
-                    .bearer_auth(&session.access_token)
-                    .query(&[
-                        ("select", "effect_id,stars"),
-                        ("user_id", &format!("eq.{}", session.user.id)),
-                    ])
-                    .send()
-                    .map_err(|_| "Could not read your ratings")?,
-            )?;
-            for row in data.as_array().ok_or("Invalid personal rating response")? {
-                let id = row["effect_id"].as_str().ok_or("Invalid rated effect")?;
-                let stars = row["stars"].as_u64().ok_or("Invalid personal rating")?;
-                if !safe_id(id) || !(1..=5).contains(&stars) || ratings.mine.len() >= 128 {
-                    return Err("Invalid personal rating response".into());
+        if let Some(jwt) = self.jwt(false)? {
+            for chunk in effects.chunks(64) {
+                let data = self.call(json!({"action":"mine","effects":chunk}), Some(&jwt))?;
+                let mine: BTreeMap<String, u8> = serde_json::from_value(data["mine"].clone())
+                    .map_err(|_| "Invalid own ratings")?;
+                if mine
+                    .iter()
+                    .any(|(id, s)| !safe_id(id) || !(1..=5).contains(s))
+                {
+                    return Err("Invalid own ratings".into());
                 }
-                ratings.mine.insert(id.into(), stars as u8);
+                ratings.mine.extend(mine);
             }
         }
         Ok(ratings)
     }
     pub fn rate(&self, id: &str, stars: Option<u8>) -> Result<(), String> {
         if !safe_id(id) || stars.is_some_and(|s| !(1..=5).contains(&s)) {
-            return Err("Choose between one and five stars".into());
+            return Err("Choose one to five stars".into());
         }
-        let Some(mut session) = self.session(stars.is_some(), false)? else {
+        let Some(jwt) = self.jwt(stars.is_some())? else {
             return Ok(());
         };
-        for attempt in 0..2 {
-            let request = match stars {
-                Some(stars) => self
-                    .request(reqwest::Method::POST, "/rest/v1/effect_ratings")
-                    .query(&[("on_conflict", "user_id,effect_id")])
-                    .header("Prefer", "resolution=merge-duplicates,return=minimal")
-                    .body(
-                        json!({"user_id":session.user.id,"effect_id":id,"stars":stars}).to_string(),
-                    ),
-                None => self
-                    .request(reqwest::Method::DELETE, "/rest/v1/effect_ratings")
-                    .query(&[
-                        ("effect_id", format!("eq.{id}")),
-                        ("user_id", format!("eq.{}", session.user.id)),
-                    ]),
-            };
-            let reply = request
-                .bearer_auth(&session.access_token)
-                .send()
-                .map_err(|_| "Could not save your rating; please retry")?;
-            if reply.status() == reqwest::StatusCode::UNAUTHORIZED && attempt == 0 {
-                session = self
-                    .session(true, true)?
-                    .ok_or("Anonymous identity unavailable")?;
-                continue;
-            }
-            response(reply)?;
+        self.call(
+            json!({"action":"rate","effect_id":id,"stars":stars}),
+            Some(&jwt),
+        )
+        .map(|_| ())
+    }
+    pub fn download(&self, id: &str, version: &str) -> Result<(), String> {
+        let _guard = self.outbox.lock().unwrap_or_else(|e| e.into_inner());
+        if !safe_id(id) || !safe_id(version) {
+            return Err("Invalid download receipt".into());
+        }
+        use sha2::{Digest, Sha256};
+        let directory = self.file.with_extension("downloads");
+        std::fs::create_dir_all(&directory).map_err(|_| "Cannot queue download count")?;
+        let name = hex::encode(Sha256::digest(format!("{id}/{version}")));
+        let path = directory.join(format!("{name}.json"));
+        std::fs::write(path, json!({"effect_id":id,"version":version}).to_string())
+            .map_err(|_| "Cannot queue download count")?;
+        self.flush_downloads_inner()
+    }
+    fn flush_downloads(&self) -> Result<(), String> {
+        let _guard = self.outbox.lock().unwrap_or_else(|e| e.into_inner());
+        self.flush_downloads_inner()
+    }
+    fn flush_downloads_inner(&self) -> Result<(), String> {
+        let directory = self.file.with_extension("downloads");
+        if !directory.exists() {
             return Ok(());
         }
-        Err("Could not save your rating".into())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::net::TcpListener;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    const USER: &str = "12345678-1234-1234-1234-123456789abc";
-    type Step = (&'static str, u16, Value);
-    fn mock(steps: Vec<Step>) -> (String, std::thread::JoinHandle<Vec<String>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = format!("http://{}", listener.local_addr().unwrap());
-        let handle = std::thread::spawn(move || {
-            let mut requests = Vec::new();
-            for (expected, status, body) in steps {
-                let (mut socket, _) = listener.accept().unwrap();
-                socket
-                    .set_read_timeout(Some(Duration::from_secs(3)))
-                    .unwrap();
-                let mut bytes = Vec::new();
-                let header_end;
-                loop {
-                    let mut byte = [0];
-                    socket.read_exact(&mut byte).unwrap();
-                    bytes.push(byte[0]);
-                    if bytes.ends_with(b"\r\n\r\n") {
-                        header_end = bytes.len();
-                        break;
-                    }
-                }
-                let headers = String::from_utf8(bytes.clone()).unwrap();
-                let length = headers
-                    .lines()
-                    .find_map(|line| {
-                        line.to_lowercase()
-                            .strip_prefix("content-length: ")
-                            .and_then(|n| n.trim().parse::<usize>().ok())
-                    })
-                    .unwrap_or(0);
-                bytes.resize(header_end + length, 0);
-                socket.read_exact(&mut bytes[header_end..]).unwrap();
-                let request = String::from_utf8(bytes).unwrap();
-                assert!(request.starts_with(expected), "unexpected request route");
-                assert!(request
-                    .to_lowercase()
-                    .contains("apikey: sb_publishable_test"));
-                requests.push(request);
-                let body = if status == 204 {
-                    String::new()
-                } else {
-                    body.to_string()
-                };
-                write!(socket,"HTTP/1.1 {status} response\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
-            }
-            requests
-        });
-        (address, handle)
-    }
-    fn path() -> PathBuf {
-        static COUNTER: AtomicUsize = AtomicUsize::new(0);
-        std::env::temp_dir().join(format!(
-            "freergb-ratings-{}-{}.json",
-            std::process::id(),
-            COUNTER.fetch_add(1, Ordering::Relaxed)
-        ))
-    }
-    fn session(token: &str, expiry: u64) -> Value {
-        json!({"access_token":token,"refresh_token":"test-refresh-token","user":{"id":USER},"expires_at":expiry})
-    }
-    #[test]
-    fn anonymous_rating_persists_identity_updates_and_reads_real_totals() {
-        let (url, server) = mock(vec![
-            (
-                "POST /auth/v1/signup",
-                200,
-                session("test-access-token", now() + 3600),
-            ),
-            ("POST /rest/v1/effect_ratings?", 201, Value::Null),
-            ("POST /rest/v1/effect_ratings?", 201, Value::Null),
-            (
-                "POST /rest/v1/rpc/effect_rating_summary",
-                200,
-                json!([{"effect_id":"aurora","average":4.0,"count":2}]),
-            ),
-            (
-                "GET /rest/v1/effect_ratings?",
-                200,
-                json!([{"effect_id":"aurora","stars":3}]),
-            ),
-            ("DELETE /rest/v1/effect_ratings?", 204, Value::Null),
-        ]);
-        let file = path();
-        let c = Client::new(
-            url.clone(),
-            "sb_publishable_test".into(),
-            file.clone(),
-            true,
-        )
-        .unwrap();
-        c.rate("aurora", Some(5)).unwrap();
-        drop(c);
-        let c = Client::new(url, "sb_publishable_test".into(), file.clone(), true).unwrap();
-        c.rate("aurora", Some(3)).unwrap();
-        let ratings = c.fetch().unwrap();
-        assert_eq!(ratings.mine["aurora"], 3);
-        assert_eq!(
-            ratings.by_effect["aurora"],
-            Summary {
-                average: 4.0,
-                count: 2
-            }
-        );
-        c.rate("aurora", None).unwrap();
-        let requests = server.join().unwrap();
-        for request in &requests[1..3] {
-            assert!(request
-                .to_lowercase()
-                .contains("authorization: bearer test-access-token"));
-            let value: Value =
-                serde_json::from_str(request.split("\r\n\r\n").nth(1).unwrap()).unwrap();
-            assert_eq!(value["user_id"], USER);
-            assert_eq!(value["effect_id"], "aurora");
-            assert_eq!(
-                value.as_object().unwrap().len(),
-                3,
-                "no hardware or device identity is submitted"
-            );
+        let receipts: Vec<_> = std::fs::read_dir(&directory)
+            .map_err(|_| "Cannot read queued downloads")?
+            .take(128)
+            .collect();
+        if receipts.is_empty() {
+            return Ok(());
         }
-        #[cfg(unix)]
+        let jwt = self.jwt(true)?.ok_or("Anonymous identity unavailable")?;
+        for receipt in receipts {
+            let path = receipt.map_err(|_| "Cannot read queued download")?.path();
+            let mut bytes = Vec::new();
+            std::fs::File::open(&path)
+                .map_err(|_| "Cannot read queued download")?
+                .take(1025)
+                .read_to_end(&mut bytes)
+                .map_err(|_| "Cannot read queued download")?;
+            let data: Value =
+                serde_json::from_slice(&bytes).map_err(|_| "Invalid queued download")?;
+            self.call(json!({"action":"download","effect_id":data["effect_id"],"version":data["version"],"success":true}),Some(&jwt))?;
+            match std::fs::remove_file(path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(_) => return Err("Cannot clear queued download".into()),
+            }
+        }
+        Ok(())
+    }
+    pub fn submit(&self, kind: &str, payload: &Value, request_id: &str) -> Result<Value, String> {
+        if !matches!(kind, "feedback" | "hardware" | "error")
+            || !safe_id(request_id)
+            || !payload.is_object()
+            || payload.to_string().len() > 30000
         {
-            use std::os::unix::fs::PermissionsExt;
-            assert_eq!(
-                std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
-                0o600
-            );
+            return Err("Invalid report or report too large".into());
         }
-        let _ = std::fs::remove_file(file);
-    }
-    #[test]
-    fn refreshes_expired_anonymous_session_without_creating_a_new_identity() {
-        let (url, server) = mock(vec![
-            (
-                "POST /auth/v1/signup",
-                200,
-                session("old-token", now() + 20),
-            ),
-            ("POST /rest/v1/effect_ratings?", 201, Value::Null),
-            (
-                "POST /auth/v1/token?grant_type=refresh_token",
-                200,
-                session("new-token", now() + 3600),
-            ),
-            ("POST /rest/v1/effect_ratings?", 201, Value::Null),
-        ]);
-        let file = path();
-        let c = Client::new(url, "sb_publishable_test".into(), file.clone(), true).unwrap();
-        c.rate("aurora", Some(2)).unwrap();
-        c.rate("aurora", Some(4)).unwrap();
-        let requests = server.join().unwrap();
-        assert!(requests[2].contains("test-refresh-token"));
-        assert!(requests[3]
-            .to_lowercase()
-            .contains("authorization: bearer new-token"));
-        let _ = std::fs::remove_file(file);
-    }
-    #[test]
-    fn never_treats_a_rejected_vote_as_saved_and_rejects_unsafe_configuration() {
-        let (url, server) = mock(vec![
-            ("POST /auth/v1/signup", 200, session("token", now() + 3600)),
-            (
-                "POST /rest/v1/effect_ratings?",
-                403,
-                json!({"message":"RLS denied"}),
-            ),
-        ]);
-        let file = path();
-        let c = Client::new(url, "sb_publishable_test".into(), file.clone(), true).unwrap();
-        assert!(c.rate("aurora", Some(5)).is_err());
-        assert!(c.rate("aurora", Some(6)).is_err());
-        server.join().unwrap();
-        assert!(Client::new(
-            "http://evil.example".into(),
-            "sb_publishable_test".into(),
-            path(),
-            false
-        )
-        .is_err());
-        assert!(Client::new(
-            "https://project.supabase.co".into(),
-            "sb_secret_private".into(),
-            path(),
-            false
-        )
-        .is_err());
-        use base64::Engine;
-        let encoded =
-            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(br#"{"role":"service_role"}"#);
-        assert!(Client::new(
-            "https://project.supabase.co".into(),
-            format!("x.{encoded}.x"),
-            path(),
-            false
-        )
-        .is_err());
-        let _ = std::fs::remove_file(file);
+        let jwt = self.jwt(true)?.ok_or("Anonymous identity unavailable")?;
+        self.call(json!({"action":"submit","kind":kind,"payload":payload,"request_id":request_id,"reviewed":true}),Some(&jwt))
     }
 }

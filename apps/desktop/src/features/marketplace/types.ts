@@ -25,6 +25,16 @@ export function matches(pkg: Package, query: string, installed: boolean, onlyIns
 }
 
 export interface Ratings {
-  configured: boolean; by_effect: Record<string, { average: number; count: number }>; mine: Record<string, number>;
+  configured: boolean; by_effect: Record<string, { average: number; count: number; downloads?: number }>; mine: Record<string, number>;
   updated_at: number | null; loading: boolean; saving: string | null; error: string | null;
+}
+
+export type SortOrder = "downloads" | "rating" | "name";
+export function sortPackages(packages: Package[], order: SortOrder, ratings: Ratings["by_effect"]): Package[] {
+  return [...packages].sort((a, b) => {
+    const left = ratings[a.id], right = ratings[b.id];
+    const score = order === "downloads" ? (right?.downloads ?? 0) - (left?.downloads ?? 0)
+      : order === "rating" ? (right?.average ?? 0) - (left?.average ?? 0) || (right?.count ?? 0) - (left?.count ?? 0) : 0;
+    return score || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+  });
 }

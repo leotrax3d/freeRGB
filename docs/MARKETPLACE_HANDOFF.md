@@ -1,5 +1,10 @@
 # Marketplace implementation handoff
 
+Update 2026-10-23: Appwrite is now provisioned and the adapter, download receipts,
+sorting and Settings feedback/hardware preview are implemented in the
+`appwrite-community` worktree. See [APPWRITE_SETUP.md](APPWRITE_SETUP.md) for the
+live resources and contract. The rest of this handoff records the earlier state.
+
 The marketplace implementation is on branch `work`. No cloud rating service has
 been provisioned by this implementation.
 

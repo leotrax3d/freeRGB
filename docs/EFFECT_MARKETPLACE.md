@@ -189,12 +189,18 @@ Catalog entries now include `publisher: {id, name}`. Legacy official entries
 without that field default to the freeRGB Team; unsafe/invalid publisher metadata
 is rejected. Publisher names are searchable and shown on the effect cards.
 
-Shared 1–5 star ratings use Supabase anonymous sign-in, with no user account UI
+Shared 1–5 star ratings use Appwrite anonymous sign-in, with no user account UI
 or GitHub voting step. The Rust daemon owns session tokens, network operations
 and persistence. Ratings are optional at application startup; without a configured
 project the UI clearly shows that the shared service is not connected. See
-[the setup guide](SUPABASE_SETUP.md) for the migration, public configuration,
+[the setup guide](APPWRITE_SETUP.md) for the resources, public configuration,
 privacy, abuse limits and deployment prerequisite.
+
+Public summaries include successful download counts. Marketplace sorting supports
+downloads, average rating and name. The Settings developer-contact section offers
+feedback and optional hardware reports with an editable preview before sending.
+`community.submit` accepts `{kind, payload, request_id, reviewed:true}`; submissions
+are readable only by project admins and the `community-admins` team.
 
 `marketplace.ratings.refresh` starts a cached background refresh (at most once
 per minute). `marketplace.rate` accepts `{id, stars: 1..5}` or `{id, stars: null}`

@@ -1,5 +1,8 @@
 # Gemeinsame Sternebewertungen einrichten
 
+Historische Alternative: Die aktuelle App verwendet [Appwrite](APPWRITE_SETUP.md).
+Diese Supabase-Anleitung und die SQL-Migration werden nicht mehr von der App verwendet.
+
 Die App-Nutzer brauchen **keine Registrierung und keinen Login**. Nur das
 freeRGB-Team benötigt einmal ein Supabase-Konto, weil jemand die gemeinsame
 Datenbank betreiben und verwalten muss. Es wurde in dieser Aufgabe kein Konto,

@@ -9,6 +9,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 /// Methods the frontend may call. Mirrors `docs/LOCAL_API.md`; daemon shutdown
 /// is deliberately absent: closing or using the GUI never stops the service.
 pub const ALLOWED: &[&str] = &[
+    "community.submit",
     "marketplace.status",
     "marketplace.ratings.refresh",
     "marketplace.rate",

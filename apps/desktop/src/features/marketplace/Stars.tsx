@@ -9,7 +9,7 @@ export function Stars({ id, name, ratings, disabled, rate }: { id: string; name:
   const mine = ratings.mine[id];
   const busy = ratings.loading || !!ratings.saving;
   return <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-    <p className="text-small text-text-muted" aria-live="polite">{summary ? <><span className="font-medium text-text">{summary.average.toFixed(1)} / 5</span> · {summary.count} {summary.count === 1 ? "rating" : "ratings"}</> : !ratings.configured ? "Community ratings not connected" : ratings.updated_at ? "No ratings yet" : "Community score not loaded"}</p>
+    <p className="text-small text-text-muted" aria-live="polite">{summary && summary.count > 0 ? <><span className="font-medium text-text">{summary.average.toFixed(1)} / 5</span> · {summary.count} {summary.count === 1 ? "rating" : "ratings"}</> : !ratings.configured ? "Community ratings not connected" : ratings.updated_at ? "No ratings yet" : "Community score not loaded"}</p>
     <fieldset disabled={disabled || busy || !ratings.configured} className="flex items-center gap-1">
       <legend className="sr-only">Rate {name}</legend>
       {[1, 2, 3, 4, 5].map((value) => <label key={value} className="cursor-pointer rounded-control p-1 has-disabled:cursor-default has-disabled:opacity-40 has-focus-visible:ring-2 has-focus-visible:ring-accent">

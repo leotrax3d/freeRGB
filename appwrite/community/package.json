@@ -1,0 +1,1 @@
+{"name":"freergb-community","private":true,"type":"module","scripts":{"test":"node --test test/api.test.js"},"engines":{"node":">=22"}}

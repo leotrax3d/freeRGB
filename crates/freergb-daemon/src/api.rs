@@ -239,6 +239,16 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
     let mut shutdown = false;
 
     let result: Result<Value, (i64, String)> = match method {
+        "community.submit" => {
+            if params["reviewed"] != true {
+                Err((-32602,"Review the report before sending".into()))
+            } else {
+                let manager=lock(engine).marketplace.clone();
+                manager.ok_or((-32003,"Community service unavailable".into())).and_then(|manager| {
+                    manager.submit_report(params["kind"].as_str().unwrap_or_default(), &params["payload"], params["request_id"].as_str().unwrap_or_default()).map_err(|e|(-32000,e))
+                })
+            }
+        }
         "marketplace.status" => {
             let engine = lock(engine);
             match &engine.marketplace {

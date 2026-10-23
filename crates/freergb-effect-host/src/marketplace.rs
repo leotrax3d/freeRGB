@@ -328,6 +328,28 @@ impl Manager {
             ratings: s.ratings.clone(),
         }
     }
+    fn effect_ids(&self) -> Vec<String> {
+        let s = self.lock();
+        s.catalog
+            .effects
+            .iter()
+            .chain(s.installed.values())
+            .map(|e| e.id.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+    pub fn submit_report(
+        &self,
+        kind: &str,
+        payload: &serde_json::Value,
+        request_id: &str,
+    ) -> Result<serde_json::Value> {
+        self.ratings_client
+            .as_ref()
+            .ok_or("Community service unavailable")?
+            .submit(kind, payload, request_id)
+    }
     pub fn refresh_ratings(self: &Arc<Self>) -> Result<()> {
         let Some(client) = self.ratings_client.clone() else {
             return Ok(());
@@ -350,7 +372,7 @@ impl Manager {
         if let Err(error) = std::thread::Builder::new()
             .name("effect-ratings".into())
             .spawn(move || {
-                let result = client.fetch();
+                let result = client.fetch(&manager.effect_ids());
                 let mut s = manager.lock();
                 match result {
                     Ok(ratings) => s.ratings = ratings,
@@ -397,7 +419,7 @@ impl Manager {
             .spawn(move || {
                 let saved = client.rate(&id, stars);
                 let was_saved = saved.is_ok();
-                let result = saved.and_then(|()| client.fetch());
+                let result = saved.and_then(|()| client.fetch(&manager.effect_ids()));
                 let mut s = manager.lock();
                 match result {
                     Ok(ratings) => s.ratings = ratings,
@@ -513,8 +535,18 @@ impl Manager {
         if let Err(e) = std::thread::Builder::new()
             .name("effect-install".into())
             .spawn(move || {
+                let receipt = (entry.id.clone(), entry.version.clone());
                 let result = manager.install_entry(entry);
-                manager.finish(result);
+                if matches!(result, Ok(true)) {
+                    if let Some(client) = &manager.ratings_client {
+                        if let Err(error) = client.download(&receipt.0, &receipt.1) {
+                            manager.lock().ratings.error = Some(format!(
+                                "Installed successfully; download count could not be sent: {error}"
+                            ));
+                        }
+                    }
+                }
+                manager.finish(result.map(|_| ()));
             })
         {
             self.finish(Err(e.to_string()));
@@ -522,7 +554,12 @@ impl Manager {
         }
         Ok(())
     }
-    fn install_entry(&self, entry: Entry) -> Result<()> {
+    fn install_entry(&self, entry: Entry) -> Result<bool> {
+        let bundled_entry = self.bundled
+            && Catalog::parse(include_bytes!("../../../effects/catalog.json"))?
+                .effects
+                .contains(&entry)
+            && bundled(&entry.id).is_some();
         let progress = |bytes| {
             if let Some(job) = &mut self.lock().job {
                 job.bytes = bytes;
@@ -583,7 +620,7 @@ impl Manager {
         }
         atomic(&self.root.join("installed.json"), &index)?;
         s.installed = installed;
-        Ok(())
+        Ok(!bundled_entry)
     }
     fn download(&self, entry: &Entry, progress: &dyn Fn(u64)) -> Result<Vec<u8>> {
         let cancel = AtomicBool::new(false);
