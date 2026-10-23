@@ -173,6 +173,10 @@ jobs:
             node scripts/openrgb/port-hyperx-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-hyperx-mouse
             git diff --exit-code -- modules/hyperx-mouse/src/devices_table.rs
+          elif [ "$MODULE" = "areson" ]; then
+            node scripts/openrgb/port-areson-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-areson
+            git diff --exit-code -- modules/areson/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
