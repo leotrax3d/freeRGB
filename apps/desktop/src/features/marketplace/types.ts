@@ -29,7 +29,7 @@ export interface Ratings {
   updated_at: number | null; loading: boolean; saving: string | null; error: string | null;
 }
 
-export type SortOrder = "downloads" | "rating" | "name" | "installed";
+export type SortOrder = "downloads" | "rating" | "name" | "installed" | "updates";
 export function sortPackages(packages: Package[], order: SortOrder, ratings: Ratings["by_effect"]): Package[] {
   return [...packages].sort((a, b) => {
     const left = ratings[a.id], right = ratings[b.id];

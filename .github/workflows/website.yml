@@ -1,9 +1,10 @@
 name: Website and shared GUI demo
 on:
   push:
-    branches: [main]
+    branches: [main, codex/appwrite-community]
     paths: &website-paths
       - 'apps/desktop/src/**'
+      - 'apps/admin/**'
       - 'apps/desktop/index.html'
       - 'apps/desktop/package*.json'
       - 'apps/desktop/tsconfig.json'
@@ -20,7 +21,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: website-${{ github.ref }}
+  group: website-pages
   cancel-in-progress: true
 jobs:
   build:
@@ -34,8 +35,10 @@ jobs:
           cache-dependency-path: |
             apps/desktop/package-lock.json
             website/package-lock.json
+            apps/admin/package-lock.json
       - run: npm ci --prefix apps/desktop
       - run: npm ci --prefix website
+      - run: npm ci --prefix apps/admin
       - run: npm test --prefix apps/desktop
       - name: Verify independent desktop frontend
         run: npm run build --prefix apps/desktop
@@ -47,7 +50,7 @@ jobs:
         with:
           path: website/dist
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/appwrite-community') && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     permissions:

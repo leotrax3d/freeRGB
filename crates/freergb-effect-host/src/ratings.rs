@@ -482,4 +482,18 @@ impl Client {
         let jwt = self.jwt(true)?.ok_or("Anonymous identity unavailable")?;
         self.call(json!({"action":"submit","kind":kind,"payload":payload,"request_id":request_id,"reviewed":true}),Some(&jwt))
     }
+    pub fn inbox(&self, action: &str, params: &Value) -> Result<Value, String> {
+        if !matches!(action, "inbox" | "thread" | "reply") {
+            return Err("Invalid inbox action".into());
+        }
+        let Some(jwt) = self.jwt(false)? else {
+            return Ok(json!({"items":[],"total":0,"next":null}));
+        };
+        let mut body = params.clone();
+        if !body.is_object() {
+            body = json!({});
+        }
+        body["action"] = json!(action);
+        self.call(body, Some(&jwt))
+    }
 }

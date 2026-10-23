@@ -1,5 +1,6 @@
 import { Contact } from "@/components/Contact";
 import { DeveloperContact } from "./DeveloperContact";
+import { DeveloperInbox } from "./DeveloperInbox";
 import { Compass, Download, Puzzle } from "lucide-react";
 import { useTour } from "@/app/Tour";
 import { PageHeader, Section } from "@/components/page";
@@ -68,6 +69,7 @@ export default function SettingsView() {
       <Plugins />
       <KeyboardReactions />
       <DeveloperContact />
+      <DeveloperInbox />
       <Section title="Classic tools">
         <p className="text-small text-text-muted">Open Classic for application profiles, global shortcuts, sensor history, warning rules and updates. Both interfaces use the same background service.</p>
         <Button variant="secondary" disabled={pending !== null || useDaemon.getState().mode !== "tauri"} onClick={() => run("classic", async () => { const t = await transport(); if (!t.openClassic) throw new Error("Classic is unavailable in browser preview"); await t.openClassic(); })}>Open freeRGB Classic</Button>

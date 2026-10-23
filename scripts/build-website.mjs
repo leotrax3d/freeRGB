@@ -7,6 +7,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 for (const [directory, command] of [
   ["apps/desktop", "npm run build:demo"],
   ["website", "npm run build"],
+  ["apps/admin", "npm run build"],
 ]) execSync(command, { cwd: join(root, directory), stdio: "inherit" });
 
 const demo = join(root, "apps/desktop/dist-demo");
@@ -30,6 +31,8 @@ audit(demo);
 const output = join(root, "website/dist");
 mkdirSync(join(output, "demo"), { recursive: true });
 cpSync(demo, join(output, "demo"), { recursive: true });
+mkdirSync(join(output,"admin"),{recursive:true});
+cpSync(join(root,"apps/admin/dist"),join(output,"admin"),{recursive:true});
 writeFileSync(join(output, ".nojekyll"), "");
 writeFileSync(join(output, "demo/version.json"), JSON.stringify({
   revision: process.env.GITHUB_SHA || "local",

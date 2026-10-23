@@ -1,5 +1,10 @@
 # Proposed bot protection
 
+Implementation update: the two API firewall rules, persistent per-identity quotas,
+catalog checks, summary cache, blocking and scheduled quota cleanup are now
+implemented. See [ADMIN_PANEL.md](ADMIN_PANEL.md) for active limits and the remaining
+hardening boundaries. The proposal below is retained for design context.
+
 These are proposed limits, not enabled firewall rules. Existing defenses are
 verified anonymous JWTs, private tables, deterministic vote/download IDs, bounded
 payloads and no desktop API secrets. They do not stop bots creating many identities.

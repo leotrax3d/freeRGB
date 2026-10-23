@@ -1,5 +1,9 @@
 # FreeRGB Appwrite community service
 
+For the active admin inbox, replies, quotas, firewall rules and GitHub Pages
+configuration, see [ADMIN_PANEL.md](ADMIN_PANEL.md). The initial setup notes below
+describe the earlier provisioning state.
+
 Configured and live-tested on 2026-10-23. The daemon now uses Appwrite. The old
 Supabase migration is historical source only.
 

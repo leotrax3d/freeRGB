@@ -239,6 +239,10 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
     let mut shutdown = false;
 
     let result: Result<Value, (i64, String)> = match method {
+        "community.inbox" | "community.thread" | "community.reply" => {
+            let manager=lock(engine).marketplace.clone();
+            manager.ok_or((-32003,"Community service unavailable".into())).and_then(|manager|manager.inbox(method.strip_prefix("community.").unwrap_or_default(), &params).map_err(|e|(-32000,e)))
+        }
         "community.submit" => {
             if params["reviewed"] != true {
                 Err((-32602,"Review the report before sending".into()))
@@ -275,11 +279,12 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 None=>Err((-32003,"Marketplace is unavailable".into())),
             }
         }
-        "marketplace.refresh" | "marketplace.install" => {
+        "marketplace.refresh" | "marketplace.install" | "marketplace.cancel" => {
             let manager = lock(engine).marketplace.clone();
             match manager {
                 Some(manager) => {
                     let result = if method == "marketplace.refresh" { manager.refresh() }
+                        else if method == "marketplace.cancel" {manager.cancel_install()}
                         else { params["id"].as_str().ok_or("Effect id required".to_owned()).and_then(|id| manager.install(id)) };
                     result.map(|()| json!(true)).map_err(|e| (-32000,e))
                 }

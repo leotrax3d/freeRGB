@@ -1,0 +1,1 @@
+{"name":"freergb-admin","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1 --port 1423 --strictPort","build":"vite build"},"dependencies":{"appwrite":"^25.0.0"},"devDependencies":{"vite":"8.3.4"}}

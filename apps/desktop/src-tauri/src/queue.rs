@@ -10,12 +10,16 @@ use std::sync::mpsc::{self, Receiver, Sender};
 /// is deliberately absent: closing or using the GUI never stops the service.
 pub const ALLOWED: &[&str] = &[
     "community.submit",
+    "community.inbox",
+    "community.thread",
+    "community.reply",
     "marketplace.status",
     "marketplace.ratings.refresh",
     "marketplace.rate",
     "marketplace.report.prepare",
     "marketplace.refresh",
     "marketplace.install",
+    "marketplace.cancel",
     "marketplace.uninstall",
     "daemon.version",
     "monitoring.sensors.list",

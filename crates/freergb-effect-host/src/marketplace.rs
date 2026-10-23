@@ -12,10 +12,51 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io::Read,
     path::{Path, PathBuf},
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
 pub const OFFICIAL: &str = "github:leotrax3d/FreeRGB@effects";
+#[cfg(test)]
+mod cancellation_tests {
+    use super::*;
+    #[test]
+    fn cancellation_preserves_installed_index_and_retry_clears_flag() {
+        let root = std::env::temp_dir().join(format!(
+            "freergb-cancel-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let manager = Manager::new(root.clone()).unwrap();
+        let entry = manager.view().catalog[0].clone();
+        manager
+            .begin("install", Some(entry.id.clone()), entry.artifact.size)
+            .unwrap();
+        manager.cancel_install().unwrap();
+        assert!(manager.install_entry(entry.clone()).is_err());
+        assert!(manager.view().installed.is_empty());
+        assert!(!root.join("installed.json").exists());
+        manager.finish(Err("Installation cancelled".into()));
+        assert_eq!(manager.view().failure.unwrap().code, "FX_INSTALL_CANCELLED");
+        manager
+            .begin("install", Some(entry.id.clone()), entry.artifact.size)
+            .unwrap();
+        assert!(!manager.install_entry(entry.clone()).unwrap());
+        assert!(
+            manager.cancel_install().is_err(),
+            "commit is not cancellable"
+        );
+        manager.finish(Ok(()));
+        assert_eq!(manager.view().installed[0].id, entry.id);
+        drop(manager);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}
 type Result<T> = std::result::Result<T, String>;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -207,6 +248,7 @@ pub struct Manager {
     bundled: bool,
     ratings_client: Option<Arc<crate::ratings::Client>>,
     state: Mutex<State>,
+    cancel: AtomicBool,
 }
 fn read(path: &Path, limit: usize) -> Result<Vec<u8>> {
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
@@ -302,6 +344,7 @@ impl Manager {
             ..Default::default()
         };
         Ok(Arc::new(Self {
+            cancel: AtomicBool::new(false),
             ratings_client,
             root,
             source,
@@ -353,6 +396,12 @@ impl Manager {
             .as_ref()
             .ok_or("Community service unavailable")?
             .submit(kind, payload, request_id)
+    }
+    pub fn inbox(&self, action: &str, params: &serde_json::Value) -> Result<serde_json::Value> {
+        self.ratings_client
+            .as_ref()
+            .ok_or("Community service unavailable")?
+            .inbox(action, params)
     }
     pub fn refresh_ratings(self: &Arc<Self>) -> Result<()> {
         let Some(client) = self.ratings_client.clone() else {
@@ -455,12 +504,23 @@ impl Manager {
     pub fn busy(&self) -> bool {
         self.lock().job.is_some()
     }
+    pub fn cancel_install(&self) -> Result<()> {
+        let state = self.lock();
+        match &state.job {
+            Some(job) if job.action == "install" && job.stage != "committing" => {
+                self.cancel.store(true, Ordering::SeqCst);
+                Ok(())
+            }
+            _ => Err("No cancellable installation is running".into()),
+        }
+    }
     fn begin(&self, action: &str, id: Option<String>, total: u64) -> Result<()> {
         let mut s = self.lock();
         if s.job.is_some() {
             return Err("Another marketplace operation is running".into());
         }
         s.error = None;
+        self.cancel.store(false, Ordering::SeqCst);
         s.failure = None;
         s.job = Some(Job {
             action: action.into(),
@@ -484,7 +544,9 @@ impl Manager {
                     .map(|e| e.version.clone())
             });
             Failure {
-                code: if s.job.as_ref().is_some_and(|j| j.action == "install") {
+                code: if s.error.as_deref() == Some("Installation cancelled") {
+                    "FX_INSTALL_CANCELLED"
+                } else if s.job.as_ref().is_some_and(|j| j.action == "install") {
                     "FX_INSTALL_FAILED"
                 } else {
                     "FX_CATALOG_FAILED"
@@ -540,8 +602,13 @@ impl Manager {
             .name("effect-install".into())
             .spawn(move || {
                 let receipt = (entry.id.clone(), entry.version.clone());
-                let result = manager.install_entry(entry);
-                if matches!(result, Ok(true)) {
+                let mut result = manager.install_entry(entry);
+                if result.is_err() && manager.cancel.load(Ordering::SeqCst) {
+                    result = Err("Installation cancelled".into());
+                }
+                let downloaded = matches!(result, Ok(true));
+                manager.finish(result.map(|_| ()));
+                if downloaded {
                     if let Some(client) = &manager.ratings_client {
                         if let Err(error) = client.download(&receipt.0, &receipt.1) {
                             manager.lock().ratings.error = Some(format!(
@@ -550,7 +617,6 @@ impl Manager {
                         }
                     }
                 }
-                manager.finish(result.map(|_| ()));
             })
         {
             self.finish(Err(e.to_string()));
@@ -587,6 +653,9 @@ impl Manager {
             self.download(&entry, &progress)?
         };
         verified(&entry, &bytes)?;
+        if self.cancel.load(Ordering::SeqCst) {
+            return Err("Installation cancelled".into());
+        }
         if let Some(job) = &mut self.lock().job {
             job.stage = "validating".into();
         }
@@ -599,6 +668,15 @@ impl Manager {
         );
         if let Some(error) = fault.lock().unwrap_or_else(|e| e.into_inner()).clone() {
             return Err(error);
+        }
+        {
+            let mut state = self.lock();
+            if self.cancel.load(Ordering::SeqCst) {
+                return Err("Installation cancelled".into());
+            }
+            if let Some(job) = &mut state.job {
+                job.stage = "committing".into();
+            }
         }
         let dir = self.root.join("packages").join(&entry.id);
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -627,13 +705,12 @@ impl Manager {
         Ok(!bundled_entry)
     }
     fn download(&self, entry: &Entry, progress: &dyn Fn(u64)) -> Result<Vec<u8>> {
-        let cancel = AtomicBool::new(false);
         let path = Fetcher::new(self.source.clone())
             .download(
                 &entry.artifact,
                 &self.root.join("downloads"),
                 &Progress {
-                    cancel: &cancel,
+                    cancel: &self.cancel,
                     on_bytes: progress,
                 },
             )
