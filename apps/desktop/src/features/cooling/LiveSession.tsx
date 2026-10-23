@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Section } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { Banner } from "@/components/status";
@@ -10,7 +9,7 @@ import { SupportBadge } from "./SupportBadge";
 import { channelTier, controlRefusal, tierLabel } from "./support";
 
 export function LiveSession() {
-  useSlices("cooling_session", "cooling_channels", "monitoring_sensors", "providers", "cooling_support");
+  useSlices("cooling_bindings", "cooling_session", "cooling_channels", "monitoring_sensors", "providers", "cooling_support");
   const support = useDaemon((s) => s.cooling_support);
   const status = useDaemon((s) => s.cooling_session);
   const channels = useDaemon((s) => s.cooling_channels);
@@ -21,13 +20,16 @@ export function LiveSession() {
   const [rpm, setRpm] = useState("");
   const [temperature, setTemperature] = useState("");
   const [curveName, setCurveName] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
   const [manualDuty, setManualDuty] = useState(60);
   const { pending, error, run } = useAction();
   const busy = ["authorizing", "executing", "stopping"].includes(status?.state ?? "");
   const curve = curves?.[curveName];
   const selected = channels?.find((c) => c.kind === "control" && c.reading.id === control);
   const tier = channelTier(selected);
+  // The role from fan identification replaces a per-session confirmation.
+  const bindings = useDaemon((s) => s.cooling_bindings);
+  const role = bindings?.config.bindings.find((b) => b.control_id === selected?.id)?.role ?? null;
+  const confirmed = role === "fan";
   const refusal = controlRefusal(selected?.support);
   const selectionValid = channels?.some((c) => c.kind === "control" && c.reading.id === control)
     && channels?.some((c) => c.kind === "fan" && c.reading.id === rpm)
@@ -44,16 +46,16 @@ export function LiveSession() {
       {!status?.available ? <p className="text-small text-text-subtle">Live control is unavailable. Enable the optional motherboard provider through the installer and restart the daemon.</p> : <>
         <div className="grid gap-3 md:grid-cols-2">
           {([ ["Fan output", "control", control, setControl], ["Matching fan RPM", "fan", rpm, setRpm] ] as const).map(([label, kind, value, set]) => (
-            <Select key={kind} label={label} placeholder={label} value={value} options={(channels ?? []).filter((c) => c.kind === kind).map((c) => ({ value: c.reading.id, label: kind === "control" ? `${c.name} · ${tierLabel(channelTier(c))} · ${c.reading.id}` : `${c.name} · ${c.reading.id}` }))} onChange={(v) => { set(v); setConfirmed(false); }} />
+            <Select key={kind} label={label} placeholder={label} value={value} options={(channels ?? []).filter((c) => c.kind === kind).map((c) => ({ value: c.reading.id, label: kind === "control" ? `${c.name} · ${tierLabel(channelTier(c))} · ${c.reading.id}` : `${c.name} · ${c.reading.id}` }))} onChange={(v) => { set(v); }} />
           ))}
-          <Select label="Temperature source" placeholder="Temperature source" value={temperature} options={(sensors ?? []).filter((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C").map((s) => ({ value: s.sensor.id, label: `${s.sensor.name} · ${s.sensor.id}` }))} onChange={(v) => { setTemperature(v); setConfirmed(false); }} />
+          <Select label="Temperature source" placeholder="Temperature source" value={temperature} options={(sensors ?? []).filter((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C").map((s) => ({ value: s.sensor.id, label: `${s.sensor.name} · ${s.sensor.id}` }))} onChange={(v) => { setTemperature(v); }} />
           <Select label="Saved curve" placeholder="Saved curve" value={curveName} options={Object.keys(curves ?? {}).map((name) => ({ value: name, label: name }))} onChange={setCurveName} />
         </div>
         {selected && <SupportBadge tier={tier} />}
         {refusal && <Banner tone="warn">{refusal}</Banner>}
         {selected && <p className="text-caption text-text-subtle">Channel test: {evidence?.test ?? "none"}{evidence?.tested ? " · " + evidence.tested.map((t) => `${t.duty_percent} % → ${Math.round(t.rpm)} RPM`).join(", ") : ""}. The test runs 100 → 70 → 50 % (never below 40 %) and returns the fan to firmware control; a new BIOS or board invalidates it.</p>}
         {tier === "lhm_supported" && <p className="text-caption text-text-subtle">LHM-supported channels run reduced-speed curves only after a passed channel test; calibration (100 → 40 %) is available.</p>}
-        <Checkbox checked={confirmed} onChange={setConfirmed}>I confirm this is a normal fan, not a pump, and the selected RPM belongs to it.</Checkbox>
+        {selected && !confirmed && <p className="text-caption text-text-subtle">{role === "pump" ? "This header is assigned as a pump; live tests are for fans only." : "Identify this header as a fan on its card above first."}</p>}
         <p className="text-caption text-text-subtle">Live curves require a minimum of 40% and a critical temperature at most 100°C. Channel selection alone does not establish a physical header or PWM/DC mode.</p>
         <div className="flex flex-wrap gap-2">
           <Button disabled={!ready || !curve || (curve.minimum_percent < 40 && support?.channels[control]?.unlock !== "unlocked" && support?.channels[control]?.unlock !== "unlocked_pump") || curve.critical_c > 100} onClick={() => start("curve")}>Start saved curve (UAC)</Button>

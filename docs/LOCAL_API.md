@@ -518,3 +518,9 @@ Named, switchable sets of background channel curves (per-user config
   (`freergb-mainboard.exe --background pause|resume|status`, broker pipe
   records `background pause|resume|status`). The service status file reports
   `paused`.
+
+**Fan role instead of per-session confirmation (2026-10-23).** A header bound as
+`fan` (fan identification in the setup wizard or on its Cooling card) counts as
+confirmed; `confirmed_fan` is only needed for headers without a binding. Pumps
+still need the unrestricted unlock plus the pump confirmation, and unassigned
+headers are never reduced below 100%.

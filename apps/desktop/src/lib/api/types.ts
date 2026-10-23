@@ -186,6 +186,10 @@ export interface CoolingSession {
   report: unknown;
   error: string | null;
   tier?: SupportTier | null;
+  mode?: string | null;
+  control_id?: string | null;
+  /** All recent jobs (one per channel can run at once). */
+  jobs?: CoolingSession[];
 }
 /** Saved background curves (run by the protected service from boot). */
 export interface BackgroundChannel {
@@ -207,7 +211,7 @@ export interface CoolingBackground {
   available: boolean;
   saved: { channels: BackgroundChannel[] };
   apply: { state: "idle" | "applying" | "applied" | "failed"; error: string | null };
-  service: { version: 1; error: string | null; updated_utc: string; channels: BackgroundServiceChannel[] } | null;
+  service: { version: 1; error: string | null; paused?: boolean; updated_utc: string; channels: BackgroundServiceChannel[] } | null;
 }
 /** Per-channel evidence: guided test and unrestricted unlock (bound to board/BIOS/channel). */
 export interface ChannelEvidenceView {

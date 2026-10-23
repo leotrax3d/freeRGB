@@ -152,8 +152,10 @@ impl StartRequest {
         &self,
         policy: &SessionPolicy,
     ) -> Result<(ControlMode, u8, u8, SupportTier, RuntimeLimits), String> {
-        if !self.confirmed_fan {
-            return Err("Explicit physical fan confirmation required; pumps excluded".into());
+        // The role assigned during fan identification (bindings) is the
+        // confirmation; `confirmed_fan` only stands in for unassigned headers.
+        if !self.confirmed_fan && policy.evidence.role.is_none() {
+            return Err("Identify this header as a fan first (Cooling → the fan card → Identify)".into());
         }
         let pump = policy.evidence.role == Some(ChannelRole::Pump);
         // A pump is controlled only after an unrestricted unlock AND its second,
