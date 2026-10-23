@@ -166,6 +166,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AsusMonitorController` | ported | `26aa68c` | 7 | Direct mode fully ported: LED-count query (byte 32 response), SendInit, single SetDirect packet; interface 1/2 + usage 0xFF72/0x00A1 matching; fails closed on missing response |
 | `DRGBController` | partial | `6f2fe0e` | 0 | 33 detector rows and the device matrix audited; no Direct-mode path is byte-exact (V4 316/340 chunking and LowCount scheme, V1/V3 commit markers 0xA3/0xC8 and div_ceil(21) accounting plus header shape, V2 0xBB marker overwritten by payload) and the 500 ms keepalive is unported; buggy builders removed |
 | `NZXTHue2Controller` | ported | `241dc17` | 21 | Direct mode fully ported for all 21 detector rows: device-list query, id-to-LED table (0x10..0x1F fixed), per-channel direct/apply incl. empty channels, RGB channel counts from upstream spawn_hue calls. Fan/pump/temperature reads and 2023-effects omitted |
+| `HyperXMouseController` | partial | pending | 0 | 14 detector rows audited (was 12; interface/usage qualification added). No Direct-mode path is byte-exact: Surge RGB-plane feature report (264 bytes, 0x07 report id), FPS `07 0A`, Haste setup+color feature reports, Raid start/end bytes, Dart per-LED writes; fabricated builders removed |
 
 
 The per-family status ledger is maintained below this inventory by the porting
