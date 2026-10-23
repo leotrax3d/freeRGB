@@ -172,6 +172,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AresonController` | ported | `b3838fe` | 6 | Direct mode fully ported: 17-byte Static-mode feature report (speed byte and checksum corrected), interface 1/usage 0xFF02/2 matching |
 | `A4TechController` | partial | `1e1a686` | 0 | 6 detector rows audited; fabricated packets removed. Mouse needs gain/init feature reports plus per-PID physical LED index layouts (W60 Pro/W90 group/MP 50RS); B820R needs gain/release control packets plus the six plane feature reports; output writes from the branch version removed |
 | `EVGAUSBController` | partial | `131e74d` | 0 | 7 detector rows audited; fabricated packets removed. Direct mode needs keyboard packet_map feature reports (two controller-ID sizes, Z20 extra keys), mouse single-LED SetLed with feature queries and wireless delays, and the X12 read/state machine |
+| `GaiZongGaiKeyboardController` | partial | `c41713d` | 0 | 9 detector rows audited; fabricated packets removed. Direct mode needs per-PID packet layouts (0x10/0x11/0x12/0x13 with fixed offsets 0/21/42/68/85 and sizes 63/60/51), flash reads for LightBoard/HUB counts and the FF restore packet |
 | `AnnePro2Controller` | ported | `72525ea` | 5 | Direct mode fully ported: 5-packet 64-byte stream with upstream 51-byte payload layout, real frame index mapping with the 9 gap triplets (LED_REAL_COUNT 70), upstream 5x14 key names, interface 1 matching |
 
 
