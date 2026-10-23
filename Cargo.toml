@@ -38,6 +38,7 @@ members = [
     "modules/corsair-hydro-platinum",
     "modules/corsair-peripheral",
     "modules/corsair-lighting-node",
+    "modules/corsair-commander-core",
 ]
 
 [workspace.package]

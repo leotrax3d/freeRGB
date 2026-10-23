@@ -162,6 +162,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `CorsairHydroPlatinumController` | ported | `a5c312b` | 13 | Direct mode fully ported: magic init, monotonic sequence number, 20-LED combined chunk frames (commands 4/5/6), hardware-magic shutdown restore, 5x5 CPU block + optional fan zone (5 Elite PIDs CPU-only). No firmware read. |
 | `CorsairPeripheralController` | partial | pending | 0 | 39 detector rows audited; audit found no fully ported path (fabricated packets removed). Generic handler needs firmware-info typing, typed LightingControl and STREAM keyboard path; K55 PRO XT needs 8 06/07 key-bank stream (111 LEDs); K65 Mini needs LED position map, 64-LED layout and keepalive. |
 | `CorsairLightingNodeController` | ported | `9314d1f` | 7 | Direct mode fully ported for all 7 detector rows: PortState/Direct(R,G,B planes, 50-LED blocks with running offset)/Commit per channel, two 204-LED-max zones. 5s keepalive and firmware read omitted |
+| `CorsairCommanderCoreController` | partial | pending | 0 | 7 detector rows audited; fabricated 97-byte packet removed. Protocol needs SendCommand framing with version query and packet-size negotiation, SetFanMode/SetLedAmount writes, config-driven LED counts and the 699-byte SetDirectColor layout |
 
 
 The per-family status ledger is maintained below this inventory by the porting

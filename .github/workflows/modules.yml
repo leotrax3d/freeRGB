@@ -155,6 +155,10 @@ jobs:
             node scripts/openrgb/port-corsair-lighting-node-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-corsair-lighting-node
             git diff --exit-code -- modules/corsair-lighting-node/src/devices_table.rs
+          elif [ "$MODULE" = "corsair-commander-core" ]; then
+            node scripts/openrgb/port-corsair-commander-core-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-corsair-commander-core
+            git diff --exit-code -- modules/corsair-commander-core/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
