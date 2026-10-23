@@ -76,6 +76,7 @@ export default function SettingsView() {
           <span>Update checks and installation still run in freeRGB Classic. They move here with the shared desktop logic (M5).</span>
         </div>
       </Section>
+      <SetupSettings />
       <Section title="Help">
         <div className="flex items-center justify-between gap-4 rounded-card border border-border px-4 py-3">
           <span className="text-small text-text-muted">A short walk through the most important parts of freeRGB.</span>
@@ -95,5 +96,24 @@ export default function SettingsView() {
         </dl>
       </Section>
     </>
+  );
+}
+
+/** Re-run the first-run wizard; show or withdraw the fan-control safety acknowledgement. */
+function SetupSettings() {
+  const onboarding = useDaemon((s) => s.onboarding);
+  const { pending, error, run } = useAction();
+  return (
+    <Section title="Setup">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-border px-4 py-3">
+        <span className="text-small text-text-muted">Run the setup again: safety notice, device detection and extension downloads, motherboard fan identification.</span>
+        <Button variant="secondary" size="sm" disabled={pending !== null} onClick={() => run("reset", () => rpc("onboarding.reset"))}>Run setup wizard</Button>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-border px-4 py-3">
+        <span className="text-small text-text-muted">{onboarding?.safety_acknowledged ? "Fan-control safety notice accepted. Withdrawing it locks all fan and pump control again (lighting is unaffected)." : "Fan control is locked until the safety notice is accepted in the setup wizard."}</span>
+        {onboarding?.safety_acknowledged && <Button variant="danger" size="sm" disabled={pending !== null} onClick={() => run("revoke", () => rpc("safety.revoke"))}>Withdraw acceptance</Button>}
+      </div>
+      {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
+    </Section>
   );
 }

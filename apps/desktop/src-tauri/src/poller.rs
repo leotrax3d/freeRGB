@@ -22,6 +22,8 @@ const CORE: &[(&str, &str)] = &[
     ("effect", "effects.get"),
     // Device setup: first-run wizard and the new-devices panel.
     ("modules_setup", "modules.status"),
+    // First-run wizard and the fan-control safety acknowledgement.
+    ("onboarding", "onboarding.get"),
 ];
 
 /// Slices polled only while a view asks for them.
@@ -294,6 +296,7 @@ mod tests {
                 "diagnostics",
                 "effect",
                 "modules_setup",
+                "onboarding",
                 "profiles"
             ]
         );

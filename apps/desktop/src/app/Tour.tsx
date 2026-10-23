@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { create } from "zustand";
-import { BrandTiles } from "@/components/brand";
+import { BrandRing } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
@@ -52,7 +52,7 @@ export const useTour = create<{ step: number | null; start: () => void; stop: ()
 /** Starts the tour on first launch. */
 export function useFirstRunTour() {
   // Device setup comes first; the tour starts once it is finished or skipped.
-  const setupDone = useDaemon((d) => d.modules_setup !== undefined && d.modules_setup?.first_run !== true);
+  const setupDone = useDaemon((d) => d.onboarding?.completed === true && d.modules_setup !== undefined && d.modules_setup?.first_run !== true);
   useEffect(() => {
     if (!setupDone) return;
     let seen = true;
@@ -149,7 +149,7 @@ export function Tour() {
         <button type="button" onClick={stop} aria-label="Close tour" className="absolute right-3 top-3 rounded-chip p-1 text-text-subtle hover:text-text">
           <X className="size-4" />
         </button>
-        {!rect && <BrandTiles size={10} className="mb-3" />}
+        {!rect && <BrandRing size={32} className="mb-3" />}
         <h2 id="tour-title" className="pr-6 text-title font-semibold">
           {current.title}
         </h2>

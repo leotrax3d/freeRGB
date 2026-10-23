@@ -20,12 +20,17 @@ export default defineConfig(({ mode }) => ({
     __WEB_DEMO__: mode === "demo",
   },
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Current brand identity (assets/ASSETS.md); shared with the website.
+      "@brand": fileURLToPath(new URL("../../assets/brand", import.meta.url)),
+    },
   },
   server: {
     port: 1420,
     strictPort: true,
     watch: { ignored: ["**/src-tauri/**"] },
+    fs: { allow: [".", "../../assets/brand"] },
   },
   build: {
     modulePreload: mode === "demo" ? { polyfill: false } : undefined,

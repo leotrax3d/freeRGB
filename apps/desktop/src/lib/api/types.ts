@@ -143,6 +143,7 @@ export interface Slices {
   cooling_status: CoolingStatus | null;
   /** Device setup and hardware modules (`modules.status`); null when disabled. */
   modules_setup: ModulesStatus | null;
+  onboarding: OnboardingStatus | null;
 }
 
 export interface MonitoringSensor {
@@ -267,7 +268,15 @@ export interface PluginSummary {
 }
 
 export type SliceName = keyof Slices;
-export type OptionalSlice = Exclude<SliceName, "connection" | "devices" | "diagnostics" | "effect" | "modules_setup">;
+export type OptionalSlice = Exclude<SliceName, "connection" | "devices" | "diagnostics" | "effect" | "modules_setup" | "onboarding">;
+
+/** First-run wizard and fan-control safety acknowledgement (docs/SETUP_WIZARD.md). */
+export interface OnboardingStatus {
+  completed: boolean;
+  safety_text_version: number;
+  safety_acknowledged: boolean;
+  safety_acknowledged_unix: number | null;
+}
 
 export function deviceStatus(status: DeviceStatus): "connected" | "disconnected" | "faulted" {
   if (status === "Connected") return "connected";
