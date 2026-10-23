@@ -7,6 +7,9 @@
 #ifndef LhmVersion
   #error Pass /DLhmVersion; build-installer.ps1 reads it from mainboard-packages.json
 #endif
+#ifndef BundleDir
+  #error Pass /DBundleDir; build-installer.ps1 stages the verified LHM runtime there
+#endif
 #ifndef OutputDir
   #define OutputDir "..\..\target\dist"
 #endif
@@ -17,12 +20,13 @@ AppName=freeRGB
 AppVersion={#AppVersion}
 AppPublisher=freeRGB contributors
 AppPublisherURL=https://github.com/leotrax3d/FreeRGB
-DefaultDirName={localappdata}\Programs\freeRGB
+; Per-machine install with one UAC prompt at start (docs/SETUP_WIZARD.md).
+DefaultDirName={autopf}\freeRGB
 DefaultGroupName=freeRGB
-DisableDirPage=no
+DisableDirPage=yes
 DisableProgramGroupPage=yes
 UsePreviousTasks=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
@@ -62,6 +66,8 @@ Source: "{#BinDir}\freergb.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; Flags: dontcopy
 Source: "{#BinDir}\freergb-mainboard-service.exe"; Flags: dontcopy
 Source: "prepare-mainboard.ps1"; Flags: dontcopy
+; Verified LHM runtime and notices, bundled at build time (no download).
+Source: "{#BundleDir}\*"; DestDir: "{tmp}\prerequisites"; Flags: deleteafterinstall
 Source: "..\..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -73,8 +79,9 @@ Name: "{group}\Uninstall freeRGB"; Filename: "{uninstallexe}"; Tasks: startmenu
 Name: "{autodesktop}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; Tasks: desktopicon
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "freeRGB"; ValueData: """{app}\freergb-launcher.exe"" --daemon-only"; Tasks: autostart; Flags: uninsdeletevalue
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "freeRGB"; Flags: deletevalue; Check: RemoveOwnedAutostart
+; Per-machine install: the daemon starts at every user's logon (HKLM Run).
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "freeRGB"; ValueData: """{app}\freergb-launcher.exe"" --daemon-only"; Tasks: autostart; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "freeRGB"; Flags: deletevalue; Check: RemoveOwnedAutostart
 
 [InstallDelete]
 Type: files; Name: "{group}\freeRGB.lnk"; Check: not WizardIsTaskSelected('startmenu')
@@ -84,7 +91,8 @@ Type: files; Name: "{group}\Uninstall freeRGB.lnk"; Check: not WizardIsTaskSelec
 Type: files; Name: "{autodesktop}\freeRGB.lnk"; Check: not WizardIsTaskSelected('desktopicon')
 
 [Run]
-Filename: "{app}\freergb-launcher.exe"; Description: "Launch freeRGB"; Flags: nowait postinstall skipifsilent
+; Opens the GUI (first-run wizard) automatically, as the non-elevated user.
+Filename: "{app}\freergb-launcher.exe"; Flags: nowait runasoriginaluser skipifsilent
 
 [UninstallRun]
 Filename: "{app}\freergb.exe"; Parameters: "stop-installed-daemon --directory ""{app}"""; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopDaemon"
@@ -100,7 +108,7 @@ var Value: String;
 begin
   Result := False;
   if not WizardIsTaskSelected('autostart') then
-    if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'freeRGB', Value) then
+    if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Run', 'freeRGB', Value) then
       Result := (CompareText(Value, '"' + ExpandConstant('{app}\freergb-launcher.exe') + '"') = 0) or
         (CompareText(Value, '"' + ExpandConstant('{app}\freergb-launcher.exe') + '" --daemon-only') = 0);
 end;
@@ -116,12 +124,27 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := ShouldSkipCompetitorsPage(PageID) or ((PageID = MainboardPage.ID) and WizardSilent);
+  Result := ShouldSkipCompetitorsPage(PageID);
+end;
+
+// Earlier releases installed per user. Remove that copy (its uninstaller stops
+// its daemon and protected service) before the per-machine install.
+procedure RemovePerUserInstallation;
+var Command, FileName, Params: String; Code: Integer;
+begin
+  if not RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A635E27A-ADBF-4DC2-8BF4-4237EC0C96ED}_is1',
+    'UninstallString', Command) then Exit;
+  FileName := RemoveQuotes(Command);
+  if not FileExists(FileName) then Exit;
+  Params := '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART';
+  if not Exec(FileName, Params, '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+    Log('Previous per-user installation could not be removed automatically (code ' + IntToStr(Code) + ').');
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssPostInstall then InstallSelectedMainboardComponents;
+  if CurStep = ssInstall then RemovePerUserInstallation;
+  if CurStep = ssPostInstall then InstallMainboardComponents;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

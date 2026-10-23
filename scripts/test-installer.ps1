@@ -36,8 +36,9 @@ Get-Content -LiteralPath $marker
 if ($ModelOnly) { exit 0 }
 
 # Never use this acceptance script on an existing personal installation.
-$uninstallKey = 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/{A635E27A-ADBF-4DC2-8BF4-4237EC0C96ED}_is1'
-$runKey = 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Run'
+# Per-machine install (docs/SETUP_WIZARD.md): HKLM registration, common shortcuts.
+$uninstallKey = 'HKLM:/Software/Microsoft/Windows/CurrentVersion/Uninstall/{A635E27A-ADBF-4DC2-8BF4-4237EC0C96ED}_is1'
+$runKey = 'HKLM:/Software/Microsoft/Windows/CurrentVersion/Run'
 $config = Join-Path $env:APPDATA 'freeRGB'
 Assert-True (-not (Test-Path -LiteralPath $uninstallKey)) 'A freeRGB installation already exists.'
 Assert-True (-not (Test-Path -LiteralPath $config)) 'Existing freeRGB user data must not be touched.'
@@ -46,8 +47,8 @@ Assert-True ($null -eq (Get-ItemProperty -LiteralPath $runKey -Name freeRGB -Err
 $root = Join-Path ([System.IO.Path]::GetFullPath($env:RUNNER_TEMP)) ('freeRGB Installer ' + [guid]::NewGuid().ToString('N'))
 $app = Join-Path $root 'installed app'
 $groupName = 'freeRGB'
-$group = Join-Path ([Environment]::GetFolderPath('Programs')) $groupName
-$desktop = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'freeRGB.lnk'
+$group = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) $groupName
+$desktop = Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'freeRGB.lnk'
 Assert-True (-not (Test-Path -LiteralPath $desktop)) 'An existing desktop shortcut must not be touched.'
 Assert-True (-not (Test-Path -LiteralPath $group)) 'An existing Start Menu group must not be touched.'
 $Installer = (Resolve-Path -LiteralPath $Installer).Path
@@ -93,7 +94,7 @@ try {
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $config 'keyboard-reactive.json'))) 'Default setup must not enable keyboard capture.'
     Assert-True (-not (Get-Process freergb-keyboard-input -ErrorAction SilentlyContinue)) 'Default setup unexpectedly started keyboard input capture.'
     Assert-True (-not (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\freeRGBMainboard')) 'Default/silent setup must not create a privileged service.'
-    Assert-True (Test-Path -LiteralPath $uninstallKey) 'Per-user uninstall registration missing.'
+    Assert-True (Test-Path -LiteralPath $uninstallKey) 'Per-machine uninstall registration missing.'
     $daemon = Start-Virtual $app
     Install-Test 'upgrade-options-off' 'desktopicon'
     Assert-True ($daemon.WaitForExit(10000)) 'Upgrade did not gracefully stop its installed daemon.'
@@ -136,7 +137,7 @@ try {
     Assert-True ($null -eq (Get-Startup)) 'Startup entry remains after uninstall.'
     Assert-True (-not (Test-Path -LiteralPath "$group/freeRGB.lnk")) 'Start Menu shortcut remains after uninstall.'
     Assert-True ((Get-Content -LiteralPath $sentinel -Raw) -eq 'preserve user data') 'Uninstall deleted profiles.'
-    'PASS: per-user install, default tasks, reinstall/upgrade path, option removal, scoped shutdown, uninstall and preserved profiles.' | Tee-Object -FilePath "$logs/lifecycle-result.txt"
+    'PASS: per-machine install, default tasks, reinstall/upgrade path, option removal, scoped shutdown, uninstall and preserved profiles.' | Tee-Object -FilePath "$logs/lifecycle-result.txt"
 } finally {
     if ($null -ne $daemon -and -not $daemon.HasExited) { Stop-Process -Id $daemon.Id -ErrorAction SilentlyContinue }
     if ($fixtureBrokerInstalled -and (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\freeRGBMainboard')) {

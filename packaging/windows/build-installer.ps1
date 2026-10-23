@@ -16,8 +16,15 @@ if ($LASTEXITCODE -ne 0) { throw 'cargo metadata failed' }
 $version = ($metadata.packages | Where-Object { $_.name -eq 'freergb-gui' }).version
 if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Release tag must match the Cargo workspace version.' }
 Import-Module "$PSScriptRoot/mainboard-prerequisites.psm1" -Force
-$lhmPin = Get-LhmPin (Read-MainboardPackages "$PSScriptRoot/mainboard-packages.json")
-& $Compiler "/DAppVersion=$version" "/DLhmVersion=$($lhmPin.Version)" "/DBinDir=$binPath" "/DOutputDir=$outputPath" "$PSScriptRoot/freergb.iss"
+$packages = Read-MainboardPackages "$PSScriptRoot/mainboard-packages.json"
+$lhmPin = Get-LhmPin $packages
+# Bundle the verified LHM runtime and its notices (MPL-2.0); PawnIO stays a
+# verified download at install time (no stated redistribution permission).
+$bundle = [System.IO.Path]::GetFullPath("$PSScriptRoot/../../target/installer-bundle")
+if (Test-Path -LiteralPath $bundle) { Remove-Item -LiteralPath $bundle -Recurse -Force }
+$null = Get-VerifiedPackage $packages.packages.lhm $bundle
+foreach ($notice in $packages.notices) { $null = Get-VerifiedPackage $notice $bundle }
+& $Compiler "/DAppVersion=$version" "/DLhmVersion=$($lhmPin.Version)" "/DBundleDir=$bundle" "/DBinDir=$binPath" "/DOutputDir=$outputPath" "$PSScriptRoot/freergb.iss"
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
 $installer = Join-Path $outputPath "freeRGB-$version-windows-x86_64-setup.exe"
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLowerInvariant()
