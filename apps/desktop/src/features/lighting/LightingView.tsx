@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { CustomEffects } from "./CustomEffects";
 import { Inspector } from "./Inspector";
 import { useCurrentEffect } from "./useEffectDraft";
+import { InstalledEffects, useInstalledEffects } from "./InstalledEffects";
 
 const DEFAULTS = fixtures as Record<EffectName, EffectSpec>;
 
@@ -115,6 +116,7 @@ const EffectTile = memo(function EffectTile({
 });
 
 export default function LightingView() {
+  const installedPackages=useInstalledEffects();
   useSlices("custom_effects");
   const effect = useCurrentEffect();
   const [busy, setBusy] = useState<EffectName | null>(null);
@@ -160,10 +162,11 @@ export default function LightingView() {
                 ))}
               </div>
             </Section>
+            <InstalledEffects packages={installedPackages} />
             <CustomEffects />
           </div>
           <div className="[grid-area:settings] @3xl:sticky @3xl:top-0">
-            <Inspector />
+            <Inspector packages={installedPackages} />
           </div>
         </div>
       </div>

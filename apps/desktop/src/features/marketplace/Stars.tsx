@@ -9,7 +9,7 @@ export function Stars({ id, name, ratings, disabled, rate }: { id: string; name:
   const mine = ratings.mine[id];
   const busy = ratings.loading || !!ratings.saving;
   return <div className="flex flex-col gap-1.5 border-t border-border pt-3">
-    <p className="text-small text-text-muted" aria-live="polite">{summary && summary.count > 0 ? <><span className="font-medium text-text">{summary.average.toFixed(1)} / 5</span> · {summary.count} {summary.count === 1 ? "rating" : "ratings"}</> : !ratings.configured ? "Community ratings not connected" : ratings.updated_at ? "No ratings yet" : "Community score not loaded"}</p>
+    <div className="flex items-center gap-2 text-small" aria-label="Overall rating" aria-live="polite"><span className="flex gap-0.5" aria-hidden>{[1,2,3,4,5].map(value => <Star key={value} className={cn("size-3.5",summary && value <= Math.round(summary.average) ? "fill-amber-400 text-amber-400" : "text-text-subtle")} />)}</span><span className="text-amber-400">{summary && summary.count > 0 ? summary.average.toFixed(1) : "—"}</span><span className="text-text-subtle">({summary?.count ?? 0})</span></div>
     <fieldset disabled={disabled || busy || !ratings.configured} className="flex items-center gap-1">
       <legend className="sr-only">Rate {name}</legend>
       {[1, 2, 3, 4, 5].map((value) => <label key={value} className="cursor-pointer rounded-control p-1 has-disabled:cursor-default has-disabled:opacity-40 has-focus-visible:ring-2 has-focus-visible:ring-accent">
@@ -17,6 +17,6 @@ export function Stars({ id, name, ratings, disabled, rate }: { id: string; name:
         <Star aria-hidden className={cn("size-5", mine && value <= mine ? "fill-amber-400 text-amber-400" : "text-text-subtle")} />
       </label>)}
     </fieldset>
-    <div className="flex min-h-5 items-center justify-between text-caption text-text-subtle"><span>{ratings.saving === id ? "Saving rating…" : mine ? `Your rating: ${mine}/5 · no account needed` : "Rate without registration"}</span>{mine && <Button variant="ghost" size="sm" disabled={disabled || busy} onClick={() => rate(null)}>Remove</Button>}</div>
+    <div className="flex min-h-5 items-center justify-between text-caption text-text-subtle"><span>{ratings.saving === id ? "Saving…" : mine ? `Your rating: ${mine}/5` : "Your rating"}</span>{mine && <Button variant="ghost" size="sm" disabled={disabled || busy} onClick={() => rate(null)}>Remove</Button>}</div>
   </div>;
 }

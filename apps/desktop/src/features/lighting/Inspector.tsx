@@ -1,5 +1,5 @@
-import { useNavigation } from "@/app/navigation";
-import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import type { Package } from "@/features/marketplace/types";
 import { NameForm } from "@/components/name-form";
 import { effectLabel } from "@/lib/api/effects";
 import { rpc, useDaemon } from "@/lib/store/daemon";
@@ -29,20 +29,20 @@ function SaveCustom() {
   );
 }
 
-export function Inspector() {
+export function Inspector({packages=[]}:{packages?:Package[]}) {
   const { effect, set, error } = useEffectDraft();
   if (!effect) return null;
+  const pkg=effect.type==="marketplace" ? packages.find(p=>p.id===effect.id && p.version===effect.version) : undefined;
 
   return (
     <aside data-tour="inspector" aria-label="Effect settings" className="flex flex-col gap-4 rounded-card bg-surface-sunken p-4">
       <header className="flex flex-col gap-0.5 px-2">
-        <h2 className="text-title font-semibold">{effectLabel(effect.type)}</h2>
+        <h2 className="text-title font-semibold">{pkg?.name ?? effectLabel(effect.type)}</h2>
       </header>
       {effect.type === "marketplace" ? (
         <div className="flex flex-col gap-3 px-2">
           <p className="text-small text-text-muted">{effect.id} · {effect.version}</p>
-          <p className="text-caption text-text-subtle">Runs in the background service, including when this window is closed.</p>
-          <Button onClick={() => useNavigation.getState().go("marketplace")}>Configure in Marketplace</Button>
+          {pkg?.parameters.map(p=><div key={p.key} className="flex flex-col gap-2"><label className="flex justify-between gap-3 text-small" htmlFor={`effect-${p.key}`}>{p.label}<output>{(effect.parameters[p.key] ?? p.default).toFixed(2)}</output></label><Slider id={`effect-${p.key}`} aria-label={p.label} min={p.min} max={p.max} step={p.step} value={[effect.parameters[p.key] ?? p.default]} onValueChange={([value])=>set("parameters",{...effect.parameters,[p.key]:value!},false)} onValueCommit={([value])=>set("parameters",{...effect.parameters,[p.key]:value!},true)} /></div>)}
         </div>
       ) : effect.type === "layers" ? (
         <LayerStack layers={effect.layers} onChange={(layers, commit) => set("layers", layers, commit)} />
