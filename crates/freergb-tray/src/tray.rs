@@ -1,6 +1,6 @@
 //! Windows tray icon and menu. Polls the daemon every few seconds; actions run
 //! on worker threads so a UAC prompt or slow service never freezes the icon.
-use crate::state::TrayState;
+use crate::state::{alerts, TrayState};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::Command;
@@ -29,6 +29,7 @@ fn read_state() -> TrayState {
         call("onboarding.get", Value::Null),
         call("cooling.background.get", Value::Null),
         call("cooling.profiles.list", Value::Null),
+        call("cooling.sessions.status", Value::Null),
     )
 }
 
@@ -220,6 +221,15 @@ fn perform(action: &Action, done: mpsc::Sender<()>) -> bool {
     true
 }
 
+/// Windows toast (falls back silently if notifications are off). The app id
+/// matches the Start-menu shortcut created by Setup.
+fn notify(text: &str) {
+    let _ = tauri_winrt_notification::Toast::new("freeRGB.Desktop")
+        .title("freeRGB")
+        .text1(text)
+        .show();
+}
+
 /// One tray per user session (named mutex).
 fn already_running() -> bool {
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
@@ -301,6 +311,9 @@ pub fn run() {
         }
         if Instant::now() >= next_poll {
             let fresh = read_state();
+            for text in alerts(&state, &fresh) {
+                notify(&text);
+            }
             if fresh != state {
                 state = fresh;
                 menus = build_menu(&state);
