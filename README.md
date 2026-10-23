@@ -7,7 +7,7 @@
 **Open-source RGB control for Windows and Linux, powered by Rust.**
 
 <!-- progress:start -->
-**Delivery checklist: 51.4% complete — 19 of 37 milestones; 18 remaining.**
+**Delivery checklist: 51.3% complete — 20 of 39 milestones; 19 remaining.**
 
 [View completed and remaining work](docs/STATUS.md). Automatically calculated from the delivery checklist; milestones are equally weighted, not an estimate of effort or release readiness.
 <!-- progress:end -->
