@@ -18,6 +18,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 freergb-client = { path = "../../../crates/freergb-client" }
+freergb-update = { path = "../../../crates/freergb-update" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }

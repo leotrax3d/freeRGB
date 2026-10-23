@@ -8,6 +8,7 @@ mod diagnostics;
 mod memory;
 mod poller;
 mod queue;
+mod updates;
 
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -88,6 +89,23 @@ fn want_slices(slices: Vec<String>, state: tauri::State<'_, AppState>) {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .send(());
+}
+
+/// Verified release updates (same updater as Classic); network work off the UI thread.
+#[tauri::command]
+async fn update_action(
+    action: String,
+    updates: tauri::State<'_, std::sync::Arc<updates::Updates>>,
+) -> Result<Option<updates::UpdateInfo>, String> {
+    let updates = updates.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || match action.as_str() {
+        "check" => updates.check().map(Some),
+        "download" => updates.download().map(Some),
+        "install" => updates.install().map(|()| None),
+        _ => Err("unknown update action".into()),
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Fetches the daemon's redacted report and saves it; returns the file path.
@@ -179,13 +197,15 @@ fn main() {
             wake: Mutex::new(wake_tx.clone()),
             shared: shared.clone(),
         })
+        .manage(std::sync::Arc::new(updates::Updates::default()))
         .invoke_handler(tauri::generate_handler![
             rpc,
             snapshot,
             want_slices,
             start_service,
             open_classic,
-            export_diagnostics
+            export_diagnostics,
+            update_action
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

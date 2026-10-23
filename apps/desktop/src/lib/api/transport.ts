@@ -1,4 +1,4 @@
-import type { CallError, OptionalSlice, Slices } from "./types";
+import type { CallError, OptionalSlice, Slices, UpdateInfo } from "./types";
 
 export type SliceListener = (slice: keyof Slices, value: unknown) => void;
 
@@ -14,6 +14,8 @@ export interface Transport {
   wantSlices(slices: OptionalSlice[]): Promise<void>;
   startService(): Promise<void>;
   openClassic?(): Promise<void>;
+  /** Verified release updates (desktop only). */
+  update?(action: "check" | "download" | "install"): Promise<UpdateInfo | null>;
   /** Saves the redacted diagnostics report; resolves to the file path. */
   exportDiagnostics(includeCoolingHardware?: boolean): Promise<string>;
 }
@@ -53,6 +55,7 @@ async function tauriTransport(): Promise<Transport> {
     wantSlices: (slices) => invoke("want_slices", { slices }),
     startService: () => invoke("start_service"),
     openClassic: () => invoke("open_classic"),
+    update: (action) => invoke<UpdateInfo | null>("update_action", { action }),
     exportDiagnostics: (includeCoolingHardware) => invoke<string>("export_diagnostics", { includeCoolingHardware: includeCoolingHardware ?? false }),
   };
 }

@@ -9,6 +9,8 @@ import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { KeyboardReactions } from "@/features/devices/KeyboardReactions";
 import { transport } from "@/lib/api/transport";
+import { useState } from "react";
+import type { UpdateInfo } from "@/lib/api/types";
 
 function Plugins() {
   const plugins = useDaemon((s) => s.plugins);
@@ -70,12 +72,7 @@ export default function SettingsView() {
         <Button variant="secondary" disabled={pending !== null || useDaemon.getState().mode !== "tauri"} onClick={() => run("classic", async () => { const t = await transport(); if (!t.openClassic) throw new Error("Classic is unavailable in browser preview"); await t.openClassic(); })}>Open freeRGB Classic</Button>
         {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
       </Section>
-      <Section title="Updates">
-        <div className="flex items-start gap-3 rounded-card border border-border px-4 py-3 text-small text-text-muted">
-          <Download className="mt-0.5 size-4 shrink-0 text-text-subtle" aria-hidden />
-          <span>Update checks and installation still run in freeRGB Classic. They move here with the shared desktop logic (M5).</span>
-        </div>
-      </Section>
+      <Updates />
       <SetupSettings />
       <Section title="Help">
         <div className="flex items-center justify-between gap-4 rounded-card border border-border px-4 py-3">
@@ -112,6 +109,38 @@ function SetupSettings() {
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-border px-4 py-3">
         <span className="text-small text-text-muted">{onboarding?.safety_acknowledged ? "Fan-control safety notice accepted. Withdrawing it locks all fan and pump control again (lighting is unaffected)." : "Fan control is locked until the safety notice is accepted in the setup wizard."}</span>
         {onboarding?.safety_acknowledged && <Button variant="danger" size="sm" disabled={pending !== null} onClick={() => run("revoke", () => rpc("safety.revoke"))}>Withdraw acceptance</Button>}
+      </div>
+      {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
+    </Section>
+  );
+}
+
+/** Verified release updates: check, download, install (Setup asks for UAC). */
+function Updates() {
+  const [info, setInfo] = useState<UpdateInfo | null>(null);
+  const { pending, error, run } = useAction();
+  const desktop = useDaemon((s) => s.mode) === "tauri";
+  const act = (action: "check" | "download" | "install") =>
+    run(action, async () => {
+      const t = await transport();
+      if (!t.update) throw new Error("Updates are available in the desktop app");
+      const next = await t.update(action);
+      if (next) setInfo(next);
+    });
+  return (
+    <Section title="Updates">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-card border border-border px-4 py-3">
+        <span className="flex items-center gap-3 text-small text-text-muted">
+          <Download className="size-4 shrink-0 text-text-subtle" aria-hidden />
+          {info === null ? "Check GitHub for a newer stable freeRGB release. Downloads are verified (SHA-256) before Setup starts."
+            : info.available ? `freeRGB ${info.available} is available (you have ${info.current}${info.size ? `, ${(info.size / 1048576).toFixed(1)} MB` : ""}).`
+            : `freeRGB ${info.current} is up to date.`}
+        </span>
+        <span className="flex gap-2">
+          <Button variant="secondary" size="sm" disabled={!desktop || pending !== null} onClick={() => act("check")}>{pending === "check" ? "Checking…" : "Check for updates"}</Button>
+          {info?.available && !info.downloaded && <Button size="sm" variant="primary" disabled={pending !== null} onClick={() => act("download")}>{pending === "download" ? "Downloading…" : "Download"}</Button>}
+          {info?.downloaded && <Button size="sm" variant="primary" disabled={pending !== null} onClick={() => act("install")}>Install (restarts freeRGB)</Button>}
+        </span>
       </div>
       {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
     </Section>

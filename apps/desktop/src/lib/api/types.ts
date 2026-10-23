@@ -343,3 +343,11 @@ export interface ModulesStatus {
   light_test_remaining_s: number | null;
 }
 
+
+/** Release update state from the desktop updater (same checks as Classic). */
+export interface UpdateInfo {
+  current: string;
+  available: string | null;
+  size: number | null;
+  downloaded: boolean;
+}
