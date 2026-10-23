@@ -189,6 +189,10 @@ jobs:
             node scripts/openrgb/port-gigabyte-aorus-laptop-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-gigabyte-aorus-laptop
             git diff --exit-code -- modules/gigabyte-aorus-laptop/src/devices_table.rs
+          elif [ "$MODULE" = "a4tech" ]; then
+            node scripts/openrgb/port-a4tech-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-a4tech
+            git diff --exit-code -- modules/a4tech/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
