@@ -8,10 +8,11 @@ import {
   Layers,
   Settings,
   Sparkles,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 
-export type ViewId = "lighting" | "devices" | "layout" | "profiles" | "cooling" | "macros" | "monitoring" | "settings";
+export type ViewId = "marketplace" | "lighting" | "devices" | "layout" | "profiles" | "cooling" | "macros" | "monitoring" | "settings";
 
 export type ViewGroup = "light" | "hardware" | "automation" | "footer";
 
@@ -38,6 +39,7 @@ function view(def: Omit<ViewDef, "component" | "load">, load: () => Promise<{ de
 
 // A typed registry instead of a router: few top-level views, all lazy-loaded.
 export const VIEWS: readonly ViewDef[] = [
+  view({ id: "marketplace", label: "Marketplace", icon: Store, group: "light", hint: "Discover and manage official effects" }, () => import("@/features/marketplace/MarketplaceView")),
   view({ id: "lighting", label: "Lighting", icon: Sparkles, group: "light", hint: "Effects, colours, brightness" }, () => import("@/features/lighting/LightingView")),
   view({ id: "layout", label: "Layout", icon: LayoutDashboard, group: "light", hint: "Place devices on the canvas" }, () => import("@/features/layout/LayoutView")),
   view({ id: "profiles", label: "Profiles", icon: Layers, group: "light", hint: "Save and switch lighting" }, () => import("@/features/profiles/ProfilesView")),

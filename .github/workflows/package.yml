@@ -4,6 +4,11 @@ on:
   push:
     tags: ['v*']
 
+# Public client configuration, never a Supabase service-role key.
+env:
+  FREERGB_SUPABASE_URL: ${{ vars.FREERGB_SUPABASE_URL }}
+  FREERGB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.FREERGB_SUPABASE_PUBLISHABLE_KEY }}
+
 permissions:
   contents: read
 

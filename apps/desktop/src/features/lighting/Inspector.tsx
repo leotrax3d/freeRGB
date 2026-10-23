@@ -1,3 +1,5 @@
+import { useNavigation } from "@/app/navigation";
+import { Button } from "@/components/ui/button";
 import { NameForm } from "@/components/name-form";
 import { effectLabel } from "@/lib/api/effects";
 import { rpc, useDaemon } from "@/lib/store/daemon";
@@ -36,7 +38,13 @@ export function Inspector() {
       <header className="flex flex-col gap-0.5 px-2">
         <h2 className="text-title font-semibold">{effectLabel(effect.type)}</h2>
       </header>
-      {effect.type === "layers" ? (
+      {effect.type === "marketplace" ? (
+        <div className="flex flex-col gap-3 px-2">
+          <p className="text-small text-text-muted">{effect.id} · {effect.version}</p>
+          <p className="text-caption text-text-subtle">Runs in the background service, including when this window is closed.</p>
+          <Button onClick={() => useNavigation.getState().go("marketplace")}>Configure in Marketplace</Button>
+        </div>
+      ) : effect.type === "layers" ? (
         <LayerStack layers={effect.layers} onChange={(layers, commit) => set("layers", layers, commit)} />
       ) : (
         <EffectFields spec={effect} onChange={set} />

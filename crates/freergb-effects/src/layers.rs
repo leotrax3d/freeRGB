@@ -94,8 +94,13 @@ pub fn validate(layers: &[Layer]) -> Result<(), String> {
         ));
     }
     for (i, l) in layers.iter().enumerate() {
-        if matches!(l.effect, EffectSpec::Layers { .. }) {
-            return Err(format!("layer {i}: layer effects cannot be nested"));
+        if matches!(
+            l.effect,
+            EffectSpec::Layers { .. } | EffectSpec::Marketplace { .. }
+        ) {
+            return Err(format!(
+                "layer {i}: nested layers and marketplace programs are not supported"
+            ));
         }
         l.effect.validate().map_err(|e| format!("layer {i}: {e}"))?;
         if !(0.0..=1.0).contains(&l.opacity) {

@@ -104,6 +104,9 @@ pub struct CoolingSupportEntry {
 }
 
 pub struct Engine {
+    pub marketplace: Option<Arc<freergb_effect_host::marketplace::Manager>>,
+    effect_fault: freergb_effect_host::runtime::Fault,
+    activation_error: Option<String>,
     pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
     pub background: crate::background::Background,
     pub fan_support: crate::fan_support::FanSupport,
@@ -290,6 +293,9 @@ impl Engine {
     pub fn new(spec: EffectSpec, target_fps: u32) -> Self {
         let now = Instant::now();
         let mut engine = Self {
+            marketplace: None,
+            effect_fault: freergb_effect_host::runtime::WasmEffect::fault(),
+            activation_error: None,
             channel_bindings: Default::default(),
             keyboard: Default::default(),
             controls: Default::default(),
@@ -756,12 +762,69 @@ impl Engine {
             .map(freergb_screen::ScreenInput::shared)
     }
 
-    pub fn set_effect(&mut self, spec: EffectSpec) {
+    pub fn runtime_error_code(&self) -> Option<&'static str> {
+        if self.activation_error.is_some() {
+            Some("FX_ACTIVATION_FAILED")
+        } else if self
+            .effect_fault
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+        {
+            Some("FX_RUNTIME_FAULT")
+        } else {
+            None
+        }
+    }
+
+    pub fn runtime_error(&self) -> Option<String> {
+        self.activation_error.clone().or_else(|| {
+            self.effect_fault
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone()
+        })
+    }
+
+    pub fn try_set_effect(&mut self, spec: EffectSpec) -> Result<(), String> {
+        spec.validate()?;
+        let fault = freergb_effect_host::runtime::WasmEffect::fault();
+        let prepared = if let EffectSpec::Marketplace {
+            id,
+            version,
+            parameters,
+        } = &spec
+        {
+            let manager = self
+                .marketplace
+                .as_ref()
+                .ok_or("Marketplace is unavailable")?;
+            Some(Box::new(manager.load(id, version, parameters, fault.clone())?) as Box<dyn Effect>)
+        } else {
+            None
+        };
+        // Do not acknowledge an activation that cannot survive restart.
+        if let Some(path) = &self.state_path {
+            let mut state = self.current_state();
+            state.effect = spec.clone();
+            state::save(path, &state)
+                .map_err(|e| format!("Effect was not activated: cannot save state ({e})"))?;
+        }
         let ctx = self.audio_context(&spec);
-        self.effect = spec.build_with(&ctx);
+        self.effect = prepared.unwrap_or_else(|| spec.build_with(&ctx));
+        self.effect_fault = fault;
+        self.activation_error = None;
         self.spec = spec;
         self.effect_start = Instant::now();
-        self.persist();
+        Ok(())
+    }
+
+    pub fn set_effect(&mut self, spec: EffectSpec) {
+        if let Err(error) = self.try_set_effect(spec) {
+            tracing::warn!(%error, "effect activation failed");
+            // A failed selection must not fault the still-running guest.
+            self.activation_error = Some(error);
+        }
     }
 
     pub fn effect(&self) -> &EffectSpec {

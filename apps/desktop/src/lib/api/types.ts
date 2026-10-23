@@ -20,13 +20,14 @@ export interface Region {
 export type BlendMode = "normal" | "add" | "multiply" | "screen" | "max";
 
 export interface Layer {
-  effect: Exclude<EffectSpec, { type: "layers" }>;
+  effect: Exclude<EffectSpec, { type: "layers" | "marketplace" }>;
   blend: BlendMode;
   opacity: number;
   region?: Region | null;
 }
 
 export type EffectSpec =
+  | { type: "marketplace"; id: string; version: string; parameters: Record<string, number> }
   | { type: "solid"; color: Rgb }
   | { type: "rainbow_wave"; speed: number; scale: number }
   | { type: "breathing"; color: Rgb; period_ms: number }
@@ -40,7 +41,7 @@ export type EffectSpec =
   | { type: "screen_ambience"; saturation: number }
   | { type: "layers"; layers: Layer[] };
 
-export type EffectName = EffectSpec["type"];
+export type EffectName = Exclude<EffectSpec["type"], "marketplace">;
 
 export type DeviceKind =
   | "Keyboard"

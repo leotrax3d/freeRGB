@@ -460,6 +460,11 @@ fn layers_editor(ui: &mut egui::Ui, layers: &mut Vec<Layer>) -> bool {
 fn effect_params(ui: &mut egui::Ui, spec: &mut EffectSpec) -> bool {
     let mut changed = false;
     match spec {
+        EffectSpec::Marketplace { id, version, .. } => {
+            ui.label(format!(
+                "{id} {version} — configure in the modern Marketplace"
+            ));
+        }
         EffectSpec::Solid { color } => {
             changed |= color_edit(ui, "Colour", color);
             ui.horizontal(|ui| {

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { ViewId } from "./views";
 
-const VIEW_IDS: readonly ViewId[] = ["lighting", "devices", "layout", "profiles", "cooling", "macros", "monitoring", "settings"];
+const VIEW_IDS: readonly ViewId[] = ["marketplace", "lighting", "devices", "layout", "profiles", "cooling", "macros", "monitoring", "settings"];
 
 const KEY = "freergb.view";
 

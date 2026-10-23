@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/freergb-effect-host",
     "crates/freergb-core",
     "crates/freergb-device-api",
     "crates/freergb-protocols",

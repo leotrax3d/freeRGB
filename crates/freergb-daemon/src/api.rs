@@ -205,7 +205,11 @@ fn profile_call(
         }
         "profiles.load" => {
             let s = profiles::load(&dir, name()?).map_err(map_err)?;
-            lock(engine).apply_state(s);
+            let mut engine = lock(engine);
+            engine
+                .try_set_effect(s.effect.clone())
+                .map_err(|e| (-32000, e))?;
+            engine.apply_state(s);
             Ok(json!(true))
         }
         _ => profiles::delete(&dir, name()?)
@@ -235,6 +239,53 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
     let mut shutdown = false;
 
     let result: Result<Value, (i64, String)> = match method {
+        "marketplace.status" => {
+            let engine = lock(engine);
+            match &engine.marketplace {
+                Some(manager) => Ok(json!({"packages": manager.view(), "active": engine.effect(), "runtime_error": engine.runtime_error(), "runtime_error_code": engine.runtime_error_code()})),
+                None => Err((-32003, "Marketplace is unavailable".into())),
+            }
+        }
+        "marketplace.report.prepare" => crate::report::marketplace(&lock(engine), params["kind"].as_str().unwrap_or_default())
+            .map_err(|e|(-32602,e)),
+        "marketplace.ratings.refresh" | "marketplace.rate" => {
+            let manager=lock(engine).marketplace.clone();
+            match manager {
+                Some(manager)=> {
+                    let result=if method=="marketplace.ratings.refresh" {manager.refresh_ratings()}
+                    else {
+                        let id=params["id"].as_str().unwrap_or_default();
+                        let stars=if params["stars"].is_null() {Ok(None)} else {
+                            params["stars"].as_u64().filter(|v|(1..=5).contains(v)).map(|v|Some(v as u8)).ok_or("Choose between one and five stars".to_owned())
+                        };
+                        stars.and_then(|stars|manager.rate(id,stars))
+                    };
+                    result.map(|()|json!(true)).map_err(|e|(-32000,e))
+                }
+                None=>Err((-32003,"Marketplace is unavailable".into())),
+            }
+        }
+        "marketplace.refresh" | "marketplace.install" => {
+            let manager = lock(engine).marketplace.clone();
+            match manager {
+                Some(manager) => {
+                    let result = if method == "marketplace.refresh" { manager.refresh() }
+                        else { params["id"].as_str().ok_or("Effect id required".to_owned()).and_then(|id| manager.install(id)) };
+                    result.map(|()| json!(true)).map_err(|e| (-32000,e))
+                }
+                None => Err((-32003,"Marketplace is unavailable".into())),
+            }
+        }
+        "marketplace.uninstall" => {
+            let engine = lock(engine);
+            let id = params["id"].as_str().unwrap_or_default();
+            if matches!(engine.effect(), EffectSpec::Marketplace { id: active, .. } if active == id) {
+                Err((-32000, "Switch to another effect before uninstalling the active package".into()))
+            } else {
+                engine.marketplace.as_ref().ok_or((-32003,"Marketplace is unavailable".into()))
+                    .and_then(|m| m.uninstall(id).map(|()|json!(true)).map_err(|e|(-32000,e)))
+            }
+        }
         "daemon.version" => Ok(json!({
             "api_version": API_VERSION,
             "daemon_version": env!("CARGO_PKG_VERSION"),
@@ -494,10 +545,8 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         "effects.set" => serde_json::from_value::<EffectSpec>(params)
             .map_err(invalid_params)
             .and_then(|spec| spec.validate().map(|()| spec).map_err(invalid_params))
-            .map(|spec| {
-                lock(engine).set_effect(spec);
-                json!(true)
-            }),
+            .and_then(|spec| lock(engine).try_set_effect(spec)
+                .map(|()| json!(true)).map_err(|e| (-32000, e))),
         "custom_effects.list"
         | "custom_effects.save"
         | "custom_effects.get"
@@ -507,10 +556,8 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             .and_then(Value::as_str)
             .ok_or_else(|| invalid_params("expected {\"color\": \"#rrggbb\"}"))
             .and_then(|s| s.parse::<Rgb>().map_err(invalid_params))
-            .map(|color| {
-                lock(engine).set_effect(EffectSpec::Solid { color });
-                json!(true)
-            }),
+            .and_then(|color| lock(engine).try_set_effect(EffectSpec::Solid { color })
+                .map(|()| json!(true)).map_err(|e| (-32000, e))),
         "devices.set_region" => {
             let id = params.get("id").and_then(Value::as_str);
             let region = serde_json::from_value::<freergb_core::Region>(params.clone())

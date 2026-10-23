@@ -34,6 +34,9 @@ fn parse_argb_counts(value: &str) -> Result<[u16; 4], String> {
 #[derive(Parser)]
 #[command(name = "freergbd", version, about = "freeRGB background service")]
 struct Args {
+    /// Explicit local effect release fixture for development; never configured by GUI.
+    #[arg(long, hide = true)]
+    effect_dev_directory: Option<std::path::PathBuf>,
     /// Isolated local endpoint suffix for integration tests, not normal clients.
     #[cfg(windows)]
     #[arg(long,hide=true,value_parser=ipc::validate_instance,requires_all=["no_hardware","no_state"])]
@@ -155,6 +158,27 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let mut engine = Engine::new(state::State::default().effect, args.fps);
+    let effect_root = if args.no_state {
+        std::env::temp_dir().join(format!("freergb-effects-{}", std::process::id()))
+    } else {
+        data_dir()
+            .ok_or_else(|| anyhow::anyhow!("No user data directory for effects"))?
+            .join("effect-marketplace")
+    };
+    let marketplace = match &args.effect_dev_directory {
+        Some(directory) => {
+            tracing::warn!(path = %directory.display(), "using local development effect release");
+            freergb_effect_host::marketplace::Manager::development(effect_root, directory.clone())
+        }
+        None => freergb_effect_host::marketplace::Manager::new(effect_root),
+    };
+    engine.marketplace = match marketplace {
+        Ok(manager) => Some(manager),
+        Err(error) => {
+            tracing::error!(%error, "marketplace unavailable; continuing with built-in effects");
+            None
+        }
+    };
     engine.keyboard.capture_allowed = !args.no_hardware;
     if let Some(library) = &args.mainboard_library {
         let executable = std::env::current_exe()?;

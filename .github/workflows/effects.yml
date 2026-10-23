@@ -1,0 +1,69 @@
+name: Official effects
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New immutable effect version (major.minor.patch)
+        required: true
+        default: '1.0.1'
+      sequence:
+        description: Catalog sequence, strictly greater than the published sequence
+        required: true
+        default: '2'
+      publish:
+        description: Upload to the rolling official effects release
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify host and shipped example packages
+        run: cargo test -p freergb-effect-host --locked
+      - name: Build portable Rust effects and catalog
+        env:
+          EFFECT_VERSION: ${{ inputs.version }}
+          CATALOG_SEQUENCE: ${{ inputs.sequence }}
+        run: python3 scripts/build-effects.py --version "$EFFECT_VERSION" --sequence "$CATALOG_SEQUENCE" --out-dir /tmp/effect-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-effects
+          path: /tmp/effect-release/
+          if-no-files-found: error
+      - name: Publish official release assets
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GH_REPO" = leotrax3d/FreeRGB
+          # Monotonic sequence and immutable version names protect clients.
+          if gh release view effects >/dev/null 2>&1; then
+            mkdir /tmp/previous-effects
+            gh release download effects --pattern catalog.json --dir /tmp/previous-effects
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          old=json.loads(Path('/tmp/previous-effects/catalog.json').read_text())
+          new=json.loads(Path('/tmp/effect-release/catalog.json').read_text())
+          assert new['sequence']>old['sequence'], 'Increase the catalog sequence'
+          names={e['artifact']['url'] for e in old['effects']}
+          assert not names.intersection(e['artifact']['url'] for e in new['effects']), 'Use a new immutable version'
+          PY
+          else
+            gh release create effects --draft --title 'Official freeRGB effects' --notes 'Portable Rust effects. Publish this draft after reviewing the catalog and packages.'
+          fi
+          # Packages first; catalog is the commit point. Old assets are retained.
+          gh release upload effects /tmp/effect-release/packages/*.wasm
+          gh release upload effects /tmp/effect-release/catalog.json --clobber

@@ -134,7 +134,7 @@ impl Fetcher {
         .map_err(net)?;
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(std::io::Error::new(std::io::ErrorKind::NotFound, format!(
-                "no module release \"{tag}\" is accessible in {owner}/{repo}. The repository may be private (set FREERGB_GITHUB_TOKEN) or the release is not published yet."
+                "no release \"{tag}\" is accessible in {owner}/{repo}. The repository may be private (set FREERGB_GITHUB_TOKEN) or the release is not published yet."
             )));
         }
         let response = response.error_for_status().map_err(net)?;
@@ -232,7 +232,7 @@ impl Fetcher {
     }
 
     /// Downloads `artifact` into `dir`, verifying size and SHA-256 from the
-    /// signed catalog. Retries transient failures with a short back-off;
+    /// caller-validated catalog. Retries transient failures with a short back-off;
     /// a cancel removes the partial file.
     pub fn download(
         &mut self,
@@ -263,9 +263,7 @@ impl Fetcher {
                 let digest = hex::encode(hasher.hash.finalize());
                 file.sync_all()?;
                 if size != artifact.size || digest != artifact.sha256 {
-                    return Err(invalid(
-                        "downloaded package does not match the signed catalog",
-                    ));
+                    return Err(invalid("downloaded package does not match the catalog"));
                 }
                 Ok(())
             })();

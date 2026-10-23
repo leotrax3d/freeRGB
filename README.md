@@ -35,6 +35,7 @@ application is required for supported devices.
 
 - **Lighting:** 11 built-in effects, audio-reactive lighting, screen ambience,
   per-device brightness and placement on a shared effect canvas.
+- **Effect marketplace:** install and configure official portable Rust effects; sandboxed execution stays in the daemon. See [marketplace setup and publication](docs/EFFECT_MARKETPLACE.md).
 - **Custom effects:** a layered editor with blending, opacity, regions and a saved library.
 - **Profiles:** saved configurations and optional Windows foreground-application rules.
 - **Automation:** visual/JSON macro editing, run/cancel, delays, repeats and lighting

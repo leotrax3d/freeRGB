@@ -506,3 +506,13 @@ Named, switchable sets of background channel curves (per-user config
   unlock); one channel no longer permitted fails the whole activation instead of
   being dropped. The protected service then runs the profile (UAC).
 
+
+## Downloadable effect marketplace
+
+The daemon supports the `marketplace.status`, `marketplace.refresh`,
+`marketplace.install` and `marketplace.uninstall` methods. `effects.set` also
+accepts `{ "type": "marketplace", "id": "aurora", "version": "1.0.0",
+"parameters": { "speed": 1, "brightness": 0.8 } }`. This reference is saved in
+normal state/profiles and resolved from verified installed packages on restart.
+See [the marketplace API and security contract](EFFECT_MARKETPLACE.md) for job
+completion, ABI, installation, permissions and error behavior.

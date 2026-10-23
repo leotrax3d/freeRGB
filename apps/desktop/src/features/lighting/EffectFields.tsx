@@ -37,7 +37,7 @@ function RangeField({
 }
 
 /** Schema-driven controls for one (non-layered) effect. */
-export function EffectFields({ spec, onChange }: { spec: Exclude<EffectSpec, { type: "layers" }>; onChange: FieldChange }) {
+export function EffectFields({ spec, onChange }: { spec: Exclude<EffectSpec, { type: "layers" | "marketplace" }>; onChange: FieldChange }) {
   const values = spec as unknown as Record<string, unknown>;
   const { fields, note } = SCHEMA[spec.type];
   return (

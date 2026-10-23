@@ -1,3 +1,4 @@
+import { Contact } from "@/components/Contact";
 import { Compass, Download, Puzzle } from "lucide-react";
 import { useTour } from "@/app/Tour";
 import { PageHeader, Section } from "@/components/page";
@@ -84,6 +85,7 @@ export default function SettingsView() {
           </Button>
         </div>
       </Section>
+      <Section title="Contact"><Contact /></Section>
       <Section title="About">
         <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-small">
           <dt className="text-text-subtle">App</dt>

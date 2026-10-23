@@ -300,4 +300,3 @@ mod tests {
         assert!(!shared.lock().unwrap().slices.contains_key("plugins"));
     }
 }
-

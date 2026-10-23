@@ -7,6 +7,7 @@ import { RpcError } from "../api/transport";
 import { DEFAULT_CURVE, type FanCurve, type MacroDefinition, type SensorGraph } from "../api/control";
 import type { BackgroundChannel, ChannelEvidenceView, CoolingBackground, CoolingChannel, CoolingSession, CoolingSupportView, DeviceSummary, EffectSpec, MonitoringSensor, Slices } from "../api/types";
 import effectDefaults from "../api/fixtures/effects.json";
+import effectCatalog from "../../../../../effects/catalog.json";
 import { mockSetup } from "./setup";
 
 const initialDevices: DeviceSummary[] = [
@@ -384,6 +385,8 @@ export function mockTransport(): Transport {
           return true as T;
         case "modules.catalog.refresh":
           return true as T;
+        case "marketplace.status":
+          return { packages: { source: "Browser preview — official examples", catalog: effectCatalog.effects, installed: [], job: null, error: null, failure: null, ratings: { configured: false, by_effect: {}, mine: {}, updated_at: null, loading: false, saving: null, error: null } }, active: effect, runtime_error: null, runtime_error_code: null } as T;
         default:
           throw new RpcError({ kind: "rpc", code: -32601, message: `${method} is not mocked` });
       }
