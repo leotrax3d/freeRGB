@@ -92,10 +92,12 @@ fn want_slices(slices: Vec<String>, state: tauri::State<'_, AppState>) {
 
 /// Fetches the daemon's redacted report and saves it; returns the file path.
 #[tauri::command]
-async fn export_diagnostics() -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(|| {
+async fn export_diagnostics(include_cooling_hardware: Option<bool>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        // Opt-in: board model, BIOS, chip, tier and channel-test result.
+        let params = serde_json::json!({"include_cooling_hardware": include_cooling_hardware.unwrap_or(false)});
         let report =
-            freergb_client::call("diagnostics.export", Value::Null).map_err(|e| e.to_string())?;
+            freergb_client::call("diagnostics.export", params).map_err(|e| e.to_string())?;
         diagnostics::save(&report).map(|path| path.display().to_string())
     })
     .await

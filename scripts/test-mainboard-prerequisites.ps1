@@ -35,7 +35,16 @@ $invalid.packages.lhm.url='http://github.com/insecure'
 $invalidPath=Join-Path $root 'invalid.json'; $invalid | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $invalidPath
 $rejected=$false;try {$null=Read-MainboardPackages $invalidPath} catch {$rejected=$true}
 Require $rejected 'Insecure download manifest accepted.'
-Write-Output 'PASS: consent gate, prerequisite plans, pinned manifest, tamper and unsigned-payload rejection. No system changes.'
+$pin = Get-LhmPin $manifest
+Require ($pin.Version -eq $manifest.packages.lhm.version -and $pin.Assembly -eq "$($pin.Version).0" -and $pin.Backend -eq ('lhm_' + ($pin.Version -replace '\.','_')) -and $pin.LibraryDirectory -eq "providers/lhm-$($pin.Version)") 'LHM pin is not derived from the manifest.'
+$pinSource = Get-Content -LiteralPath (Write-LhmPinSource $manifest (Join-Path $root 'LhmPin.g.cs')) -Raw
+Require ($pinSource.Contains("Version = `"$($pin.Version)`"") -and $pinSource.Contains("Backend = `"$($pin.Backend)`"")) 'Generated C# pin differs from the manifest.'
+$mismatch = Get-Content "$PSScriptRoot/../packaging/windows/mainboard-packages.json" -Raw | ConvertFrom-Json
+$mismatch.notices[0].url = $mismatch.notices[0].url -replace '/v[0-9.]+/','/v0.0.1/'
+$mismatchPath=Join-Path $root 'mismatch.json'; $mismatch | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $mismatchPath
+$rejected=$false;try {$null=Read-MainboardPackages $mismatchPath} catch {$rejected=$true}
+Require $rejected 'LHM notice from another release accepted.'
+Write-Output 'PASS: consent gate, prerequisite plans, pinned manifest and single LHM pin, tamper and unsigned-payload rejection. No system changes.'
 if ($VerifyDownloads) {
     $cache=Join-Path $root 'downloads'
     foreach ($entry in @($manifest.packages.lhm,$manifest.packages.pawnio,$manifest.packages.dotnet) + @($manifest.notices)) {

@@ -90,10 +90,25 @@ pub struct Diagnostics {
     pub effect: EffectSpec,
     pub brightness: f32,
     pub devices: usize,
+    /// Support tier per motherboard fan control (no readings or identities).
+    pub cooling_support: Vec<CoolingSupportEntry>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CoolingSupportEntry {
+    pub name: String,
+    pub tier: String,
+    pub register_readback: bool,
+    pub software_mode: bool,
+    pub held_full: bool,
 }
 
 pub struct Engine {
     pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
+    pub background: crate::background::Background,
+    pub fan_support: crate::fan_support::FanSupport,
+    pub cooling_profiles: crate::cooling_profiles::CoolingProfiles,
+    recorded_test_job: Option<u64>,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
     pub controls: crate::control::Controls,
@@ -279,6 +294,10 @@ impl Engine {
             controls: Default::default(),
             mainboard: Default::default(),
             cooling_sessions: Default::default(),
+            background: Default::default(),
+            fan_support: Default::default(),
+            cooling_profiles: Default::default(),
+            recorded_test_job: None,
             sensor_refresh_at: None,
             plugins: Default::default(),
             modules: None,
@@ -604,6 +623,12 @@ impl Engine {
                 std::mem::take(&mut self.keyboard).with_file(parent.join("keyboard-reactive.json"));
             self.channel_bindings = std::mem::take(&mut self.channel_bindings)
                 .with_file(parent.join("cooling-channel-bindings.json"));
+            self.background = std::mem::take(&mut self.background)
+                .with_file(parent.join("cooling-background.json"));
+            self.fan_support = std::mem::take(&mut self.fan_support)
+                .with_file(parent.join("cooling-fan-support.json"));
+            self.cooling_profiles = std::mem::take(&mut self.cooling_profiles)
+                .with_file(parent.join("cooling-profiles.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);
@@ -771,6 +796,7 @@ impl Engine {
     /// Renders one frame at `now` and offers it to every connected device.
     /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
+        self.record_channel_test();
         let has_keyboard = self.conflicts.is_empty()
             && self.workers.iter().any(|w| {
                 let view = guard(&w.view);
@@ -912,6 +938,180 @@ impl Engine {
         serde_json::json!({"config":self.keyboard.config,"status":self.keyboard.status(),"devices":devices})
     }
 
+    /// Resolve the support tier and user evidence for a native control id from
+    /// the protected inventory and bindings (never from the GUI request).
+    pub fn cooling_policy(
+        &self,
+        control_id: &str,
+    ) -> Result<crate::cooling_sessions::SessionPolicy, String> {
+        use freergb_control::fan_support::{ChannelEvidence, SupportTier};
+        let channels = self.mainboard.channels();
+        let Some(channel) = channels
+            .iter()
+            .find(|c| c.kind == "control" && c.sensor_id == control_id)
+        else {
+            // Unknown to the cached inventory: the protected worker still checks
+            // the identity; legacy rules (verified readback required) apply.
+            return Ok(crate::cooling_sessions::SessionPolicy::legacy());
+        };
+        let capability = match channel.support.as_ref() {
+            // Older protected services report no support: verified-only as before.
+            None => SupportTier::Verified,
+            Some(support) if support.software_mode => {
+                return Err("This channel is already in software mode (another tool controls it); freeRGB will not take it over".into())
+            }
+            Some(support) if support.held_full => {
+                return Err("This channel is held at 100% after a worker crash; restart Windows to return it to firmware first".into())
+            }
+            Some(support) if support.tier == "verified" => SupportTier::Verified,
+            Some(_) => SupportTier::LhmSupported,
+        };
+        let identity = self.channel_identity(control_id);
+        let unlock = identity.as_ref().and_then(|i| self.fan_support.unlock(i));
+        Ok(crate::cooling_sessions::SessionPolicy {
+            capability,
+            evidence: ChannelEvidence {
+                role: self.channel_bindings.role(&channel.id),
+                test_passed: identity
+                    .as_ref()
+                    .is_some_and(|i| self.fan_support.passed_test(i).is_some()),
+                unlocked: unlock.is_some(),
+                pump_confirmed: unlock.is_some_and(|u| u.pump_confirmed),
+            },
+        })
+    }
+
+    /// Board/firmware/channel identity of a native control, if the protected
+    /// inventory reports the board.
+    pub fn channel_identity(
+        &self,
+        control_id: &str,
+    ) -> Option<crate::fan_support::ChannelIdentity> {
+        let board = self.mainboard.summary().board;
+        self.mainboard
+            .channels()
+            .iter()
+            .find(|c| c.kind == "control" && c.sensor_id == control_id)
+            .and_then(|c| crate::fan_support::ChannelIdentity::of(board.as_ref(), c))
+    }
+
+    /// Tested duty/RPM pairs of a passed channel test for this exact identity.
+    pub fn plausibility(&self, control_id: &str) -> Option<crate::background::Plausibility> {
+        let identity = self.channel_identity(control_id)?;
+        self.fan_support
+            .passed_test(&identity)
+            .map(|t| t.tested.iter().map(|d| (d.duty_percent, d.rpm)).collect())
+    }
+
+    /// Unlock (or confirm pump control for) a channel after the typed confirmation.
+    pub fn unlock_channel(
+        &mut self,
+        control_id: &str,
+        typed: &str,
+        pump: bool,
+    ) -> Result<(), String> {
+        let channels = self.mainboard.channels();
+        let channel = channels
+            .iter()
+            .find(|c| c.kind == "control" && c.sensor_id == control_id && c.control_available)
+            .ok_or("Unknown or uncontrollable channel")?;
+        if channel.support.as_ref().is_some_and(|s| s.software_mode) {
+            return Err(
+                "This channel is already in software mode (another tool); it cannot be unlocked"
+                    .into(),
+            );
+        }
+        let identity = self.channel_identity(control_id).ok_or(
+            "The protected service reports no board identity; update the mainboard service",
+        )?;
+        if pump {
+            if self.channel_bindings.role(&channel.id)
+                != Some(freergb_control::channels::ChannelRole::Pump)
+            {
+                return Err("Pump confirmation applies only to channels bound as pump".into());
+            }
+            self.fan_support.confirm_pump(&identity, typed)
+        } else {
+            self.fan_support
+                .unlock_channel(identity, &channel.name, typed)
+        }
+    }
+
+    /// Validate every channel of a cooling profile under the current policy
+    /// (tier, test, unlock) and hand it to the protected service (UAC). Unlike a
+    /// revocation re-apply, a channel that is no longer permitted fails the
+    /// activation instead of being dropped silently.
+    pub fn activate_profile(&mut self, name: &str) -> Result<(), String> {
+        let request = self
+            .cooling_profiles
+            .get(name)
+            .cloned()
+            .ok_or("Unknown cooling profile")?;
+        let mut entries = Vec::new();
+        for channel in &request.channels {
+            let policy = self.cooling_policy(&channel.control_id)?;
+            let bands = self.plausibility(&channel.control_id);
+            entries.push(
+                crate::background::protected_entry(channel, &policy, bands.as_ref())
+                    .map_err(|e| format!("{}: {e}", channel.control_id))?,
+            );
+        }
+        self.background.apply(request, entries)?;
+        self.cooling_profiles.mark_active(name)
+    }
+
+    /// After a revocation, re-validate the saved background channels under the
+    /// new policy, drop those no longer permitted and hand the result to the
+    /// protected service (UAC). Returns whether a re-apply was started.
+    pub fn reapply_background(&mut self) -> bool {
+        let saved = self.background.view()["saved"].clone();
+        let Ok(request) = serde_json::from_value::<crate::background::BackgroundRequest>(saved)
+        else {
+            return false;
+        };
+        if request.channels.is_empty() {
+            return false;
+        }
+        let mut kept = crate::background::BackgroundRequest::default();
+        let mut entries = Vec::new();
+        for channel in request.channels {
+            let Ok(policy) = self.cooling_policy(&channel.control_id) else {
+                continue;
+            };
+            let bands = self.plausibility(&channel.control_id);
+            if let Ok(entry) = crate::background::protected_entry(&channel, &policy, bands.as_ref())
+            {
+                entries.push(entry);
+                kept.channels.push(channel);
+            }
+        }
+        self.background.apply(kept, entries).is_ok()
+    }
+
+    /// Store a finished guided channel test once (bound to its identity).
+    fn record_channel_test(&mut self) {
+        let status = self.cooling_sessions.status();
+        if status.state != "completed"
+            || status.mode.as_deref() != Some("channel_test")
+            || status.job_id.is_none()
+            || status.job_id == self.recorded_test_job
+        {
+            return;
+        }
+        self.recorded_test_job = status.job_id;
+        let (Some(control_id), Some(result)) = (
+            status.control_id.as_deref(),
+            status.report.as_ref().and_then(|r| r.calibration.as_ref()),
+        ) else {
+            return;
+        };
+        if let Some(identity) = self.channel_identity(control_id) {
+            if let Err(error) = self.fan_support.record_test(identity, result) {
+                tracing::warn!(%error, "channel test result not saved");
+            }
+        }
+    }
+
     /// All cached sensor providers, without introducing non-RGB devices into devices.list.
     pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
         let mut entries = self.mainboard.sensors();
@@ -951,6 +1151,24 @@ impl Engine {
             effect: self.spec.clone(),
             brightness: self.brightness,
             devices: self.workers.len(),
+            cooling_support: self
+                .mainboard
+                .channels()
+                .into_iter()
+                .filter(|c| c.kind == "control" && c.control_available)
+                .map(|c| {
+                    let support = c.support.clone();
+                    CoolingSupportEntry {
+                        name: c.name,
+                        tier: support
+                            .as_ref()
+                            .map_or("unknown".into(), |s| s.tier.clone()),
+                        register_readback: support.as_ref().is_some_and(|s| s.register_readback),
+                        software_mode: support.as_ref().is_some_and(|s| s.software_mode),
+                        held_full: support.as_ref().is_some_and(|s| s.held_full),
+                    }
+                })
+                .collect(),
         }
     }
 
@@ -1293,3 +1511,4 @@ fn plugin_allowlist_is_atomic_and_no_hardware_is_enforced() {
     assert!(engine.devices().is_empty());
     assert!(!engine.has_hardware_plugins());
 }
+

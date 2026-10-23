@@ -5,7 +5,7 @@
 import type { SliceListener, Transport } from "../api/transport";
 import { RpcError } from "../api/transport";
 import { DEFAULT_CURVE, type FanCurve, type MacroDefinition, type SensorGraph } from "../api/control";
-import type { DeviceSummary, EffectSpec, Slices } from "../api/types";
+import type { BackgroundChannel, ChannelEvidenceView, CoolingBackground, CoolingChannel, CoolingSession, CoolingSupportView, DeviceSummary, EffectSpec, MonitoringSensor, Slices } from "../api/types";
 import effectDefaults from "../api/fixtures/effects.json";
 import { mockSetup } from "./setup";
 
@@ -99,6 +99,59 @@ export function mockTransport(): Transport {
   };
   let graph: SensorGraph = { version: 1, nodes: { coolant: { type: "input", source: "[\"mock:link\",\"temperature:4\"]" } } };
 
+  // Mock motherboard fan control (nothing is written): one verified Nuvoton
+  // header, one LHM-supported ITE header, one header owned by another tool.
+  const reading = (id: string, name: string, unit: string, value: number) => ({ id, name, unit, value, age_ms: 300 });
+  const control = (hw: string, index: number, name: string, tier: "verified" | "lhm_supported", softwareMode = false): CoolingChannel => ({
+    provider: "mainboard.lhm", id: JSON.stringify([hw, `${hw}/control/${index}`]), device_id: `mainboard.lhm:${hw}`, name, kind: "control",
+    reading: reading(`${hw}/control/${index}`, name, "%", 55), control_available: true, sensor_id: `${hw}/control/${index}`, hardware_name: hw,
+    support: { tier, register_readback: tier === "verified", software_mode: softwareMode, held_full: false },
+  });
+  const fan = (hw: string, index: number, name: string, rpm: number): CoolingChannel => ({
+    provider: "mainboard.lhm", id: JSON.stringify([hw, `${hw}/fan/${index}`]), device_id: `mainboard.lhm:${hw}`, name, kind: "fan",
+    reading: reading(`${hw}/fan/${index}`, name, "RPM", rpm), control_available: false,
+  });
+  const coolingChannels: CoolingChannel[] = [
+    control("/lpc/nct6701d/0", 2, "CHA_FAN2 Control (mock)", "verified"),
+    fan("/lpc/nct6701d/0", 2, "CHA_FAN2 (mock)", 1240),
+    control("/lpc/it8689e/0", 1, "SYS_FAN1 Control (mock)", "lhm_supported"),
+    fan("/lpc/it8689e/0", 1, "SYS_FAN1 (mock)", 980),
+    control("/lpc/it8689e/0", 3, "SYS_FAN3 Control (mock)", "lhm_supported", true),
+  ];
+  const boardSensors: MonitoringSensor[] = [
+    { provider: "mainboard.lhm", device_id: "mainboard.lhm:/lpc/nct6701d/0", device_name: "Nuvoton NCT6701D (mock)", sensor: reading("/lpc/nct6701d/0/temperature/1", "CPU (mock)", "°C", 46) },
+    { provider: "mainboard.lhm", device_id: "mainboard.lhm:/lpc/it8689e/0", device_name: "ITE IT8689E (mock)", sensor: reading("/lpc/it8689e/0/temperature/0", "System (mock)", "°C", 38) },
+  ];
+  let session: CoolingSession = { available: true, job_id: null, state: "idle", report: null, error: null, tier: null };
+  let unrestricted = false;
+  const evidence: Record<string, ChannelEvidenceView> = {
+    "/lpc/nct6701d/0/control/2": { test: "passed", tested: [{ duty_percent: 100, rpm: 1710 }, { duty_percent: 70, rpm: 1330 }, { duty_percent: 50, rpm: 1010 }], unlock: "none" },
+    "/lpc/it8689e/0/control/1": { test: "none", tested: null, unlock: "none" },
+    "/lpc/it8689e/0/control/3": { test: "none", tested: null, unlock: "none" },
+  };
+  let backgroundSaved: BackgroundChannel[] = [];
+  let applyState: CoolingBackground["apply"] = { state: "idle", error: null };
+  const coolingProfiles = new Map<string, BackgroundChannel[]>();
+  let activeProfile: string | null = null;
+  const tierOf = (id: string) => coolingChannels.find((c) => c.reading.id === id)?.support?.tier ?? "verified";
+  const effectiveTier = (id: string) => (evidence[id]?.unlock.startsWith("unlocked") && unrestricted ? "unrestricted" : tierOf(id));
+  const background = (): CoolingBackground => ({
+    available: true, saved: { channels: backgroundSaved }, apply: applyState,
+    service: { version: 1, error: null, updated_utc: new Date().toISOString(), channels: applyState.state === "applied" ? backgroundSaved.map((c) => ({ control_id: c.control_id, tier: effectiveTier(c.control_id), state: "running", duty_percent: Math.max(40, c.curve.minimum_percent), fault: null, warning: null })) : [] },
+  });
+  const supportView = (): CoolingSupportView => ({ unrestricted_enabled: unrestricted, board_identity_available: true, channels: evidence, error: null });
+  const fail = (message: string): never => { throw new RpcError({ kind: "rpc", code: -32006, message }); };
+  const coolingCheck = (id: string, minimum: number) => {
+    const c = coolingChannels.find((x) => x.reading.id === id);
+    if (c?.support?.software_mode) fail("This channel is already in software mode (another tool controls it); freeRGB will not take it over");
+    const tier = effectiveTier(id);
+    if (tier === "unrestricted") return tier;
+    if (tier === "lhm_supported" && evidence[id]?.test !== "passed" && minimum < 100) fail("Pass the guided channel test before running a reduced-duty curve on this LHM-supported channel");
+    if (minimum < 40) fail("Native curve floor >=40%, critical <=100 C required");
+    return tier;
+  };
+  const fakeApply = () => { applyState = { state: "applying", error: null }; emit("cooling_background"); setTimeout(() => { applyState = { state: "applied", error: null }; emit("cooling_background"); }, 1200); };
+
   const diagnostics = () => ({
     uptime_s: (Date.now() - started) / 1000,
     ticks: 0,
@@ -125,6 +178,13 @@ export function mockTransport(): Transport {
     macro_status: { running: null, input_enabled: false, error: null },
     cooling_status: { hardware_control: false, reason: "Mock data: nothing is written.", error: null },
     sensor_graph: graph,
+    cooling_channels: coolingChannels,
+    monitoring_sensors: boardSensors,
+    providers: [{ id: "mainboard.lhm", name: "LibreHardwareMonitor motherboard", status: "ready", message: "Mock data: nothing is written.", age_ms: 300 }],
+    cooling_session: session,
+    cooling_background: background(),
+    cooling_support: supportView(),
+    cooling_profiles: { profiles: [...coolingProfiles].map(([name, channels]) => ({ name, channels: channels.length })), active: activeProfile, error: null },
     sensor_sources: { "[\"mock:link\",\"temperature:4\"]": "RGB Fan Hub (virtual) / Coolant (mock)" },
     sensor_values: {
       now_ms: Date.now() - started,
@@ -227,6 +287,75 @@ export function mockTransport(): Transport {
           graph = (p.graph as SensorGraph);
           emit("sensor_graph");
           return true as T;
+        case "cooling.sessions.start": {
+          const id = p.control_id as string;
+          const mode = p.mode as string;
+          const minimum = mode === "curve" ? (p.curve as FanCurve).minimum_percent : mode === "manual" ? (p.duty_percent as number) : 40;
+          const tier = coolingCheck(id, mode === "curve" || mode === "manual" ? minimum : 100);
+          const job = (session.job_id ?? 0) + 1;
+          session = { ...session, job_id: job, state: "executing", report: null, error: null, tier };
+          emit("cooling_session");
+          if (mode === "channel_test") setTimeout(() => {
+            evidence[id] = { ...evidence[id]!, test: "passed", tested: [{ duty_percent: 100, rpm: 1500 }, { duty_percent: 70, rpm: 1120 }, { duty_percent: 50, rpm: 830 }] };
+            session = { ...session, state: "completed", report: { tier, return_evidence: tier === "verified" ? "register_readback" : "firmware_callback", note: "mock channel test" } };
+            emit("cooling_session"); emit("cooling_support");
+          }, 3000);
+          return { job_id: job } as T;
+        }
+        case "cooling.sessions.stop":
+          session = { ...session, state: "stopped", report: { tier: session.tier, return_evidence: session.tier === "verified" ? "register_readback" : "firmware_callback" } };
+          emit("cooling_session");
+          return true as T;
+        case "cooling.background.get":
+          return background() as T;
+        case "cooling.background.apply": {
+          const channels = p.channels as BackgroundChannel[];
+          for (const c of channels) coolingCheck(c.control_id, c.curve.minimum_percent);
+          backgroundSaved = channels;
+          fakeApply();
+          return true as T;
+        }
+        case "cooling.support.get":
+          return supportView() as T;
+        case "cooling.support.settings":
+          unrestricted = p.unrestricted_enabled as boolean;
+          emit("cooling_support"); emit("cooling_background");
+          return { background_reapplied: false } as T;
+        case "cooling.channels.unlock": {
+          const c = coolingChannels.find((x) => x.reading.id === p.control_id);
+          if (!unrestricted) fail("Enable unrestricted control in the settings first");
+          if (!c || (p.confirmation as string).trim() !== c.name) fail("Type the channel name exactly to confirm the unlock");
+          if (c!.support?.software_mode) fail("This channel is already in software mode (another tool); it cannot be unlocked");
+          evidence[c!.reading.id] = { ...evidence[c!.reading.id]!, unlock: "unlocked" };
+          emit("cooling_support");
+          return true as T;
+        }
+        case "cooling.channels.confirm_pump":
+          fail("Pump confirmation applies only to channels bound as pump");
+          return true as T;
+        case "cooling.channels.revoke":
+          evidence[p.control_id as string] = { ...evidence[p.control_id as string]!, unlock: "none" };
+          emit("cooling_support");
+          return { revoked: true, background_reapplied: false } as T;
+        case "cooling.profiles.list":
+          return slices().cooling_profiles as T;
+        case "cooling.profiles.save":
+          coolingProfiles.set(p.name as string, (p.channels as BackgroundChannel[] | undefined) ?? backgroundSaved);
+          emit("cooling_profiles");
+          return true as T;
+        case "cooling.profiles.delete":
+          coolingProfiles.delete(p.name as string);
+          if (activeProfile === p.name) activeProfile = null;
+          emit("cooling_profiles");
+          return { deleted: true } as T;
+        case "cooling.profiles.activate": {
+          const channels = coolingProfiles.get(p.name as string) ?? fail("Unknown cooling profile");
+          for (const c of channels) coolingCheck(c.control_id, c.curve.minimum_percent);
+          backgroundSaved = channels;
+          activeProfile = p.name as string;
+          fakeApply(); emit("cooling_profiles");
+          return true as T;
+        }
         case "effects.get":
           return effect as T;
         case "diagnostics.get":
@@ -275,3 +404,4 @@ export function mockTransport(): Transport {
     },
   };
 }
+

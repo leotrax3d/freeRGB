@@ -8,6 +8,8 @@ if (-not (Test-Path -LiteralPath $compiler)) { throw '.NET Framework 4.8 x64 com
 $outputPath = [System.IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
 $binary = Join-Path $outputPath 'freergb-mainboard.exe'
+Import-Module "$PSScriptRoot/../packaging/windows/mainboard-prerequisites.psm1" -Force
+$lhmPin = Write-LhmPinSource (Read-MainboardPackages "$PSScriptRoot/../packaging/windows/mainboard-packages.json") (Join-Path $outputPath 'LhmPin.g.cs')
 $source = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/Mainboard.cs").Path
 $transport = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BrokerTransport.cs").Path
 $cache = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BrokerCache.cs").Path
@@ -22,6 +24,7 @@ $nativeSession = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboar
 $nativeTransport = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeSessionTransport.cs").Path
 $nativeJournal = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControlJournal.cs").Path
 $journaledControl = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/JournaledNativeControl.cs").Path
+$background = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/BackgroundCooling.cs").Path
 $nativeClient = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeSessionClient.cs").Path
 $icon = (Resolve-Path -LiteralPath "$PSScriptRoot/../assets/icons/freergb.ico").Path
 $helperOptions = @('/define:NATIVE_CONTROL_WORKER')
@@ -29,7 +32,7 @@ if ($Mode -ne 'Production') {
     $helperOptions = @('/define:BROKER_FIXTURE_WORKER;BROKER_FIXTURE_CLIENT_AUTH')
     if ($Mode -eq 'FixtureV2') { $helperOptions = @('/define:BROKER_FIXTURE_WORKER;BROKER_FIXTURE_V2;BROKER_FIXTURE_CLIENT_AUTH') }
 }
-& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $transport $cache $service $probe $nativeControl $nativeEvidence $nativeWorker $nativeBroker $nativeMaintenance $nativeSession $nativeTransport $nativeJournal $journaledControl
+& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $lhmPin $transport $cache $service $probe $nativeControl $nativeEvidence $nativeWorker $nativeBroker $nativeMaintenance $nativeSession $nativeTransport $nativeJournal $journaledControl $background
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard helper compilation failed.' }
 $reply = & $binary --self-test | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $reply.version -ne 1 -or $reply.status -ne 'missing_library' -or $reply.hardware.Count -ne 0) { throw 'Mainboard helper serialization self-test failed.' }
@@ -44,6 +47,6 @@ $helperHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower
 $serviceDefine = '/define:BROKER_INSTALLER'
 if ($Mode -ne 'Production') { $serviceDefine = '/define:BROKER_INSTALLER;BROKER_FIXTURE_CLIENT_AUTH' }
 if ($Mode -eq 'FixtureFailStart') { $serviceDefine = '/define:BROKER_INSTALLER;BROKER_FIXTURE_FAIL_START' }
-& $compiler /nologo /target:exe $serviceDefine /main:BrokerService /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/win32icon:$icon" "/out:$serviceBinary" $source $transport $cache $service $probe $nativeBroker $nativeMaintenance $deployment $identity $nativeClient $nativeJournal
+& $compiler /nologo /target:exe $serviceDefine /main:BrokerService /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll "/resource:$manifest,MainboardPackages" "/win32icon:$icon" "/out:$serviceBinary" $source $lhmPin $transport $cache $service $probe $nativeBroker $nativeMaintenance $deployment $identity $nativeClient $nativeJournal $background
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard broker compilation failed.' }
 Write-Output $serviceBinary

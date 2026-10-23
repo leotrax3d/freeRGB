@@ -4,8 +4,80 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 
+// Checked ISA-bus access shared by every SuperIO tier. LHM's own refresh can
+// silently skip I/O on lock contention, so callers hold the mutex around it.
+internal static class NativeIsa
+{
+    private static MethodInfo wait, release;
+    private static void Bind(Assembly library)
+    {
+        if (wait != null) return;
+        Type mutexes = library.GetType("LibreHardwareMonitor.Hardware.Mutexes",true);
+        var bus = mutexes.GetField("_isaBusMutex",BindingFlags.NonPublic|BindingFlags.Static);
+        if (bus == null || bus.GetValue(null) == null)
+            throw new InvalidOperationException("Native ISA mutex was not initialized; no verified I/O is possible.");
+        var acquire = mutexes.GetMethod("WaitIsaBus",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static);
+        var free = mutexes.GetMethod("ReleaseIsaBus",BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static);
+        if (acquire == null || free == null) throw new InvalidOperationException("Pinned native readback metadata changed.");
+        wait = acquire; release = free;
+    }
+    internal static void Locked(Assembly library, string purpose, Action action)
+    {
+        Bind(library);
+        if (!(bool)wait.Invoke(null,new object[] { 100 })) throw new InvalidOperationException(purpose + " could not acquire the ISA bus.");
+        try { action(); }
+        finally { release.Invoke(null,null); }
+    }
+    // A successful, checked ISA acquisition surrounds the entire LHM refresh.
+    // Without this, its silent lock-failure path can relabel cached data as fresh.
+    internal static void ReadTelemetry(object control, string temperatureId, string rpmId, out double temperature, out double rpm)
+    {
+        object selected = control.GetType().GetProperty("Sensor").GetValue(control,null);
+        object hardware = selected.GetType().GetProperty("Hardware").GetValue(selected,null);
+        double celsiusValue = 0, rpmValue = 0;
+        Locked(control.GetType().Assembly,"Trusted telemetry",delegate {
+            // LHM activates some RPM/temperature sensors only after its first update.
+            hardware.GetType().GetMethod("Update",Type.EmptyTypes).Invoke(hardware,null);
+            object temperatureSensor=null, rpmSensor=null;
+            foreach (object sensor in (System.Collections.IEnumerable)hardware.GetType().GetProperty("Sensors").GetValue(hardware,null))
+            {
+                string id=sensor.GetType().GetProperty("Identifier").GetValue(sensor,null).ToString();
+                string kind=sensor.GetType().GetProperty("SensorType").GetValue(sensor,null).ToString();
+                if (id == temperatureId && kind == "Temperature") temperatureSensor=sensor;
+                if (id == rpmId && kind == "Fan") rpmSensor=sensor;
+            }
+            if (temperatureSensor == null || rpmSensor == null) throw new InvalidOperationException("Selected native temperature/RPM identities are not available on the control hardware.");
+            object celsius=temperatureSensor.GetType().GetProperty("Value").GetValue(temperatureSensor,null);
+            object revolutions=rpmSensor.GetType().GetProperty("Value").GetValue(rpmSensor,null);
+            if (celsius == null || revolutions == null) throw new InvalidOperationException("Selected native telemetry is unavailable.");
+            celsiusValue=Convert.ToDouble(celsius); rpmValue=Convert.ToDouble(revolutions);
+            if (Double.IsNaN(celsiusValue) || Double.IsInfinity(celsiusValue) || Double.IsNaN(rpmValue) || Double.IsInfinity(rpmValue))
+                throw new InvalidOperationException("Nonfinite native telemetry.");
+        });
+        temperature = celsiusValue; rpm = rpmValue;
+    }
+}
+
 internal sealed class NativeNctEvidence : INativeControlEvidence
 {
+    private static readonly string[] Audited = { "NCT6771F","NCT6776F","NCT6779D","NCT6791D","NCT6792D","NCT6792DA","NCT6793D","NCT6795D","NCT6796D","NCT6796DR","NCT6796DS","NCT6797D","NCT6798D","NCT6799D","NCT6701D","NCT5585D","NCT610XD" };
+    // Inventory only, no I/O: the chip name when this control has an audited
+    // register scheme (tier verified), otherwise null (LHM-supported at best).
+    internal static string AuditedChip(object control)
+    {
+        try
+        {
+            object sensor = control.GetType().GetProperty("Sensor").GetValue(control,null);
+            object hardware = sensor.GetType().GetProperty("Hardware").GetValue(sensor,null);
+            if (hardware.GetType().FullName != "LibreHardwareMonitor.Hardware.Motherboard.SuperIOHardware") return null;
+            FieldInfo source = hardware.GetType().GetField("_superIO",BindingFlags.NonPublic|BindingFlags.Instance);
+            object chip = source == null ? null : source.GetValue(hardware);
+            if (chip == null || chip.GetType().FullName != "LibreHardwareMonitor.Hardware.Motherboard.Lpc.Nct677X") return null;
+            string name = chip.GetType().GetProperty("Chip").GetValue(chip,null).ToString();
+            return Array.IndexOf(Audited,name) >= 0 ? name : null;
+        }
+        catch (Exception error) { if (error is OutOfMemoryException) throw; return null; }
+    }
     private readonly object chip;
     private readonly MethodInfo read, wait, release;
     private readonly ushort modeRegister, commandRegister;
@@ -17,17 +89,17 @@ internal sealed class NativeNctEvidence : INativeControlEvidence
         object hardware = sensor.GetType().GetProperty("Hardware").GetValue(sensor,null);
         Type hardwareType = hardware.GetType();
         if (hardwareType.FullName != "LibreHardwareMonitor.Hardware.Motherboard.SuperIOHardware")
-            throw new InvalidOperationException("No audited native register evidence for this hardware backend.");
+            throw new NativeEvidenceUnavailableException("No audited native register evidence for this hardware backend.");
         FieldInfo source = hardwareType.GetField("_superIO",BindingFlags.NonPublic|BindingFlags.Instance);
         chip = source == null ? null : source.GetValue(hardware);
         if (chip == null || chip.GetType().FullName != "LibreHardwareMonitor.Hardware.Motherboard.Lpc.Nct677X")
-            throw new InvalidOperationException("Native register verification currently requires the audited Nct677X backend.");
+            throw new NativeEvidenceUnavailableException("Native register verification currently requires the audited Nct677X backend.");
         Type type = chip.GetType();
         string name = type.GetProperty("Chip").GetValue(chip,null).ToString();
-        // These use separate per-channel mode/command registers in pinned 0.9.6.
+        // These use separate per-channel mode/command registers in the pinned LHM version (LhmPin).
         // Shared-bit/EC/curve schemes (NCT668x) are deliberately excluded.
-        if (Array.IndexOf(new[] { "NCT6771F","NCT6776F","NCT6779D","NCT6791D","NCT6792D","NCT6792DA","NCT6793D","NCT6795D","NCT6796D","NCT6796DR","NCT6796DS","NCT6797D","NCT6798D","NCT6799D","NCT6701D","NCT5585D","NCT610XD" },name) < 0)
-            throw new InvalidOperationException("Native register scheme is not audited for this chip.");
+        if (Array.IndexOf(Audited,name) < 0)
+            throw new NativeEvidenceUnavailableException("Native register scheme is not audited for this chip.");
         if (!(bool)Field(type,"_isNuvotonVendor").GetValue(chip)) throw new InvalidOperationException("Native vendor check failed.");
         int index = Convert.ToInt32(sensor.GetType().GetProperty("Index").GetValue(sensor,null));
         var modes = (ushort[])Field(type,"FAN_CONTROL_MODE_REG").GetValue(chip);
@@ -114,35 +186,8 @@ internal sealed class NativeNctEvidence : INativeControlEvidence
         finally { release.Invoke(null,null); }
     }
     public Dictionary<string,object> Recovery { get { return new Dictionary<string,object>(recovery); } }
-    // A successful, checked ISA acquisition surrounds the entire LHM refresh.
-    // Without this, its silent lock-failure path can relabel cached data as fresh.
     internal void ReadTelemetry(object control, string temperatureId, string rpmId, out double temperature, out double rpm)
-    {
-        object selected = control.GetType().GetProperty("Sensor").GetValue(control,null);
-        object hardware = selected.GetType().GetProperty("Hardware").GetValue(selected,null);
-        if (!(bool)wait.Invoke(null,new object[] { 100 })) throw new InvalidOperationException("Trusted telemetry could not acquire ISA bus.");
-        try
-        {
-        // LHM activates some RPM/temperature sensors only after its first update.
-        hardware.GetType().GetMethod("Update",Type.EmptyTypes).Invoke(hardware,null);
-        object temperatureSensor=null, rpmSensor=null;
-        foreach (object sensor in (System.Collections.IEnumerable)hardware.GetType().GetProperty("Sensors").GetValue(hardware,null))
-        {
-            string id=sensor.GetType().GetProperty("Identifier").GetValue(sensor,null).ToString();
-            string kind=sensor.GetType().GetProperty("SensorType").GetValue(sensor,null).ToString();
-            if (id == temperatureId && kind == "Temperature") temperatureSensor=sensor;
-            if (id == rpmId && kind == "Fan") rpmSensor=sensor;
-        }
-        if (temperatureSensor == null || rpmSensor == null) throw new InvalidOperationException("Selected native temperature/RPM identities are not available on the control hardware.");
-            object celsius=temperatureSensor.GetType().GetProperty("Value").GetValue(temperatureSensor,null);
-            object revolutions=rpmSensor.GetType().GetProperty("Value").GetValue(rpmSensor,null);
-            if (celsius == null || revolutions == null) throw new InvalidOperationException("Selected native telemetry is unavailable.");
-            temperature=Convert.ToDouble(celsius); rpm=Convert.ToDouble(revolutions);
-            if (Double.IsNaN(temperature) || Double.IsInfinity(temperature) || Double.IsNaN(rpm) || Double.IsInfinity(rpm))
-                throw new InvalidOperationException("Nonfinite native telemetry.");
-        }
-        finally { release.Invoke(null,null); }
-    }
+    { NativeIsa.ReadTelemetry(control,temperatureId,rpmId,out temperature,out rpm); }
     public void VerifyDuty(float percent)
     {
         byte[] actual = ReadPair();

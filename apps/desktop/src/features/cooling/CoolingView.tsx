@@ -4,6 +4,9 @@ import { useDaemon, useSlices } from "@/lib/store/daemon";
 import { CurvesSection } from "./CurvesSection";
 import { SensorsSection } from "./SensorsSection";
 import { LiveSession } from "./LiveSession";
+import { BackgroundSection } from "./BackgroundSection";
+import { UnrestrictedSection } from "./UnrestrictedSection";
+import { ProfilesSection } from "./ProfilesSection";
 import { ChannelBindings } from "./ChannelBindings";
 
 export default function CoolingView() {
@@ -24,6 +27,9 @@ export default function CoolingView() {
       <div className="@container flex flex-col gap-8">
         <CurvesSection />
         <LiveSession />
+        <BackgroundSection />
+        <ProfilesSection />
+        <UnrestrictedSection />
         <ChannelBindings />
         <SensorsSection />
       </div>

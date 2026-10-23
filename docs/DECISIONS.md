@@ -31,3 +31,11 @@
 13. **Validate saved state as strictly as API input.** Corrupt or semantically invalid
     startup state falls back with a warning; invalid profiles fail without mutating
     current state. Layered effects validate every contained effect's parameters.
+14. **Broad motherboard fan support like FanControl (2026-10-22, project owner).**
+    freeRGB controls every fan header LibreHardwareMonitor can drive, not only
+    chips with audited register readback, accepting lower assurance than the
+    previous policy. Support is tiered: *verified* (register readback, today's
+    Nuvoton separate-mode path), *LHM-supported* (behavioural safeguards:
+    per-channel opt-in after a guided RPM-response test, runtime RPM plausibility
+    and fail-safe return to firmware), *read-only*. Pumps and unidentified
+    channels are never reduced. Plan: `COOLING_BROAD_SUPPORT_PLAN.md`.

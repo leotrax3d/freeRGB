@@ -70,7 +70,7 @@ try {
     # before stopping/replacing/removing the running synthetic service.
     $originalPid = (Get-CimInstance Win32_Service -Filter "Name='freeRGBMainboard'").ProcessId
     $originalHash = (Get-FileHash -LiteralPath (Join-Path $protected 'freergb-mainboard-service.exe')).Hash
-    $pendingJournal = @{ version=1; reservation=@{ id=[guid]::NewGuid().ToString('N'); backend='lhm_0_9_6'; hardware_id='/fixture/board'; sensor_id='/fixture/control'; pump=$false } } | ConvertTo-Json -Depth 4 -Compress
+    $pendingJournal = @{ version=1; reservation=@{ id=[guid]::NewGuid().ToString('N'); backend=(Get-LhmPin $manifest).Backend; hardware_id='/fixture/board'; sensor_id='/fixture/control'; pump=$false } } | ConvertTo-Json -Depth 4 -Compress
     foreach ($blockedJournal in @('not-json',$pendingJournal)) {
         [IO.File]::WriteAllText($journalPath,$blockedJournal)
         try {

@@ -24,6 +24,24 @@ pub struct Receipt {
     pub owned: bool,
     pub firmware_return_verified: bool,
     pub journal_cleared: bool,
+    /// Support tier reported by the worker; `None` for legacy verified workers.
+    pub tier: Option<String>,
+    /// Owned firmware callback completed (lower tiers have no register proof).
+    pub firmware_returned: bool,
+    /// Non-fatal worker condition (unrestricted fan stop).
+    pub warning: Option<String>,
+}
+
+impl Receipt {
+    /// A lower-tier worker returned the channel to its captured firmware mode
+    /// after a fault and cleared its journal: safe, but not a normal close.
+    pub fn fault_returned(&self) -> bool {
+        self.tier.is_some()
+            && self.state == SessionState::Emergency
+            && !self.owned
+            && self.firmware_returned
+            && self.journal_cleared
+    }
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -100,6 +118,22 @@ struct Reply {
     journal_cleared: bool,
     #[serde(default)]
     telemetry: Option<NativeTelemetry>,
+    #[serde(default)]
+    tier: Option<String>,
+    #[serde(default)]
+    firmware_returned: bool,
+    #[serde(default)]
+    warning: Option<String>,
+}
+
+impl Reply {
+    fn floor(&self) -> u8 {
+        if self.tier.as_deref() == Some("unrestricted") {
+            0
+        } else {
+            40
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -145,11 +179,26 @@ async fn read<T: AsyncRead + Unpin>(transport: &mut T) -> Result<Reply, String> 
     .map_err(|_| "Native reply timed out")??;
     let reply: Reply =
         serde_json::from_slice(&bytes).map_err(|_| "Invalid native reply encoding")?;
+    let tiered = reply.tier.is_some();
+    // A lower tier may return to firmware itself after a fault (owned callback,
+    // journal cleared); legacy verified workers only report this when closed.
+    let fault_return =
+        tiered && reply.state == SessionState::Emergency && !reply.owned && reply.firmware_returned;
     if reply.version != 1
         || !token(&reply.session)
         || !token(&reply.ticket)
         || reply.sequence < 0
-        || !(40..=100).contains(&reply.duty_percent)
+        || !matches!(
+            reply.tier.as_deref(),
+            None | Some("verified" | "lhm_supported" | "unrestricted")
+        )
+        || reply
+            .warning
+            .as_ref()
+            .is_some_and(|value| !tiered || value.len() > 64)
+        || (reply.firmware_returned
+            && (!tiered || (reply.state != SessionState::Closed && !fault_return)))
+        || !(reply.floor()..=100).contains(&reply.duty_percent)
         || reply.ticket_ms != 250
         || reply.lease_ms != 1000
         || reply.physical_write_verified
@@ -159,8 +208,8 @@ async fn read<T: AsyncRead + Unpin>(transport: &mut T) -> Result<Reply, String> 
             .is_some_and(|value| value.len() > 512 || value.chars().count() > 128)
         || (reply.state == SessionState::Active && (!reply.owned || reply.reason.is_some()))
         || (reply.state == SessionState::Closed && (reply.owned || reply.duty_percent != 100))
-        || ((reply.firmware_return_verified || reply.journal_cleared)
-            && reply.state != SessionState::Closed)
+        || (reply.firmware_return_verified && reply.state != SessionState::Closed)
+        || (reply.journal_cleared && reply.state != SessionState::Closed && !fault_return)
     {
         return Err("Invalid native reply semantics".into());
     }
@@ -189,9 +238,14 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
         self.observation.map(|(_, sample)| sample)
     }
 
+    /// Tier the protected worker admitted; `None` for legacy verified workers.
+    pub fn tier(&self) -> Option<&str> {
+        self.reply.tier.as_deref()
+    }
+
     pub async fn set_duty(&mut self, duty: u8) -> Result<Receipt, String> {
-        if !(40..=100).contains(&duty) {
-            return Err("Native duty must be 40..100 percent".into());
+        if !(self.reply.floor()..=100).contains(&duty) {
+            return Err("Native duty is outside the admitted tier's range".into());
         }
         self.send(Some(duty)).await
     }
@@ -243,6 +297,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
         }
         let regular = matches!(reply.state, SessionState::Active | SessionState::Closed);
         if reply.session != self.reply.session
+            || reply.tier != self.reply.tier
             || (regular && reply.sequence != next)
             || (!regular && !(self.reply.sequence..=next).contains(&reply.sequence))
             || (reply.state == SessionState::Active
@@ -258,6 +313,9 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
             owned: reply.owned,
             firmware_return_verified: reply.firmware_return_verified,
             journal_cleared: reply.journal_cleared,
+            tier: reply.tier.clone(),
+            firmware_returned: reply.firmware_returned,
+            warning: reply.warning.clone(),
         };
         self.received = Instant::now();
         if reply.state == SessionState::Active {
@@ -380,6 +438,102 @@ mod tests {
             assert!(client.set_duty(40).await.is_err());
             task.await.unwrap();
         }
+    }
+    fn tiered(
+        sequence: i32,
+        ticket: char,
+        state: &str,
+        duty: u8,
+        owned: bool,
+        tier: &str,
+    ) -> Value {
+        let mut value = reply(sequence, ticket, state, duty, owned);
+        value["tier"] = json!(tier);
+        value["firmware_returned"] = json!(false);
+        value["warning"] = Value::Null;
+        value
+    }
+    #[tokio::test]
+    async fn unrestricted_tier_permits_fan_stop_and_reports_fault_return() {
+        let (client, mut worker) = tokio::io::duplex(4096);
+        let task = tokio::spawn(async move {
+            write(
+                &mut worker,
+                tiered(0, 'b', "active", 100, true, "unrestricted"),
+            )
+            .await;
+            let mut worker = BufReader::new(worker);
+            let mut line = String::new();
+            worker.read_line(&mut line).await.unwrap();
+            let command: Value = serde_json::from_str(&line).unwrap();
+            assert_eq!(command["duty_percent"], 0);
+            let mut stopped = tiered(1, 'c', "active", 0, true, "unrestricted");
+            stopped["warning"] = json!("fan_stalled");
+            write(worker.get_mut(), stopped).await;
+            line.clear();
+            worker.read_line(&mut line).await.unwrap();
+            let mut returned = tiered(1, 'c', "emergency", 100, false, "unrestricted");
+            returned["reason"] = json!("lease_expired");
+            returned["firmware_returned"] = json!(true);
+            returned["journal_cleared"] = json!(true);
+            write(worker.get_mut(), returned).await;
+        });
+        let mut client = NativeSessionClient::from_authenticated_transport(client)
+            .await
+            .unwrap();
+        assert_eq!(client.tier(), Some("unrestricted"));
+        let receipt = client.set_duty(0).await.unwrap();
+        assert_eq!(
+            (receipt.duty_percent, receipt.warning.as_deref()),
+            (0, Some("fan_stalled"))
+        );
+        let receipt = client.set_duty(50).await.unwrap();
+        assert!(receipt.fault_returned());
+        task.await.unwrap();
+    }
+    #[tokio::test]
+    async fn lower_tiers_cannot_claim_unrestricted_ranges_or_switch_tier() {
+        for (initial, bad) in [
+            (
+                tiered(0, 'b', "active", 100, true, "lhm_supported"),
+                tiered(1, 'c', "active", 0, true, "lhm_supported"),
+            ),
+            (
+                tiered(0, 'b', "active", 100, true, "lhm_supported"),
+                tiered(1, 'c', "active", 40, true, "unrestricted"),
+            ),
+            (reply(0, 'b', "active", 100, true), {
+                let mut v = reply(1, 'c', "emergency", 100, false);
+                v["journal_cleared"] = json!(true);
+                v["firmware_returned"] = json!(true);
+                v
+            }),
+            (tiered(0, 'b', "active", 100, true, "lhm_supported"), {
+                let mut v = tiered(1, 'c', "active", 40, true, "lhm_supported");
+                v["journal_cleared"] = json!(true);
+                v
+            }),
+        ] {
+            let (client, mut worker) = tokio::io::duplex(4096);
+            let task = tokio::spawn(async move {
+                write(&mut worker, initial).await;
+                let mut worker = BufReader::new(worker);
+                let mut line = String::new();
+                worker.read_line(&mut line).await.unwrap();
+                write(worker.get_mut(), bad).await;
+            });
+            let mut client = NativeSessionClient::from_authenticated_transport(client)
+                .await
+                .unwrap();
+            assert!(client.set_duty(40).await.is_err());
+            task.await.unwrap();
+        }
+        let (client, mut worker) = tokio::io::duplex(4096);
+        write(&mut worker, reply(0, 'b', "active", 100, true)).await;
+        let mut client = NativeSessionClient::from_authenticated_transport(client)
+            .await
+            .unwrap();
+        assert!(client.set_duty(39).await.is_err());
     }
     #[tokio::test]
     async fn oversized_unterminated_reply_is_bounded() {

@@ -268,11 +268,112 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         "cooling.sessions.status" => Ok(json!(lock(engine).cooling_sessions.status())),
         "cooling.sessions.start" => serde_json::from_value(params.clone())
             .map_err(invalid_params)
-            .and_then(|request| {
-                lock(engine)
+            .and_then(|request: crate::cooling_sessions::StartRequest| {
+                let mut engine = lock(engine);
+                let policy = engine
+                    .cooling_policy(&request.control_id)
+                    .map_err(|error| (-32006, error))?;
+                engine
                     .cooling_sessions
-                    .start(request)
+                    .start(request, &policy)
                     .map(|job| json!({"job_id":job}))
+                    .map_err(|error| (-32006, error))
+            }),
+        "cooling.background.get" => Ok(lock(engine).background.view()),
+        "cooling.support.settings" => params["unrestricted_enabled"]
+            .as_bool()
+            .ok_or_else(|| invalid_params("unrestricted_enabled:boolean required"))
+            .and_then(|enabled| {
+                let mut engine = lock(engine);
+                engine
+                    .fan_support
+                    .set_unrestricted(enabled)
+                    .map_err(|e| (-32000, e))?;
+                Ok(json!({"background_reapplied": !enabled && engine.reapply_background()}))
+            }),
+        "cooling.channels.unlock" | "cooling.channels.confirm_pump" => {
+            let control_id = params["control_id"].as_str().unwrap_or_default().to_owned();
+            let typed = params["confirmation"].as_str().unwrap_or_default().to_owned();
+            let mut engine = lock(engine);
+            engine
+                .unlock_channel(&control_id, &typed, method == "cooling.channels.confirm_pump")
+                .map(|()| json!(true))
+                .map_err(|e| (-32006, e))
+        }
+        "cooling.channels.revoke" => params["control_id"]
+            .as_str()
+            .ok_or_else(|| invalid_params("control_id required"))
+            .and_then(|control_id| {
+                let mut engine = lock(engine);
+                let removed = engine.fan_support.revoke(control_id).map_err(|e| (-32000, e))?;
+                Ok(json!({"revoked": removed, "background_reapplied": removed && engine.reapply_background()}))
+            }),
+        "cooling.profiles.list" => Ok(lock(engine).cooling_profiles.view()),
+        "cooling.profiles.save" => params["name"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| invalid_params("name required"))
+            .and_then(|name| {
+                let mut engine = lock(engine);
+                // Without explicit channels the current background set is saved.
+                let request = if params["channels"].is_null() {
+                    serde_json::from_value(engine.background.view()["saved"].clone())
+                        .map_err(invalid_params)?
+                } else {
+                    serde_json::from_value(json!({"channels": params["channels"]}))
+                        .map_err(invalid_params)?
+                };
+                engine
+                    .cooling_profiles
+                    .save(&name, request)
+                    .map(|()| json!(true))
+                    .map_err(invalid_params)
+            }),
+        "cooling.profiles.delete" => params["name"]
+            .as_str()
+            .ok_or_else(|| invalid_params("name required"))
+            .and_then(|name| {
+                lock(engine)
+                    .cooling_profiles
+                    .delete(name)
+                    .map(|removed| json!({"deleted": removed}))
+                    .map_err(|e| (-32000, e))
+            }),
+        "cooling.profiles.activate" => params["name"]
+            .as_str()
+            .ok_or_else(|| invalid_params("name required"))
+            .and_then(|name| {
+                lock(engine)
+                    .activate_profile(name)
+                    .map(|()| json!(true))
+                    .map_err(|e| (-32006, e))
+            }),
+        "cooling.support.get" => {
+            let engine = lock(engine);
+            Ok(engine.fan_support.view(
+                engine.mainboard.summary().board.as_ref(),
+                &engine.mainboard.channels(),
+            ))
+        }
+        "cooling.background.apply" => serde_json::from_value(params.clone())
+            .map_err(invalid_params)
+            .and_then(|request: crate::background::BackgroundRequest| {
+                let mut engine = lock(engine);
+                let mut entries = Vec::new();
+                for channel in &request.channels {
+                    let policy = engine
+                        .cooling_policy(&channel.control_id)
+                        .map_err(|error| (-32006, error))?;
+                    let bands = engine.plausibility(&channel.control_id);
+                    entries.push(
+                        crate::background::protected_entry(channel, &policy, bands.as_ref())
+                            .map_err(invalid_params)?,
+                    );
+                }
+                engine
+                    .background
+                    .apply(request, entries)
+                    .map(|()| json!(true))
                     .map_err(|error| (-32006, error))
             }),
         "cooling.sessions.stop" => params["job_id"]
@@ -337,7 +438,15 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             })
             .map(|()| json!(true)),
         "diagnostics.get" => Ok(json!(lock(engine).diagnostics())),
-        "diagnostics.export" => Ok(crate::report::create(&lock(engine))),
+        "diagnostics.export" => {
+            let engine = lock(engine);
+            let mut report = crate::report::create(&engine);
+            // Opt-in only: lets LHM-supported chips be promoted with evidence.
+            if params["include_cooling_hardware"] == true {
+                report["cooling_hardware"] = crate::report::cooling_hardware(&engine);
+            }
+            Ok(report)
+        }
         "effects.list" => Ok(json!(EffectSpec::NAMES)),
         "effects.default" => params
             .get("name")
@@ -942,3 +1051,4 @@ mod tests {
         assert!(handle_line(&e, r#"{"id":6,"method":"daemon.shutdown"}"#).shutdown);
     }
 }
+

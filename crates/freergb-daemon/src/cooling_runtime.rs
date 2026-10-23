@@ -38,18 +38,61 @@ impl SamplerFrame {
 }
 pub enum ControlMode {
     Curve(FanCurve),
-    Calibration { critical_c: f32 },
+    Calibration {
+        critical_c: f32,
+    },
+    /// Guided channel test (100/70/50%), same supervision as calibration.
+    ChannelTest {
+        critical_c: f32,
+    },
+}
+/// Duty limits for this execution, derived from the channel's support tier
+/// (`freergb_control::fan_support::limits`). The default is the verified/legacy
+/// 40% fan floor; only an unrestricted unlock sets `allow_stop`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RuntimeLimits {
+    pub floor_percent: u8,
+    pub allow_stop: bool,
+}
+impl Default for RuntimeLimits {
+    fn default() -> Self {
+        Self {
+            floor_percent: freergb_control::fan_support::SAFE_FAN_FLOOR,
+            allow_stop: false,
+        }
+    }
 }
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct RuntimeReport {
     pub calibration: Option<CalibrationResult>,
     pub native_closed: bool,
     /// Requires authenticated register-return AND durable journal proof. A closed
-    /// callback from older workers alone cannot authorize maintenance.
+    /// callback from older workers alone cannot authorize maintenance. Lower tiers
+    /// have no register readback: their owned firmware callback plus the cleared
+    /// journal is the strongest evidence available (`return_evidence`).
     pub maintenance_authorized: bool,
     pub minimum_applied_percent: u8,
     pub initial_rpm: f32,
     pub last_rpm: f32,
+    /// Support tier reported by the protected worker (`None`: legacy verified).
+    pub tier: Option<String>,
+    /// "register_readback", "firmware_callback" or "none".
+    pub return_evidence: &'static str,
+    /// Set when supervision or the worker ended the run and the channel was
+    /// returned to firmware (lower tiers only); the run did not complete.
+    pub fault: Option<String>,
+    /// Last non-fatal condition (e.g. unrestricted fan stop).
+    pub warning: Option<String>,
+}
+
+fn evidence(receipt: &Receipt) -> (bool, &'static str) {
+    if receipt.firmware_return_verified && receipt.journal_cleared {
+        (true, "register_readback")
+    } else if receipt.tier.is_some() && receipt.firmware_returned && receipt.journal_cleared {
+        (true, "firmware_callback")
+    } else {
+        (false, "none")
+    }
 }
 enum Command {
     Duty(u8),
@@ -120,27 +163,67 @@ fn observe(
 /// hardware commissioning before permitting curve mode. GUI data is not a sampler.
 /// Native I/O runs in a separate task so the timer/sampler are never blocked by it.
 pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+    client: NativeSessionClient<T>,
+    mode: ControlMode,
+    initial: SamplerFrame,
+    samples: mpsc::Receiver<SamplerFrame>,
+    stop: oneshot::Receiver<()>,
+    epoch: Instant,
+) -> Result<RuntimeReport, String> {
+    run_with_limits(
+        client,
+        mode,
+        RuntimeLimits::default(),
+        initial,
+        samples,
+        stop,
+        epoch,
+    )
+    .await
+}
+
+/// `run` with tier-specific limits. The worker independently enforces the same
+/// floor (protected authorization), so a wrong limit here cannot widen it.
+pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     mut client: NativeSessionClient<T>,
     mode: ControlMode,
+    limits: RuntimeLimits,
     initial: SamplerFrame,
     mut samples: mpsc::Receiver<SamplerFrame>,
     mut stop: oneshot::Receiver<()>,
     epoch: Instant,
 ) -> Result<RuntimeReport, String> {
     let at = now(epoch);
+    if limits.floor_percent > 100
+        || (limits.floor_percent < freergb_control::fan_support::SAFE_FAN_FLOOR
+            && !limits.allow_stop)
+        || (limits.allow_stop && client.tier() != Some("unrestricted"))
+    {
+        return Err("Runtime limits do not match the admitted support tier".into());
+    }
+    let tier = client.tier().map(str::to_owned);
+    // Lower tiers return to their captured firmware mode on any supervision fault
+    // (explicit close); legacy verified workers keep holding 100% for recovery.
+    let graceful = tier.is_some();
     let critical = match &mode {
         ControlMode::Curve(curve) => {
             curve.validate()?;
-            if curve.minimum_percent < 40.0 {
-                return Err(
-                    "Native fan pilot requires a curve floor of at least 40 percent".into(),
-                );
+            if curve.minimum_percent < f32::from(limits.floor_percent) {
+                return Err(format!(
+                    "Native curve floor must be at least {} percent for this channel",
+                    limits.floor_percent
+                ));
             }
             curve.critical_c
         }
-        ControlMode::Calibration { critical_c } => *critical_c,
+        ControlMode::Calibration { critical_c } | ControlMode::ChannelTest { critical_c } => {
+            *critical_c
+        }
     };
     let mut telemetry = TelemetryGuard::new("temperature".into(), "rpm".into(), critical)?;
+    if limits.allow_stop {
+        telemetry = telemetry.allow_fan_stop();
+    }
     telemetry
         .observe(
             Reading {
@@ -161,10 +244,16 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             at,
         )
         .map_err(|fault| format!("Unsafe initial RPM: {fault:?}"))?;
-    if initial.rpm < 100.0 {
+    if initial.rpm < 100.0 && !limits.allow_stop {
         return Err("A running, explicitly selected fan is required before control".into());
     }
-    let mut control = SupervisedControl::new(telemetry, at, 1000, 40)?;
+    let mut control = SupervisedControl::with_limits(
+        telemetry,
+        at,
+        1000,
+        limits.floor_percent,
+        limits.allow_stop,
+    )?;
     let native_sampled = client.observation().is_some();
     let (native_samples, mut native_receiver) = mpsc::channel(4);
     let (tx, mut rx) = mpsc::channel::<NativeRequest>(1);
@@ -196,6 +285,9 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         ControlMode::Calibration { critical_c } => {
             Some(Calibration::new(ChannelRole::Fan, critical_c, at)?)
         }
+        ControlMode::ChannelTest { critical_c } => {
+            Some(Calibration::channel_test(ChannelRole::Fan, critical_c, at)?)
+        }
         _ => None,
     };
     let mut frame = initial;
@@ -206,6 +298,8 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let mut next_send = at;
     let mut closing = false;
     let mut result = None;
+    let mut fault: Option<String> = None;
+    let mut warning: Option<String> = None;
     let mut ticker = tokio::time::interval(Duration::from_millis(25));
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
@@ -213,12 +307,18 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             _ = ticker.tick() => {},
             incoming = samples.recv(), if !closing && !native_sampled => {
                 let incoming = incoming.ok_or("Trusted sampler disconnected; preserve recovery intent")?;
-                observe(&mut control,incoming,Some(frame),now(epoch))?;
+                if let Err(error) = observe(&mut control,incoming,Some(frame),now(epoch)) {
+                    if !graceful { return Err(error); }
+                    fault = Some(error); closing = true;
+                }
                 frame = incoming;
             },
             incoming = native_receiver.recv(), if !closing && native_sampled => {
                 let incoming = SamplerFrame::from_native(incoming.ok_or("Native sampler transport stopped")?,epoch)?;
-                observe(&mut control,incoming,Some(frame),now(epoch))?;
+                if let Err(error) = observe(&mut control,incoming,Some(frame),now(epoch)) {
+                    if !graceful { return Err(error); }
+                    fault = Some(error); closing = true;
+                }
                 frame = incoming;
             },
             _ = &mut stop, if !closing => { closing = true; },
@@ -230,10 +330,14 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             } => {
                 let receipt = receipt.map_err(|_| "Native I/O task stopped")??;
                 let operation = pending.take().ok_or("Unmatched native receipt")?;
-                if operation.closing {
-                    if receipt.state != SessionState::Closed || receipt.owned { return Err("Native return failed; recovery required".into()); }
-                    return Ok(RuntimeReport { calibration: result,native_closed: true,maintenance_authorized: receipt.firmware_return_verified && receipt.journal_cleared,
-                        minimum_applied_percent, initial_rpm: initial.rpm,last_rpm: frame.rpm });
+                if receipt.warning.is_some() { warning = receipt.warning.clone(); }
+                let returned = receipt.fault_returned();
+                if operation.closing || returned {
+                    if !returned && (receipt.state != SessionState::Closed || receipt.owned) { return Err("Native return failed; recovery required".into()); }
+                    let (maintenance_authorized, return_evidence) = evidence(&receipt);
+                    if returned { fault = fault.or_else(|| Some(format!("Worker returned the channel to firmware: {}", receipt.reason.as_deref().unwrap_or("fault")))); }
+                    return Ok(RuntimeReport { calibration: result,native_closed: true,maintenance_authorized,
+                        minimum_applied_percent, initial_rpm: initial.rpm,last_rpm: frame.rpm, tier, return_evidence, fault, warning });
                 }
                 if receipt.state != SessionState::Active || !receipt.owned { return Err("Native session entered emergency; recovery required".into()); }
                 minimum_applied_percent = minimum_applied_percent.min(receipt.duty_percent);
@@ -244,11 +348,20 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
         let at = now(epoch);
         control.poll(at);
         if !closing && control.lease_state() != GuardState::Armed {
-            return Err(format!(
-                "Cooling supervision stopped: {:?}, {:?}; preserve recovery intent",
+            let message = format!(
+                "Cooling supervision stopped: {:?}, {:?}",
                 control.lease_state(),
                 control.telemetry_fault()
-            ));
+            );
+            if !graceful {
+                return Err(format!("{message}; preserve recovery intent"));
+            }
+            // Explicit close: 100%, then the worker's owned firmware return.
+            fault = Some(message);
+            closing = true;
+        }
+        if let Some(condition) = control.telemetry_warning() {
+            warning = Some(format!("{condition:?}"));
         }
         if pending
             .as_ref()
@@ -289,13 +402,14 @@ pub async fn run<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             output.duty_percent
         } else if let ControlMode::Curve(curve) = &mode {
             curve_controller
-                .update(
+                .update_at(
                     curve,
                     Some(frame.temperature_c),
                     at.saturating_sub(frame.temperature_at_ms),
+                    at,
                 )
                 .ceil()
-                .clamp(40.0, 100.0) as u8
+                .clamp(f32::from(limits.floor_percent), 100.0) as u8
         } else {
             return Err("Missing cooling mode".into());
         };
@@ -336,6 +450,258 @@ mod tests {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     #[tokio::test]
     async fn healthy_commands_cannot_mask_stale_temperature_or_stalled_fan() {
+        healthy_commands_check().await;
+    }
+
+    /// Tiered worker peer: echoes duties with fresh tickets; a close returns
+    /// firmware via the owned callback and reports the cleared journal.
+    fn tiered_peer(
+        worker: tokio::io::DuplexStream,
+        tier: &'static str,
+    ) -> tokio::task::JoinHandle<Vec<serde_json::Value>> {
+        tokio::spawn(async move {
+            let mut worker = BufReader::new(worker);
+            let mut reply = json!({"version":1,"session":"a".repeat(32),"ticket":"b".repeat(32),
+                "sequence":0,"state":"active","reason":null,"duty_percent":100,"ticket_ms":250,
+                "lease_ms":1000,"owned":true,"physical_write_verified":false,"tier":tier,
+                "firmware_returned":false,"warning":null});
+            worker
+                .get_mut()
+                .write_all(format!("{reply}\n").as_bytes())
+                .await
+                .unwrap();
+            let mut seen = Vec::new();
+            loop {
+                let mut line = String::new();
+                if worker.read_line(&mut line).await.unwrap() == 0 {
+                    break;
+                }
+                let request: serde_json::Value = serde_json::from_str(&line).unwrap();
+                reply["sequence"] = request["sequence"].clone();
+                reply["ticket"] = json!(format!("{:032x}", seen.len() + 1));
+                let close = request["action"] == "close";
+                if close {
+                    reply["state"] = json!("closed");
+                    reply["owned"] = json!(false);
+                    reply["duty_percent"] = json!(100);
+                    reply["firmware_returned"] = json!(true);
+                    reply["journal_cleared"] = json!(true);
+                } else {
+                    reply["duty_percent"] = request["duty_percent"].clone();
+                    reply["warning"] = if request["duty_percent"] == 0 {
+                        json!("fan_stalled")
+                    } else {
+                        serde_json::Value::Null
+                    };
+                }
+                seen.push(request);
+                worker
+                    .get_mut()
+                    .write_all(format!("{reply}\n").as_bytes())
+                    .await
+                    .unwrap();
+                if close {
+                    break;
+                }
+            }
+            seen
+        })
+    }
+
+    fn feed(
+        samples: mpsc::Sender<SamplerFrame>,
+        epoch: Instant,
+        rpm: f32,
+        stale_temperature: bool,
+    ) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(25)).await;
+                let at = now(epoch);
+                let frame = SamplerFrame {
+                    temperature_c: 30.0,
+                    temperature_at_ms: if stale_temperature { 0 } else { at },
+                    rpm,
+                    rpm_at_ms: at,
+                };
+                if samples.send(frame).await.is_err() {
+                    break;
+                }
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn unrestricted_curve_may_stop_the_fan_and_reports_callback_return() {
+        let (transport, worker) = tokio::io::duplex(4096);
+        let peer = tiered_peer(worker, "unrestricted");
+        let client = NativeSessionClient::from_authenticated_transport(transport)
+            .await
+            .unwrap();
+        let epoch = Instant::now();
+        let (samples, rx) = mpsc::channel(4);
+        let (stop, stop_rx) = oneshot::channel();
+        let mut curve = FanCurve {
+            minimum_percent: 0.0,
+            ..FanCurve::default()
+        };
+        curve.points[0].duty_percent = 0.0;
+        let sampler = feed(samples, epoch, 0.0, false);
+        let runtime = tokio::spawn(run_with_limits(
+            client,
+            ControlMode::Curve(curve),
+            RuntimeLimits {
+                floor_percent: 0,
+                allow_stop: true,
+            },
+            SamplerFrame {
+                temperature_c: 20.0,
+                temperature_at_ms: 0,
+                rpm: 0.0,
+                rpm_at_ms: 0,
+            },
+            rx,
+            stop_rx,
+            epoch,
+        ));
+        tokio::time::sleep(Duration::from_millis(1600)).await;
+        stop.send(()).unwrap();
+        let report = tokio::time::timeout(Duration::from_secs(2), runtime)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(report.tier.as_deref(), Some("unrestricted"));
+        assert_eq!(report.minimum_applied_percent, 0);
+        assert_eq!(
+            (report.return_evidence, report.maintenance_authorized),
+            ("firmware_callback", true)
+        );
+        assert!(report.fault.is_none(), "{:?}", report.fault);
+        assert!(report.warning.is_some(), "fan stop must surface a warning");
+        let seen = peer.await.unwrap();
+        assert!(seen.iter().any(|r| r["duty_percent"] == 0));
+        sampler.abort();
+    }
+
+    #[tokio::test]
+    async fn lower_tier_supervision_fault_returns_to_firmware_instead_of_blocking() {
+        let (transport, worker) = tokio::io::duplex(4096);
+        let peer = tiered_peer(worker, "lhm_supported");
+        let client = NativeSessionClient::from_authenticated_transport(transport)
+            .await
+            .unwrap();
+        let epoch = Instant::now();
+        let (samples, rx) = mpsc::channel(4);
+        let (_stop, stop_rx) = oneshot::channel();
+        let sampler = feed(samples, epoch, 900.0, true);
+        let curve = FanCurve {
+            minimum_percent: 40.0,
+            points: FanCurve::default()
+                .points
+                .into_iter()
+                .map(|mut p| {
+                    p.duty_percent = p.duty_percent.max(40.0);
+                    p
+                })
+                .collect(),
+            ..FanCurve::default()
+        };
+        let report = tokio::time::timeout(
+            Duration::from_secs(4),
+            run_with_limits(
+                client,
+                ControlMode::Curve(curve),
+                RuntimeLimits::default(),
+                SamplerFrame {
+                    temperature_c: 30.0,
+                    temperature_at_ms: 0,
+                    rpm: 900.0,
+                    rpm_at_ms: 0,
+                },
+                rx,
+                stop_rx,
+                epoch,
+            ),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(
+            report.fault.as_deref().unwrap().contains("Stale"),
+            "{:?}",
+            report.fault
+        );
+        assert_eq!(report.return_evidence, "firmware_callback");
+        let seen = peer.await.unwrap();
+        assert_eq!(seen.last().unwrap()["action"], "close");
+        assert!(seen
+            .iter()
+            .all(|r| r["action"] == "close" || r["duty_percent"].as_u64().unwrap() >= 40));
+        sampler.abort();
+    }
+
+    #[tokio::test]
+    async fn runtime_limits_must_match_the_admitted_tier() {
+        for (tier, limits) in [
+            (
+                Some("lhm_supported"),
+                RuntimeLimits {
+                    floor_percent: 0,
+                    allow_stop: true,
+                },
+            ),
+            (
+                None,
+                RuntimeLimits {
+                    floor_percent: 0,
+                    allow_stop: true,
+                },
+            ),
+            (
+                Some("unrestricted"),
+                RuntimeLimits {
+                    floor_percent: 20,
+                    allow_stop: false,
+                },
+            ),
+        ] {
+            let (transport, mut worker) = tokio::io::duplex(4096);
+            let mut reply = json!({"version":1,"session":"a".repeat(32),"ticket":"b".repeat(32),
+                "sequence":0,"state":"active","reason":null,"duty_percent":100,"ticket_ms":250,
+                "lease_ms":1000,"owned":true,"physical_write_verified":false});
+            if let Some(tier) = tier {
+                reply["tier"] = json!(tier);
+            }
+            worker
+                .write_all(format!("{reply}\n").as_bytes())
+                .await
+                .unwrap();
+            let client = NativeSessionClient::from_authenticated_transport(transport)
+                .await
+                .unwrap();
+            let (_samples, rx) = mpsc::channel(1);
+            let (_stop, stop_rx) = oneshot::channel();
+            let result = run_with_limits(
+                client,
+                ControlMode::Calibration { critical_c: 80.0 },
+                limits,
+                SamplerFrame {
+                    temperature_c: 30.0,
+                    temperature_at_ms: 0,
+                    rpm: 900.0,
+                    rpm_at_ms: 0,
+                },
+                rx,
+                stop_rx,
+                Instant::now(),
+            )
+            .await;
+            assert!(result.is_err(), "{tier:?} {limits:?}");
+        }
+    }
+
+    async fn healthy_commands_check() {
         for stalled in [false, true] {
             let (transport, worker) = tokio::io::duplex(4096);
             let peer = tokio::spawn(async move {

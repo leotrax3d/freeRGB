@@ -23,9 +23,30 @@ internal sealed class BrokerService : ServiceBase
     private Thread readerThread, pipeThread;
     private NativeProbeJob pendingProbe;
     private NativeControlBroker controlBroker;
+#if BROKER_INSTALLER
+    private BackgroundCooling background;
+    private readonly object backgroundGate = new object();
+    // (Re)start saved background curves; used at start and after reconfiguration.
+    private void StartBackground()
+    {
+        lock (backgroundGate)
+        {
+            if (background != null) { background.Dispose(); background = null; }
+            if (stop.WaitOne(0)) return;
+            var next = new BackgroundCooling();
+            NativeControlBroker.SuspendBackground = next.Suspend;
+            NativeControlBroker.ResumeBackground = next.Resume;
+            next.Start();
+            background = next;
+        }
+    }
+#endif
     protected override void OnCustomCommand(int command)
     {
         if (command == 129) { MainboardMaintenance.Service(controlBroker); return; }
+#if BROKER_INSTALLER
+        if (command == 130) { StartBackground(); return; }
+#endif
         if (command != 128) throw new InvalidOperationException("Unsupported service command.");
         lock (gate)
         {
@@ -105,6 +126,11 @@ internal sealed class BrokerService : ServiceBase
         pipe = BrokerTransport.CreateServer(BrokerTransport.PipeName, user);
         controlBroker = new NativeControlBroker(user);
         MainboardMaintenance.Publish();
+#if BROKER_INSTALLER
+        // Saved curves run from boot without a GUI; each worker reserves its own
+        // journal entry, so orphans from a previous crash block until recovered.
+        new Thread(delegate() { if (!stop.WaitOne(5000)) StartBackground(); }) { IsBackground = true, Name = "freeRGB background cooling start" }.Start();
+#endif
         readerThread = new Thread(ReadHardware) { IsBackground = true, Name = "freeRGB motherboard reader supervisor" };
         pipeThread = new Thread(Serve) { IsBackground = true, Name = "freeRGB motherboard snapshot server" };
         readerThread.Start(); pipeThread.Start();
@@ -228,10 +254,15 @@ internal sealed class BrokerService : ServiceBase
         // Close admission first. Let a bounded in-flight diagnostic finish its
         // verified return/journal clear instead of killing it mid-reservation.
         RequestAdditionalTime(45000);
+        stop.Set();
+#if BROKER_INSTALLER
+        // Background channels return to firmware (explicit close) before the
+        // reader stops, so a terminated worker's journal can still be resolved.
+        lock (backgroundGate) { if (background != null) { background.Dispose(); background = null; } }
+#endif
         // Close private session admission and attempt explicit native return
         // while the reader can still resolve a terminated worker's journal.
         if (controlBroker != null) controlBroker.Dispose();
-        stop.Set();
         lock (gate)
         {
             if (pipe != null) pipe.Dispose();
@@ -259,6 +290,7 @@ internal sealed class BrokerService : ServiceBase
     {
 #if BROKER_INSTALLER
         if (args.Length > 0 && args[0] == "--authorize-control") return MainboardMaintenance.AuthorizeControl(args);
+        if (args.Length > 0 && args[0] == "--configure-cooling") return MainboardMaintenance.ConfigureCooling(args);
         if (args.Length != 0) return BrokerDeployment.Dispatch(args);
 #else
         if (args.Length != 0) return 2;

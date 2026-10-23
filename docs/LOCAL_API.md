@@ -133,13 +133,22 @@ install/start a driver or issue hardware writes:
   covers the optional `mainboard.lhm` provider, including when disabled; it is not
   an exhaustive list of existing RGB/HID adapters. Fields: `id`, `name`, `status`,
   `message`, `read_only:true`, `control_enabled:false`, `rgb_supported:false`,
-  `age_ms:number|null`. Status values: `disabled`, `starting`, `ready`,
+  `age_ms:number|null`, `board:null|{manufacturer,product,bios_version}` (public
+  SMBIOS strings, at most 128 characters each). Status values: `disabled`, `starting`, `ready`,
   `missing_library`, `missing_driver`, `permission_denied`, `no_supported_hardware`,
   `faulted`, `stale`. `age_ms` is elapsed time since the cached request began.
 * `cooling.channels.list` returns cached mainboard fan-RPM and control-percentage
   channels. Each item: `provider`, `id`, `device_id`, `name`, `kind` (`fan` or
   `control`), `reading` (unchanged `SensorReading` shape), `control_available:bool`,
-  `writable:false`, `physical_mapping:"unconfirmed"`, `electrical_mode:"unknown"`.
+  `writable:false`, `physical_mapping:"unconfirmed"`, `electrical_mode:"unknown"`,
+  `sensor_id` (raw native sensor identity, as used by sessions), `hardware_name` and
+  `support:null|{tier,register_readback,software_mode,held_full}` for controls.
+  `support.tier` is the chip's capability from the protected inventory:
+  `verified` (audited register readback) or `lhm_supported` (LHM software mode, no
+  readback; see `COOLING_BROAD_SUPPORT_PLAN.md`). `software_mode:true` means LHM
+  already reports software control (another tool); sessions refuse it.
+  `held_full:true` means a crashed lower-tier worker's channel is held at 100%
+  until reboot. `support:null` comes from older protected services (verified-only).
   `id` is a JSON-encoded `[native_hardware_id,native_sensor_id]` string. A control
   object does not establish safe writes or pairing with an RPM sensor. No setter
   is exposed. Missing/unavailable providers return an empty array.
@@ -313,6 +322,15 @@ helper and current protected service must be installed. `available=true` reports
 worker enablement, not verified service/hardware support. No session is persisted
 or replayed at startup. The current native journal permits one channel/job only.
 
+**Support tiers.** The daemon resolves the tier from the protected inventory
+(`support`) and the user's channel binding, never from the request:
+`verified` chips keep the legacy authorization (unchanged record, register
+readback mandatory). `lhm_supported` chips may run `calibration` (100 -> 40%) but
+reduced-duty curves only after a passed guided channel test (see the plan).
+Channels bound as pumps, or with `software_mode`/`held_full`, are refused here.
+Lower tiers pass `tier` and `role` into the UAC authorization; the protected
+worker re-validates the floor (40% fan, 100% pump, 0% only when unrestricted).
+
 ### Start parameters
 
 `cooling.sessions.start` rejects unknown fields. Required fields:
@@ -334,8 +352,11 @@ infers a physical header or CPU/coolant identity from a sensor label.
 For `mode=curve`, `curve` is required and `critical_c` must be absent/null. Curve
 fields are `points:[{temperature_c,duty_percent}]`, `minimum_percent`, `critical_c`,
 `hysteresis_c`. There must be 2..16 points; temperatures -20..110 C strictly
-increase; duty never decreases and each duty is minimum..100%. Native minimum is
-40..100%, critical 40..100 C, hysteresis 0..10 C, and the last point cannot exceed
+increase; duty never decreases and each duty is minimum..100%. Saved curves allow
+a minimum of 0..100%; native execution requires at least the channel's tier floor
+(40% unless unrestricted), critical 40..100 C, hysteresis 0..10 C, optional
+`max_rise_percent_per_s`/`max_fall_percent_per_s` 1..100 (step limits that never
+delay the 100% override for invalid sensors or critical heat), and the last point cannot exceed
 critical temperature. All numbers must be finite. Native authorization rounds the
 floor up and critical threshold down to whole units, conservatively.
 
@@ -364,17 +385,25 @@ critical heat cannot be overridden by GUI assertions.
 
 - `available:bool`, `job_id:u64|null` (daemon-lifetime identity).
 - `state`: `disabled`, `idle`, `authorizing`, `executing`, `stopping`, `completed`,
-  `stopped`, `failed`, or `blocked`.
-- `report:null|{calibration,native_closed,maintenance_authorized,minimum_applied_percent,initial_rpm,last_rpm}`.
+  `stopped`, `failed`, `faulted` or `blocked`.
+- `tier:null|"verified"|"lhm_supported"|"unrestricted"` of the current/last job.
+- `report:null|{calibration,native_closed,maintenance_authorized,minimum_applied_percent,initial_rpm,last_rpm,tier,return_evidence,fault,warning}`.
   `calibration` is null for curves, otherwise the calibration result. RPM values
   are initial/last checked native readings; `minimum_applied_percent` is the
-  lowest acknowledged command, not a mechanically verified minimum.
+  lowest acknowledged command, not a mechanically verified minimum. `tier` is
+  what the protected worker admitted (null: legacy verified worker).
+  `return_evidence` is `register_readback` (verified), `firmware_callback` (lower
+  tiers: owned SetDefault callback plus cleared journal, no register proof) or
+  `none`. `fault`/`warning` explain a faulted run or an allowed fan stop.
 - `error:string|null`: asynchronous authorization, transport or runtime failure.
 
 `completed`/`stopped` after native execution require the authenticated firmware
 return and durable journal-clear proof (`maintenance_authorized=true`). A stop
 during authorization can yield `stopped` with no report because no acquisition was
-started. `failed` covers authorization/pre-start failure. `blocked` means uncertain
+started. `failed` covers authorization/pre-start failure. `faulted` (lower tiers
+only) means supervision or the worker ended the run and the channel was returned
+to its captured firmware mode with a cleared journal; new starts remain possible.
+`blocked` means uncertain
 native execution/return: inspect protected recovery state before daemon restart;
 new starts are refused. No failed outcome is evidence of successful return.
 
@@ -399,3 +428,81 @@ command channel and joins the dedicated worker, requesting checked native return
 
 Legacy clients need not use these methods; API version remains 1. Hardware and
 release acceptance limits are recorded in [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md).
+
+## Background fan control (additive, 2026-10-22)
+
+Saved curves run in the protected SYSTEM service from Windows startup, without a
+GUI or daemon (`COOLING_BROAD_SUPPORT_PLAN.md`, work package 4).
+
+* `cooling.background.get` -> `{available, saved:{channels}, apply:{state,error},
+  service}`. `saved` is the last request (per-user config
+  `cooling-background.json`). `apply.state`: `idle`, `applying`, `applied`,
+  `failed`. `service` is the status the protected service publishes in
+  `%ProgramFiles%\freeRGB\mainboard-control-status.json`
+  (`{version:1,error,updated_utc,channels:[{control_id,tier,state,duty_percent,fault,warning}]}`)
+  or `null`; it is display data only.
+* `cooling.background.apply` `{channels:[{control_id,temperature_id,rpm_id,curve,confirmed_fan}]}`
+  (at most 8, unknown fields rejected) -> `true` when the hand-over started. Each
+  channel is resolved like `cooling.sessions.start` (`mode=curve`): tier from the
+  protected inventory, 40% fan floor unless unrestricted, LHM-supported reduction
+  only with channel-test evidence. The helper asks for UAC and the service's
+  `--configure-cooling` re-validates and writes the protected
+  `mainboard-control-channels.json`, then reloads (service command 130). An empty
+  list disables background control.
+
+## Guided channel test and channel evidence (additive, 2026-10-22)
+
+* `cooling.sessions.start` accepts `mode:"channel_test"` (same fields as
+  `calibration`, fans only). It runs 100 -> 70 -> 50% (authorized floor 50%, never
+  below 40%) under calibration supervision and returns the channel to firmware.
+  `cooling.sessions.status` adds `mode` and `control_id`; the calibration report
+  adds `tested:[{duty_percent,rpm}]` and `monotonic_response`.
+* A completed test is stored by the daemon (`cooling-fan-support.json`), bound to
+  board manufacturer/product, BIOS version, hardware and control identity. It
+  passes with a monotonic response (each lower duty >= 5% lower RPM, all >= 100
+  RPM). A passed test allows LHM-supported curves down to 40% and supplies the
+  RPM bands for background plausibility. Any identity change makes it `stale`.
+* `cooling.support.get` -> `{unrestricted_enabled, board_identity_available,
+  channels:{CONTROL_ID:{test,tested,unlock}}, error}`; `test` is `none`, `passed`,
+  `failed` or `stale`.
+
+## Unrestricted unlock (additive, 2026-10-22)
+
+* `cooling.support.settings {unrestricted_enabled:bool}` -> `{background_reapplied}`.
+  Global switch, default off. Turning it off disables every unlock; saved
+  background channels are re-validated and those no longer permitted are dropped
+  (new UAC hand-over).
+* `cooling.channels.unlock {control_id, confirmation}`: requires the switch, a
+  reported board identity, a controllable channel not in foreign software mode,
+  and `confirmation` equal to the channel name. Stored bound to board, BIOS and
+  channel (`cooling-fan-support.json`); invalid after any change.
+* `cooling.channels.confirm_pump {control_id, confirmation}`: second, separate
+  confirmation for a channel bound as pump, `confirmation` = `PUMP <name>`.
+* `cooling.channels.revoke {control_id}` -> `{revoked, background_reapplied}`.
+
+An unlocked channel runs as tier `unrestricted`: no channel test needed, curves
+down to 0% (fan stop), RPM deviations and stalls are warnings. Pumps leave 100%
+only after the pump confirmation, and are never calibrated or tested. Always
+active regardless: firmware return on stop/crash/telemetry loss/watchdog,
+critical-temperature override to 100%, refusal of foreign software mode.
+
+`cooling.sessions.start` also accepts `mode:"manual"` with `duty_percent:0..100`
+(no curve, optional `critical_c`, default 80): a flat curve with the same floors
+(40% unless unrestricted), critical-temperature override and supervision.
+
+## Cooling profiles (additive, 2026-10-22)
+
+Named, switchable sets of background channel curves (per-user config
+`cooling-profiles.json`, at most 32 profiles, 8 channels each).
+
+* `cooling.profiles.list` -> `{profiles:[{name,channels}], active, error}`.
+* `cooling.profiles.save {name, channels?}` -> `true`. Names are 1..64 characters
+  without control characters or surrounding spaces; without `channels` the
+  current background set (`cooling.background.get` -> `saved`) is stored. Curves
+  are validated, duplicate channels refused. Saving never touches hardware.
+* `cooling.profiles.delete {name}` -> `{deleted}`.
+* `cooling.profiles.activate {name}` -> `true` when the hand-over started. Every
+  channel is re-resolved like `cooling.background.apply` (tier, channel test,
+  unlock); one channel no longer permitted fails the whole activation instead of
+  being dropped. The protected service then runs the profile (UAC).
+

@@ -259,7 +259,13 @@ impl Panels {
                         let temperature = self.curve.points.last().map_or(25.0, |p| p.temperature_c + 5.0);
                         self.curve.points.push(CurvePoint { temperature_c: temperature, duty_percent: 100.0 });
                     }
-                    ui.add(egui::Slider::new(&mut self.curve.minimum_percent, 20.0..=100.0).text("Minimum duty %"));
+                    ui.add(egui::Slider::new(&mut self.curve.minimum_percent, 0.0..=100.0).text("Minimum duty %"));
+                    for (limit, label) in [(&mut self.curve.max_rise_percent_per_s, "Step up %/s (0 = off)"), (&mut self.curve.max_fall_percent_per_s, "Step down %/s (0 = off)")] {
+                        let mut value = limit.unwrap_or(0.0);
+                        if ui.add(egui::Slider::new(&mut value, 0.0..=100.0).text(label)).changed() {
+                            *limit = (value >= 1.0).then_some(value);
+                        }
+                    }
                     ui.add(egui::Slider::new(&mut self.curve.critical_c, 40.0..=110.0).text("Emergency temperature °C"));
                     ui.add(egui::Slider::new(&mut self.curve.hysteresis_c, 0.0..=10.0).text("Cooling hysteresis °C"));
                     let validation = self.curve.validate();
@@ -326,6 +332,7 @@ impl Panels {
                     ui.heading("Monitoring");
                     self.alerts.ui(ui);
                     if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); }
+                    if ui.add_enabled(snapshot.connected,egui::Button::new("…with fan hardware details")).on_hover_text("Adds board model, BIOS, chip, support tier and channel-test result (no serials or readings).").clicked() { send("gui.export_diagnostics",serde_json::json!({"include_cooling_hardware":true})); }
                     if let Some(path)=&snapshot.exported_report { ui.label(format!("Report saved: {}",path.display())); }
                     ui.label("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
                     if let Some(entries) = snapshot.control["monitoring_sensors"].as_array() {

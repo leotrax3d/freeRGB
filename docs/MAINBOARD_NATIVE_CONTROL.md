@@ -89,3 +89,19 @@ Mainboard native control adapter workflow runs independently of Rust builds;
 Windows CI and Package also include it. Full native register/firmware behavior,
 cross-process hardware exclusivity and independent recovery remain open. Existing
 API types/config files and both GUI boundaries are unchanged.
+
+## Support tiers (DECISIONS.md #14)
+
+`NativeControl` now has a requested tier. `Verified` (default, all legacy paths)
+still requires `NativeNctEvidence`. `CreateTieredProtected` admits a control
+without audited register evidence only for an explicitly authorized
+`LhmSupported` or `Unrestricted` tier, and only when the evidence is missing for
+lack of an audited scheme (`NativeEvidenceUnavailableException`); vendor-check,
+manual-mode or ISA-mutex failures still refuse. Floors: 40% for fans in
+verified/LHM-supported, 100% for pumps, 0% and pump reduction only for an
+unrestricted unlock (pump reduction additionally needs `pump_unlocked`). The
+foreign-software-mode refusal and the prepared no-zero acquisition apply to every
+tier. Without readback `FirmwareReturnVerified` stays false; `FirmwareReturned`
+reports the owned `SetDefault` callback with LHM's Default mode. Telemetry for
+lower tiers uses the same checked ISA-bus wrap (`NativeIsa`) as the verified path.
+Tests: `providers/mainboard/tests/NativeTierTests.cs` (synthetic only).

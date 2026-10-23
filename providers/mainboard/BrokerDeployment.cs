@@ -266,14 +266,14 @@ internal static class BrokerDeployment
                 using (var source = entry.Open()) Copy(source, Path.Combine(destination, name));
             }
         }
-        if (AssemblyName.GetAssemblyName(Path.Combine(destination, "LibreHardwareMonitorLib.dll")).Version.ToString() != "0.9.6.0")
+        if (AssemblyName.GetAssemblyName(Path.Combine(destination, "LibreHardwareMonitorLib.dll")).Version != LhmPin.Assembly)
             throw new InvalidDataException("Unexpected runtime assembly version.");
         foreach (Dictionary<string, object> notice in (object[])manifest["notices"])
         {
             string name = (string)notice["file"];
             using (var source = VerifiedFile(Path.Combine(notices, name), Convert.ToInt64(notice["size"]), (string)notice["sha256"])) Copy(source, Path.Combine(destination, name));
         }
-        File.WriteAllText(Path.Combine(destination, "SOURCES.txt"), "Unmodified LHM: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/v0.9.6\r\nEmbedded modules: https://github.com/namazso/PawnIO.Modules/releases/tag/0.1.6\r\n");
+        File.WriteAllText(Path.Combine(destination, "SOURCES.txt"), "Unmodified LHM: " + LhmPin.SourceUrl + "\r\nEmbedded modules: https://github.com/namazso/PawnIO.Modules/releases/tag/0.1.6\r\n");
     }
 
     private static void Install(string sid, string selfHash, string archive, string notices)

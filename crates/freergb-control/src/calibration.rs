@@ -4,6 +4,15 @@ use crate::channels::ChannelRole;
 use serde::{Deserialize, Serialize};
 
 const DUTIES: [u8; 4] = [100, 80, 60, 40];
+/// Guided channel test (COOLING_BROAD_SUPPORT_PLAN.md, safeguard 1): never below 40%.
+pub const CHANNEL_TEST_DUTIES: [u8; 3] = [100, 70, 50];
+
+/// Mean RPM measured at one tested duty.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TestedDuty {
+    pub duty_percent: u8,
+    pub rpm: f32,
+}
 
 #[derive(Deserialize)]
 pub struct CalibrationPreviewRequest {
@@ -66,6 +75,10 @@ pub struct CalibrationResult {
     pub lowest_tested_percent: u8,
     pub suggested_floor_percent: Option<u8>,
     pub hardware_verified: bool,
+    /// Mean RPM per tested duty, highest duty first.
+    pub tested: Vec<TestedDuty>,
+    /// Every lower duty produced at least 5% lower RPM (monotonic, plausible).
+    pub monotonic_response: bool,
 }
 #[derive(Clone, Debug, Serialize)]
 pub struct CalibrationOutput {
@@ -87,9 +100,22 @@ pub struct Calibration {
     means: Vec<f32>,
     critical_c: f32,
     pending_result: Option<CalibrationResult>,
+    duties: &'static [u8],
 }
 impl Calibration {
     pub fn new(role: ChannelRole, critical_c: f32, now_ms: u64) -> Result<Self, String> {
+        Self::with_duties(role, critical_c, now_ms, &DUTIES)
+    }
+    /// Guided channel test: 100/70/50% with the same supervision as calibration.
+    pub fn channel_test(role: ChannelRole, critical_c: f32, now_ms: u64) -> Result<Self, String> {
+        Self::with_duties(role, critical_c, now_ms, &CHANNEL_TEST_DUTIES)
+    }
+    fn with_duties(
+        role: ChannelRole,
+        critical_c: f32,
+        now_ms: u64,
+        duties: &'static [u8],
+    ) -> Result<Self, String> {
         if role != ChannelRole::Fan {
             return Err("Automatic duty-reduction calibration excludes pumps".into());
         }
@@ -117,6 +143,7 @@ impl Calibration {
             means: Vec::new(),
             critical_c,
             pending_result: None,
+            duties,
         })
     }
     pub fn output(&self) -> CalibrationOutput {
@@ -264,19 +291,27 @@ impl Calibration {
         }
         self.means.push(mean);
         self.stage += 1;
-        if self.stage == DUTIES.len() {
+        if self.stage == self.duties.len() {
             let response = mean <= self.means[0] * 0.9;
+            let lowest = *self.duties.last().expect("non-empty duties");
             self.pending_result = Some(CalibrationResult {
                 response_observed: response,
-                lowest_tested_percent: 40,
-                suggested_floor_percent: response.then_some(50),
+                lowest_tested_percent: lowest,
+                suggested_floor_percent: response.then_some(lowest.max(50)),
                 hardware_verified: false,
+                tested: self
+                    .duties
+                    .iter()
+                    .zip(&self.means)
+                    .map(|(&duty_percent, &rpm)| TestedDuty { duty_percent, rpm })
+                    .collect(),
+                monotonic_response: self.means.windows(2).all(|w| w[1] <= w[0] * 0.95),
             });
             self.restore(now, None);
         } else {
             self.output.phase = Applying;
             self.output.sequence += 1;
-            self.output.duty_percent = DUTIES[self.stage];
+            self.output.duty_percent = self.duties[self.stage];
             self.issued = now;
             self.acknowledged = None;
             self.last_sample = None;
@@ -321,6 +356,42 @@ mod tests {
         assert_eq!(result.suggested_floor_percent, Some(50));
         assert!(!result.hardware_verified);
         assert!(Calibration::new(ChannelRole::Pump, 85.0, 0).is_err());
+    }
+    fn run_test(rpm_at: impl Fn(u8) -> f32) -> CalibrationResult {
+        let mut c = Calibration::channel_test(ChannelRole::Fan, 85.0, 0).unwrap();
+        let mut now = 0;
+        for duty in CHANNEL_TEST_DUTIES {
+            assert_eq!(c.output().duty_percent, duty);
+            assert!(c.output().duty_percent >= 40);
+            let seq = c.output().sequence;
+            c.update(sample(now, seq, rpm_at(duty)));
+            now += 2000;
+            for _ in 0..5 {
+                c.update(sample(now, seq, rpm_at(duty)));
+                now += 250;
+            }
+        }
+        assert_eq!(c.output().duty_percent, 100);
+        let out = c.update(sample(now, c.output().sequence, 2000.0));
+        assert_eq!(out.phase, CalibrationPhase::Completed);
+        out.result.unwrap()
+    }
+    #[test]
+    fn channel_test_records_rpm_per_duty_and_monotonic_response() {
+        let good = run_test(|d| f32::from(d) * 15.0);
+        assert!(good.monotonic_response && good.response_observed);
+        assert_eq!(good.lowest_tested_percent, 50);
+        assert_eq!(
+            good.tested
+                .iter()
+                .map(|t| t.duty_percent)
+                .collect::<Vec<_>>(),
+            vec![100, 70, 50]
+        );
+        assert_eq!(good.tested[1].rpm, 1050.0);
+        let flat = run_test(|_| 1200.0);
+        assert!(!flat.monotonic_response && !flat.response_observed);
+        assert!(Calibration::channel_test(ChannelRole::Pump, 85.0, 0).is_err());
     }
     #[test]
     fn sensor_fault_stall_critical_and_lost_ack_request_full_speed() {

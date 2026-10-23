@@ -2,11 +2,11 @@ $ErrorActionPreference = 'Stop'
 $directory = [IO.Path]::GetFullPath("$PSScriptRoot/../target/broker-tests")
 & "$PSScriptRoot/build-mainboard-helper.ps1" -OutputDirectory $directory
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
-$sources = @('Mainboard.cs','BrokerTransport.cs','BrokerCache.cs','BrokerService.cs','NativeProbeJob.cs','NativeControlBroker.cs','MainboardMaintenance.cs','NativeControl.cs','NativeNctEvidence.cs','NativeControlSession.cs','NativeSessionTransport.cs','NativeSessionClient.cs','NativeControlJournal.cs','JournaledNativeControl.cs','tests/BrokerTests.cs') | ForEach-Object {
+$sources = @('Mainboard.cs','BrokerTransport.cs','BrokerCache.cs','BrokerService.cs','NativeProbeJob.cs','NativeControlBroker.cs','BackgroundCooling.cs','MainboardMaintenance.cs','NativeControl.cs','NativeNctEvidence.cs','NativeControlSession.cs','NativeSessionTransport.cs','NativeSessionClient.cs','NativeControlJournal.cs','JournaledNativeControl.cs','tests/BrokerTests.cs') | ForEach-Object {
     (Resolve-Path -LiteralPath (Join-Path "$PSScriptRoot/../providers/mainboard" $_)).Path
 }
 $fixture = Join-Path $directory 'broker-tests.exe'
-& $compiler /nologo /target:exe /main:BrokerTests /platform:x64 /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll "/out:$fixture" @sources
+& $compiler /nologo /target:exe /main:BrokerTests /platform:x64 /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll "/out:$fixture" @sources (Join-Path $directory 'LhmPin.g.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Broker tests compilation failed.' }
 & $fixture
 if ($LASTEXITCODE -ne 0) { throw 'Broker acceptance failed.' }

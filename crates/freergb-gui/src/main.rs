@@ -122,7 +122,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                     let result = if c.method == "gui.load_app_profile" {
                         app_profiles::load_if_current(c.params)
                     } else if c.method == "gui.export_diagnostics" {
-                        match freergb_client::call("diagnostics.export", Value::Null) {
+                        match freergb_client::call("diagnostics.export", c.params.clone()) {
                             Ok(report) => match diagnostics::save(&report) {
                                 Ok(path) => {
                                     state
@@ -192,6 +192,9 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             "cooling_providers": get("cooling.providers.list").unwrap_or(Value::Null),
             "cooling_channels": get("cooling.channels.list").unwrap_or(Value::Null),
             "cooling_session": get("cooling.sessions.status").unwrap_or(Value::Null),
+            "cooling_background": get("cooling.background.get").unwrap_or(Value::Null),
+            "cooling_support": get("cooling.support.get").unwrap_or(Value::Null),
+            "cooling_profiles": get("cooling.profiles.list").unwrap_or(Value::Null),
             "channel_bindings": get("cooling.bindings.get").unwrap_or(Value::Null),
             "monitoring_sensors": get("monitoring.sensors.list").unwrap_or(Value::Null),
         });

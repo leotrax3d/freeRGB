@@ -24,10 +24,51 @@ pub fn create(engine: &Engine) -> Value {
         "plugin":index+1,"access":plugin.access,"enabled":plugin.enabled,"allowed":plugin.allowed,
         "status":plugin.status.as_ref().map(status),"frames":plugin.frames,"has_error":plugin.last_error.is_some(),
     })).collect();
+    let cooling: Vec<_> = diagnostics
+        .cooling_support
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| {
+            json!({
+                "channel":index+1,"tier":entry.tier,"register_readback":entry.register_readback,
+                "software_mode":entry.software_mode,"held_full":entry.held_full,
+            })
+        })
+        .collect();
     json!({"report_version":1,"application_version":env!("CARGO_PKG_VERSION"),"os":std::env::consts::OS,"arch":std::env::consts::ARCH,
         "runtime":{"uptime_s":diagnostics.uptime_s,"ticks":diagnostics.ticks,"target_fps":diagnostics.target_fps,"measured_fps":diagnostics.measured_fps,"brightness":diagnostics.brightness,"effect":diagnostics.effect.name(),"conflicts":diagnostics.conflicts},
-        "devices":devices,"plugins":plugins,
+        "devices":devices,"plugins":plugins,"cooling_channels":cooling,
         "redaction":"Device IDs/names/serials, raw errors, capture names, paths and macro/profile contents omitted. Review before sharing."})
+}
+
+/// Opt-in fan-support evidence: board model, BIOS, chip, tier and channel-test
+/// outcome per anonymous control. No serials, names, readings or paths.
+pub fn cooling_hardware(engine: &Engine) -> Value {
+    let summary = engine.mainboard.summary();
+    let channels = engine.mainboard.channels();
+    let support = engine.fan_support.view(summary.board.as_ref(), &channels);
+    let controls: Vec<_> = channels
+        .iter()
+        .filter(|c| c.kind == "control" && c.control_available)
+        .enumerate()
+        .map(|(index, c)| {
+            let chip = c.sensor_id.split('/').nth(2).unwrap_or("unknown");
+            let evidence = &support["channels"][c.sensor_id.as_str()];
+            json!({
+                "channel": index + 1,
+                "chip": chip,
+                "tier": c.support.as_ref().map_or("unknown", |s| s.tier.as_str()),
+                "register_readback": c.support.as_ref().is_some_and(|s| s.register_readback),
+                "test": evidence["test"],
+                "unlocked": evidence["unlock"].as_str().is_some_and(|u| u.starts_with("unlocked")),
+            })
+        })
+        .collect();
+    json!({
+        "board": summary.board.map(|b| json!({"manufacturer": b.manufacturer, "product": b.product, "bios_version": b.bios_version})),
+        "lhm_version": freergb_core::lhm::VERSION,
+        "controls": controls,
+    })
 }
 
 #[cfg(test)]
@@ -50,5 +91,12 @@ mod tests {
         assert!(!text.contains("PRIVATE") && !text.contains("virtual:"));
         assert!(report["devices"][0].get("serial").is_none());
         assert!(report["devices"][0].get("id").is_none());
+        assert!(
+            report.get("cooling_hardware").is_none(),
+            "cooling hardware is opt-in"
+        );
+        let cooling = cooling_hardware(&engine);
+        assert_eq!(cooling["controls"], json!([]));
+        assert_eq!(cooling["lhm_version"], freergb_core::lhm::VERSION);
     }
 }

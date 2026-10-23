@@ -15,6 +15,9 @@ export interface FanCurve {
   minimum_percent: number;
   critical_c: number;
   hysteresis_c: number;
+  /** Optional step limits in %/s; never delay the critical-temperature override. */
+  max_rise_percent_per_s?: number;
+  max_fall_percent_per_s?: number;
 }
 
 export const DEFAULT_CURVE: FanCurve = {
@@ -31,7 +34,9 @@ export const DEFAULT_CURVE: FanCurve = {
 /** Mirrors `FanCurve::validate`. */
 export function curveProblem(c: FanCurve): string | null {
   if (c.points.length < 2 || c.points.length > 16) return "A curve needs 2 to 16 points.";
-  if (c.minimum_percent < 20 || c.minimum_percent > 100) return "Minimum duty must be 20–100 %.";
+  // Mirrors FanCurve::validate. Native execution still enforces each channel's
+  // tier floor (40 % unless the channel is unlocked as unrestricted).
+  if (c.minimum_percent < 0 || c.minimum_percent > 100) return "Minimum duty must be 0–100 %.";
   if (c.critical_c < 40 || c.critical_c > 110) return "Critical temperature must be 40–110 °C.";
   if (c.hysteresis_c < 0 || c.hysteresis_c > 10) return "Hysteresis must be 0–10 °C.";
   for (const [i, p] of c.points.entries()) {
@@ -42,6 +47,8 @@ export function curveProblem(c: FanCurve): string | null {
       return "Temperatures must increase and duty must not decrease.";
   }
   if (c.points[c.points.length - 1]!.temperature_c > c.critical_c) return "The curve extends beyond the critical temperature.";
+  for (const rate of [c.max_rise_percent_per_s, c.max_fall_percent_per_s])
+    if (rate !== undefined && (rate < 1 || rate > 100)) return "Step limits must be 1–100 %/s.";
   return null;
 }
 

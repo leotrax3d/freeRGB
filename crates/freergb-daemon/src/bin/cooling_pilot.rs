@@ -36,6 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             ControlMode::Curve(curve)
         },
+        freergb_daemon::cooling_runtime::RuntimeLimits::default(),
     )?;
     // Startup may take up to 12s; the owned task preserves admission throughout.
     for _ in 0..if mode == "calibrate" { 450 } else { 140 } {

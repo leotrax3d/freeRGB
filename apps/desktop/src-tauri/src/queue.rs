@@ -19,6 +19,17 @@ pub const ALLOWED: &[&str] = &[
     "cooling.sessions.status",
     "cooling.sessions.start",
     "cooling.sessions.stop",
+    "cooling.background.get",
+    "cooling.background.apply",
+    "cooling.support.get",
+    "cooling.support.settings",
+    "cooling.channels.unlock",
+    "cooling.channels.confirm_pump",
+    "cooling.channels.revoke",
+    "cooling.profiles.list",
+    "cooling.profiles.save",
+    "cooling.profiles.delete",
+    "cooling.profiles.activate",
     "keyboard.reactive.get",
     "keyboard.reactive.configure",
     "keyboard.reactive.disable",
@@ -218,3 +229,4 @@ mod tests {
         assert!(!ALLOWED.contains(&"daemon.shutdown_if"));
     }
 }
+

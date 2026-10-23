@@ -10,7 +10,40 @@ function Read-MainboardPackages([string]$Path) {
             $package.sha256 -notmatch '^[a-f0-9]{64}$' -or $package.file -notmatch '^[A-Za-z0-9_.-]+$' -or
             $package.size -le 0 -or $package.size -gt 150MB) { throw 'Invalid prerequisite download entry.' }
     }
+    # The LHM pin lives only in this manifest; every LHM URL must name the same tag.
+    $pin = Get-LhmPin $manifest
+    foreach ($package in @($manifest.packages.lhm) + @($manifest.notices)) {
+        if ($package.url -match 'LibreHardwareMonitor' -and $package.url -notmatch ('/v' + [regex]::Escape($pin.Version) + '/')) { throw 'LHM download does not match the pinned version.' }
+    }
     return $manifest
+}
+
+# Single source of the LHM pin: packaging/windows/mainboard-packages.json.
+function Get-LhmPin($Manifest) {
+    $version = [string]$Manifest.packages.lhm.version
+    if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid pinned LHM version.' }
+    return [pscustomobject]@{
+        Version = $version
+        Assembly = "$version.0"
+        Backend = 'lhm_' + ($version -replace '\.','_')
+        LibraryDirectory = "providers/lhm-$version"
+    }
+}
+
+# Generated C# constants so every helper, broker and test binary checks the same pin.
+function Write-LhmPinSource($Manifest, [string]$Path) {
+    $pin = Get-LhmPin $Manifest
+    $parts = $pin.Version.Split('.')
+    $text = "// Generated from packaging/windows/mainboard-packages.json; do not edit.`r`n" +
+        "internal static class LhmPin`r`n{`r`n" +
+        "    internal const string Version = `"$($pin.Version)`";`r`n" +
+        "    internal const string Backend = `"$($pin.Backend)`";`r`n" +
+        "    internal const string LibraryDirectory = `"$($pin.LibraryDirectory)`";`r`n" +
+        "    internal const string SourceUrl = `"https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/v$($pin.Version)`";`r`n" +
+        "    internal static readonly System.Version Assembly = new System.Version($($parts[0]), $($parts[1]), $($parts[2]), 0);`r`n}`r`n"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $Path) -Force | Out-Null
+    [IO.File]::WriteAllText($Path, $text)
+    return $Path
 }
 
 function Test-PackageHash([string]$Path, $Package) {
@@ -84,10 +117,11 @@ function Install-LhmRuntime([string]$Archive, [string]$Destination, $Manifest, [
             [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $Destination $entry.FullName), $true)
         }
     } finally { $zip.Dispose() }
+    $pin = Get-LhmPin $Manifest
     $library = Join-Path $Destination 'LibreHardwareMonitorLib.dll'
-    if (-not (Test-Path -LiteralPath $library) -or [Reflection.AssemblyName]::GetAssemblyName($library).Version.ToString() -ne '0.9.6.0') { throw 'LHM runtime version mismatch.' }
+    if (-not (Test-Path -LiteralPath $library) -or [Reflection.AssemblyName]::GetAssemblyName($library).Version.ToString() -ne $pin.Assembly) { throw 'LHM runtime version mismatch.' }
     foreach ($notice in $Manifest.notices) { Copy-Item -LiteralPath (Get-VerifiedPackage $notice $Cache) -Destination (Join-Path $Destination $notice.file) -Force }
-    [IO.File]::WriteAllText((Join-Path $Destination 'SOURCES.txt'), "Unmodified upstream runtime: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/v0.9.6`r`nEmbedded PawnIO.Modules source: https://github.com/namazso/PawnIO.Modules/releases/tag/0.1.6`r`nRuntime dependency identities: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/v0.9.6/LibreHardwareMonitorLib/LibreHardwareMonitorLib.csproj`r`n")
+    [IO.File]::WriteAllText((Join-Path $Destination 'SOURCES.txt'), "Unmodified upstream runtime: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/tree/v$($pin.Version)`r`nEmbedded PawnIO.Modules source: https://github.com/namazso/PawnIO.Modules/releases/tag/0.1.6`r`nRuntime dependency identities: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/v$($pin.Version)/LibreHardwareMonitorLib/LibreHardwareMonitorLib.csproj`r`n")
 }
 
-Export-ModuleMember -Function Read-MainboardPackages,Test-PackageHash,Get-VerifiedPackage,Get-MainboardPlan,Invoke-VerifiedInstaller,Install-LhmRuntime
+Export-ModuleMember -Function Read-MainboardPackages,Test-PackageHash,Get-VerifiedPackage,Get-MainboardPlan,Invoke-VerifiedInstaller,Install-LhmRuntime,Get-LhmPin,Write-LhmPinSource

@@ -4,14 +4,17 @@
 //! so they can be tested without hardware or sockets.
 
 pub mod api;
+pub mod background;
 pub mod channel_bindings;
 pub mod conflicts;
 pub mod control;
 pub mod cooling_host;
+pub mod cooling_profiles;
 pub mod cooling_runtime;
 pub mod cooling_sessions;
 pub mod custom_effects;
 pub mod engine;
+pub mod fan_support;
 pub mod hardware;
 pub mod ipc;
 pub mod keyboard;
@@ -32,3 +35,4 @@ pub type SharedEngine = Arc<Mutex<engine::Engine>>;
 pub fn lock(engine: &SharedEngine) -> MutexGuard<'_, engine::Engine> {
     engine.lock().unwrap_or_else(|e| e.into_inner())
 }
+
