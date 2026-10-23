@@ -49,6 +49,7 @@ members = [
     "modules/gigabyte-aorus-laptop",
     "modules/a4tech",
     "modules/evga-usb",
+    "modules/gaizonggai",
 ]
 
 [workspace.package]

@@ -197,6 +197,10 @@ jobs:
             node scripts/openrgb/port-evga-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-evga-usb
             git diff --exit-code -- modules/evga-usb/src/devices_table.rs
+          elif [ "$MODULE" = "gaizonggai" ]; then
+            node scripts/openrgb/port-gaizonggai-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-gaizonggai
+            git diff --exit-code -- modules/gaizonggai/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
