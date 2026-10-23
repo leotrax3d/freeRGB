@@ -7,6 +7,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  FREERGB_SUPABASE_URL: ${{ vars.FREERGB_SUPABASE_URL }}
+  FREERGB_SUPABASE_PUBLISHABLE_KEY: ${{ vars.FREERGB_SUPABASE_PUBLISHABLE_KEY }}
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -107,6 +109,14 @@ jobs:
 
       - name: release build
         run: cargo build --workspace --release
+
+      - name: Supabase rating row-level security
+        if: runner.os == 'Linux'
+        run: bash scripts/test-ratings-rls.sh
+
+      - name: Linux effect marketplace process smoke
+        if: runner.os == 'Linux'
+        run: python3 scripts/test-effect-marketplace.py target/release/freergbd
 
       - name: Windows daemon and process plugin smoke test
         if: runner.os == 'Windows'

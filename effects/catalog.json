@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "sequence": 1,
+  "effects": [
+    {
+      "id": "aurora",
+      "version": "1.0.0",
+      "api": 1,
+      "publisher": {
+        "id": "leotrax3d",
+        "name": "freeRGB Team"
+      },
+      "name": "Aurora",
+      "description": "Flowing teal and violet curtains.",
+      "category": "Ambient",
+      "preview": [
+        "#10a37f",
+        "#8b5cf6"
+      ],
+      "permissions": [],
+      "parameters": [
+        {
+          "key": "speed",
+          "label": "Speed",
+          "min": 0.0,
+          "max": 3.0,
+          "default": 1.0,
+          "step": 0.05
+        },
+        {
+          "key": "brightness",
+          "label": "Intensity",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "step": 0.01
+        }
+      ],
+      "artifact": {
+        "target": "wasm32-unknown-unknown",
+        "url": "aurora-1.0.0.wasm",
+        "size": 470,
+        "sha256": "c307eb8cdd8fc1902e52badde999ee3d274e7f1d2477845edeb154cd5933e977"
+      }
+    },
+    {
+      "id": "comet",
+      "version": "1.0.0",
+      "api": 1,
+      "publisher": {
+        "id": "leotrax3d",
+        "name": "freeRGB Team"
+      },
+      "name": "Comet",
+      "description": "A warm comet crossing the shared device canvas.",
+      "category": "Motion",
+      "preview": [
+        "#ffb454",
+        "#3344ff"
+      ],
+      "permissions": [],
+      "parameters": [
+        {
+          "key": "speed",
+          "label": "Speed",
+          "min": 0.0,
+          "max": 3.0,
+          "default": 1.0,
+          "step": 0.05
+        },
+        {
+          "key": "brightness",
+          "label": "Intensity",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "step": 0.01
+        }
+      ],
+      "artifact": {
+        "target": "wasm32-unknown-unknown",
+        "url": "comet-1.0.0.wasm",
+        "size": 482,
+        "sha256": "c1da8f97a5578d047cdb5e9f75dc1d3c9c0a79626167756f51a13da6354e18d9"
+      }
+    },
+    {
+      "id": "prism",
+      "version": "1.0.0",
+      "api": 1,
+      "publisher": {
+        "id": "leotrax3d",
+        "name": "freeRGB Team"
+      },
+      "name": "Prism",
+      "description": "A vivid two-dimensional field of shifting colour.",
+      "category": "Colour",
+      "preview": [
+        "#f43f5e",
+        "#3b82f6"
+      ],
+      "permissions": [],
+      "parameters": [
+        {
+          "key": "speed",
+          "label": "Speed",
+          "min": 0.0,
+          "max": 3.0,
+          "default": 1.0,
+          "step": 0.05
+        },
+        {
+          "key": "brightness",
+          "label": "Intensity",
+          "min": 0.0,
+          "max": 1.0,
+          "default": 1.0,
+          "step": 0.01
+        }
+      ],
+      "artifact": {
+        "target": "wasm32-unknown-unknown",
+        "url": "prism-1.0.0.wasm",
+        "size": 478,
+        "sha256": "2a1cc72fcd0f188493156a13e13d5975a1dc1164f4f0daf1e880e38c606e208f"
+      }
+    }
+  ]
+}

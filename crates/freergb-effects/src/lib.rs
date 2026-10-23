@@ -24,6 +24,12 @@ pub trait Effect: Send {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EffectSpec {
+    /// Installed sandboxed program; loaded only by the daemon's marketplace host.
+    Marketplace {
+        id: String,
+        version: String,
+        parameters: std::collections::BTreeMap<String, f64>,
+    },
     Solid {
         color: Rgb,
     },
@@ -171,6 +177,7 @@ impl EffectSpec {
     /// The API name of this effect.
     pub fn name(&self) -> &'static str {
         match self {
+            EffectSpec::Marketplace { .. } => "marketplace",
             EffectSpec::Solid { .. } => "solid",
             EffectSpec::RainbowWave { .. } => "rainbow_wave",
             EffectSpec::Breathing { .. } => "breathing",
@@ -222,6 +229,29 @@ impl EffectSpec {
             }
         };
         match self {
+            EffectSpec::Marketplace {
+                id,
+                version,
+                parameters,
+            } => {
+                let safe = |s: &str| {
+                    !s.is_empty()
+                        && s.as_bytes()[0].is_ascii_alphanumeric()
+                        && s.len() <= 64
+                        && s.bytes()
+                            .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))
+                        && !s.contains("..")
+                };
+                if !safe(id)
+                    || !safe(version)
+                    || parameters.len() > 16
+                    || parameters.iter().any(|(k, v)| !safe(k) || !v.is_finite())
+                {
+                    Err("Invalid marketplace effect reference or parameters".into())
+                } else {
+                    Ok(())
+                }
+            }
             EffectSpec::Layers { layers } => layers::validate(layers),
             EffectSpec::RainbowWave { speed, scale }
             | EffectSpec::RadialRainbow { speed, scale } => {
@@ -263,6 +293,8 @@ impl EffectSpec {
 
     pub fn build_with(&self, ctx: &EffectContext) -> Box<dyn Effect> {
         match *self {
+            // Loading untrusted code requires the daemon's installed-package resolver.
+            EffectSpec::Marketplace { .. } => Box::new(Solid { color: Rgb::BLACK }),
             EffectSpec::Layers { ref layers } => Box::new(layers::Layered::new(layers, ctx)),
             EffectSpec::ScreenAmbience { saturation } => Box::new(screen::ScreenAmbience {
                 saturation,

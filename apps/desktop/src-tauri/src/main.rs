@@ -5,6 +5,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod diagnostics;
+mod external;
 mod memory;
 mod poller;
 mod queue;
@@ -186,6 +187,14 @@ fn open_classic() -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn open_external(destination: external::Destination) -> Result<(), String> {
+    let url = external::url(destination)?;
+    tauri::async_runtime::spawn_blocking(move || webbrowser::open(&url).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 fn main() {
     let shared = Arc::new(Mutex::new(poller::Shared::default()));
     let (jobs_tx, jobs_rx) = queue::channel();
@@ -205,7 +214,8 @@ fn main() {
             start_service,
             open_classic,
             export_diagnostics,
-            update_action
+            update_action,
+            open_external
         ])
         .setup(move |app| {
             let handle = app.handle().clone();

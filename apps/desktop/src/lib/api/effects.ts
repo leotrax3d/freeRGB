@@ -17,7 +17,8 @@ export const EFFECTS: readonly { name: EffectName; label: string }[] = [
 ];
 
 /** Parameter fields per effect (besides `type`), used by editors and the contract test. */
-export const EFFECT_FIELDS: Record<EffectName, readonly string[]> = {
+export const EFFECT_FIELDS: Record<EffectSpec["type"], readonly string[]> = {
+  marketplace: ["id", "version", "parameters"],
   solid: ["color"],
   rainbow_wave: ["speed", "scale"],
   breathing: ["color", "period_ms"],
@@ -33,7 +34,7 @@ export const EFFECT_FIELDS: Record<EffectName, readonly string[]> = {
 };
 
 export function effectLabel(name: string): string {
-  return EFFECTS.find((e) => e.name === name)?.label ?? "Unknown effect";
+  return EFFECTS.find((e) => e.name === name)?.label ?? (name === "marketplace" ? "Marketplace effect" : "Unknown effect");
 }
 
 const css = ({ r, g, b }: Rgb) => `rgb(${r} ${g} ${b})`;
@@ -45,6 +46,8 @@ const SPECTRUM = "#ef4444, #f59e0b, #10a37f, #3b82f6, #a855f7, #ef4444";
  */
 export function effectPreview(spec: EffectSpec): string {
   switch (spec.type) {
+    case "marketplace":
+      return "linear-gradient(135deg, #10a37f, #8b5cf6)";
     case "solid":
       return css(spec.color);
     case "breathing":

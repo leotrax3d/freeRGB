@@ -69,3 +69,28 @@ export function transport(): Promise<Transport> {
   return current;
 }
 
+
+export type ExternalDestination = { kind: "email" | "youtube" | "publisher" } | { kind: "issue"; title: string; body: string };
+export function externalUrl(destination: ExternalDestination): string {
+  switch (destination.kind) {
+    case "email": return "mailto:freergbteam@gmail.com";
+    case "youtube": return "https://www.youtube.com/channel/UCh-B-9nUgKeCNJm3ESrpR8w";
+    case "publisher": return "https://github.com/leotrax3d/FreeRGB";
+    case "issue": {
+      if (!destination.title || [...destination.title].length > 160 || new TextEncoder().encode(destination.body).length > 6000) throw new Error("Shorten the report before opening GitHub.");
+      const url = new URL("https://github.com/leotrax3d/FreeRGB/issues/new");
+      url.searchParams.set("title", destination.title); url.searchParams.set("body", destination.body);
+      if (url.href.length > 16000) throw new Error("Report is too long for a browser link. Copy it instead.");
+      return url.href;
+    }
+  }
+}
+export async function openExternal(destination: ExternalDestination): Promise<void> {
+  const url = externalUrl(destination);
+  if (!__WEB_DEMO__ && inTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("open_external", { destination });
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}

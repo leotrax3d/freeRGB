@@ -100,3 +100,81 @@ mod tests {
         assert_eq!(cooling["lhm_version"], freergb_core::lhm::VERSION);
     }
 }
+
+/// Explicit error-report preview. Excludes raw errors, serials, names, paths,
+/// sensor readings and anonymous-rating credentials. Nothing is sent here.
+pub fn marketplace(engine: &Engine, kind: &str) -> Result<Value, String> {
+    let (code, effect) = match kind {
+        "runtime" => {
+            let code = engine
+                .runtime_error_code()
+                .ok_or("There is no current effect error to report")?;
+            let effect = match engine.effect() {
+                freergb_effects::EffectSpec::Marketplace { id, version, .. } => {
+                    Some(json!({"id":id,"version":version}))
+                }
+                _ => None,
+            };
+            (code.to_owned(), effect)
+        }
+        "operation" => {
+            let manager = engine
+                .marketplace
+                .as_ref()
+                .ok_or("Marketplace unavailable")?;
+            let failure = manager
+                .view()
+                .failure
+                .ok_or("There is no current marketplace error to report")?;
+            (
+                failure.code,
+                Some(json!({"id":failure.effect_id,"version":failure.version})),
+            )
+        }
+        _ => return Err("Choose a current runtime or marketplace operation error".into()),
+    };
+    let diagnostic = create(engine);
+    let all = diagnostic["devices"]
+        .as_array()
+        .ok_or("Devices unavailable")?;
+    let devices:Vec<_>=all.iter().take(12).map(|d|json!({
+        "vendor":d["vendor"].as_str().map(|s|s.chars().take(64).collect::<String>()),
+        "kind":d["kind"],"usb_vid":d["usb_vid"],"usb_pid":d["usb_pid"],"status":d["status"],"leds":d["leds"],"has_error":d["has_error"],
+    })).collect();
+    let payload = json!({"report_version":1,"error_code":code,"effect":effect,
+        "application_version":env!("CARGO_PKG_VERSION"),"os":std::env::consts::OS,"arch":std::env::consts::ARCH,
+        "devices":devices,"additional_devices":all.len().saturating_sub(12)});
+    let title = format!("[Effect error] {code}");
+    let body=format!("## Error report\n\n```json\n{}\n```\n\n## What happened?\nPlease describe the steps that led to the error.\n\nThis report omits device names, serial numbers, paths, sensor readings, raw error messages and rating-session credentials.\n",serde_json::to_string_pretty(&payload).map_err(|e|e.to_string())?);
+    Ok(json!({"code":code,"title":title,"body":body,"payload":payload}))
+}
+
+#[cfg(test)]
+mod marketplace_tests {
+    use super::*;
+    use freergb_core::{LedLayout, Rgb};
+    use freergb_device_api::VirtualDevice;
+    #[test]
+    fn report_requires_a_real_error_and_excludes_private_details() {
+        let mut engine = Engine::new(freergb_effects::EffectSpec::Solid { color: Rgb::BLACK }, 30);
+        assert!(marketplace(&engine, "runtime").is_err());
+        engine.add_device(Box::new(VirtualDevice::new(
+            "PRIVATE-DEVICE-NAME",
+            LedLayout::strip(2),
+        )));
+        engine.set_effect(freergb_effects::EffectSpec::Marketplace {
+            id: "aurora".into(),
+            version: "1.0.0".into(),
+            parameters: Default::default(),
+        });
+        let report = marketplace(&engine, "runtime").unwrap();
+        assert_eq!(report["code"], "FX_ACTIVATION_FAILED");
+        let body = report["body"].as_str().unwrap();
+        assert!(body.contains("FX_ACTIVATION_FAILED"));
+        assert!(!body.contains("PRIVATE-DEVICE-NAME"));
+        assert!(!body.contains("virtual:"));
+        assert!(report["payload"]["devices"][0].get("serial").is_none());
+        assert!(report["payload"]["devices"][0].get("name").is_none());
+        assert!(marketplace(&engine, "arbitrary-code").is_err());
+    }
+}

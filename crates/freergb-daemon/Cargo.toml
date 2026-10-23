@@ -24,6 +24,7 @@ path = "tests/fixtures/cooling_guard.rs"
 required-features = ["cooling-fixture"]
 
 [dependencies]
+freergb-effect-host = { path = "../freergb-effect-host" }
 freergb-core.workspace = true
 freergb-device-api.workspace = true
 freergb-protocols.workspace = true
