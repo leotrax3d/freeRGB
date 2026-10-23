@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { create } from "zustand";
 import { BrandTiles } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import { useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
 import type { ViewId } from "./views";
 
@@ -14,19 +15,21 @@ interface Step {
   view?: ViewId;
   title: string;
   text: string;
+  demoText?: string;
 }
 
 const STEPS: Step[] = [
   {
     title: "Welcome to freeRGB",
     text: "Your lighting runs in a small background service. This window is only the remote control — close it whenever you like, the lights keep running.",
+    demoText: "Explore the real desktop interface with virtual devices. This browser demo runs entirely in this tab; nothing connects to hardware, and changes reset when reloaded.",
   },
   { target: "nav", title: "Everything in one place", text: "Light, hardware and automation, grouped on the left. Arrow keys move through the list." },
   { target: "search", title: "Quick search", text: "Press Ctrl+K anywhere to jump to a view, start an effect or load a profile." },
   { target: "now", view: "lighting", title: "What is running", text: "The current effect and the overall brightness for all devices." },
   { target: "effects", view: "lighting", title: "Pick an effect", text: "One click switches every device. Your own saved effects appear below the list." },
-  { target: "inspector", view: "lighting", title: "Fine-tune it", text: "Colours, speed and more for the running effect. Changes apply live and are remembered by the service." },
-  { target: "status", title: "Service status", text: "Shows whether the background service is running and how smoothly it renders." },
+  { target: "inspector", view: "lighting", title: "Fine-tune it", text: "Colours, speed and more for the running effect. Changes apply live and are remembered by the service.", demoText: "Try colours, speed and brightness. The preview updates here; these changes are held only in this tab." },
+  { target: "status", title: "Service status", text: "Shows whether the background service is running and how smoothly it renders.", demoText: "Mock data means virtual hardware. Sensor readings and performance values are illustrative, not measurements." },
   {
     title: "You're set",
     text: "Place your devices under Layout so effects line up with your desk. You can start this tour again any time in Settings.",
@@ -48,7 +51,10 @@ export const useTour = create<{ step: number | null; start: () => void; stop: ()
 
 /** Starts the tour on first launch. */
 export function useFirstRunTour() {
+  // Device setup comes first; the tour starts once it is finished or skipped.
+  const setupDone = useDaemon((d) => d.modules_setup !== undefined && d.modules_setup?.first_run !== true);
   useEffect(() => {
+    if (!setupDone) return;
     let seen = true;
     try {
       seen = localStorage.getItem(SEEN_KEY) === "1";
@@ -56,7 +62,7 @@ export function useFirstRunTour() {
       // Storage unavailable: never nag.
     }
     if (!seen) setTimeout(() => useTour.getState().start(), 600);
-  }, []);
+  }, [setupDone]);
 }
 
 function useTargetRect(target: string | undefined, step: number) {
@@ -86,6 +92,7 @@ function useTargetRect(target: string | undefined, step: number) {
 }
 
 export function Tour() {
+  const simulated = useDaemon((s) => s.mode === "mock");
   const { step, stop } = useTour();
   const go = useNavigation((s) => s.go);
   const current = step === null ? undefined : STEPS[step];
@@ -146,7 +153,7 @@ export function Tour() {
         <h2 id="tour-title" className="pr-6 text-title font-semibold">
           {current.title}
         </h2>
-        <p className="mt-1.5 text-small text-text-muted">{current.text}</p>
+        <p className="mt-1.5 text-small text-text-muted">{simulated ? current.demoText ?? current.text : current.text}</p>
         <div className="mt-5 flex items-center gap-2">
           <div className="flex gap-1" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
             {STEPS.map((_, i) => (

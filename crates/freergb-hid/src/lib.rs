@@ -153,6 +153,17 @@ impl HidTransport for HidapiTransport {
         self.dev.read_timeout(buf, timeout_ms).map_err(io)
     }
 
+    fn send_feature(&mut self, report: &[u8]) -> Result<usize, TransportError> {
+        let _gate = io_gate();
+        self.dev.send_feature_report(report).map_err(io)?;
+        Ok(report.len())
+    }
+
+    fn get_feature(&mut self, buf: &mut [u8]) -> Result<usize, TransportError> {
+        let _gate = io_gate();
+        self.dev.get_feature_report(buf).map_err(io)
+    }
+
     fn output_report_len(&self) -> usize {
         self.sizes.output_with_id()
     }

@@ -141,6 +141,8 @@ export interface Slices {
   /** Native Celsius source key → display label. */
   sensor_sources: Record<string, string> | null;
   cooling_status: CoolingStatus | null;
+  /** Device setup and hardware modules (`modules.status`); null when disabled. */
+  modules_setup: ModulesStatus | null;
 }
 
 export interface MonitoringSensor {
@@ -265,7 +267,7 @@ export interface PluginSummary {
 }
 
 export type SliceName = keyof Slices;
-export type OptionalSlice = Exclude<SliceName, "connection" | "devices" | "diagnostics" | "effect">;
+export type OptionalSlice = Exclude<SliceName, "connection" | "devices" | "diagnostics" | "effect" | "modules_setup">;
 
 export function deviceStatus(status: DeviceStatus): "connected" | "disconnected" | "faulted" {
   if (status === "Connected") return "connected";
@@ -276,3 +278,59 @@ export function deviceStatus(status: DeviceStatus): "connected" | "disconnected"
 export function faultMessage(status: DeviceStatus): string | null {
   return typeof status === "object" ? status.Faulted : null;
 }
+
+/** Phases a setup card can be in; mirrors `freergb_modules::setup::Phase`. */
+export type SetupPhase =
+  | "detected"
+  | "waiting"
+  | "downloading"
+  | "verifying"
+  | "installing"
+  | "initializing"
+  | "ready"
+  | "failed"
+  | "not_connected"
+  | "unsupported";
+
+export type ModuleDeviceKind =
+  | "keyboard" | "mouse" | "mousemat" | "headset" | "headset_stand" | "keypad"
+  | "lighting_controller" | "speaker" | "accessory" | "laptop" | "other";
+
+export interface SetupCard {
+  key: string;
+  name: string;
+  vendor: string;
+  kind: ModuleDeviceKind;
+  phase: SetupPhase;
+  module: string | null;
+  download_size: number | null;
+  progress: { done: number; total: number } | null;
+  error: { code: string; message: string } | null;
+  configured: boolean;
+  dismissed: boolean;
+  builtin: boolean;
+  installed: boolean;
+  connected: boolean;
+  engine_id: string | null;
+  technical: string;
+}
+
+export interface InstalledModule {
+  id: string;
+  version: string;
+  previous: string | null;
+  last_good: string | null;
+  family: string;
+  license: string;
+}
+
+export interface ModulesStatus {
+  first_run: boolean;
+  cards: SetupCard[];
+  catalog: { state: "none" | "loading" | "ready" | "cached" | "error"; source: string; message: string | null; sequence: number | null };
+  job: { running: boolean; cancelled: boolean; bytes_done: number; bytes_total: number; modules: string[] };
+  installed: InstalledModule[];
+  trusted_release_key: boolean;
+  light_test_remaining_s: number | null;
+}
+

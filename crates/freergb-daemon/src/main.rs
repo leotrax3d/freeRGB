@@ -84,6 +84,66 @@ struct Args {
     /// Hardware plugins exclude built-in hardware adapters; --no-hardware blocks them.
     #[arg(long = "plugin", value_name = "JSON")]
     plugins: Vec<std::path::PathBuf>,
+    /// Disable downloadable hardware modules and device setup.
+    #[arg(long)]
+    no_modules: bool,
+    /// Where the signed module catalog and packages come from:
+    /// github:OWNER/REPO@TAG, an https:// base URL or a local directory.
+    #[arg(long, env = "FREERGB_MODULE_SOURCE", default_value = freergb_modules::source::DEFAULT_SOURCE)]
+    module_source: String,
+    /// Additionally trust this development public key (hex) for the catalog.
+    /// For local module development only; logged on every start.
+    #[arg(long, value_name = "HEX")]
+    module_dev_key: Option<String>,
+}
+
+fn data_dir() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    let base =
+        std::env::var_os("LOCALAPPDATA").map(|d| std::path::PathBuf::from(d).join("freeRGB"));
+    #[cfg(not(windows))]
+    let base = std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share"))
+        })
+        .map(|d| d.join("freergb"));
+    base
+}
+
+fn module_manager(args: &Args) -> Result<Option<Arc<freergb_modules::setup::Manager>>> {
+    use freergb_modules::{setup::Manager, source::Source, store::Store, trust::TrustedKeys};
+    if args.no_modules {
+        return Ok(None);
+    }
+    let (data, config) = match (args.no_state, data_dir(), state::default_path()) {
+        (false, Some(data), Some(state)) => {
+            (data.join("modules"), state.parent().unwrap().to_path_buf())
+        }
+        _ => {
+            let temporary =
+                std::env::temp_dir().join(format!("freergb-modules-{}", std::process::id()));
+            (temporary.join("modules"), temporary)
+        }
+    };
+    let mut keys = TrustedKeys::builtin();
+    if let Some(hex) = &args.module_dev_key {
+        tracing::warn!("trusting a development module signing key");
+        keys = keys.with_development_key(freergb_modules::trust::parse_key(hex)?);
+    }
+    if keys.is_empty() {
+        tracing::warn!(
+            "no module signing key in this build: only already installed modules can run"
+        );
+    }
+    let source = Source::parse(&args.module_source)?;
+    tracing::info!(source = %source.describe(), store = %data.display(), "hardware modules");
+    Ok(Some(Arc::new(Manager::new(
+        Store::open(data)?,
+        keys,
+        source,
+        config,
+    ))))
 }
 
 fn main() -> Result<()> {
@@ -130,6 +190,13 @@ fn main() -> Result<()> {
         .map_err(anyhow::Error::msg)?;
     if engine.has_hardware_plugins() {
         tracing::warn!("hardware process plugins configured: built-in hardware adapters disabled");
+    }
+    engine.modules = module_manager(&args)?;
+    if let Some(manager) = engine.modules.clone() {
+        // One catalog file, no device data is sent. Failure keeps the cache.
+        std::thread::Builder::new()
+            .name("module-catalog".into())
+            .spawn(move || manager.refresh_catalog())?;
     }
     let engine: SharedEngine = Arc::new(Mutex::new(engine));
     if args.virtual_device {
@@ -207,7 +274,11 @@ fn render_loop(
         let t0 = Instant::now();
         lock(&engine).tick(t0);
         if let Some(every) = rescan {
-            if last_scan.elapsed() >= every {
+            let requested = lock(&engine)
+                .modules
+                .as_ref()
+                .is_some_and(|m| m.rescan.swap(false, Ordering::SeqCst));
+            if requested || last_scan.elapsed() >= every {
                 last_scan = Instant::now();
                 let n = hardware::scan(&engine, &scan_opts);
                 if n > 0 {
@@ -281,3 +352,4 @@ mod tests {
         }
     }
 }
+

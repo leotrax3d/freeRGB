@@ -1,5 +1,8 @@
 # Plugin system
 
+Downloadable, signed hardware modules (separate protocol, daemon-owned device
+handles) are described in [HARDWARE_MODULES.md](HARDWARE_MODULES.md).
+
 Reference, SignalRGB [confirmed]: device plugins are JavaScript modules exporting metadata
 (`Name`, `VendorId`, `ProductId`, `LedPositions`, …) plus `Initialize/Render/Shutdown`.
 

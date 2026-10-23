@@ -1,0 +1,23 @@
+[package]
+name = "freergb-module-tool"
+description = "Builds, signs and verifies freeRGB hardware module releases"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+freergb-modules.workspace = true
+freergb-module-api.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+clap = { version = "4", features = ["derive"] }
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"] }
+rand = "0.8"
+hex = "0.4"
+sha2 = "0.10"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[lints]
+workspace = true

@@ -223,6 +223,11 @@ evidence and run `python scripts/update-readme-progress.py`.
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+
+Exception: downloadable hardware modules under [`modules/`](modules) are separate programs
+with their own license. `modules/razer-chroma` is a port of OpenRGB code and is licensed
+**GPL-2.0-or-later**; see its [PROVENANCE.md](modules/razer-chroma/PROVENANCE.md) and
+[docs/HARDWARE_MODULES.md](docs/HARDWARE_MODULES.md).
 Contributions use the same terms unless explicitly stated otherwise.
 
 freeRGB is independent and is not affiliated with or endorsed by hardware vendors

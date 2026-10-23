@@ -32,6 +32,8 @@ freergb-hid.workspace = true
 freergb-audio.workspace = true
 freergb-screen.workspace = true
 freergb-plugins.workspace = true
+freergb-modules.workspace = true
+freergb-module-api.workspace = true
 freergb-control.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -39,7 +41,7 @@ thiserror.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "signal", "sync", "time", "process"] }
 
 [lints]

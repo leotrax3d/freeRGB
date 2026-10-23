@@ -60,8 +60,9 @@ async function tauriTransport(): Promise<Transport> {
 let current: Promise<Transport> | undefined;
 
 export function transport(): Promise<Transport> {
-  current ??= inTauri()
+  current ??= !__WEB_DEMO__ && inTauri()
     ? tauriTransport()
     : import("../mock/transport").then((m) => m.mockTransport());
   return current;
 }
+

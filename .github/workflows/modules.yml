@@ -1,0 +1,158 @@
+name: Hardware modules
+# Builds, packages, source-archives and signs downloadable hardware modules.
+# See docs/HARDWARE_MODULES.md. Nothing is published unless a person starts the
+# workflow manually with `publish: true`; tag pushes only produce artifacts.
+on:
+  push:
+    tags: ['module-*-v*']
+  workflow_dispatch:
+    inputs:
+      module:
+        description: Module id (directory under modules/)
+        default: razer-chroma
+        required: true
+      publish:
+        description: Upload catalog and packages to the "modules" release (draft until published by hand)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  MODULE: ${{ inputs.module || 'razer-chroma' }}
+  OPENRGB_COMMIT: bbc77470a7cba56af60989e54ba910d5ac66a3ac
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            exe: .exe
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            exe: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Module tests
+        run: cargo test -p freergb-module-${{ env.MODULE }} -p freergb-module-api -p freergb-modules --locked
+      - name: End-to-end with the installed module (simulated device)
+        if: env.MODULE == 'razer-chroma'
+        run: |
+          cargo build -p freergb-module-razer-chroma --locked
+          cargo test -p freergb-modules --test e2e --locked -- --ignored
+      - name: Build
+        run: cargo build --release --locked -p freergb-module-${{ env.MODULE }} -p freergb-module-tool
+      - name: Pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(cargo metadata --format-version 1 --no-deps | jq -r ".packages[] | select(.name==\"freergb-module-$MODULE\") | .version")
+          mkdir -p dist
+          exe=target/release/freergb-module-$MODULE${{ matrix.exe }}
+          "$exe" --list-devices > dist/devices.json
+          target/release/freergb-module-tool${{ matrix.exe }} pack --id "$MODULE" --version "$version" --family "$MODULE" \
+            --license GPL-2.0-or-later --target ${{ matrix.target }} --executable "$exe" --devices dist/devices.json \
+            --file modules/$MODULE/COPYING --file modules/$MODULE/PROVENANCE.md \
+            --out "dist/freergb-module-$MODULE-$version-${{ matrix.target }}.zip"
+          rm dist/devices.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: module-${{ matrix.target }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generated device table matches the pinned OpenRGB commit
+        if: env.MODULE == 'razer-chroma'
+        run: |
+          git init -q openrgb && cd openrgb
+          git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
+          git fetch -q --depth 1 origin "$OPENRGB_COMMIT" && git checkout -q FETCH_HEAD
+          cd .. && node scripts/openrgb/port-razer-devices.mjs openrgb "$OPENRGB_COMMIT"
+          git diff --exit-code -- modules/razer-chroma/src/devices_table.rs
+      - name: Source archive
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p freergb-module-tool
+          version=$(cargo metadata --format-version 1 --no-deps | jq -r ".packages[] | select(.name==\"freergb-module-$MODULE\") | .version")
+          mkdir -p dist
+          target/release/freergb-module-tool source --root . --manifest modules/$MODULE/source-workspace.toml \
+            --path Cargo.lock --path LICENSE-MIT --path LICENSE-APACHE --path crates/freergb-core \
+            --path crates/freergb-module-api --path modules/$MODULE --path scripts/openrgb \
+            --out "dist/freergb-module-$MODULE-$version-source.zip"
+      - name: Source archive builds on its own
+        run: |
+          mkdir check && cd check && unzip -q ../dist/*-source.zip
+          cargo build --release -p freergb-module-$MODULE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: module-source
+          path: dist/*.zip
+          if-no-files-found: error
+
+  catalog:
+    needs: [build, source]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Build tool
+        run: cargo build --release --locked -p freergb-module-tool
+      - name: Update and sign catalog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNING_KEY: ${{ secrets.FREERGB_MODULE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::Secret FREERGB_MODULE_SIGNING_KEY is not configured (see docs/HARDWARE_MODULES.md)"; exit 1
+          fi
+          tool=target/release/freergb-module-tool
+          # Continue the existing catalog so other modules and the sequence stay.
+          gh release download modules --pattern catalog.json --dir dist 2>/dev/null || echo "starting a new catalog"
+          umask 077 && printf '%s' "$SIGNING_KEY" > "$RUNNER_TEMP/module.key"
+          packages=(); for p in dist/freergb-module-$MODULE-*-x86_64-*.zip; do packages+=(--package "$p"); done
+          FREERGB_CATALOG_DATE=$(date -u +%F) $tool add --catalog dist/catalog.json --name "$(jq -r .name modules/$MODULE/module-info.json)" \
+            "${packages[@]}" --source-package dist/freergb-module-$MODULE-*-source.zip \
+            --origin-project "$(jq -r .origin.project modules/$MODULE/module-info.json)" \
+            --origin-url "$(jq -r .origin.url modules/$MODULE/module-info.json)" \
+            --origin-commit "$(jq -r .origin.commit modules/$MODULE/module-info.json)" \
+            $(jq -r '.vendors[] | "--vendor " + .' modules/$MODULE/module-info.json)
+          $tool sign --key "$RUNNER_TEMP/module.key" --catalog dist/catalog.json
+          rm -f "$RUNNER_TEMP/module.key"
+          pub=$(grep -Ev '^\s*(#|$)' crates/freergb-modules/keys/release-keys.txt | head -n1)
+          $tool verify --pubkey "$pub" --dir dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: module-release
+          path: dist/*
+      - name: Upload to the modules release (manual publish only)
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view modules >/dev/null 2>&1 || gh release create modules --draft --title "Hardware modules" \
+            --notes "Signed hardware module catalog and packages. Licenses and sources: see each module's source archive."
+          gh release upload modules dist/catalog.json dist/catalog.json.sig dist/freergb-module-*.zip --clobber

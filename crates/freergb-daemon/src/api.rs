@@ -19,6 +19,104 @@ fn error(id: Value, code: i64, msg: impl Into<String>) -> Value {
     json!({"jsonrpc": "2.0", "id": id, "error": {"code": code, "message": msg.into()}})
 }
 
+/// `modules.*`: device setup and hardware modules (docs/HARDWARE_MODULES.md).
+/// Long work runs on its own thread; callers poll `modules.status`.
+/// Errors: -32006 modules disabled, -32602 bad params, -32005 refused.
+fn module_call(
+    engine: &SharedEngine,
+    method: &str,
+    params: &Value,
+) -> Result<Value, (i64, String)> {
+    let manager = lock(engine)
+        .modules
+        .clone()
+        .ok_or((-32006, "hardware modules are disabled".to_string()))?;
+    let keys = || -> Result<Vec<String>, (i64, String)> {
+        serde_json::from_value::<Vec<String>>(params["keys"].clone())
+            .map_err(invalid_params)
+            .and_then(|k| {
+                if k.is_empty() || k.len() > 64 {
+                    Err(invalid_params("1..64 keys"))
+                } else {
+                    Ok(k)
+                }
+            })
+    };
+    let spawn = |name: &str, work: Box<dyn FnOnce() + Send>| {
+        std::thread::Builder::new()
+            .name(name.into())
+            .spawn(work)
+            .map(|_| json!(true))
+            .map_err(|e| (-32005, e.to_string()))
+    };
+    match method {
+        "modules.status" => {
+            let mut status = json!(manager.status());
+            status["light_test_remaining_s"] = json!(lock(engine).light_test_remaining());
+            Ok(status)
+        }
+        "modules.catalog.refresh" => spawn(
+            "module-catalog",
+            Box::new(move || manager.refresh_catalog()),
+        ),
+        "modules.setup.start" => {
+            let keys = keys()?;
+            spawn("module-setup", Box::new(move || manager.run(&keys)))
+        }
+        "modules.setup.retry" => {
+            let keys = keys()?;
+            // A device that gave up must start with a fresh module process.
+            crate::modules::stop(engine, |k| keys.iter().any(|x| x == k));
+            spawn("module-setup", Box::new(move || manager.run(&keys)))
+        }
+        "modules.setup.cancel" => {
+            manager.cancel();
+            Ok(json!(true))
+        }
+        "modules.setup.dismiss" => {
+            manager.dismiss(&keys()?);
+            Ok(json!(true))
+        }
+        "modules.setup.complete" => {
+            manager.complete_first_run();
+            Ok(json!(true))
+        }
+        "modules.forget" => {
+            let keys = keys()?;
+            crate::modules::stop(engine, |k| keys.iter().any(|x| x == k));
+            for key in &keys {
+                manager.forget(key);
+            }
+            Ok(json!(true))
+        }
+        "modules.rollback" => {
+            let id = params["id"]
+                .as_str()
+                .ok_or_else(|| invalid_params("expected module id"))?
+                .to_owned();
+            let version = manager
+                .store()
+                .rollback(&id)
+                .map_err(|e| (-32005, e.to_string()))?;
+            let prefix = format!("module:{id}:");
+            crate::modules::stop(engine, |k| k.starts_with(&prefix));
+            manager
+                .rescan
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            Ok(json!({ "version": version }))
+        }
+        "modules.light_test" => {
+            let ids: Vec<String> =
+                serde_json::from_value(params["devices"].clone()).map_err(invalid_params)?;
+            lock(engine)
+                .start_light_test(ids)
+                .map_err(|e| (-32005, e))
+                .map(|()| json!(true))
+        }
+        _ => Err((-32601, format!("unknown method {method}"))),
+    }
+}
+
 fn invalid_params(e: impl std::fmt::Display) -> (i64, String) {
     (-32602, format!("invalid params: {e}"))
 }
@@ -327,6 +425,7 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             .controls
             .call(method, &params)
             .map_err(invalid_params),
+        m if m.starts_with("modules.") => module_call(engine, m, &params),
         "plugins.list" => Ok(json!(lock(engine).plugins())),
         "plugins.start" | "plugins.stop" => params
             .get("id")
@@ -952,3 +1051,4 @@ mod tests {
         assert!(handle_line(&e, r#"{"id":6,"method":"daemon.shutdown"}"#).shutdown);
     }
 }
+

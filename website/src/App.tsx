@@ -7,6 +7,7 @@ import {
 import wordmark from "../../assets/brand/wordmark-dark.svg"
 import appIcon from "../../assets/icons/freergb-32.png"
 import bundledWebsiteContent from "../../docs/WEBSITE_CONTENT.md?raw"
+import { LiveDemo } from "./components/LiveDemo"
 
 const repo = "https://github.com/leotrax3d/FreeRGB"
 
@@ -109,6 +110,7 @@ export default function App() {
   const [websiteData, setWebsiteData] = useState<WebsiteData>(bundledWebsiteData)
   const sections = [
     { id: "overview", label: "Overview", icon: Sparkles },
+    { id: "demo", label: "Live demo", icon: Monitor },
     ...groups.slice(0, 3).map(({ id, nav: label, icon }) => ({ id, label, icon })),
     { id: "compatibility", label: "Compatibility", icon: Search },
     { id: "platform", label: "Open platform", icon: PlugZap },
@@ -188,6 +190,7 @@ export default function App() {
       <nav aria-label="Website sections">
         <span className="nav-label">Product</span>
         <SideLink href="#overview" icon={Sparkles} active={activeSection === "overview"}>Overview</SideLink>
+        <SideLink href="#demo" icon={Monitor} active={activeSection === "demo"}>Live demo</SideLink>
         {groups.slice(0, 3).map((group) => <SideLink key={group.id} href={`#${group.id}`} icon={group.icon} active={activeSection === group.id}>{group.nav}</SideLink>)}
         <span className="nav-label second">Project</span>
         <SideLink href="#compatibility" icon={Search} active={activeSection === "compatibility"}>Compatibility</SideLink>
@@ -212,6 +215,7 @@ export default function App() {
         </div>
       </section>
 
+      <LiveDemo />
       {groups.slice(0, 3).map((group) => <section id={group.id} className="catalog view-section" key={group.id}>
         <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2><p>{group.description}</p></div></header>
         <div className="feature-list">{group.features.map((feature) => <FeatureRow key={feature.title} feature={feature} content={websiteData.featureDetails[feature.title]} />)}</div>
@@ -235,9 +239,9 @@ export default function App() {
         <header className="view-header"><div className="view-symbol"><Download size={18} /></div><div><h2>Install freeRGB</h2><p>The recommended download is selected for this operating system.</p></div></header>
         <div className="release-panel">
           <div className="release-icon"><Package size={20} /></div>
-          {release === undefined ? <div><span className="release-kicker">Latest release</span><h3>Checking GitHub Releases…</h3><p>Version and release notes are loaded directly from GitHub.</p></div>
-            : release === null ? <div><span className="release-kicker">Release status</span><h3>No published release yet</h3><p>Installers are currently produced by GitHub Actions. The website will switch to the published installer automatically when the first release is available.</p></div>
-              : <div><span className="release-kicker">Latest release · {new Date(release.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span><h3>{release.name} <small>{release.tag}</small></h3><p>{release.notes}</p><a href={release.url} target="_blank" rel="noreferrer">Full release notes <ArrowUpRight size={13} /></a></div>}
+          {release === undefined ? <div><h3>Checking GitHub Releases…</h3><p>Version and release notes are loaded directly from GitHub.</p></div>
+            : release === null ? <div><h3>No published release yet</h3><p>Installers are currently produced by GitHub Actions. The website will switch to the published installer automatically when the first release is available.</p></div>
+              : <div><p><time dateTime={release.publishedAt}>{new Date(release.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</time></p><h3>{release.name} <small>{release.tag}</small></h3><p>{release.notes}</p><a href={release.url} target="_blank" rel="noreferrer">Full release notes <ArrowUpRight size={13} /></a></div>}
         </div>
         <div className="install-list">
           <a className={platform === "windows" ? "recommended" : ""} href={windowsAsset?.url ?? websiteData.downloads.windows.url} target="_blank" rel="noreferrer"><Monitor size={20} /><span><b>{websiteData.downloads.windows.label}</b><small>{platform === "windows" ? `Recommended · ${windowsAsset ? "Download latest installer" : websiteData.downloads.windows.note}` : websiteData.downloads.windows.note}</small></span><ArrowUpRight size={15} /></a>

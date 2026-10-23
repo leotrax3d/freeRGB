@@ -32,6 +32,8 @@ infer completion from a build, simulator, detected device or old pending CI note
 - [ ] Extended simultaneous-device soak and LINK promotion beyond experimental. Evidence: [worklist](WORKLIST.md).
 - [ ] Hardware process-plugin acceptance, effect plugins and install/hot reload. Evidence: [plugins](PLUGIN_SYSTEM.md).
 - [ ] ASUS header colour/fallback acceptance and configuration UI. Evidence: [mainboard RGB](MAINBOARD_RGB.md).
+- [x] Downloadable hardware modules: signed catalog, verified atomic install, brokered module processes and setup UI (simulation and process tests; first module ports OpenRGB Razer). Evidence: [hardware modules](HARDWARE_MODULES.md).
+- [ ] Razer Chroma module hardware acceptance and first published signed module release (needs release key). Evidence: [hardware modules](HARDWARE_MODULES.md).
 - [ ] Additional vendor/device lighting adapters with hardware acceptance. Evidence: [product plan](PRODUCT_PLAN.md), [mainboard support](MAINBOARD_SUPPORT.md).
 
 ## Automation and monitoring
@@ -95,4 +97,5 @@ Automation reads checkbox state; it cannot decide whether a feature is complete.
 Contributors must keep this checklist consistent with implementation evidence.
 If branch protection forbids the bot's direct commit, run the generator in the
 same pull request; the pull-request check enforces that the text is current.
+
 

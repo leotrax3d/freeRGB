@@ -54,6 +54,16 @@ pub const ALLOWED: &[&str] = &[
     "profiles.load",
     "profiles.delete",
     "plugins.list",
+    "modules.status",
+    "modules.catalog.refresh",
+    "modules.setup.start",
+    "modules.setup.retry",
+    "modules.setup.cancel",
+    "modules.setup.dismiss",
+    "modules.setup.complete",
+    "modules.forget",
+    "modules.rollback",
+    "modules.light_test",
     "plugins.start",
     "plugins.stop",
     "cooling.status",
@@ -219,3 +229,4 @@ mod tests {
         assert!(!ALLOWED.contains(&"daemon.shutdown_if"));
     }
 }
+
