@@ -127,6 +127,10 @@ jobs:
             node scripts/openrgb/port-msi-laptop-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-msi-laptop
             git diff --exit-code -- modules/msi-laptop/src/devices_table.rs
+          elif [ "$MODULE" = "thermaltake-riing" ]; then
+            node scripts/openrgb/port-thermaltake-riing-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-thermaltake-riing
+            git diff --exit-code -- modules/thermaltake-riing/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
