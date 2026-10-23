@@ -7,6 +7,7 @@ use freergb_module_api::{InterfaceInfo, ModuleError};
 struct Fake {
     w: Vec<Vec<u8>>,
 }
+#[allow(dead_code)]
 struct HidppFake {
     w: Vec<Vec<u8>>,
     reads: Vec<Vec<u8>>,
@@ -48,10 +49,6 @@ fn inventory() {
 #[test]
 fn bytes() {
     assert_eq!(
-        &report::direct(&[Rgb { r: 1, g: 2, b: 3 }])[..4],
-        &[2, 1, 2, 3]
-    );
-    assert_eq!(
         &report::g213(2, Rgb { r: 1, g: 2, b: 3 })[..10],
         &[0x11, 0xff, 0x0c, 0x3a, 2, 1, 1, 2, 3, 2]
     );
@@ -88,8 +85,14 @@ fn bytes() {
         &[0x11, 0xff, 4, 0x3a, 1, 1, 1, 2, 3, 2]
     );
     assert_eq!(
-        report::g600(0, 3, Rgb { r: 1, g: 2, b: 3 }),
-        [0xf1, 1, 2, 3, 0, 3, 0, 0]
+        // upstream: LogitechG600Controller.cpp SetMode, Direct mode has speed 0
+        report::g600(0, 0, Rgb { r: 1, g: 2, b: 3 }),
+        [0xf1, 1, 2, 3, 0, 0, 0, 0]
+    );
+    assert_eq!(
+        // upstream: LogitechG933Controller.cpp SetDirectMode
+        &report::g933_direct(1)[..5],
+        &[0x11, 0xff, 4, 0xca, 1]
     );
     assert_eq!(
         &report::hidpp(4, 0x10, &[1, 2, 3, 4])[..8],
@@ -133,55 +136,81 @@ fn lifecycle() {
     assert!(!h.w.is_empty())
 }
 #[test]
-fn hidpp_discovery_and_frame_are_brokered() {
+fn hidpp20_device_is_refused_without_io() {
+    // The HIDPP20 protocol path (wildcard PID detectors) was audited as not
+    // fully ported, so initialize must fail closed without touching the device.
     let d = devices_table::DETECTORS
         .iter()
         .find(|x| x.handler == "DetectLogitechHIDPP20")
         .unwrap();
     let i = InterfaceInfo {
         vid: d.vid,
-        pid: d.pid,
+        pid: 0x046d,
         interface: 0,
         usage_page: 0xff00,
         usage: 2,
         product: None,
     };
-    let mut reads = Vec::new();
-    reads.push(vec![0x11, 2, 0, 0x8f]);
-    let mut root = vec![0; 20];
-    root[..4].copy_from_slice(&[0x11, 2, 0, 7]);
-    root[4] = 5;
-    reads.push(root);
-    let mut rgb_count = vec![0; 20];
-    rgb_count[..4].copy_from_slice(&[0x11, 2, 5, 7]);
-    rgb_count[6] = 2;
-    reads.push(rgb_count);
-    let mut perkey = vec![0; 20];
-    perkey[..4].copy_from_slice(&[0x11, 2, 0, 7]);
-    perkey[4] = 6;
-    reads.push(perkey);
-    for page in 0..3 {
-        let mut zones = vec![0; 20];
-        zones[..4].copy_from_slice(&[0x11, 2, 6, 7]);
-        if page == 0 {
-            zones[6] = 0b0000_0110;
-        }
-        reads.push(zones);
-    }
-    reads.push(vec![0x11, 2, 6, 0x17]);
-    reads.push(vec![0x11, 2, 6, 0x77]);
-    let mut h = HidppFake {
-        w: Vec::new(),
-        reads,
+    let mut m = Logitech::default();
+    let mut h = Fake::default();
+    let res = m.initialize(&i, &mut h);
+    assert!(res.is_err());
+    assert!(h.w.is_empty());
+}
+
+#[test]
+fn unported_handler_is_reported_not_guessed() {
+    // upstream: LogitechControllerDetect.cpp registers HID++ wildcard rows with
+    // HID_PID_ANY; they are inventoried but their protocol path is not ported.
+    let d = devices_table::DETECTORS
+        .iter()
+        .find(|x| x.handler == "DetectLogitechHIDPP20")
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: 0x1234, // wildcard never matches an actual VID/PID
+        interface: 0,
+        usage_page: 0xff00,
+        usage: 2,
+        product: None,
+    };
+    assert!(!table::identify(&i).supported);
+    let d2 = devices_table::DETECTORS
+        .iter()
+        .find(|x| x.handler == "DetectLogitechLightspeedReceiver")
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d2.vid,
+        pid: d2.pid,
+        interface: 0,
+        usage_page: 0,
+        usage: 0,
+        product: None,
+    };
+    let id = table::identify(&i);
+    assert!(!id.supported);
+    assert!(id.reason.as_deref().unwrap().contains("not fully ported"));
+}
+
+#[test]
+fn g933_initialize_sends_direct_mode_packets() {
+    let d = devices_table::DETECTORS
+        .iter()
+        .find(|x| x.handler == "DetectLogitechG933")
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: 0,
+        usage_page: 0,
+        usage: 0,
+        product: None,
     };
     let mut m = Logitech::default();
+    let mut h = Fake::default();
     let c = m.initialize(&i, &mut h).unwrap();
     assert_eq!(c.layout.leds.len(), 2);
-    m.frame(
-        &[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }],
-        &mut h,
-    )
-    .unwrap();
-    assert_eq!(h.w[0], report::hidpp(0, 0, &[0x06, 0x20]));
-    assert_eq!(h.w.len(), 9);
+    // upstream: RGBController_LogitechG933.cpp DeviceUpdateMode for direct mode
+    assert_eq!(h.w[0], report::g933_direct(0));
+    assert_eq!(h.w[1], report::g933_direct(1));
 }

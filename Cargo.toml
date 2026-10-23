@@ -33,6 +33,7 @@ members = [
     "modules/msi-laptop",
     "modules/thermaltake-riing",
     "modules/cherry",
+    "modules/logitech",
 ]
 
 [workspace.package]

@@ -45,14 +45,6 @@ pub fn headset_zone(c: Rgb, zone: u8) -> [u8; 5] {
 pub fn headset_end() -> [u8; 4] {
     [1, 0, 0, 0]
 }
-pub fn direct(c: &[Rgb]) -> [u8; 64] {
-    let mut p = [0; 64];
-    p[0] = 2;
-    for (i, x) in c.iter().take(20).enumerate() {
-        p[1 + i * 3..4 + i * 3].copy_from_slice(&[x.r, x.g, x.b]);
-    }
-    p
-}
 pub fn g213(zone: usize, c: Rgb) -> [u8; 20] {
     let mut p = [0; 20];
     p[0..10].copy_from_slice(&[
@@ -172,5 +164,11 @@ pub fn g600(mode: u8, speed: u16, c: Rgb) -> [u8; 8] {
 pub fn g933(zone: usize, c: Rgb) -> [u8; 20] {
     let mut p = [0; 20];
     p[0..10].copy_from_slice(&[0x11, 0xff, 4, 0x3a, zone as u8, 1, c.r, c.g, c.b, 2]);
+    p
+}
+/// upstream: LogitechG933Controller.cpp LogitechG933Controller::SetDirectMode
+pub fn g933_direct(zone: u8) -> [u8; 20] {
+    let mut p = [0; 20];
+    p[..5].copy_from_slice(&[0x11, 0xff, 0x04, 0xca, zone]);
     p
 }

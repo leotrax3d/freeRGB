@@ -135,6 +135,10 @@ jobs:
             node scripts/openrgb/port-cherry-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-cherry
             git diff --exit-code -- modules/cherry/src/devices_table.rs
+          elif [ "$MODULE" = "logitech" ]; then
+            node scripts/openrgb/port-logitech-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-logitech
+            git diff --exit-code -- modules/logitech/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
