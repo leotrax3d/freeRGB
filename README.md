@@ -13,7 +13,11 @@
 <!-- progress:end -->
 
 [![CI](https://img.shields.io/github/actions/workflow/status/leotrax3d/FreeRGB/ci.yml?style=flat-square&label=CI)](https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml)
-![Status](https://img.shields.io/badge/status-early%20development-orange?style=flat-square)
+![Status](https://img.shields.io/badge/status-beta-orange?style=flat-square)
+
+> **Beta:** [freeRGB 0.1.0-beta.1](https://github.com/leotrax3d/FreeRGB/releases) is the first
+> public prerelease (Windows installer). Read the [release notes and known issues](docs/RELEASE_NOTES_0.1.0-beta.1.md)
+> before enabling fan control.
 ![Rust](https://img.shields.io/badge/rust-1.80%2B-blue?style=flat-square)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green?style=flat-square)

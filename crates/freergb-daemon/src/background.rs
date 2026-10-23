@@ -134,6 +134,10 @@ impl Background {
         self.path = Some(path);
         self
     }
+    pub fn helper(&self) -> Option<PathBuf> {
+        self.helper.clone()
+    }
+
     pub fn view(&self) -> Value {
         json!({
             "available": self.helper.is_some(),
@@ -201,6 +205,33 @@ impl Background {
             .map_err(|e| e.to_string())?;
         Ok(())
     }
+}
+
+/// Pause/resume all background fan channels in the protected service (no UAC:
+/// pausing only returns channels to firmware, resuming restarts the already
+/// authorized configuration). Returns the service's paused state.
+pub fn set_paused(helper: &std::path::Path, paused: bool) -> Result<bool, String> {
+    let mut command = std::process::Command::new(helper);
+    command
+        .args(["--background", if paused { "pause" } else { "resume" }])
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
+    let output = command
+        .output()
+        .map_err(|error| format!("Fan service unreachable: {error}"))?;
+    if !output.status.success() {
+        return Err("The protected fan service did not accept the request".into());
+    }
+    let reply: Value = serde_json::from_slice(output.stdout.trim_ascii())
+        .map_err(|_| "Invalid reply from the protected fan service")?;
+    reply["background_paused"]
+        .as_bool()
+        .ok_or_else(|| "Invalid reply from the protected fan service".into())
 }
 
 fn run_helper(helper: &std::path::Path, encoded: &str) -> Result<(), String> {

@@ -152,8 +152,10 @@ impl StartRequest {
         &self,
         policy: &SessionPolicy,
     ) -> Result<(ControlMode, u8, u8, SupportTier, RuntimeLimits), String> {
-        if !self.confirmed_fan {
-            return Err("Explicit physical fan confirmation required; pumps excluded".into());
+        // The role assigned during fan identification (bindings) is the
+        // confirmation; `confirmed_fan` only stands in for unassigned headers.
+        if !self.confirmed_fan && policy.evidence.role.is_none() {
+            return Err("Identify this header as a fan first (Cooling → the fan card → Identify)".into());
         }
         let pump = policy.evidence.role == Some(ChannelRole::Pump);
         // A pump is controlled only after an unrestricted unlock AND its second,
@@ -199,11 +201,10 @@ impl StartRequest {
             Some(base.into())
         };
         let base = sensor(&self.control_id, "control").ok_or("Invalid native control identity")?;
-        if sensor(&self.temperature_id, "temperature").as_ref() != Some(&base)
-            || sensor(&self.rpm_id, "fan").as_ref() != Some(&base)
-        {
-            return Err("Exact temperature/RPM on the same native hardware required".into());
+        if sensor(&self.rpm_id, "fan").as_ref() != Some(&base) {
+            return Err("The RPM sensor must be on the same native hardware as the control".into());
         }
+        temperature_sources(&self.temperature_id)?;
         match self.mode.as_str() {
             "curve" if self.critical_c.is_none() => {
                 let curve = self.curve.clone().ok_or("Curve required")?;
@@ -265,6 +266,46 @@ impl StartRequest {
         }
     }
 }
+/// Curve temperature sources: one to three SuperIO, CPU or GPU temperatures
+/// ("a,b,c"); the protected worker uses the hottest. Mirrors `NativeSources`.
+pub fn temperature_sources(list: &str) -> Result<Vec<&str>, String> {
+    let parts: Vec<&str> = list.split(',').collect();
+    let valid = |id: &str| {
+        let Some(rest) = id.strip_prefix('/') else {
+            return false;
+        };
+        let segments: Vec<&str> = rest.split('/').collect();
+        let tail_ok = |instance: &str, kind: &str, index: &str| {
+            instance.parse::<u16>().is_ok() && kind == "temperature" && index.parse::<u16>().is_ok()
+        };
+        let name_ok = |name: &str| {
+            !name.is_empty()
+                && name
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        };
+        id.len() <= 128
+            && match segments.as_slice() {
+                ["lpc", chip, instance, kind, index] => {
+                    name_ok(chip) && tail_ok(instance, kind, index)
+                }
+                ["amdcpu" | "intelcpu", instance, kind, index] => tail_ok(instance, kind, index),
+                [gpu, instance, kind, index] if gpu.starts_with("gpu-") => {
+                    gpu[4..]
+                        .split('-')
+                        .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_lowercase()))
+                        && tail_ok(instance, kind, index)
+                }
+                _ => false,
+            }
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    if !(1..=3).contains(&parts.len()) || parts.iter().any(|p| !valid(p) || !seen.insert(*p)) {
+        return Err("Choose one to three temperature sources (motherboard, CPU or GPU)".into());
+    }
+    Ok(parts)
+}
+
 #[derive(Clone, Serialize)]
 pub struct Status {
     pub available: bool,
@@ -277,8 +318,23 @@ pub struct Status {
     /// Mode and native control of the current/last job.
     pub mode: Option<String>,
     pub control_id: Option<String>,
+    /// All recent jobs (one per channel may run at the same time); the fields
+    /// above describe the most recently started one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub jobs: Vec<Status>,
 }
-type View = Arc<Mutex<Status>>;
+
+const ACTIVE: [&str; 3] = ["authorizing", "executing", "stopping"];
+/// Concurrent interactive sessions (one per channel); recent jobs kept for display.
+const MAX_ACTIVE: usize = 8;
+const MAX_KEPT: usize = 16;
+
+struct Board {
+    available: bool,
+    latest: Option<u64>,
+    jobs: std::collections::BTreeMap<u64, Status>,
+}
+type View = Arc<Mutex<Board>>;
 enum Command {
     Start(u64, Box<Plan>),
     Stop(u64),
@@ -293,26 +349,36 @@ impl Default for CoolingSessions {
     fn default() -> Self {
         Self {
             sender: None,
-            view: Arc::new(Mutex::new(Status {
+            view: Arc::new(Mutex::new(Board {
                 available: false,
-                job_id: None,
-                state: "disabled".into(),
-                report: None,
-                error: None,
-                tier: None,
-                mode: None,
-                control_id: None,
+                latest: None,
+                jobs: Default::default(),
             })),
             thread: None,
             next: 0,
         }
     }
 }
-fn update(view: &View, state: &str, report: Option<RuntimeReport>, error: Option<String>) {
-    let mut value = view.lock().unwrap_or_else(|e| e.into_inner());
-    value.state = state.into();
-    value.report = report;
-    value.error = error;
+fn idle(available: bool) -> Status {
+    Status {
+        available,
+        job_id: None,
+        state: if available { "idle" } else { "disabled" }.into(),
+        report: None,
+        error: None,
+        tier: None,
+        mode: None,
+        control_id: None,
+        jobs: Vec::new(),
+    }
+}
+fn update(view: &View, id: u64, state: &str, report: Option<RuntimeReport>, error: Option<String>) {
+    let mut board = view.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(job) = board.jobs.get_mut(&id) {
+        job.state = state.into();
+        job.report = report;
+        job.error = error;
+    }
 }
 impl CoolingSessions {
     pub fn enable(helper: PathBuf) -> Result<Self, String> {
@@ -320,14 +386,13 @@ impl CoolingSessions {
             return Err("Native cooling requires Windows".into());
         }
         let mut result = Self::default();
-        let (tx, rx) = mpsc::channel(8);
+        let (tx, rx) = mpsc::channel(16);
         let view = result.view.clone();
         result
             .view
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .available = true;
-        update(&result.view, "idle", None, None);
         result.thread = Some(
             std::thread::Builder::new()
                 .name("mainboard-cooling".into())
@@ -337,7 +402,7 @@ impl CoolingSessions {
                         .build()
                     {
                         Ok(runtime) => runtime.block_on(worker(helper, view, rx)),
-                        Err(error) => update(&view, "failed", None, Some(error.to_string())),
+                        Err(error) => tracing::error!(%error, "cooling runtime unavailable"),
                     }
                 })
                 .map_err(|e| e.to_string())?,
@@ -346,7 +411,14 @@ impl CoolingSessions {
         Ok(result)
     }
     pub fn status(&self) -> Status {
-        self.view.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        let board = self.view.lock().unwrap_or_else(|e| e.into_inner());
+        let mut status = board
+            .latest
+            .and_then(|id| board.jobs.get(&id).cloned())
+            .unwrap_or_else(|| idle(board.available));
+        status.available = board.available;
+        status.jobs = board.jobs.values().rev().cloned().collect();
+        status
     }
     pub fn start(&mut self, request: StartRequest, policy: &SessionPolicy) -> Result<u64, String> {
         let plan = request.plan(policy)?;
@@ -354,46 +426,83 @@ impl CoolingSessions {
             .sender
             .as_ref()
             .ok_or("Mainboard provider/control not enabled")?;
-        let state = self.status();
-        if state.state == "blocked" {
-            return Err("Native recovery inspection required before daemon restart".into());
-        }
-        if ["authorizing", "executing", "stopping"].contains(&state.state.as_str()) {
-            return Err("A cooling job is already active".into());
+        {
+            let board = self.view.lock().unwrap_or_else(|e| e.into_inner());
+            if board.jobs.values().any(|j| j.state == "blocked") {
+                return Err("Native recovery inspection required before daemon restart".into());
+            }
+            let active: Vec<_> = board
+                .jobs
+                .values()
+                .filter(|j| ACTIVE.contains(&j.state.as_str()))
+                .collect();
+            if active
+                .iter()
+                .any(|j| j.control_id.as_deref() == Some(plan.request.control_id.as_str()))
+            {
+                return Err("A cooling job is already active on this channel".into());
+            }
+            if active.len() >= MAX_ACTIVE {
+                return Err("Too many cooling jobs are active".into());
+            }
         }
         self.next = self
             .next
             .checked_add(1)
             .ok_or("Cooling job identity exhausted")?;
+        let id = self.next;
         {
-            let mut view = self.view.lock().unwrap_or_else(|e| e.into_inner());
-            view.job_id = Some(self.next);
-            view.state = "authorizing".into();
-            view.report = None;
-            view.error = None;
-            view.tier = Some(plan.tier.as_str());
-            view.mode = Some(plan.request.mode.clone());
-            view.control_id = Some(plan.request.control_id.clone());
+            let mut board = self.view.lock().unwrap_or_else(|e| e.into_inner());
+            let available = board.available;
+            board.jobs.insert(
+                id,
+                Status {
+                    available,
+                    job_id: Some(id),
+                    state: "authorizing".into(),
+                    report: None,
+                    error: None,
+                    tier: Some(plan.tier.as_str()),
+                    mode: Some(plan.request.mode.clone()),
+                    control_id: Some(plan.request.control_id.clone()),
+                    jobs: Vec::new(),
+                },
+            );
+            board.latest = Some(id);
+            // Forget the oldest finished jobs.
+            while board.jobs.len() > MAX_KEPT {
+                let Some(oldest) = board
+                    .jobs
+                    .iter()
+                    .find(|(_, j)| !ACTIVE.contains(&j.state.as_str()) && j.state != "blocked")
+                    .map(|(k, _)| *k)
+                else {
+                    break;
+                };
+                board.jobs.remove(&oldest);
+            }
         }
-        if sender
-            .try_send(Command::Start(self.next, Box::new(plan)))
-            .is_err()
-        {
+        if sender.try_send(Command::Start(id, Box::new(plan))).is_err() {
             update(
                 &self.view,
+                id,
                 "failed",
                 None,
                 Some("Cooling worker unavailable".into()),
             );
             return Err("Cooling worker unavailable".into());
         }
-        Ok(self.next)
+        Ok(id)
     }
     pub fn stop(&self, id: u64) -> Result<(), String> {
-        let status = self.status();
-        if status.job_id != Some(id)
-            || !["authorizing", "executing", "stopping"].contains(&status.state.as_str())
-        {
+        let active = self
+            .view
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .jobs
+            .get(&id)
+            .is_some_and(|j| ACTIVE.contains(&j.state.as_str()));
+        if !active {
             return Err("Cooling job is not active".into());
         }
         self.sender
@@ -412,86 +521,110 @@ impl Drop for CoolingSessions {
     }
 }
 
+/// Dispatches commands; every job runs as its own task with its own stop line.
 async fn worker(helper: PathBuf, view: View, mut commands: mpsc::Receiver<Command>) {
-    while let Some(command) = commands.recv().await {
-        let Command::Start(id, plan) = command else {
-            continue;
-        };
-        let Plan {
-            request,
-            mode,
-            critical_c: critical,
-            minimum_percent: minimum,
-            tier,
-            role,
-            limits,
-            duration,
-        } = *plan;
-        // Do not cancel an elevated authorization child: it may still publish
-        // authorization after the requesting helper is dropped. Drain a queued
-        // stop only after authorization finishes, before native acquisition.
-        let authorized = native_bridge::authorize(
-            &helper,
-            &request.control_id,
-            &request.temperature_id,
-            &request.rpm_id,
-            critical,
-            minimum,
-            tier.protected_name().map(|name| (name, role)),
-        )
-        .await;
-        match commands.try_recv() {
-            Ok(Command::Stop(job)) if job == id => {
-                update(&view, "stopped", None, None);
-                continue;
-            }
-            Err(mpsc::error::TryRecvError::Disconnected) => return,
-            _ => {}
-        }
-        if let Err(error) = authorized {
-            update(&view, "failed", None, Some(error));
-            continue;
-        }
-        let mut host = CoolingHost::new(true, Instant::now());
-        if let Err(error) = host.start_native(native_bridge::connect(helper.clone()), mode, limits)
-        {
-            update(&view, "failed", None, Some(error));
-            continue;
-        }
-        update(&view, "executing", None, None);
-        let mut ticks = tokio::time::interval(Duration::from_millis(100));
-        let deadline = duration.map(|d| tokio::time::Instant::now() + d);
-        loop {
-            tokio::select! {
-                _ = async { match deadline { Some(at) => tokio::time::sleep_until(at).await, None => std::future::pending().await } } => {
-                    // Bounded identification: explicit close (firmware return).
-                    update(&view,"stopping",None,None);
-                    match host.prepare_maintenance(20000).await {
-                        Ok(())=>update(&view,"completed",host.last_report().cloned(),None),
-                        Err(error)=>update(&view,"blocked",None,Some(error)),
-                    }
-                    break;
-                },
-                _=ticks.tick()=>{
-                    match host.collect_finished().await {
-                        Ok(Some(report))=>{
-                            let state = if report.fault.is_some() { "faulted" } else { "completed" };
-                            update(&view,state,Some(report),None);break;
-                        },
-                        Ok(None)=>{},
-                        Err(error)=>{update(&view,"blocked",None,Some(error));break;},
-                    }
-                },
-                command=commands.recv()=>{
-                    let shutting_down=command.is_none();
-                    if !shutting_down && !matches!(command,Some(Command::Stop(job)) if job==id){continue;}
-                    update(&view,"stopping",None,None);
-                    match host.prepare_maintenance(20000).await {
-                        Ok(())=>update(&view,"stopped",host.last_report().cloned(),None),
-                        Err(error)=>update(&view,"blocked",None,Some(error)),
-                    }
-                    if shutting_down{return;}break;
+    let mut stops: std::collections::HashMap<u64, mpsc::Sender<()>> = Default::default();
+    let mut tasks = tokio::task::JoinSet::new();
+    loop {
+        tokio::select! {
+            command = commands.recv() => match command {
+                Some(Command::Start(id, plan)) => {
+                    let (stop, stopped) = mpsc::channel(1);
+                    stops.insert(id, stop);
+                    tasks.spawn(job(helper.clone(), view.clone(), id, *plan, stopped));
                 }
+                Some(Command::Stop(id)) => {
+                    if let Some(stop) = stops.get(&id) {
+                        let _ = stop.try_send(());
+                    }
+                }
+                None => break,
+            },
+            Some(_) = tasks.join_next(), if !tasks.is_empty() => {}
+        }
+        stops.retain(|_, stop| !stop.is_closed());
+    }
+    // Shutdown: every job returns its channel (explicit close) before exit.
+    stops.clear();
+    while tasks.join_next().await.is_some() {}
+}
+
+async fn job(helper: PathBuf, view: View, id: u64, plan: Plan, mut stop: mpsc::Receiver<()>) {
+    let Plan {
+        request,
+        mode,
+        critical_c: critical,
+        minimum_percent: minimum,
+        tier,
+        role,
+        limits,
+        duration,
+    } = plan;
+    // Do not cancel an elevated authorization child: it may still publish
+    // authorization after the requesting helper is dropped. Check a queued stop
+    // only after authorization finishes, before native acquisition.
+    let authorized = native_bridge::authorize(
+        &helper,
+        &request.control_id,
+        &request.temperature_id,
+        &request.rpm_id,
+        critical,
+        minimum,
+        tier.protected_name().map(|name| (name, role)),
+    )
+    .await;
+    match stop.try_recv() {
+        Ok(()) | Err(mpsc::error::TryRecvError::Disconnected) => {
+            update(&view, id, "stopped", None, None);
+            return;
+        }
+        Err(mpsc::error::TryRecvError::Empty) => {}
+    }
+    if let Err(error) = authorized {
+        update(&view, id, "failed", None, Some(error));
+        return;
+    }
+    let mut host = CoolingHost::new(true, Instant::now());
+    if let Err(error) = host.start_native(
+        native_bridge::connect(helper.clone(), request.control_id.clone()),
+        mode,
+        limits,
+    ) {
+        update(&view, id, "failed", None, Some(error));
+        return;
+    }
+    update(&view, id, "executing", None, None);
+    let mut ticks = tokio::time::interval(Duration::from_millis(100));
+    let deadline = duration.map(|d| tokio::time::Instant::now() + d);
+    loop {
+        tokio::select! {
+            _ = async { match deadline { Some(at) => tokio::time::sleep_until(at).await, None => std::future::pending().await } } => {
+                // Bounded identification: explicit close (firmware return).
+                update(&view,id,"stopping",None,None);
+                match host.prepare_maintenance(20000).await {
+                    Ok(())=>update(&view,id,"completed",host.last_report().cloned(),None),
+                    Err(error)=>update(&view,id,"blocked",None,Some(error)),
+                }
+                return;
+            },
+            _=ticks.tick()=>{
+                match host.collect_finished().await {
+                    Ok(Some(report))=>{
+                        let state = if report.fault.is_some() { "faulted" } else { "completed" };
+                        update(&view,id,state,Some(report),None);return;
+                    },
+                    Ok(None)=>{},
+                    Err(error)=>{update(&view,id,"blocked",None,Some(error));return;},
+                }
+            },
+            _ = stop.recv() => {
+                // Explicit stop or daemon shutdown (sender dropped).
+                update(&view,id,"stopping",None,None);
+                match host.prepare_maintenance(20000).await {
+                    Ok(())=>update(&view,id,"stopped",host.last_report().cloned(),None),
+                    Err(error)=>update(&view,id,"blocked",None,Some(error)),
+                }
+                return;
             }
         }
     }
@@ -665,6 +798,33 @@ mod tests {
     }
 
     #[test]
+    fn temperature_sources_accept_cpu_gpu_and_hottest_of_lists() {
+        assert!(temperature_sources("/amdcpu/0/temperature/2").is_ok());
+        assert_eq!(
+            temperature_sources("/lpc/nct6701d/0/temperature/1,/gpu-nvidia/0/temperature/0")
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(temperature_sources("/gpu-intel-integrated/0/temperature/0").is_ok());
+        for bad in [
+            "",
+            "/amdcpu/0/load/1",
+            "/x/0/temperature/1",
+            "/amdcpu/0/temperature/1,/amdcpu/0/temperature/1",
+            "/amdcpu/0/temperature/1,/amdcpu/0/temperature/2,/amdcpu/0/temperature/3,/amdcpu/0/temperature/4",
+        ] {
+            assert!(temperature_sources(bad).is_err(), "{bad}");
+        }
+        let mut r = request();
+        r.temperature_id = "/intelcpu/0/temperature/0".into();
+        assert!(r.validate().is_ok(), "CPU temperature with a SuperIO fan");
+        let mut r = request();
+        r.rpm_id = "/lpc/nct6701d/1/fan/2".into();
+        assert!(r.validate().is_err(), "RPM must stay on the control chip");
+    }
+
+    #[test]
     fn manual_percentage_is_a_flat_supervised_curve() {
         let manual = |duty: u8| {
             let mut r = request();
@@ -733,13 +893,39 @@ mod tests {
         assert!(sessions.stop(1).is_err());
         let (sender, mut receiver) = mpsc::channel(8);
         sessions.sender = Some(sender);
-        update(
-            &sessions.view,
-            "blocked",
-            None,
-            Some("return unverified".into()),
-        );
+        {
+            let mut board = sessions.view.lock().unwrap();
+            let mut blocked = idle(true);
+            blocked.job_id = Some(7);
+            blocked.state = "blocked".into();
+            blocked.error = Some("return unverified".into());
+            board.jobs.insert(7, blocked);
+        }
         assert!(sessions.start(request(), &SessionPolicy::legacy()).is_err());
         assert!(receiver.try_recv().is_err());
+    }
+
+    #[test]
+    fn one_job_per_channel_and_several_channels_at_once() {
+        let mut sessions = CoolingSessions::default();
+        let (sender, mut receiver) = mpsc::channel(8);
+        sessions.sender = Some(sender);
+        sessions.view.lock().unwrap().available = true;
+        let first = sessions.start(request(), &SessionPolicy::legacy()).unwrap();
+        assert!(
+            sessions.start(request(), &SessionPolicy::legacy()).is_err(),
+            "same channel twice"
+        );
+        let mut other = request();
+        other.control_id = "/lpc/nct6701d/0/control/3".into();
+        other.rpm_id = "/lpc/nct6701d/0/fan/3".into();
+        let second = sessions.start(other, &SessionPolicy::legacy()).unwrap();
+        assert_ne!(first, second);
+        assert!(matches!(receiver.try_recv(), Ok(Command::Start(id, _)) if id == first));
+        assert!(matches!(receiver.try_recv(), Ok(Command::Start(id, _)) if id == second));
+        let status = sessions.status();
+        assert_eq!(status.job_id, Some(second));
+        assert_eq!(status.jobs.len(), 2);
+        assert!(sessions.stop(first).is_ok() && sessions.stop(99).is_err());
     }
 }

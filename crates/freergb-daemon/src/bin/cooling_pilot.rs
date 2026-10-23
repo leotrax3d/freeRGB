@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         point.duty_percent = point.duty_percent.max(curve.minimum_percent);
     }
     host.start_native(
-        native_bridge::connect(helper.into()),
+        native_bridge::connect(helper.into(), std::env::args().nth(2).unwrap_or_default()),
         if mode == "calibrate" {
             ControlMode::Calibration { critical_c: 80.0 }
         } else {

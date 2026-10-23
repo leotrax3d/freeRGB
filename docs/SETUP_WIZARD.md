@@ -41,3 +41,25 @@ Identification never lowers a duty. The channel test never goes below 50%
 and excludes pumps. All existing guards (journal, watchdog, firmware return,
 critical temperature) apply. Control keeps running with the GUI closed
 (daemon + protected service).
+
+## Status (2026-10-23)
+
+Implemented; not yet run on real hardware or through a real installation:
+
+* Daemon: `onboarding.get/complete/reset`, `safety.acknowledge/revoke`
+  (`crates/freergb-daemon/src/onboarding.rs`, text version 1) gate every fan
+  write path; session mode `identify` (8 s at 100%, then firmware return).
+* Setup: elevated per-machine install, automatic motherboard components with a
+  progress page (`mainboard-prerequisites.iss`, `PROGRESS:` lines from
+  `install-mainboard.ps1`), bundled LHM runtime, verified PawnIO download, GUI
+  opens as the original user, earlier per-user installs are removed first.
+  Silent installs skip motherboard components unless `/WITHMAINBOARD`.
+* GUI: `features/onboarding` (welcome, red safety screen, embedded device and
+  extension setup, fan identification with header naming and pump marking,
+  optional channel test for confirmed fans, summary); reopen and withdraw the
+  safety acceptance under Settings -> Setup. New brand assets (`assets/brand`)
+  replace the old R/G/B tiles in the modern GUI.
+
+Open: real installer run (UAC, PawnIO setup dialog, upgrade from a per-user
+install), the liability text's legal review, and hardware acceptance of the
+identification step (`COOLING_BROAD_SUPPORT_PLAN.md` checklist).

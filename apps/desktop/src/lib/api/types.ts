@@ -144,6 +144,7 @@ export interface Slices {
   cooling_status: CoolingStatus | null;
   /** Device setup and hardware modules (`modules.status`); null when disabled. */
   modules_setup: ModulesStatus | null;
+  onboarding: OnboardingStatus | null;
 }
 
 export interface MonitoringSensor {
@@ -186,6 +187,10 @@ export interface CoolingSession {
   report: unknown;
   error: string | null;
   tier?: SupportTier | null;
+  mode?: string | null;
+  control_id?: string | null;
+  /** All recent jobs (one per channel can run at once). */
+  jobs?: CoolingSession[];
 }
 /** Saved background curves (run by the protected service from boot). */
 export interface BackgroundChannel {
@@ -207,7 +212,7 @@ export interface CoolingBackground {
   available: boolean;
   saved: { channels: BackgroundChannel[] };
   apply: { state: "idle" | "applying" | "applied" | "failed"; error: string | null };
-  service: { version: 1; error: string | null; updated_utc: string; channels: BackgroundServiceChannel[] } | null;
+  service: { version: 1; error: string | null; paused?: boolean; updated_utc: string; channels: BackgroundServiceChannel[] } | null;
 }
 /** Per-channel evidence: guided test and unrestricted unlock (bound to board/BIOS/channel). */
 export interface ChannelEvidenceView {
@@ -268,7 +273,15 @@ export interface PluginSummary {
 }
 
 export type SliceName = keyof Slices;
-export type OptionalSlice = Exclude<SliceName, "connection" | "devices" | "diagnostics" | "effect" | "modules_setup">;
+export type OptionalSlice = Exclude<SliceName, "connection" | "devices" | "diagnostics" | "effect" | "modules_setup" | "onboarding">;
+
+/** First-run wizard and fan-control safety acknowledgement (docs/SETUP_WIZARD.md). */
+export interface OnboardingStatus {
+  completed: boolean;
+  safety_text_version: number;
+  safety_acknowledged: boolean;
+  safety_acknowledged_unix: number | null;
+}
 
 export function deviceStatus(status: DeviceStatus): "connected" | "disconnected" | "faulted" {
   if (status === "Connected") return "connected";
@@ -335,3 +348,11 @@ export interface ModulesStatus {
   light_test_remaining_s: number | null;
 }
 
+
+/** Release update state from the desktop updater (same checks as Classic). */
+export interface UpdateInfo {
+  current: string;
+  available: string | null;
+  size: number | null;
+  downloaded: boolean;
+}

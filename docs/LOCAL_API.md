@@ -507,6 +507,24 @@ Named, switchable sets of background channel curves (per-user config
   being dropped. The protected service then runs the profile (UAC).
 
 
+## Pause (additive, 2026-10-23)
+
+* `lighting.status` -> `{paused}`; `lighting.pause {paused:bool}` ->
+  `{paused, released}`. Pausing hands every real device back to hardware mode
+  (as with conflicting RGB software); `diagnostics.get` lists `"Paused by you"`
+  under `conflicts` meanwhile.
+* `cooling.fans.pause {paused:bool}` -> `{paused}`: stops an active interactive
+  session and pauses/resumes all background channels in the protected service
+  (`freergb-mainboard.exe --background pause|resume|status`, broker pipe
+  records `background pause|resume|status`). The service status file reports
+  `paused`.
+
+**Fan role instead of per-session confirmation (2026-10-23).** A header bound as
+`fan` (fan identification in the setup wizard or on its Cooling card) counts as
+confirmed; `confirmed_fan` is only needed for headers without a binding. Pumps
+still need the unrestricted unlock plus the pump confirmation, and unassigned
+headers are never reduced below 100%.
+
 ## Downloadable effect marketplace
 
 The daemon supports the `marketplace.status`, `marketplace.refresh`,

@@ -5,7 +5,7 @@
 import type { SliceListener, Transport } from "../api/transport";
 import { RpcError } from "../api/transport";
 import { DEFAULT_CURVE, type FanCurve, type MacroDefinition, type SensorGraph } from "../api/control";
-import type { BackgroundChannel, ChannelEvidenceView, CoolingBackground, CoolingChannel, CoolingSession, CoolingSupportView, DeviceSummary, EffectSpec, MonitoringSensor, Slices } from "../api/types";
+import type { ChannelBinding, OnboardingStatus, BackgroundChannel, ChannelEvidenceView, CoolingBackground, CoolingChannel, CoolingSession, CoolingSupportView, DeviceSummary, EffectSpec, MonitoringSensor, Slices } from "../api/types";
 import effectDefaults from "../api/fixtures/effects.json";
 import effectCatalog from "../../../../../effects/catalog.json";
 import { mockSetup } from "./setup";
@@ -124,7 +124,11 @@ export function mockTransport(): Transport {
     { provider: "mainboard.lhm", device_id: "mainboard.lhm:/lpc/it8689e/0", device_name: "ITE IT8689E (mock)", sensor: reading("/lpc/it8689e/0/temperature/0", "System (mock)", "°C", 38) },
   ];
   let session: CoolingSession = { available: true, job_id: null, state: "idle", report: null, error: null, tier: null };
+  const mockJobs = new Map<number, CoolingSession>();
+  const setJob = (job: CoolingSession) => { mockJobs.set(job.job_id!, job); session = job; emit("cooling_session"); };
   let unrestricted = false;
+  let onboarding: OnboardingStatus = { completed: false, safety_text_version: 1, safety_acknowledged: false, safety_acknowledged_unix: null };
+  let bindingsConfig: ChannelBinding[] = [];
   const evidence: Record<string, ChannelEvidenceView> = {
     "/lpc/nct6701d/0/control/2": { test: "passed", tested: [{ duty_percent: 100, rpm: 1710 }, { duty_percent: 70, rpm: 1330 }, { duty_percent: 50, rpm: 1010 }], unlock: "none" },
     "/lpc/it8689e/0/control/1": { test: "none", tested: null, unlock: "none" },
@@ -143,6 +147,7 @@ export function mockTransport(): Transport {
   const supportView = (): CoolingSupportView => ({ unrestricted_enabled: unrestricted, board_identity_available: true, channels: evidence, error: null });
   const fail = (message: string): never => { throw new RpcError({ kind: "rpc", code: -32006, message }); };
   const coolingCheck = (id: string, minimum: number) => {
+    if (!onboarding.safety_acknowledged) fail("Fan control is locked until the safety notice is acknowledged in the setup wizard");
     const c = coolingChannels.find((x) => x.reading.id === id);
     if (c?.support?.software_mode) fail("This channel is already in software mode (another tool controls it); freeRGB will not take it over");
     const tier = effectiveTier(id);
@@ -174,6 +179,8 @@ export function mockTransport(): Transport {
     custom_effects: sorted(custom),
     plugins: [],
     modules_setup: setup.get(),
+    onboarding,
+    cooling_bindings: { config: { version: 1, bindings: bindingsConfig }, assignments: [], error: null, persistence_enabled: true },
     curves: { ...curves },
     macros: { ...macros },
     macro_status: { running: null, input_enabled: false, error: null },
@@ -182,7 +189,7 @@ export function mockTransport(): Transport {
     cooling_channels: coolingChannels,
     monitoring_sensors: boardSensors,
     providers: [{ id: "mainboard.lhm", name: "LibreHardwareMonitor motherboard", status: "ready", message: "Mock data: nothing is written.", age_ms: 300 }],
-    cooling_session: session,
+    cooling_session: { ...session, jobs: [...mockJobs.values()].reverse() },
     cooling_background: background(),
     cooling_support: supportView(),
     cooling_profiles: { profiles: [...coolingProfiles].map(([name, channels]) => ({ name, channels: channels.length })), active: activeProfile, error: null },
@@ -291,22 +298,44 @@ export function mockTransport(): Transport {
         case "cooling.sessions.start": {
           const id = p.control_id as string;
           const mode = p.mode as string;
-          const minimum = mode === "curve" ? (p.curve as FanCurve).minimum_percent : mode === "manual" ? (p.duty_percent as number) : 40;
+          const minimum = mode === "curve" ? (p.curve as FanCurve).minimum_percent : mode === "manual" ? (p.duty_percent as number) : mode === "identify" ? 100 : 40;
           const tier = coolingCheck(id, mode === "curve" || mode === "manual" ? minimum : 100);
-          const job = (session.job_id ?? 0) + 1;
-          session = { ...session, job_id: job, state: "executing", report: null, error: null, tier };
-          emit("cooling_session");
+          const job = Math.max(0, ...mockJobs.keys()) + 1;
+          const base: CoolingSession = { available: true, job_id: job, state: "executing", report: null, error: null, tier, mode, control_id: id };
+          setJob(base);
+          const finish = (report: Record<string, unknown>) => setJob({ ...mockJobs.get(job)!, state: "completed", report });
+          if (mode === "identify") setTimeout(() => finish({ tier, note: "mock identification" }), 8000);
           if (mode === "channel_test") setTimeout(() => {
             evidence[id] = { ...evidence[id]!, test: "passed", tested: [{ duty_percent: 100, rpm: 1500 }, { duty_percent: 70, rpm: 1120 }, { duty_percent: 50, rpm: 830 }] };
-            session = { ...session, state: "completed", report: { tier, return_evidence: tier === "verified" ? "register_readback" : "firmware_callback", note: "mock channel test" } };
-            emit("cooling_session"); emit("cooling_support");
+            finish({ tier, note: "mock channel test" });
+            emit("cooling_support");
           }, 3000);
           return { job_id: job } as T;
         }
-        case "cooling.sessions.stop":
-          session = { ...session, state: "stopped", report: { tier: session.tier, return_evidence: session.tier === "verified" ? "register_readback" : "firmware_callback" } };
-          emit("cooling_session");
+        case "onboarding.get":
+          return onboarding as T;
+        case "onboarding.complete":
+          onboarding = { ...onboarding, completed: true }; emit("onboarding");
           return true as T;
+        case "onboarding.reset":
+          onboarding = { ...onboarding, completed: false }; emit("onboarding");
+          return true as T;
+        case "safety.acknowledge":
+          if (p.accepted !== true || p.version !== 1) fail("The current safety notice must be read and accepted");
+          onboarding = { ...onboarding, safety_acknowledged: true, safety_acknowledged_unix: Math.floor(Date.now() / 1000) }; emit("onboarding");
+          return true as T;
+        case "safety.revoke":
+          onboarding = { ...onboarding, safety_acknowledged: false, safety_acknowledged_unix: null }; emit("onboarding");
+          return true as T;
+        case "cooling.bindings.save":
+          bindingsConfig = ((p.config as { bindings: ChannelBinding[] }).bindings); emit("cooling_bindings");
+          return true as T;
+        case "cooling.sessions.stop": {
+          const stopped = mockJobs.get(p.job_id as number);
+          if (stopped) setJob({ ...stopped, state: "stopped" });
+
+          return true as T;
+        }
         case "cooling.background.get":
           return background() as T;
         case "cooling.background.apply": {

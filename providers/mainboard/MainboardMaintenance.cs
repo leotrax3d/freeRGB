@@ -136,8 +136,8 @@ internal static class MainboardMaintenance
             if (!String.Equals(System.Reflection.Assembly.GetExecutingAssembly().Location,BrokerTransport.ServicePath,StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Use the installed protected authorization service.");
             new BrokerRegistration(args[2]).ValidateOwner();
-            foreach (int index in new[] {3,4,5})
-                if (!System.Text.RegularExpressions.Regex.IsMatch(args[index],"^/lpc/[a-z0-9]+/[0-9]+/(control|temperature|fan)/[0-9]+$")) throw new ArgumentException("Invalid selected source identity.");
+            if (!NativeSources.IsChannel(args[3]) || !NativeSources.IsTemperatureList(args[4]) || !NativeSources.IsChannel(args[5]))
+                throw new ArgumentException("Invalid selected source identity.");
             int critical,minimum;
             if (!Int32.TryParse(args[6],out critical) || critical < 40 || critical > 100 ||
                 !Int32.TryParse(args[7],out minimum) || minimum < (args.Length == 10 ? 0 : 40) || minimum > 100) throw new ArgumentException("Invalid native control limits.");
@@ -157,8 +157,31 @@ internal static class MainboardMaintenance
                 NativeAuthorizationRules.Validate(tiered,minimum,out tier,out pump,out pumpUnlocked);
                 record = tiered;
             }
+            // Merge with other channels' unexpired authorizations (one per channel),
+            // so several channels can be authorized and run at the same time.
+            var entry = record as Dictionary<string,object> ?? new JavaScriptSerializer().DeserializeObject(new JavaScriptSerializer().Serialize(record)) as Dictionary<string,object>;
             using (var journal=NativeControlJournal.CreateForMaintenance())
-                journal.Maintenance(delegate { Write("mainboard-control-authorization.json",record); });
+                journal.Serialized(delegate {
+                    var list = new List<object> { entry };
+                    string path = PathFor("mainboard-control-authorization.json");
+                    if (File.Exists(path))
+                    {
+                        BrokerService.CheckProtectedPath(path);
+                        try
+                        {
+                            var old = new JavaScriptSerializer { MaxJsonLength=16384,RecursionLimit=8 }.DeserializeObject(File.ReadAllText(path)) as Dictionary<string,object>;
+                            var previous = old != null && Object.Equals(old["version"],2) && old["authorizations"] is object[] ? (object[])old["authorizations"] : new object[] { old };
+                            foreach (object raw in previous)
+                            {
+                                var item = raw as Dictionary<string,object>;
+                                if (item == null || Object.Equals(item["control_id"],entry["control_id"]) || list.Count >= 8) continue;
+                                try { NativeControlBroker.ValidateAuthorization(item); list.Add(item); } catch (InvalidDataException) { } // expired or invalid
+                            }
+                        }
+                        catch (ArgumentException) { } catch (InvalidOperationException) { }
+                    }
+                    Write("mainboard-control-authorization.json",new Dictionary<string,object> { {"version",2},{"authorizations",list} });
+                });
             return 0;
         } catch (Exception error) { Console.Error.WriteLine(error.GetType().Name); return 1; }
 #else

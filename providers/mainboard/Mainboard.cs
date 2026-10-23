@@ -96,6 +96,9 @@ internal static class Mainboard
         // Default Computer settings are memory-only. No persisted control settings
         // are loaded. Only motherboard/SuperIO groups are enabled, never USB/GPU.
         computer.GetType().GetProperty("IsMotherboardEnabled").SetValue(computer, true, null);
+        // CPU and GPU temperatures (read-only) as fan-curve sources.
+        computer.GetType().GetProperty("IsCpuEnabled").SetValue(computer, true, null);
+        computer.GetType().GetProperty("IsGpuEnabled").SetValue(computer, true, null);
         Invoke(computer, "Open");
         return null;
     }
@@ -131,7 +134,10 @@ internal static class Mainboard
         foreach (object child in (IEnumerable)Get(hardware, "SubHardware")) Walk(child, output, clock, depth + 1, ref sensorCount);
     }
 #if NATIVE_CONTROL_WORKER
-    private static HashSet<string> held = new HashSet<string>();
+    // Channels a crashed lower-tier worker left at 100% (until reboot); kept on
+    // disk so a restarted snapshot worker still reports them.
+    private static HashSet<string> held;
+    private static string HeldPath { get { return Path.Combine(Path.GetDirectoryName(BrokerTransport.DirectoryPath), "mainboard-control-held.json"); } }
     // Inventory only (no I/O): which tier the chip can reach and whether LHM's
     // cached mode already reports software control (foreign takeover refused).
     private static Dictionary<string, object> Support(object hardware, object sensor)
@@ -139,6 +145,7 @@ internal static class Mainboard
         object control = Get(sensor, "Control");
         string chip = NativeNctEvidence.AuditedChip(control);
         string id = Get(hardware, "Identifier").ToString() + "|" + Get(sensor, "Identifier").ToString();
+        if (held == null) held = direct ? NativeStateFile.Load(HeldPath, true) : new HashSet<string>();
         return new Dictionary<string, object> {
             {"tier", chip != null ? "verified" : "lhm_supported"}, {"register_readback", chip != null},
             {"software_mode", Get(control, "ControlMode").ToString() == "Software"},
@@ -228,7 +235,12 @@ internal static class Mainboard
                     return NativeNctEvidence.RecoverProtected(Get(matches[0],"Control"),recorded);
                 bool heldFull;
                 bool recovered=NativeControl.RecoverFallbackProtected(Get(matches[0],"Control"),recorded,out heldFull);
-                if (heldFull) held.Add((string)pending["hardware_id"] + "|" + (string)pending["sensor_id"]);
+                if (heldFull)
+                {
+                    if (held == null) held = NativeStateFile.Load(HeldPath, true);
+                    held.Add((string)pending["hardware_id"] + "|" + (string)pending["sensor_id"]);
+                    try { NativeStateFile.Save(HeldPath, held); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                }
                 return recovered;
             },active);
         }
@@ -278,6 +290,13 @@ internal static class Mainboard
 #endif
     }
 #if NATIVE_CONTROL_WORKER
+    private static void FindSensor(object hardware, string id, string type, List<object> matches, int depth)
+    {
+        if (depth > 16) throw new InvalidDataException("Hardware tree depth exceeded.");
+        foreach (object sensor in (IEnumerable)Get(hardware,"Sensors"))
+            if (Get(sensor,"SensorType").ToString() == type && Get(sensor,"Identifier").ToString() == id) matches.Add(sensor);
+        foreach (object child in (IEnumerable)Get(hardware,"SubHardware")) FindSensor(child,id,type,matches,depth+1);
+    }
     private static void FindControl(object hardware, string id, List<object> matches, int depth)
     {
         if (depth > 16) throw new InvalidDataException("Hardware tree depth exceeded.");
@@ -302,8 +321,9 @@ internal static class Mainboard
     {
         Console.OutputEncoding = new UTF8Encoding(false);
         if (args.Length == 6 && args[0] == "--request-control-authorization") return NativeControlBroker.RequestAuthorization(args);
-        if (args.Length == 1 && args[0] == "--control-relay") return NativeControlBroker.Relay();
+        if ((args.Length == 1 || args.Length == 2) && args[0] == "--control-relay") return NativeControlBroker.Relay(args.Length == 2 ? args[1] : null);
         if (args.Length == 2 && args[0] == "--request-background-config") return NativeControlBroker.RequestBackgroundConfiguration(args);
+        if (args.Length == 2 && args[0] == "--background") return NativeControlBroker.Background(args[1]);
 #if NATIVE_CONTROL_WORKER
         if (args.Length == 4 && args[0] == "--control-protected-session")
         {
@@ -317,7 +337,12 @@ internal static class Mainboard
             var controls=new List<object>();
             foreach (object hardware in (IEnumerable)Get(computer,"Hardware")) FindControl(hardware,args[2],controls,0);
             if (controls.Count != 1) throw new InvalidOperationException("Control identity is not unique.");
-            return NativeControlWorker.Run(Get(controls[0],"Control"),args[1],args[3]);
+            Func<string,object> findTemperature = delegate(string id) {
+                var found=new List<object>();
+                foreach (object hardware in (IEnumerable)Get(computer,"Hardware")) FindSensor(hardware,id,"Temperature",found,0);
+                return found.Count == 1 ? found[0] : null;
+            };
+            return NativeControlWorker.Run(Get(controls[0],"Control"),args[1],args[3],findTemperature);
         }
 #endif
         if (args.Length == 1 && args[0] == "--self-test")

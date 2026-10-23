@@ -99,6 +99,14 @@ internal static class NativeMultiChannelTests
                 Assert(journal.Pending() == null && sinks[0].Writes[sinks[0].Writes.Count-1] == null && sinks[1].Writes[sinks[1].Writes.Count-1] == null,
                     "Reverse-order release did not return both channels and clear the journal.");
             }
+            // Boot-bound and persistent state files (held-at-100% list, fan pause).
+            string held = Path.Combine(root,"held.json");
+            NativeStateFile.Save(held,new[] { "/a|/a/control/1" });
+            Assert(NativeStateFile.Load(held,true).Contains("/a|/a/control/1"),"Boot-bound state was not reloaded in the same boot.");
+            File.WriteAllText(held,"{\"version\":1,\"boot_utc\":\"2001-01-01T00:00:00.0000000Z\",\"items\":[\"x\"]}");
+            Assert(NativeStateFile.Load(held,true).Count == 0 && NativeStateFile.Load(held,false).Contains("x"),"Boot binding of state files is wrong.");
+            File.WriteAllText(held,"not json");
+            Assert(NativeStateFile.Load(held,false).Count == 0,"Corrupt state file produced items.");
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root,true); }
         Console.WriteLine("PASS: multi-channel journal (legacy single shape, concurrent live owners, any-order release, orphan blocking, per-channel recovery and partial failure). Synthetic only.");

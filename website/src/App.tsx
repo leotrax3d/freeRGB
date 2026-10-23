@@ -146,11 +146,14 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    fetch("https://api.github.com/repos/leotrax3d/FreeRGB/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+    // /releases/latest skips prereleases, so take the newest published entry (betas included).
+    fetch("https://api.github.com/repos/leotrax3d/FreeRGB/releases?per_page=10", { headers: { Accept: "application/vnd.github+json" } })
       .then(async (response) => {
         if (response.status === 404) return null
         if (!response.ok) throw new Error(`GitHub returned ${response.status}`)
-        const data = await response.json() as { tag_name: string; name: string | null; html_url: string; published_at: string; body: string | null; assets: { name: string; browser_download_url: string }[] }
+        const list = await response.json() as { draft: boolean; tag_name: string; name: string | null; html_url: string; published_at: string; body: string | null; assets: { name: string; browser_download_url: string }[] }[]
+        const data = list.find((entry) => !entry.draft && entry.tag_name.startsWith("v"))
+        if (!data) return null
         return { tag: data.tag_name, name: data.name || data.tag_name, url: data.html_url, publishedAt: data.published_at, notes: data.body || "No release notes were provided.", assets: data.assets.map((asset) => ({ name: asset.name, url: asset.browser_download_url })) }
       })
       .then(setRelease)

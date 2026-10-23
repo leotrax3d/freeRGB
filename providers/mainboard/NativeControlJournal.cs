@@ -46,6 +46,58 @@ internal static class NativeAuthorizationRules
             throw new InvalidDataException("Reduced commissioning duty requires explicit protected fan authorization.");
     }
 }
+// Small protected state files next to the journal (SYSTEM writers only).
+// Boot-bound lists expire with the Windows boot they were written in.
+// Temperature sources for fan curves: SuperIO, CPU or GPU sensors. A list of
+// up to three ("a,b,c") means "the hottest of them" (mixed curve source).
+internal static class NativeSources
+{
+    private static readonly System.Text.RegularExpressions.Regex Control = new System.Text.RegularExpressions.Regex("^/lpc/[a-z0-9]+/[0-9]+/(control|fan)/[0-9]+$");
+    private static readonly System.Text.RegularExpressions.Regex Temperature = new System.Text.RegularExpressions.Regex("^/(lpc/[a-z0-9]+|amdcpu|intelcpu|gpu-[a-z]+(-[a-z]+)*)/[0-9]+/temperature/[0-9]+$");
+    internal static bool IsChannel(string id) { return id != null && id.Length <= 128 && Control.IsMatch(id); }
+    internal static string[] Temperatures(string list)
+    {
+        if (list == null || list.Length > 400) throw new InvalidDataException("Invalid temperature sources.");
+        var parts = list.Split(',');
+        var seen = new HashSet<string>();
+        if (parts.Length < 1 || parts.Length > 3) throw new InvalidDataException("One to three temperature sources required.");
+        foreach (string part in parts)
+            if (part.Length > 128 || !Temperature.IsMatch(part) || !seen.Add(part)) throw new InvalidDataException("Invalid temperature source identity.");
+        return parts;
+    }
+    internal static bool IsTemperatureList(string list)
+    {
+        try { Temperatures(list); return true; } catch (InvalidDataException) { return false; }
+    }
+}
+internal static class NativeStateFile
+{
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern ulong GetTickCount64();
+    internal static DateTime BootUtc { get { return DateTime.UtcNow - TimeSpan.FromMilliseconds(GetTickCount64()); } }
+    internal static HashSet<string> Load(string path, bool bootBound)
+    {
+        var items = new HashSet<string>();
+        try
+        {
+            if (!File.Exists(path) || new FileInfo(path).Length > 16384) return items;
+            var value = new JavaScriptSerializer { MaxJsonLength = 16384, RecursionLimit = 4 }.DeserializeObject(File.ReadAllText(path)) as Dictionary<string,object>;
+            if (value == null || !Object.Equals(value["version"],1) || !(value["items"] is object[])) return items;
+            DateTime boot;
+            if (bootBound && (!(value["boot_utc"] is string) || !DateTime.TryParse((string)value["boot_utc"],null,System.Globalization.DateTimeStyles.RoundtripKind,out boot) ||
+                Math.Abs((boot.ToUniversalTime() - BootUtc).TotalMinutes) > 2)) return items;
+            foreach (object item in (object[])value["items"]) if (item is string && ((string)item).Length <= 1024) items.Add((string)item);
+        }
+        catch (Exception error) { if (error is OutOfMemoryException) throw; }
+        return items;
+    }
+    internal static void Save(string path, IEnumerable<string> items)
+    {
+        string temporary = path + ".tmp";
+        File.WriteAllText(temporary, new JavaScriptSerializer().Serialize(new { version = 1, boot_utc = BootUtc.ToString("o"), items = new List<string>(items) }));
+        if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
+    }
+}
 internal sealed class NativeControlIdentity
 {
     internal readonly string HardwareId, SensorId;
@@ -271,6 +323,13 @@ internal sealed class NativeControlJournal : IDisposable
             if (unverified) throw new InvalidOperationException("Native recovery was not verified; intent retained.");
             return true;
         });
+    }
+    // Serializes protected configuration writes with journal operations without
+    // requiring an empty journal (running channels may stay reserved).
+    internal void Serialized(Action action)
+    {
+        if (action == null) throw new ArgumentNullException("action");
+        Locked(delegate { action(); return true; });
     }
     // Hold the SAME cross-process mutex as Reserve through stop/swap/remove.
     // This is a conservative refusal path, not automatic firmware recovery.

@@ -15,6 +15,7 @@ members = [
     "crates/freergb-screen",
     "crates/freergb-plugins",
     "crates/freergb-control",
+    "crates/freergb-tray",
     "crates/freergb-update",
     "crates/freergb-module-api",
     "crates/freergb-modules",
@@ -23,7 +24,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-beta.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/leotrax3d/FreeRGB"

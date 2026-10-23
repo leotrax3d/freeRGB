@@ -84,6 +84,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: freeRGB-windows-installer
@@ -91,4 +92,4 @@ jobs:
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --draft --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --draft --notes-file "docs/RELEASE_NOTES_${GITHUB_REF_NAME#v}.md" $(case "$GITHUB_REF_NAME" in *-*) echo --prerelease;; esac)

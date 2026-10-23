@@ -161,3 +161,16 @@ Each protected worker still owns exactly one channel in its own process. The
 interactive daemon bridge is a single-instance pipe, so live GUI sessions run one
 at a time; several channels run concurrently through the protected background
 controller (work package 4).
+
+## Concurrent interactive sessions (2026-10-23)
+
+The control bridge pipe accepts up to 8 instances (the first created with
+FILE_FLAG_FIRST_PIPE_INSTANCE; clients lack FILE_CREATE_PIPE_INSTANCE). Each
+accepted connection runs on its own thread with its own worker; maintenance
+waits until every session has returned. The relay names its channel
+(`--control-relay <control_id>`, record `open <control_id>`); the protected
+authorization file holds one unexpired record per channel
+(`{"version":2,"authorizations":[...]}`, written under the journal mutex without
+requiring an empty journal). The daemon runs one job per channel, at most 8 at
+once (`cooling.sessions.status` adds `jobs`). The journal still refuses the same
+channel twice.

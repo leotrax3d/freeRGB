@@ -35,3 +35,8 @@ There has not yet been a successful live version-to-version update test.
 GitHub API reference: https://docs.github.com/en/rest/releases/assets
 Digest validation provides transport/artifact integrity against the selected release,
 not independent publisher signing. Authenticode signing and rollback remain open.
+
+**Modern GUI (2026-10-23):** Settings → Updates offers check, download and install
+with the same `freergb-update` logic as Classic (Tauri command `update_action`,
+`apps/desktop/src-tauri/src/updates.rs`); the staged installer is verified again
+before Setup starts. No automatic background checks in the modern GUI yet.

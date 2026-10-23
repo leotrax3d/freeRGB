@@ -30,7 +30,10 @@ pub struct ScanOptions {
 /// Adds newly attached supported devices to the engine. Returns how many
 /// were added.
 pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
-    let conflicts = crate::conflicts::running();
+    let mut conflicts = crate::conflicts::running();
+    if lock(engine).lighting_paused() {
+        conflicts.push(crate::engine::PAUSED_BY_USER);
+    }
     {
         let mut e = lock(engine);
         if e.conflicts() != conflicts.as_slice() {

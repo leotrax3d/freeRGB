@@ -103,6 +103,9 @@ pub struct CoolingSupportEntry {
     pub held_full: bool,
 }
 
+/// Pseudo-conflict while the user paused lighting (shown like other conflicts).
+pub const PAUSED_BY_USER: &str = "Paused by you";
+
 pub struct Engine {
     pub marketplace: Option<Arc<freergb_effect_host::marketplace::Manager>>,
     effect_fault: freergb_effect_host::runtime::Fault,
@@ -140,6 +143,7 @@ pub struct Engine {
     profiles_dir: Option<PathBuf>,
     retry_interval: Duration,
     conflicts: Vec<&'static str>,
+    lighting_paused: bool,
     /// System-audio capture, running only while an audio effect is active.
     audio: Option<freergb_audio::AudioInput>,
     audio_error: Option<String>,
@@ -326,6 +330,7 @@ impl Engine {
             profiles_dir: None,
             retry_interval: RETRY_INTERVAL,
             conflicts: Vec::new(),
+            lighting_paused: false,
             audio: None,
             audio_error: None,
             screen: None,
@@ -347,6 +352,28 @@ impl Engine {
 
     pub fn target_fps(&self) -> u32 {
         self.target_fps
+    }
+
+    /// User pause (tray/GUI): behaves like a conflicting program, so devices
+    /// are handed back to hardware mode and hot-plug leaves them alone.
+    pub fn lighting_paused(&self) -> bool {
+        self.lighting_paused
+    }
+    pub fn set_lighting_paused(&mut self, paused: bool) -> usize {
+        self.lighting_paused = paused;
+        self.persist();
+        if paused {
+            let released = self.release_hardware();
+            let mut conflicts = self.conflicts.clone();
+            if !conflicts.contains(&PAUSED_BY_USER) {
+                conflicts.push(PAUSED_BY_USER);
+            }
+            self.conflicts = conflicts;
+            released
+        } else {
+            self.conflicts.retain(|c| *c != PAUSED_BY_USER);
+            0
+        }
     }
 
     pub fn conflicts(&self) -> &[&'static str] {
@@ -645,6 +672,7 @@ impl Engine {
         self.brightness = s.brightness.clamp(0.0, 1.0);
         self.device_brightness = s.device_brightness;
         self.device_regions = s.device_regions;
+        self.lighting_paused = s.lighting_paused;
         self.profiles_dir = crate::profiles::dir_for_state(&path);
         self.state_path = Some(path);
         self
@@ -675,6 +703,7 @@ impl Engine {
             brightness: self.brightness,
             device_brightness: self.device_brightness.clone(),
             device_regions: self.device_regions.clone(),
+            lighting_paused: self.lighting_paused,
         }
     }
 
@@ -1509,6 +1538,19 @@ mod tests {
         assert_eq!(e.release_hardware(), 1);
         assert_eq!(e.devices().len(), 1);
         assert_eq!(e.devices()[0].info.id.0, "virtual:virt");
+    }
+
+    #[test]
+    fn lighting_pause_acts_like_a_conflict_and_resumes() {
+        let mut e = Engine::new(EffectSpec::Solid { color: Rgb::RED }, 30);
+        e.add_device(Box::new(VirtualDevice::new("virt", LedLayout::strip(1))));
+        assert_eq!(e.set_lighting_paused(true), 0, "virtual devices stay");
+        assert!(e.lighting_paused());
+        assert_eq!(e.conflicts(), [PAUSED_BY_USER]);
+        e.set_lighting_paused(true);
+        assert_eq!(e.conflicts().len(), 1, "no duplicate pause entry");
+        e.set_lighting_paused(false);
+        assert!(!e.lighting_paused() && e.conflicts().is_empty());
     }
 
     #[test]

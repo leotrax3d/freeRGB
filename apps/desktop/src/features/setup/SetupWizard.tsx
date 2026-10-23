@@ -84,7 +84,7 @@ function LightTest({ ready }: { ready: SetupCard[] }) {
  * runs in the service, so closing the window does not interrupt it and the
  * current phase reappears on the next start.
  */
-export function SetupWizard() {
+export function SetupWizard({ embedded = false, onDone }: { embedded?: boolean; onDone?: () => void } = {}) {
   const simulated = useDaemon((s) => s.mode === "mock");
   const setup = useSetup();
   const status = setup.status;
@@ -102,7 +102,8 @@ export function SetupWizard() {
   const defaults = defaultSelection(cards);
   const selected = selection ?? new Set(defaults);
 
-  if (!status || !status.first_run || closed) return null;
+  // Embedded in the first-run wizard it always shows; standalone only on first run.
+  if (!status || (!embedded && (!status.first_run || closed))) return null;
 
   // After a GUI restart the run is recovered from the service's phases.
   const active = runKeys.length ? runKeys : cards.filter(isWorking).map((c) => c.key);
@@ -116,7 +117,8 @@ export function SetupWizard() {
   const finish = async () => {
     await setup.complete();
     setClosed(true);
-    go("lighting");
+    if (onDone) onDone();
+    else go("lighting");
   };
   const start = async (keys: string[]) => {
     setRunKeys(keys);
@@ -125,12 +127,12 @@ export function SetupWizard() {
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
+      role={embedded ? undefined : "dialog"}
+      aria-modal={embedded ? undefined : true}
       aria-labelledby="setup-title"
-      className="fixed inset-0 z-40 flex justify-center overflow-y-auto bg-bg animate-[fade-in_var(--duration-base)_var(--ease-out)]"
+      className={embedded ? "flex justify-center" : "fixed inset-0 z-40 flex justify-center overflow-y-auto bg-bg animate-[fade-in_var(--duration-base)_var(--ease-out)]"}
     >
-      <div className="flex w-full max-w-4xl flex-col gap-6 px-8 py-10">
+      <div className={embedded ? "flex w-full flex-col gap-6" : "flex w-full max-w-4xl flex-col gap-6 px-8 py-10"}>
         <header className="flex flex-col gap-1">
           <h1 id="setup-title" ref={heading} tabIndex={-1} className="text-page font-semibold tracking-tight outline-none">
             {stage === "done" ? "Your devices are set up" : "Set up your devices"}
@@ -202,7 +204,7 @@ export function SetupWizard() {
           {stage === "select" ? (
             <>
               <Button variant="ghost" onClick={() => void finish()}>
-                Skip for now
+                {embedded ? "Skip devices" : "Skip for now"}
               </Button>
               <div className="flex items-center gap-3">
                 {chosen.length > 0 && (
@@ -231,7 +233,7 @@ export function SetupWizard() {
                 {summary(runCards).failed > 0 && "Failed devices can be retried here or later under Devices."}
               </span>
               <Button variant="primary" onClick={() => void finish()}>
-                Go to dashboard
+                {embedded ? "Continue" : "Go to dashboard"}
               </Button>
             </>
           )}

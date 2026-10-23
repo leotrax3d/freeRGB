@@ -2,14 +2,15 @@ import { Suspense, useEffect, useState } from "react";
 import { Toaster } from "@/components/toast";
 import { CommandPalette } from "./CommandPalette";
 import { Tour, useFirstRunTour } from "./Tour";
-import { BrandTiles } from "@/components/brand";
+import { BrandRing } from "@/components/brand";
 import { Banner, EmptyState } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { transport } from "@/lib/api/transport";
-import { useDaemon } from "@/lib/store/daemon";
+import { rpc, useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
 import { Sidebar } from "./Sidebar";
 import { SetupWizard } from "@/features/setup/SetupWizard";
+import { OnboardingWizard } from "@/features/onboarding/OnboardingWizard";
 import { preloadViews, VIEWS } from "./views";
 
 function ServiceUnavailable({ error }: { error: string | null }) {
@@ -29,7 +30,7 @@ function ServiceUnavailable({ error }: { error: string | null }) {
   };
   return (
     <EmptyState
-      icon={<BrandTiles size={18} letters className="opacity-40 grayscale" />}
+      icon={<BrandRing size={48} className="opacity-40 grayscale" />}
       title="The freeRGB service is not running"
       action={
         <div className="flex flex-col items-center gap-3">
@@ -47,8 +48,20 @@ function ServiceUnavailable({ error }: { error: string | null }) {
   );
 }
 
+/** Daemon pseudo-conflict while the user paused lighting (engine::PAUSED_BY_USER). */
+const PAUSED_BY_USER = "Paused by you";
+
 function Conflicts() {
-  const conflicts = useDaemon((s) => s.diagnostics?.conflicts);
+  const all = useDaemon((s) => s.diagnostics?.conflicts);
+  const paused = all?.includes(PAUSED_BY_USER) ?? false;
+  const conflicts = all?.filter((c) => c !== PAUSED_BY_USER);
+  if (paused)
+    return (
+      <Banner tone="info">
+        <span className="flex-1">Lighting is paused — your devices show their own hardware lighting. Fans are not affected.</span>
+        <Button size="sm" onClick={() => void rpc("lighting.pause", { paused: false })}>Resume lighting</Button>
+      </Banner>
+    );
   if (!conflicts?.length) return null;
   return (
     <Banner tone="warn">
@@ -63,6 +76,7 @@ export function Shell() {
   const connection = useDaemon((s) => s.connection);
   const def = VIEWS.find((v) => v.id === view) ?? VIEWS[0]!;
   const offline = connection && !connection.connected;
+  const onboardingDone = useDaemon((s) => s.onboarding?.completed === true);
   const View = def.component;
   useEffect(preloadViews, []);
   useFirstRunTour();
@@ -88,7 +102,9 @@ export function Shell() {
       <CommandPalette />
       <Toaster />
       <Tour />
-      {!offline && <SetupWizard />}
+      {!offline && <OnboardingWizard />}
+      {/* New devices after the first-run wizard keep using the device setup. */}
+      {!offline && onboardingDone && <SetupWizard />}
     </div>
   );
 }

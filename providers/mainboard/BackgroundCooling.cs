@@ -182,8 +182,9 @@ internal sealed class BackgroundChannelConfig
                 RpmId = value.ContainsKey("rpm_id") ? value["rpm_id"] as string : null,
             };
             string hardware = Base(config.ControlId,"control");
-            if (Base(config.TemperatureId,"temperature") != hardware || Base(config.RpmId,"fan") != hardware)
-                throw new InvalidDataException("Temperature and RPM must be on the control's hardware.");
+            if (Base(config.RpmId,"fan") != hardware)
+                throw new InvalidDataException("The RPM sensor must be on the control's hardware.");
+            NativeSources.Temperatures(config.TemperatureId); // SuperIO, CPU or GPU; up to three, hottest wins.
             if (!seen.Add(config.ControlId)) throw new InvalidDataException("Duplicate background channel.");
             if (!(value.ContainsKey("floor_percent") && value["floor_percent"] is int) || !(value.ContainsKey("critical_c") && value["critical_c"] is int))
                 throw new InvalidDataException("Background floor/critical must be integers.");
@@ -305,9 +306,12 @@ internal sealed class BackgroundCooling : IDisposable
     private readonly List<Channel> channels = new List<Channel>();
     private Thread statusThread;
     private static string Root { get { return Path.GetDirectoryName(BrokerTransport.DirectoryPath); } }
+    private static string PausePath { get { return Path.Combine(Root, "mainboard-control-paused.json"); } }
     internal void Start()
     {
         BrokerService.CheckInstallation(false);
+        // A user pause lasts until resumed, also across service restarts/reboots.
+        paused = NativeStateFile.Load(PausePath, false).Contains("background");
         string path = Path.Combine(Root, ConfigName);
         List<BackgroundChannelConfig> configs = new List<BackgroundChannelConfig>();
         if (File.Exists(path))
@@ -319,7 +323,7 @@ internal sealed class BackgroundCooling : IDisposable
         lock (gate)
             foreach (var config in configs)
             {
-                var channel = new Channel { Config = config, Controller = new BackgroundChannelController(config) };
+                var channel = new Channel { Config = config, Controller = new BackgroundChannelController(config), Suspended = paused };
                 channel.Thread = new Thread(delegate() { Run(channel); }) { IsBackground = true, Name = "freeRGB background cooling" };
                 channels.Add(channel);
                 channel.Thread.Start();
@@ -338,8 +342,20 @@ internal sealed class BackgroundCooling : IDisposable
         while (target.Controller.State == "running" && deadline.ElapsedMilliseconds < 5000) Thread.Sleep(50);
         if (target.Controller.State == "running") throw new InvalidOperationException("Background channel did not release in time.");
     }
+    // User pause (tray): every channel returns to firmware until resumed.
+    private volatile bool paused;
+    internal bool Paused { get { return paused; } }
+    internal void PauseAll(bool pause)
+    {
+        paused = pause;
+        try { NativeStateFile.Save(PausePath, pause ? new[] { "background" } : new string[0]); }
+        catch (IOException) { } catch (UnauthorizedAccessException) { }
+        lock (gate) foreach (var c in channels) c.Suspended = pause;
+        WriteStatus(null);
+    }
     internal void Resume(string controlId)
     {
+        if (paused) return; // A user pause outlasts an interactive session.
         lock (gate) foreach (var c in channels) if (c.Config.ControlId == controlId) c.Suspended = false;
     }
     private void Run(Channel channel)
@@ -419,7 +435,7 @@ internal sealed class BackgroundCooling : IDisposable
                     entries.Add(new { control_id = c.Config.ControlId, tier = NativeTiers.Name(c.Config.Tier), state = c.Controller.State,
                         duty_percent = c.Controller.Duty, fault = c.Controller.Fault, warning = c.Controller.Warning });
             string path = Path.Combine(Root, StatusName), temporary = path + ".tmp";
-            File.WriteAllText(temporary, new JavaScriptSerializer().Serialize(new { version = 1, error = error, updated_utc = DateTime.UtcNow.ToString("o"), channels = entries }));
+            File.WriteAllText(temporary, new JavaScriptSerializer().Serialize(new { version = 1, error = error, paused = paused, updated_utc = DateTime.UtcNow.ToString("o"), channels = entries }));
             if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
         }
         catch (IOException) { } catch (UnauthorizedAccessException) { }

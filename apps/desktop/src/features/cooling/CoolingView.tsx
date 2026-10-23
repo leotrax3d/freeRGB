@@ -1,37 +1,34 @@
-import { ShieldAlert } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/page";
-import { useDaemon, useSlices } from "@/lib/store/daemon";
+import { useSlices } from "@/lib/store/daemon";
 import { CurvesSection } from "./CurvesSection";
 import { SensorsSection } from "./SensorsSection";
 import { LiveSession } from "./LiveSession";
-import { BackgroundSection } from "./BackgroundSection";
-import { UnrestrictedSection } from "./UnrestrictedSection";
-import { ProfilesSection } from "./ProfilesSection";
 import { ChannelBindings } from "./ChannelBindings";
+import { UnrestrictedSection } from "./UnrestrictedSection";
+import { CoolingActions, FanOverview } from "./FanOverview";
 
+/** Fans first: what each header does now and one place to change it. */
 export default function CoolingView() {
   useSlices("curves", "cooling_status", "sensor_graph", "sensor_sources", "sensor_values");
-  const status = useDaemon((s) => s.cooling_status);
   return (
     <>
-      <PageHeader title="Cooling" description="Fan curves and temperature sources." />
-      {status && !status.hardware_control && (
-        <div role="note" className="flex items-start gap-3 rounded-card border border-border bg-surface-sunken px-4 py-3 text-small text-text-muted">
-          <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-          <span>
-            <span className="font-medium text-text">Curve editor preview does not change fan speeds. Live control has a separate start action below.</span>{" "}
-            {status.reason}
-          </span>
-        </div>
-      )}
+      <PageHeader title="Cooling" description="Your fans, what controls them, and the curves they follow." actions={<CoolingActions />} />
       <div className="@container flex flex-col gap-8">
+        <FanOverview />
         <CurvesSection />
-        <LiveSession />
-        <BackgroundSection />
-        <ProfilesSection />
-        <UnrestrictedSection />
-        <ChannelBindings />
-        <SensorsSection />
+        <details className="group flex flex-col gap-6 rounded-card border border-border px-4 py-3">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-small font-medium text-text-subtle">
+            <ChevronRight className="size-4 transition-transform duration-(--duration-base) group-open:rotate-90" aria-hidden />
+            Advanced: manual tests, unrestricted control, header labels, custom sensors
+          </summary>
+          <div className="mt-4 flex flex-col gap-8">
+            <LiveSession />
+            <UnrestrictedSection />
+            <ChannelBindings />
+            <SensorsSection />
+          </div>
+        </details>
       </div>
     </>
   );

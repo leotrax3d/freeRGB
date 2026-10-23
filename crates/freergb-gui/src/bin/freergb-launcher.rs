@@ -116,6 +116,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         command.spawn()?;
     }
+    // Tray icon next to the service (single instance per session; the tray
+    // itself refuses a second copy). Not in the demo, which has no real service.
+    let tray = executable("freergb-tray");
+    if !options.demo && tray.is_file() {
+        let _ = Command::new(tray).spawn();
+    }
     if !options.daemon_only {
         Command::new(executable(if options.classic {
             "freergb-gui"

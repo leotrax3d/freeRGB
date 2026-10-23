@@ -17,6 +17,9 @@ pub struct State {
     /// Where each device sits on the effect canvas, by device id; missing = full canvas.
     #[serde(default)]
     pub device_regions: std::collections::BTreeMap<String, freergb_core::Region>,
+    /// User pause from the tray/GUI; survives a service restart. Profiles ignore it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub lighting_paused: bool,
 }
 
 impl Default for State {
@@ -29,6 +32,7 @@ impl Default for State {
             brightness: 1.0,
             device_brightness: Default::default(),
             device_regions: Default::default(),
+            lighting_paused: false,
         }
     }
 }
