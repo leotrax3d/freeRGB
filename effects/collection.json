@@ -1,0 +1,1302 @@
+[
+  {
+    "id": "polarlicht",
+    "name": "Polarlicht",
+    "description": "Mehrschichtige weich wandernde Farbbänder.",
+    "category": "Ambient",
+    "preview": [
+      "#20efad",
+      "#7845ff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "layers",
+        "label": "Bänder",
+        "min": 2,
+        "max": 6,
+        "default": 4,
+        "step": 1
+      },
+      {
+        "key": "width",
+        "label": "Bandbreite",
+        "min": 0.08,
+        "max": 0.5,
+        "default": 0.24,
+        "step": 0.05
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 180,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "feuer",
+    "name": "Feuer",
+    "description": "Flackernde Flammen über einer Glutzone.",
+    "category": "Nature",
+    "preview": [
+      "#ff3200",
+      "#ffcc44"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "heat",
+        "label": "Hitze",
+        "min": 0.2,
+        "max": 1,
+        "default": 0.7,
+        "step": 0.05
+      },
+      {
+        "key": "turbulence",
+        "label": "Unruhe",
+        "min": 0.1,
+        "max": 1,
+        "default": 0.6,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "gewitter",
+    "name": "Gewitter",
+    "description": "Unregelmäßige Blitze mit Nachleuchten über dunklem Hintergrund.",
+    "category": "Nature",
+    "preview": [
+      "#162545",
+      "#dfedff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "frequency",
+        "label": "Blitzhäufigkeit",
+        "min": 0.2,
+        "max": 2,
+        "default": 0.7,
+        "step": 0.05
+      },
+      {
+        "key": "afterglow",
+        "label": "Nachleuchten",
+        "min": 0.05,
+        "max": 0.8,
+        "default": 0.3,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "regentropfen",
+    "name": "Regentropfen",
+    "description": "Tropfen erzeugen sich ausbreitende Kreiswellen.",
+    "category": "Nature",
+    "preview": [
+      "#083466",
+      "#49cfff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "density",
+        "label": "Tropfen",
+        "min": 1,
+        "max": 6,
+        "default": 3,
+        "step": 1
+      },
+      {
+        "key": "width",
+        "label": "Wellenbreite",
+        "min": 0.02,
+        "max": 0.2,
+        "default": 0.07,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "sternenhimmel",
+    "name": "Sternenhimmel",
+    "description": "Sterne mit unabhängiger Helligkeit und Lebensdauer.",
+    "category": "Ambient",
+    "preview": [
+      "#090b30",
+      "#d6e6ff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "density",
+        "label": "Sterndichte",
+        "min": 0.1,
+        "max": 1,
+        "default": 0.5,
+        "step": 0.05
+      },
+      {
+        "key": "lifetime",
+        "label": "Lebensdauer",
+        "min": 0.5,
+        "max": 6,
+        "default": 3,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "meteorschauer",
+    "name": "Meteorschauer",
+    "description": "Versetzte Meteore mit gerichteten Schweifen.",
+    "category": "Motion",
+    "preview": [
+      "#ffad64",
+      "#4d76ff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "direction",
+        "label": "Richtung",
+        "min": 0,
+        "max": 360,
+        "default": 30,
+        "step": 1
+      },
+      {
+        "key": "spread",
+        "label": "Streuung",
+        "min": 0,
+        "max": 1,
+        "default": 0.5,
+        "step": 0.05
+      },
+      {
+        "key": "length",
+        "label": "Schweiflänge",
+        "min": 0.1,
+        "max": 0.8,
+        "default": 0.35,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "ozean",
+    "name": "Ozean",
+    "description": "Überlagerte Tiefenwellen mit hellen Schaumkronen.",
+    "category": "Nature",
+    "preview": [
+      "#023566",
+      "#76e5e3"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "depth",
+        "label": "Tiefe",
+        "min": 0.1,
+        "max": 1,
+        "default": 0.7,
+        "step": 0.05
+      },
+      {
+        "key": "foam",
+        "label": "Schaum",
+        "min": 0,
+        "max": 1,
+        "default": 0.5,
+        "step": 0.05
+      },
+      {
+        "key": "scale",
+        "label": "Wellengröße",
+        "min": 1,
+        "max": 6,
+        "default": 3,
+        "step": 0.05
+      }
+    ]
+  },
+  {
+    "id": "lava",
+    "name": "Lava",
+    "description": "Langsam fließende verschmelzende heiße Farbflächen.",
+    "category": "Nature",
+    "preview": [
+      "#8c071b",
+      "#ffa124"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "size",
+        "label": "Flächengröße",
+        "min": 0.2,
+        "max": 1,
+        "default": 0.6,
+        "step": 0.05
+      },
+      {
+        "key": "contrast",
+        "label": "Kontrast",
+        "min": 0.5,
+        "max": 3,
+        "default": 1.5,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "plasma",
+    "name": "Plasma",
+    "description": "Ineinanderlaufende mathematische Farbwellen.",
+    "category": "Abstract",
+    "preview": [
+      "#f52d99",
+      "#246dff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "scale",
+        "label": "Wellenzahl",
+        "min": 1,
+        "max": 8,
+        "default": 3,
+        "step": 0.05
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 180,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "galaxie",
+    "name": "Galaxie",
+    "description": "Rotierende Spiralarme mit unabhängig funkelnden Sternen.",
+    "category": "Space",
+    "preview": [
+      "#9036de",
+      "#dceaff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "arms",
+        "label": "Spiralarme",
+        "min": 2,
+        "max": 6,
+        "default": 3,
+        "step": 1
+      },
+      {
+        "key": "twist",
+        "label": "Windung",
+        "min": 1,
+        "max": 8,
+        "default": 4,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "schwarzes-loch",
+    "name": "Schwarzes Loch",
+    "description": "Spiralförmiger Sog um einen dunklen Kern mit Außenring.",
+    "category": "Space",
+    "preview": [
+      "#100421",
+      "#ff982e"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "radius",
+        "label": "Kernradius",
+        "min": 0.1,
+        "max": 0.45,
+        "default": 0.23,
+        "step": 0.05
+      },
+      {
+        "key": "twist",
+        "label": "Sogwindung",
+        "min": 2,
+        "max": 10,
+        "default": 6,
+        "step": 0.05
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 180,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "konfetti",
+    "name": "Konfetti",
+    "description": "Bunte Partikel mit unabhängigen Geburtszeiten und Verblassen.",
+    "category": "Particles",
+    "preview": [
+      "#ed388d",
+      "#39e48b"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "density",
+        "label": "Dichte",
+        "min": 0.1,
+        "max": 1,
+        "default": 0.6,
+        "step": 0.05
+      },
+      {
+        "key": "fade",
+        "label": "Verblassdauer",
+        "min": 0.3,
+        "max": 4,
+        "default": 1.8,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "gluehwuermchen",
+    "name": "Glühwürmchen",
+    "description": "Langsam wandernde pulsierende Lichtpunkte.",
+    "category": "Particles",
+    "preview": [
+      "#183810",
+      "#d9ff76"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "density",
+        "label": "Dichte",
+        "min": 0.1,
+        "max": 1,
+        "default": 0.5,
+        "step": 0.05
+      },
+      {
+        "key": "size",
+        "label": "Leuchtgröße",
+        "min": 0.1,
+        "max": 0.8,
+        "default": 0.35,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "neonroehren",
+    "name": "Neonröhren",
+    "description": "Segmentierte Röhren mit zeitversetztem Startflackern.",
+    "category": "Urban",
+    "preview": [
+      "#fd328c",
+      "#22cfff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "segments",
+        "label": "Segmente",
+        "min": 2,
+        "max": 12,
+        "default": 6,
+        "step": 1
+      },
+      {
+        "key": "flicker",
+        "label": "Startflackern",
+        "min": 0,
+        "max": 1,
+        "default": 0.6,
+        "step": 0.05
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 180,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "cyberpunk",
+    "name": "Cyberpunk",
+    "description": "Harte Farbflächen mit Lauflichtern und seltenen Störungen.",
+    "category": "Urban",
+    "preview": [
+      "#ff16a0",
+      "#00dafa"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "glitch",
+        "label": "Störanteil",
+        "min": 0,
+        "max": 0.5,
+        "default": 0.15,
+        "step": 0.05
+      },
+      {
+        "key": "lanes",
+        "label": "Lichtbahnen",
+        "min": 2,
+        "max": 10,
+        "default": 5,
+        "step": 1
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "matrixregen",
+    "name": "Matrixregen",
+    "description": "Fallende Lichtspuren mit wechselnder Länge.",
+    "category": "Urban",
+    "preview": [
+      "#003c17",
+      "#a6ffbe"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "length",
+        "label": "Spurlänge",
+        "min": 0.1,
+        "max": 0.8,
+        "default": 0.4,
+        "step": 0.05
+      },
+      {
+        "key": "density",
+        "label": "Spaltendichte",
+        "min": 0.1,
+        "max": 1,
+        "default": 0.7,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "radar",
+    "name": "Radar",
+    "description": "Rotierender Suchstrahl erhellt nachleuchtende Ziele.",
+    "category": "Motion",
+    "preview": [
+      "#002e18",
+      "#80ffad"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "width",
+        "label": "Strahlbreite",
+        "min": 0.02,
+        "max": 0.3,
+        "default": 0.1,
+        "step": 0.05
+      },
+      {
+        "key": "afterglow",
+        "label": "Nachleuchten",
+        "min": 0.1,
+        "max": 1,
+        "default": 0.6,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "herzschlag",
+    "name": "Herzschlag",
+    "description": "Rhythmischer Doppelpuls mit einstellbarer Ruhephase.",
+    "category": "Rhythm",
+    "preview": [
+      "#260011",
+      "#ff275e"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "rest",
+        "label": "Ruheanteil",
+        "min": 0.2,
+        "max": 0.7,
+        "default": 0.5,
+        "step": 0.05
+      },
+      {
+        "key": "sharpness",
+        "label": "Pulsschärfe",
+        "min": 1,
+        "max": 6,
+        "default": 3,
+        "step": 0.05
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 345,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "atemlicht",
+    "name": "Atemlicht",
+    "description": "Weiche Helligkeitskurve mit optionalem Farbwechsel.",
+    "category": "Rhythm",
+    "preview": [
+      "#143f78",
+      "#70caff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "curve",
+        "label": "Atemkurve",
+        "min": 0.5,
+        "max": 3,
+        "default": 1.5,
+        "step": 0.05
+      },
+      {
+        "key": "color_shift",
+        "label": "Farbwechsel",
+        "min": 0,
+        "max": 1,
+        "default": 0,
+        "step": 0.05
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 180,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "pendel",
+    "name": "Pendel",
+    "description": "Ein Lichtpunkt schwingt mit weichen Umkehrpunkten.",
+    "category": "Motion",
+    "preview": [
+      "#10223b",
+      "#ffc66e"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "width",
+        "label": "Lichtbreite",
+        "min": 0.03,
+        "max": 0.4,
+        "default": 0.12,
+        "step": 0.05
+      },
+      {
+        "key": "direction",
+        "label": "Richtung",
+        "min": 0,
+        "max": 360,
+        "default": 0,
+        "step": 1
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 180,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "kaleidoskop",
+    "name": "Kaleidoskop",
+    "description": "Rotierende Farbmuster mit einstellbarer Spiegelsymmetrie.",
+    "category": "Abstract",
+    "preview": [
+      "#ed3cbb",
+      "#2fe0e3"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "symmetry",
+        "label": "Symmetrie",
+        "min": 2,
+        "max": 10,
+        "default": 6,
+        "step": 1
+      },
+      {
+        "key": "scale",
+        "label": "Musterdichte",
+        "min": 1,
+        "max": 6,
+        "default": 3,
+        "step": 0.05
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 180,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "schachbrett",
+    "name": "Schachbrett",
+    "description": "Wandernde wechselnde Felder mit Überblendung.",
+    "category": "Geometry",
+    "preview": [
+      "#713ad4",
+      "#ffb84d"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "cells",
+        "label": "Felder",
+        "min": 2,
+        "max": 12,
+        "default": 6,
+        "step": 1
+      },
+      {
+        "key": "blend",
+        "label": "Überblendung",
+        "min": 0.02,
+        "max": 0.5,
+        "default": 0.2,
+        "step": 0.05
+      },
+      {
+        "key": "direction",
+        "label": "Richtung",
+        "min": 0,
+        "max": 360,
+        "default": 25,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "farbfluss",
+    "name": "Farbfluss",
+    "description": "Mehrere Palettenfarben fließen entlang einer wählbaren Richtung.",
+    "category": "Colour",
+    "preview": [
+      "#ff4675",
+      "#32cec9"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "direction",
+        "label": "Richtung",
+        "min": 0,
+        "max": 360,
+        "default": 45,
+        "step": 1
+      },
+      {
+        "key": "scale",
+        "label": "Farbzyklen",
+        "min": 0.5,
+        "max": 5,
+        "default": 1.5,
+        "step": 0.05
+      },
+      {
+        "key": "hue",
+        "label": "Farbton",
+        "min": 0,
+        "max": 360,
+        "default": 180,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "feuerwerk",
+    "name": "Feuerwerk",
+    "description": "Aufsteigende Raketen zerfallen in ausglühende Funken.",
+    "category": "Particles",
+    "preview": [
+      "#ff943d",
+      "#df51ff"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "sparks",
+        "label": "Funken",
+        "min": 6,
+        "max": 24,
+        "default": 16,
+        "step": 1
+      },
+      {
+        "key": "size",
+        "label": "Explosionsgröße",
+        "min": 0.2,
+        "max": 1,
+        "default": 0.65,
+        "step": 0.05
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  },
+  {
+    "id": "reaktionsdiffusion",
+    "name": "Reaktionsdiffusion",
+    "description": "Zwei reagierende diffundierende Stoffe bilden organische Muster.",
+    "category": "Abstract",
+    "preview": [
+      "#183667",
+      "#bdf5ba"
+    ],
+    "parameters": [
+      {
+        "key": "speed",
+        "label": "Geschwindigkeit",
+        "min": 0.1,
+        "max": 3,
+        "default": 1,
+        "step": 0.05
+      },
+      {
+        "key": "brightness",
+        "label": "Helligkeit",
+        "min": 0,
+        "max": 1,
+        "default": 0.8,
+        "step": 0.01
+      },
+      {
+        "key": "feed",
+        "label": "Zufuhr",
+        "min": 0.02,
+        "max": 0.07,
+        "default": 0.04,
+        "step": 0.001
+      },
+      {
+        "key": "kill",
+        "label": "Abbau",
+        "min": 0.045,
+        "max": 0.075,
+        "default": 0.06,
+        "step": 0.001
+      },
+      {
+        "key": "seed",
+        "label": "Seed",
+        "min": 0,
+        "max": 65535,
+        "default": 42,
+        "step": 1
+      }
+    ]
+  }
+]

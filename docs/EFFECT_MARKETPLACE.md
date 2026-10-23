@@ -31,7 +31,7 @@ Downloads run on separate threads without holding the engine mutex. Only one
 catalog/install job runs at a time. Activation validates the installed reference
 and parameters and saves the new selection before acknowledging success.
 Profiles, macros, the lighting inspector and Classic can carry the serializable
-selection; editing downloaded parameters happens in the modern Marketplace.
+selection; editing downloaded parameters happens in the modern Lighting tab.
 Marketplace effects cannot be nested inside the existing custom-layer format in
 API v1, avoiding ambiguous guest budgets and package dependencies.
 
@@ -78,6 +78,14 @@ downloads are retained as a local cache, so an older saved profile can work afte
 reinstallation. A missing installation produces a clear error rather than
 silently substituting another effect. This cache does not allow uninstalled
 programs to run.
+
+## Local development collection
+
+The additional 25 effects use the existing startup-only directory source. See
+[EFFECT_COLLECTION.md](EFFECT_COLLECTION.md) for the complete list, controls,
+local build/run instructions and limits. Directory-source managers disable the
+community client, so local installs and ratings cannot change live Appwrite data.
+The official bundled catalog and publishing workflow retain the original examples.
 
 ## Shipped examples and publication
 

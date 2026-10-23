@@ -287,11 +287,15 @@ impl Manager {
                 return Err("Invalid installed effect index".into());
             }
         }
-        let (ratings_client, ratings_error) =
-            match crate::ratings::Client::configured(root.join("ratings-session.json")) {
-                Ok(client) => (client.map(Arc::new), None),
-                Err(error) => (None, Some(error)),
-            };
+        // Local effect development must never send ratings or download receipts.
+        let (ratings_client, ratings_error) = match if matches!(source, Source::Directory(_)) {
+            Ok(None)
+        } else {
+            crate::ratings::Client::configured(root.join("ratings-session.json"))
+        } {
+            Ok(client) => (client.map(Arc::new), None),
+            Err(error) => (None, Some(error)),
+        };
         let ratings = crate::ratings::Ratings {
             configured: ratings_client.is_some(),
             error: ratings_error,

@@ -110,3 +110,65 @@ fn failed_state_write_does_not_acknowledge_or_change_the_effect() {
     assert_eq!(success(&e, "effects.get", json!({})), before);
     let _ = std::fs::remove_file(root);
 }
+
+#[test]
+fn development_collection_installs_and_configures_through_lighting_api() {
+    let root = std::env::temp_dir().join(format!("freergb-collection-api-{}", std::process::id()));
+    let release =
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../effects/development");
+    let manager = Manager::development(root.clone(), release).unwrap();
+    let mut engine = Engine::new(EffectSpec::default_for("solid").unwrap(), 30);
+    engine.marketplace = Some(manager.clone());
+    let engine = Arc::new(Mutex::new(engine));
+    let wait = || {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while manager.busy() {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(manager.view().error.is_none(), "{:?}", manager.view().error);
+    };
+    success(&engine, "marketplace.refresh", json!({}));
+    wait();
+    assert!(!manager.view().ratings.configured);
+    for package in manager.view().catalog.into_iter().skip(3) {
+        success(&engine, "marketplace.install", json!({"id": package.id}));
+        wait();
+        for maximum in [false, true] {
+            let parameters: serde_json::Map<String, Value> = package
+                .parameters
+                .iter()
+                .map(|p| {
+                    (
+                        p.key.clone(),
+                        json!(if maximum { p.max } else { p.default }),
+                    )
+                })
+                .collect();
+            let selection = json!({"type":"marketplace", "id":package.id, "version":package.version, "parameters":parameters});
+            success(&engine, "effects.set", selection.clone());
+            assert_eq!(success(&engine, "effects.get", json!({})), selection);
+            let start = Instant::now();
+            for ms in [0, 125, 700, 1900, 3875] {
+                lock(&engine).tick(start + Duration::from_millis(ms));
+                assert!(
+                    lock(&engine).runtime_error().is_none(),
+                    "{}: {:?}",
+                    package.id,
+                    lock(&engine).runtime_error()
+                );
+            }
+        }
+        success(
+            &engine,
+            "effects.set",
+            json!({"type":"solid","color":{"r":0,"g":0,"b":0}}),
+        );
+        success(&engine, "marketplace.uninstall", json!({"id":package.id}));
+    }
+    assert!(!manager.view().ratings.configured);
+    assert!(manager.view().ratings.error.is_none());
+    drop(engine);
+    drop(manager);
+    std::fs::remove_dir_all(root).unwrap();
+}

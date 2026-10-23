@@ -310,9 +310,14 @@ fn render_loop(
                 }
             }
         }
-        if let Some(rest) = period.checked_sub(t0.elapsed()) {
-            std::thread::sleep(rest);
-        }
+        // A guest may use the whole frame interval, especially in debug builds.
+        // Always release CPU time between frames so pending API workers can
+        // acquire the engine mutex even when rendering misses its target FPS.
+        std::thread::sleep(
+            period
+                .saturating_sub(t0.elapsed())
+                .max(Duration::from_millis(1)),
+        );
     }
 }
 
