@@ -164,6 +164,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `CorsairLightingNodeController` | ported | `9314d1f` | 7 | Direct mode fully ported for all 7 detector rows: PortState/Direct(R,G,B planes, 50-LED blocks with running offset)/Commit per channel, two 204-LED-max zones. 5s keepalive and firmware read omitted |
 | `CorsairCommanderCoreController` | partial | pending | 0 | 7 detector rows audited; fabricated 97-byte packet removed. Protocol needs SendCommand framing with version query and packet-size negotiation, SetFanMode/SetLedAmount writes, config-driven LED counts and the 699-byte SetDirectColor layout |
 | `AsusMonitorController` | ported | pending | 7 | Direct mode fully ported: LED-count query (byte 32 response), SendInit, single SetDirect packet; interface 1/2 + usage 0xFF72/0x00A1 matching; fails closed on missing response |
+| `DRGBController` | partial | pending | 0 | 33 detector rows and the device matrix audited; no Direct-mode path is byte-exact (V4 316/340 chunking and LowCount scheme, V1/V3 commit markers 0xA3/0xC8 and div_ceil(21) accounting plus header shape, V2 0xBB marker overwritten by payload) and the 500 ms keepalive is unported; buggy builders removed |
 
 
 The per-family status ledger is maintained below this inventory by the porting
