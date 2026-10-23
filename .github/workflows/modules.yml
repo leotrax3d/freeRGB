@@ -143,6 +143,10 @@ jobs:
             node scripts/openrgb/port-nollie-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-nollie
             git diff --exit-code -- modules/nollie/src/devices_table.rs
+          elif [ "$MODULE" = "corsair-hydro-platinum" ]; then
+            node scripts/openrgb/port-corsair-hydro-platinum-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-corsair-hydro-platinum
+            git diff --exit-code -- modules/corsair-hydro-platinum/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1

@@ -1826,6 +1826,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-corsair-hydro-platinum"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-das-keyboard"
 version = "0.1.0"
 dependencies = [
