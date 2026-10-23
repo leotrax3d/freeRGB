@@ -48,6 +48,7 @@ members = [
     "modules/fnatic-streak",
     "modules/gigabyte-aorus-laptop",
     "modules/a4tech",
+    "modules/evga-usb",
 ]
 
 [workspace.package]

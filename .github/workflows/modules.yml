@@ -193,6 +193,10 @@ jobs:
             node scripts/openrgb/port-a4tech-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-a4tech
             git diff --exit-code -- modules/a4tech/src/devices_table.rs
+          elif [ "$MODULE" = "evga-usb" ]; then
+            node scripts/openrgb/port-evga-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-evga-usb
+            git diff --exit-code -- modules/evga-usb/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
