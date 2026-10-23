@@ -46,6 +46,7 @@ members = [
     "modules/areson",
     "modules/annepro2",
     "modules/fnatic-streak",
+    "modules/gigabyte-aorus-laptop",
 ]
 
 [workspace.package]
