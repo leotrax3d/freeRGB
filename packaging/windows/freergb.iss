@@ -39,6 +39,8 @@ CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
 SetupIconFile=..\..\assets\icons\freergb.ico
+; Current brand mark (assets/ASSETS.md) in the wizard header.
+WizardSmallImageFile=..\..\assets\icons\freergb-64.png
 UninstallDisplayIcon={app}\freergb-desktop.exe
 
 [Languages]
