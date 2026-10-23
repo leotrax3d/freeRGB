@@ -39,7 +39,12 @@ impl AsyncWrite for NativeBridge {
     }
 }
 
-pub async fn connect(helper: PathBuf) -> Result<NativeSessionClient<NativeBridge>, String> {
+/// `control_id` selects this session's protected authorization, so several
+/// channels can be authorized and run at the same time.
+pub async fn connect(
+    helper: PathBuf,
+    control_id: String,
+) -> Result<NativeSessionClient<NativeBridge>, String> {
     if !cfg!(windows) {
         return Err("Native mainboard bridge is Windows-only".into());
     }
@@ -47,8 +52,12 @@ pub async fn connect(helper: PathBuf) -> Result<NativeSessionClient<NativeBridge
         .canonicalize()
         .map_err(|_| "Mainboard helper not found")?;
     let mut command = Command::new(helper);
+    if !control_id.is_empty() {
+        command.arg("--control-relay").arg(&control_id);
+    } else {
+        command.arg("--control-relay");
+    }
     command
-        .arg("--control-relay")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

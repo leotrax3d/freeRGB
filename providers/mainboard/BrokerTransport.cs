@@ -190,7 +190,12 @@ internal static class BrokerTransport
     }
 
     internal static NamedPipeServerStream CreateServer(string name, SecurityIdentifier user)
+    { return CreateServer(name, user, 1, true); }
+    // Additional instances (first=false) are created only by this process after
+    // it owns the first one; clients lack FILE_CREATE_PIPE_INSTANCE.
+    internal static NamedPipeServerStream CreateServer(string name, SecurityIdentifier user, int instances, bool first)
     {
+        if (instances < 1 || instances > 16) throw new ArgumentOutOfRangeException("instances");
         var acl = new PipeSecurity();
         acl.SetAccessRuleProtection(true, false);
         if (BrokerService.IsSystem()) acl.SetOwner(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null));
@@ -204,7 +209,7 @@ internal static class BrokerTransport
             Marshal.Copy(bytes, 0, descriptor, bytes.Length);
             var attributes = new SecurityAttributes { Length = Marshal.SizeOf(typeof(SecurityAttributes)), Descriptor = descriptor };
             // Duplex, overlapped, FIRST_PIPE_INSTANCE; byte mode, REJECT_REMOTE_CLIENTS.
-            SafePipeHandle handle = CreateNamedPipe(@"\\.\pipe\" + name, 0x40080003, 8, 1, Limit, 32, 0, ref attributes);
+            SafePipeHandle handle = CreateNamedPipe(@"\\.\pipe\" + name, first ? 0x40080003u : 0x40000003u, 8, (uint)instances, Limit, 32, 0, ref attributes);
             if (handle.IsInvalid) { int error = Marshal.GetLastWin32Error(); handle.Dispose(); throw new Win32Exception(error); }
             try { return new NamedPipeServerStream(PipeDirection.InOut, true, false, handle); }
             catch { handle.Dispose(); throw; }

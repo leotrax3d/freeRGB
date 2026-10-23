@@ -19,7 +19,12 @@ internal sealed class NativeControlBroker : IDisposable
     // the configuration the user already authorized (UAC). Neither widens rights.
     internal static Action<bool> PauseBackground = null;
     internal static Func<bool> BackgroundPaused = null;
-    private readonly NamedPipeServerStream pipe;
+    // Listening instance; each accepted connection runs on its own thread so
+    // several channels can be controlled at once (one session per channel).
+    private NamedPipeServerStream pipe;
+    private readonly SecurityIdentifier owner;
+    private const int MaxSessions = 8;
+    private int active;
     private readonly Thread thread;
     private volatile bool stopping;
     private volatile bool maintenance;
@@ -32,17 +37,42 @@ internal sealed class NativeControlBroker : IDisposable
     }
     internal NativeControlBroker(SecurityIdentifier owner)
     {
-        pipe=BrokerTransport.CreateServer(PipeName,owner);
+        this.owner=owner;
+        pipe=BrokerTransport.CreateServer(PipeName,owner,MaxSessions,true);
         thread=new Thread(Serve) { IsBackground=true,Name="freeRGB native session bridge" };
         thread.Start();
     }
-    private static Dictionary<string,object> Authorization()
+    // Version 1: one record. Version 2: {"version":2,"authorizations":[records]},
+    // one per channel, so several channels can be authorized at the same time.
+    private static Dictionary<string,object> Authorization(string controlId)
     {
         BrokerService.CheckInstallation(false);
         string path=Path.Combine(Path.GetDirectoryName(BrokerTransport.DirectoryPath),"mainboard-control-authorization.json");
         BrokerService.CheckProtectedPath(path);
-        if (new FileInfo(path).Length > 4096) throw new InvalidDataException("Control authorization too large.");
-        var value=new JavaScriptSerializer { MaxJsonLength=4096,RecursionLimit=8 }.DeserializeObject(File.ReadAllText(path)) as Dictionary<string,object>;
+        if (new FileInfo(path).Length > 16384) throw new InvalidDataException("Control authorization too large.");
+        var document=new JavaScriptSerializer { MaxJsonLength=16384,RecursionLimit=8 }.DeserializeObject(File.ReadAllText(path)) as Dictionary<string,object>;
+        if (document != null && Object.Equals(document["version"],2) && document.ContainsKey("authorizations") && document["authorizations"] is object[])
+        {
+            Dictionary<string,object> match=null;
+            foreach (object raw in (object[])document["authorizations"])
+            {
+                var record=raw as Dictionary<string,object>;
+                if (record == null || !record.ContainsKey("control_id")) continue;
+                if (controlId == null || Object.Equals(record["control_id"],controlId))
+                {
+                    if (match != null) throw new InvalidDataException("Ambiguous protected authorization.");
+                    match=record;
+                }
+            }
+            if (match == null) throw new InvalidDataException("No protected authorization for this channel.");
+            return ValidateAuthorization(match);
+        }
+        var single=ValidateAuthorization(document);
+        if (controlId != null && !Object.Equals(single["control_id"],controlId)) throw new InvalidDataException("No protected authorization for this channel.");
+        return single;
+    }
+    internal static Dictionary<string,object> ValidateAuthorization(Dictionary<string,object> value)
+    {
         int optional = value == null ? 0 : (value.ContainsKey("role") ? 1 : 0) + (value.ContainsKey("tier") ? 1 : 0) + (value.ContainsKey("pump_unlocked") ? 1 : 0);
         if (value == null || value.Count != 7 + optional || !Object.Equals(value["version"],1) ||
             !(value["floor_percent"] is int) || !(value["critical_c"] is int) ||
@@ -64,12 +94,32 @@ internal sealed class NativeControlBroker : IDisposable
     {
         while (!stopping)
         {
+            var current=pipe;
+            try { current.WaitForConnection(); }
+            catch (Exception error)
+            {
+                if (error is OutOfMemoryException) throw;
+                if (stopping) return;
+                Thread.Sleep(100);
+                continue;
+            }
+            if (stopping) return;
+            NamedPipeServerStream next=null;
+            try { next=BrokerTransport.CreateServer(PipeName,owner,MaxSessions,false); }
+            catch (System.ComponentModel.Win32Exception) { } // All instances busy: serve inline.
+            if (next == null) { Session(current,true); continue; }
+            pipe=next;
+            new Thread(delegate() { Session(current,false); }) { IsBackground=true,Name="freeRGB native session" }.Start();
+        }
+    }
+    private void Session(NamedPipeServerStream pipe, bool reuse)
+    {
+        {
             string stage="admission";
             string suspended=null;
+            bool counted=false;
             try
             {
-                pipe.WaitForConnection();
-                if (stopping) return;
                 string first=BrokerTransport.ReadRecord(pipe,2000,256);
                 if (first == "background pause" || first == "background resume" || first == "background status")
                 {
@@ -77,15 +127,22 @@ internal sealed class NativeControlBroker : IDisposable
                     if (first != "background status" && PauseBackground != null) PauseBackground(first == "background pause");
                     bool paused=BackgroundPaused != null && BackgroundPaused();
                     BrokerTransport.Write(pipe,Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(new {version=1,background_paused=paused})+"\n"));
-                    continue;
+                    return;
                 }
-                if (first != "open") throw new InvalidDataException("Expected native session open.");
+                string requested=null;
+                if (first.StartsWith("open ",StringComparison.Ordinal))
+                {
+                    requested=first.Substring(5);
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(requested,"^/lpc/[a-z0-9]+/[0-9]+/control/[0-9]+$")) throw new InvalidDataException("Invalid requested channel.");
+                }
+                else if (first != "open") throw new InvalidDataException("Expected native session open.");
                 lock (admission)
                 {
                     if (maintenance || stopping) throw new InvalidOperationException("Native control admission closed for maintenance.");
+                    active++; counted=true;
                     idle.Reset();
                 }
-                var authorization=Authorization();
+                var authorization=Authorization(requested);
                 stage="worker_start";
                 string controlId=(string)authorization["control_id"];
                 if (SuspendBackground != null) SuspendBackground(controlId);
@@ -165,8 +222,12 @@ internal sealed class NativeControlBroker : IDisposable
             finally
             {
                 if (suspended != null && ResumeBackground != null) ResumeBackground(suspended);
-                idle.Set();
-                try { if (pipe.IsConnected) pipe.Disconnect(); }
+                lock (admission) { if (counted && --active == 0) idle.Set(); }
+                try
+                {
+                    if (!reuse) pipe.Dispose();
+                    else if (pipe.IsConnected) pipe.Disconnect();
+                }
                 catch (ObjectDisposedException) { }
                 catch (IOException) { }
             }
@@ -178,6 +239,8 @@ internal sealed class NativeControlBroker : IDisposable
         pipe.Dispose();
         if (Thread.CurrentThread != thread && !thread.Join(18000))
             throw new InvalidOperationException("Native bridge still running; maintenance must remain blocked.");
+        // Session threads see stopping and close their channels explicitly.
+        if (!idle.WaitOne(18000)) throw new InvalidOperationException("Native sessions still running; maintenance must remain blocked.");
     }
 
     // Tray/daemon helper: pause, resume or query background fan control.
@@ -194,15 +257,16 @@ internal sealed class NativeControlBroker : IDisposable
             return 0;
         }
     }
-    internal static int Relay()
+    internal static int Relay(string controlId)
     {
+        if (controlId != null && !System.Text.RegularExpressions.Regex.IsMatch(controlId,"^/lpc/[a-z0-9]+/[0-9]+/control/[0-9]+$")) return 2;
         using (var connection=BrokerTransport.Connect(PipeName))
         {
             var owner=(SecurityIdentifier)connection.GetAccessControl().GetOwner(typeof(SecurityIdentifier));
             if (!owner.IsWellKnown(WellKnownSidType.LocalSystemSid) || !BrokerTransport.IsServiceServer(connection))
                 throw new InvalidOperationException("Control endpoint is not the registered SYSTEM service.");
             BrokerService.CheckProtectedPath(BrokerTransport.ServicePath);
-            BrokerTransport.Write(connection,Encoding.ASCII.GetBytes("open\n"));
+            BrokerTransport.Write(connection,Encoding.ASCII.GetBytes((controlId == null ? "open" : "open " + controlId) + "\n"));
             Stream input=Console.OpenStandardInput();
             bool first=true;
             while (true)

@@ -302,6 +302,13 @@ internal sealed class NativeControlJournal : IDisposable
             return true;
         });
     }
+    // Serializes protected configuration writes with journal operations without
+    // requiring an empty journal (running channels may stay reserved).
+    internal void Serialized(Action action)
+    {
+        if (action == null) throw new ArgumentNullException("action");
+        Locked(delegate { action(); return true; });
+    }
     // Hold the SAME cross-process mutex as Reserve through stop/swap/remove.
     // This is a conservative refusal path, not automatic firmware recovery.
     internal void Maintenance(Action action)
