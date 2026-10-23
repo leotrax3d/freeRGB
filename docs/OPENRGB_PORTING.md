@@ -170,6 +170,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `GigabyteAorusLaptopController` | ported | `2de0d2e` | 2 | Direct mode fully ported for both Keyboard rows: single-LED 9-byte feature report with checksum, brightness default 0x19; backlight rows unsupported (no direct mode upstream); interface 3/usage 0xFF01/1 matching |
 | `HyperXMouseController` | partial | `f8fe0af` | 0 | 14 detector rows audited (was 12; interface/usage qualification added). No Direct-mode path is byte-exact: Surge RGB-plane feature report (264 bytes, 0x07 report id), FPS `07 0A`, Haste setup+color feature reports, Raid start/end bytes, Dart per-LED writes; fabricated builders removed |
 | `AresonController` | ported | `b3838fe` | 6 | Direct mode fully ported: 17-byte Static-mode feature report (speed byte and checksum corrected), interface 1/usage 0xFF02/2 matching |
+| `A4TechController` | partial | `1e1a686` | 0 | 6 detector rows audited; fabricated packets removed. Mouse needs gain/init feature reports plus per-PID physical LED index layouts (W60 Pro/W90 group/MP 50RS); B820R needs gain/release control packets plus the six plane feature reports; output writes from the branch version removed |
 | `AnnePro2Controller` | ported | `72525ea` | 5 | Direct mode fully ported: 5-packet 64-byte stream with upstream 51-byte payload layout, real frame index mapping with the 9 gap triplets (LED_REAL_COUNT 70), upstream 5x14 key names, interface 1 matching |
 
 
