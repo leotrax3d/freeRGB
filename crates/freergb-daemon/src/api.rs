@@ -285,6 +285,12 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             .ok_or_else(|| invalid_params("unrestricted_enabled:boolean required"))
             .and_then(|enabled| {
                 let mut engine = lock(engine);
+                if enabled {
+                    engine
+                        .onboarding
+                        .require_safety()
+                        .map_err(|e| (-32006, e))?;
+                }
                 engine
                     .fan_support
                     .set_unrestricted(enabled)
@@ -308,6 +314,31 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 let removed = engine.fan_support.revoke(control_id).map_err(|e| (-32000, e))?;
                 Ok(json!({"revoked": removed, "background_reapplied": removed && engine.reapply_background()}))
             }),
+        "onboarding.get" => Ok(lock(engine).onboarding.view()),
+        "onboarding.complete" => lock(engine)
+            .onboarding
+            .complete()
+            .map(|()| json!(true))
+            .map_err(|e| (-32000, e)),
+        "onboarding.reset" => lock(engine)
+            .onboarding
+            .reset()
+            .map(|()| json!(true))
+            .map_err(|e| (-32000, e)),
+        "safety.acknowledge" => {
+            let version = params["version"].as_u64().unwrap_or(0) as u32;
+            let accepted = params["accepted"] == true;
+            lock(engine)
+                .onboarding
+                .acknowledge(version, accepted)
+                .map(|()| json!(true))
+                .map_err(invalid_params)
+        }
+        "safety.revoke" => lock(engine)
+            .onboarding
+            .revoke_safety()
+            .map(|()| json!(true))
+            .map_err(|e| (-32000, e)),
         "cooling.profiles.list" => Ok(lock(engine).cooling_profiles.view()),
         "cooling.profiles.save" => params["name"]
             .as_str()
@@ -1051,4 +1082,3 @@ mod tests {
         assert!(handle_line(&e, r#"{"id":6,"method":"daemon.shutdown"}"#).shutdown);
     }
 }
-

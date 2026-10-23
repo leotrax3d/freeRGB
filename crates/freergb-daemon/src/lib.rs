@@ -22,6 +22,7 @@ pub mod mainboard;
 pub mod modules;
 pub mod native_bridge;
 pub mod native_session;
+pub mod onboarding;
 pub mod profiles;
 pub mod report;
 pub mod state;
@@ -35,4 +36,3 @@ pub type SharedEngine = Arc<Mutex<engine::Engine>>;
 pub fn lock(engine: &SharedEngine) -> MutexGuard<'_, engine::Engine> {
     engine.lock().unwrap_or_else(|e| e.into_inner())
 }
-

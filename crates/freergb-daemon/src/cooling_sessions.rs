@@ -59,7 +59,12 @@ pub struct Plan {
     pub tier: SupportTier,
     pub role: ChannelRole,
     pub limits: RuntimeLimits,
+    /// Bounded run time (identification); `None` runs until stopped.
+    pub duration: Option<Duration>,
 }
+
+/// How long `mode:"identify"` holds a header at 100%.
+pub const IDENTIFY_SECONDS: u64 = 8;
 
 impl StartRequest {
     #[cfg(test)]
@@ -71,6 +76,15 @@ impl StartRequest {
     /// Manual percentage is a flat curve: same floors, critical-temperature
     /// override and supervision as any curve.
     fn normalized(mut self) -> Result<Self, String> {
+        if self.mode == "identify" {
+            // Never lowers a duty: a flat 100% curve, any role, bounded time.
+            if self.curve.is_some() || self.duty_percent.is_some() {
+                return Err("mode=identify takes no curve or duty".into());
+            }
+            self.mode = "manual".into();
+            self.duty_percent = Some(100);
+            self.confirmed_fan = true;
+        }
         if self.mode != "manual" {
             if self.duty_percent.is_some() {
                 return Err("duty_percent is only valid with mode=manual".into());
@@ -108,7 +122,14 @@ impl StartRequest {
     }
 
     pub fn plan(self, policy: &SessionPolicy) -> Result<Plan, String> {
+        let identify = self.mode == "identify";
         let request = self.normalized()?;
+        // Identification is 100% only: role and unlock evidence do not matter.
+        let identify_policy = SessionPolicy {
+            capability: policy.capability,
+            evidence: ChannelEvidence::default(),
+        };
+        let policy = if identify { &identify_policy } else { policy };
         let (mode, critical_c, minimum_percent, tier, limits) = request.check(policy)?;
         let this = request;
         Ok(Plan {
@@ -123,6 +144,7 @@ impl StartRequest {
                 ChannelRole::Fan
             },
             limits,
+            duration: identify.then(|| Duration::from_secs(IDENTIFY_SECONDS)),
         })
     }
 
@@ -186,7 +208,10 @@ impl StartRequest {
             "curve" if self.critical_c.is_none() => {
                 let curve = self.curve.clone().ok_or("Curve required")?;
                 curve.validate()?;
-                if limits.floor_percent == 100 && limits.tier == SupportTier::LhmSupported {
+                if limits.floor_percent == 100
+                    && limits.tier == SupportTier::LhmSupported
+                    && curve.minimum_percent < 100.0
+                {
                     return Err("Pass the guided channel test before running a reduced-duty curve on this LHM-supported channel".into());
                 }
                 if curve.minimum_percent < f32::from(limits.floor_percent)
@@ -400,6 +425,7 @@ async fn worker(helper: PathBuf, view: View, mut commands: mpsc::Receiver<Comman
             tier,
             role,
             limits,
+            duration,
         } = *plan;
         // Do not cancel an elevated authorization child: it may still publish
         // authorization after the requesting helper is dropped. Drain a queued
@@ -434,8 +460,18 @@ async fn worker(helper: PathBuf, view: View, mut commands: mpsc::Receiver<Comman
         }
         update(&view, "executing", None, None);
         let mut ticks = tokio::time::interval(Duration::from_millis(100));
+        let deadline = duration.map(|d| tokio::time::Instant::now() + d);
         loop {
             tokio::select! {
+                _ = async { match deadline { Some(at) => tokio::time::sleep_until(at).await, None => std::future::pending().await } } => {
+                    // Bounded identification: explicit close (firmware return).
+                    update(&view,"stopping",None,None);
+                    match host.prepare_maintenance(20000).await {
+                        Ok(())=>update(&view,"completed",host.last_report().cloned(),None),
+                        Err(error)=>update(&view,"blocked",None,Some(error)),
+                    }
+                    break;
+                },
                 _=ticks.tick()=>{
                     match host.collect_finished().await {
                         Ok(Some(report))=>{
@@ -602,6 +638,30 @@ mod tests {
         assert!(request()
             .plan(&policy(SupportTier::ReadOnly, None, true, true))
             .is_err());
+    }
+
+    #[test]
+    fn identify_holds_any_channel_at_full_speed_for_a_bounded_time() {
+        let mut r = request();
+        r.mode = "identify".into();
+        r.critical_c = None;
+        r.confirmed_fan = false;
+        let pump = SessionPolicy {
+            capability: SupportTier::LhmSupported,
+            evidence: ChannelEvidence {
+                role: Some(ChannelRole::Pump),
+                ..ChannelEvidence::default()
+            },
+        };
+        let plan = r.plan(&pump).unwrap();
+        assert_eq!(plan.minimum_percent, 100);
+        assert_eq!(plan.duration, Some(Duration::from_secs(IDENTIFY_SECONDS)));
+        assert_eq!(plan.limits.floor_percent, 100);
+        let mut curve = request();
+        curve.mode = "identify".into();
+        curve.critical_c = None;
+        curve.curve = Some(FanCurve::default());
+        assert!(curve.plan(&SessionPolicy::legacy()).is_err());
     }
 
     #[test]

@@ -108,6 +108,7 @@ pub struct Engine {
     pub background: crate::background::Background,
     pub fan_support: crate::fan_support::FanSupport,
     pub cooling_profiles: crate::cooling_profiles::CoolingProfiles,
+    pub onboarding: crate::onboarding::Onboarding,
     recorded_test_job: Option<u64>,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
@@ -297,6 +298,7 @@ impl Engine {
             background: Default::default(),
             fan_support: Default::default(),
             cooling_profiles: Default::default(),
+            onboarding: Default::default(),
             recorded_test_job: None,
             sensor_refresh_at: None,
             plugins: Default::default(),
@@ -629,6 +631,8 @@ impl Engine {
                 .with_file(parent.join("cooling-fan-support.json"));
             self.cooling_profiles = std::mem::take(&mut self.cooling_profiles)
                 .with_file(parent.join("cooling-profiles.json"));
+            self.onboarding =
+                std::mem::take(&mut self.onboarding).with_file(parent.join("onboarding.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);
@@ -945,6 +949,8 @@ impl Engine {
         control_id: &str,
     ) -> Result<crate::cooling_sessions::SessionPolicy, String> {
         use freergb_control::fan_support::{ChannelEvidence, SupportTier};
+        // Every fan write (sessions, tests, background, profiles) passes here.
+        self.onboarding.require_safety()?;
         let channels = self.mainboard.channels();
         let Some(channel) = channels
             .iter()
@@ -1010,6 +1016,7 @@ impl Engine {
         typed: &str,
         pump: bool,
     ) -> Result<(), String> {
+        self.onboarding.require_safety()?;
         let channels = self.mainboard.channels();
         let channel = channels
             .iter()
@@ -1511,4 +1518,3 @@ fn plugin_allowlist_is_atomic_and_no_hardware_is_enforced() {
     assert!(engine.devices().is_empty());
     assert!(!engine.has_hardware_plugins());
 }
-
