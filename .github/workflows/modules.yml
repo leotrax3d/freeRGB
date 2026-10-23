@@ -159,6 +159,12 @@ jobs:
             node scripts/openrgb/port-corsair-commander-core-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-corsair-commander-core
             git diff --exit-code -- modules/corsair-commander-core/src/devices_table.rs
+          elif [ "$MODULE" = "asus-monitor" ]; then
+            node scripts/openrgb/port-asus-monitor-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-monitor
+            git diff --exit-code -- modules/asus-monitor/src/devices_table.rs
+          elif [ "$MODULE" = "drgb" ]; then
+            echo "drgb device table is inventoried manually; add a generator before enabling support" >&2
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1

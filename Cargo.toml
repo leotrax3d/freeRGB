@@ -39,6 +39,8 @@ members = [
     "modules/corsair-peripheral",
     "modules/corsair-lighting-node",
     "modules/corsair-commander-core",
+    "modules/asus-monitor",
+    "modules/drgb",
 ]
 
 [workspace.package]
