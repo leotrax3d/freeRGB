@@ -10,6 +10,7 @@ members = [
     "crates/freergb-daemon",
     "crates/freergb-client",
     "crates/freergb-gui",
+    "crates/freergb-gui-win32",
     "crates/freergb-audio",
     "crates/freergb-screen",
     "crates/freergb-plugins",

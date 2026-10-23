@@ -1,3 +1,4 @@
+﻿use super::toast::Toasts;
 use super::{Command, Snapshot};
 use eframe::egui;
 use freergb_control::{CurvePoint, FanCurve};
@@ -33,6 +34,8 @@ pub struct Panels {
     pub page: u8,
     curve: FanCurve,
     curve_name: String,
+    /// Curve point currently dragged in the graph, or `None`.
+    curve_drag: Option<usize>,
     temperature: f32,
     macro_name: String,
     macro_json: String,
@@ -179,7 +182,7 @@ impl Default for Panels {
                 }
             }
         });
-        Self { mainboard_cooling:Default::default(),channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), temperature: 40.0,
+        Self { mainboard_cooling:Default::default(),channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), curve_drag: None, temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
@@ -214,7 +217,13 @@ impl Panels {
             self.history_started.elapsed().as_secs_f64(),
         );
     }
-    pub fn draw(&mut self, ui: &mut egui::Ui, tx: &mpsc::Sender<Command>, snapshot: &Snapshot) {
+    pub fn draw(
+        &mut self,
+        ui: &mut egui::Ui,
+        tx: &mpsc::Sender<Command>,
+        snapshot: &Snapshot,
+        toasts: &mut Toasts,
+    ) {
         let send = |method, params| {
             let _ = tx.send(Command { method, params });
         };
@@ -234,7 +243,7 @@ impl Panels {
                         }
                         if let Some(channels) = snapshot.control["cooling_channels"].as_array() {
                             for channel in channels {
-                                ui.label(format!("{} · {} · {} {} · read only", channel["name"].as_str().unwrap_or("Channel"), channel["kind"].as_str().unwrap_or(""), channel["reading"]["value"], channel["reading"]["unit"].as_str().unwrap_or("")));
+                                ui.label(format!("{} Â· {} Â· {} {} Â· read only", channel["name"].as_str().unwrap_or("Channel"), channel["kind"].as_str().unwrap_or(""), channel["reading"]["value"], channel["reading"]["unit"].as_str().unwrap_or("")));
                             }
                         }
                         ui.small("Header/control pairing and PWM/DC mode require verification. RGB/ARGB is a separate connection.");
@@ -246,7 +255,7 @@ impl Panels {
                         ui.horizontal_wrapped(|ui| { for (name, curve) in curves { if ui.button(name).clicked() { if let Ok(curve) = serde_json::from_value(curve.clone()) { self.curve = curve; self.curve_name = name.clone(); } } } });
                     }
                     egui::Grid::new("curve-points").striped(true).show(ui, |ui| {
-                        ui.label("Temperature °C"); ui.label("Fan duty %"); ui.end_row();
+                        ui.label("Temperature Â°C"); ui.label("Fan duty %"); ui.end_row();
                         let mut remove = None;
                         for (i, point) in self.curve.points.iter_mut().enumerate() {
                             ui.add(egui::DragValue::new(&mut point.temperature_c).range(-20.0..=110.0));
@@ -266,20 +275,17 @@ impl Panels {
                             *limit = (value >= 1.0).then_some(value);
                         }
                     }
-                    ui.add(egui::Slider::new(&mut self.curve.critical_c, 40.0..=110.0).text("Emergency temperature °C"));
-                    ui.add(egui::Slider::new(&mut self.curve.hysteresis_c, 0.0..=10.0).text("Cooling hysteresis °C"));
+                    ui.add(egui::Slider::new(&mut self.curve.critical_c, 40.0..=110.0).text("Emergency temperature Â°C"));
+                    ui.add(egui::Slider::new(&mut self.curve.hysteresis_c, 0.0..=10.0).text("Cooling hysteresis Â°C"));
                     let validation = self.curve.validate();
                     if let Err(error) = &validation { ui.colored_label(egui::Color32::LIGHT_RED, error); }
                     ui.horizontal(|ui| {
-                        if ui.add_enabled(snapshot.connected && validation.is_ok(), egui::Button::new("Save curve")).clicked() { send("cooling.curves.save", json!({"name":self.curve_name,"curve":self.curve})); }
-                        if ui.button("Delete saved curve").clicked() { send("cooling.curves.delete", json!({"name":self.curve_name})); }
+                        if ui.add_enabled(snapshot.connected && validation.is_ok(), egui::Button::new("Save curve")).clicked() { send("cooling.curves.save", json!({"name":self.curve_name,"curve":self.curve})); toasts.success(format!("Curve â€œ{}â€ saved", self.curve_name)); }
+                        if ui.button("Delete saved curve").clicked() { send("cooling.curves.delete", json!({"name":self.curve_name})); toasts.success(format!("Curve â€œ{}â€ deleted", self.curve_name)); }
                     });
-                    let (rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width().min(600.0), 160.0), egui::Sense::hover());
-                    ui.painter().rect_filled(rect, 4.0, egui::Color32::from_gray(24));
-                    let points: Vec<_> = (20..=100).map(|t| { let duty = self.curve.duty(Some(t as f32), 0); egui::pos2(rect.left() + (t as f32-20.0)/80.0 * rect.width(), rect.bottom() - duty/100.0 * rect.height()) }).collect();
-                    ui.painter().add(egui::Shape::line(points, egui::Stroke::new(2.0_f32, egui::Color32::LIGHT_BLUE)));
-                    ui.label("X: 20–100 °C · Y: 0–100% duty");
-                    ui.add(egui::Slider::new(&mut self.temperature, 20.0..=100.0).text("Simulated temperature °C"));
+                    draw_curve_graph(self, ui);
+                    ui.small("Drag points Â· double-click to add Â· right-click to remove. Edits clamp to their neighbours so the curve stays valid.");
+                    ui.add(egui::Slider::new(&mut self.temperature, 20.0..=100.0).text("Simulated temperature Â°C"));
                     ui.label(format!("Target fan output: {:.1}% (preview)", self.curve.duty(Some(self.temperature), 0)));
                     self.custom_sensors.ui(ui,tx,snapshot,&self.curve);
                     ui.collapsing("Live motherboard fan control (experimental)",|ui|{self.mainboard_cooling.show(ui,snapshot,tx,&self.curve);});
@@ -300,10 +306,10 @@ impl Panels {
                     let parsed = serde_json::from_str::<freergb_control::MacroDefinition>(&self.macro_json).map_err(|e| e.to_string()).and_then(|m| m.validate().map(|()| m));
                     if let Err(error) = &parsed { ui.colored_label(egui::Color32::LIGHT_RED, error); }
                     ui.horizontal(|ui| {
-                        if ui.add_enabled(snapshot.connected && parsed.is_ok(), egui::Button::new("Save macro")).clicked() { send("macros.save", json!({"name":self.macro_name,"definition":parsed.as_ref().unwrap()})); }
-                        if ui.button("Run saved macro").clicked() { send("macros.run", json!({"name":self.macro_name})); }
+                        if ui.add_enabled(snapshot.connected && parsed.is_ok(), egui::Button::new("Save macro")).clicked() { send("macros.save", json!({"name":self.macro_name,"definition":parsed.as_ref().unwrap()})); toasts.success(format!("Macro â€œ{}â€ saved", self.macro_name)); }
+                        if ui.button("Run saved macro").clicked() { send("macros.run", json!({"name":self.macro_name})); toasts.success(format!("Macro â€œ{}â€ started", self.macro_name)); }
                         if ui.button("Cancel").clicked() { send("macros.cancel", json!({})); }
-                        if ui.button("Delete saved macro").clicked() { send("macros.delete", json!({"name":self.macro_name})); }
+                        if ui.button("Delete saved macro").clicked() { send("macros.delete", json!({"name":self.macro_name})); toasts.success(format!("Macro â€œ{}â€ deleted", self.macro_name)); }
                     });
                 }
                 3 => {
@@ -331,14 +337,14 @@ impl Panels {
                 4 => {
                     ui.heading("Monitoring");
                     self.alerts.ui(ui);
-                    if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); }
-                    if ui.add_enabled(snapshot.connected,egui::Button::new("…with fan hardware details")).on_hover_text("Adds board model, BIOS, chip, support tier and channel-test result (no serials or readings).").clicked() { send("gui.export_diagnostics",serde_json::json!({"include_cooling_hardware":true})); }
+                    if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); toasts.success("Diagnostic report exported"); }
+                    if ui.add_enabled(snapshot.connected,egui::Button::new("â€¦with fan hardware details")).on_hover_text("Adds board model, BIOS, chip, support tier and channel-test result (no serials or readings).").clicked() { send("gui.export_diagnostics",serde_json::json!({"include_cooling_hardware":true})); toasts.success("Diagnostic report exported (with cooling hardware)"); }
                     if let Some(path)=&snapshot.exported_report { ui.label(format!("Report saved: {}",path.display())); }
                     ui.label("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
                     if let Some(entries) = snapshot.control["monitoring_sensors"].as_array() {
                         for entry in entries.iter().filter(|entry| entry["provider"] == "mainboard.lhm") {
                             let sensor = &entry["sensor"];
-                            ui.label(format!("{} / {}: {} {} · {} ms", entry["device_name"].as_str().unwrap_or("Mainboard"), sensor["name"].as_str().unwrap_or("Sensor"), sensor["value"], sensor["unit"].as_str().unwrap_or(""), sensor["age_ms"]));
+                            ui.label(format!("{} / {}: {} {} Â· {} ms", entry["device_name"].as_str().unwrap_or("Mainboard"), sensor["name"].as_str().unwrap_or("Sensor"), sensor["value"], sensor["unit"].as_str().unwrap_or(""), sensor["age_ms"]));
                         }
                     }
                     for device in &snapshot.devices {
@@ -347,7 +353,7 @@ impl Panels {
                             for sensor in sensors {
                                 let age = sensor["age_ms"].as_u64().unwrap_or(u64::MAX);
                                 let value = sensor["value"].as_f64().map_or_else(|| "missing".into(), |v| format!("{v:.0}"));
-                                let text = format!("{}: {} {} · {} ms{}", sensor["name"].as_str().unwrap_or("Sensor"), value, sensor["unit"].as_str().unwrap_or(""), age, if age > 3000 { " · STALE" } else { "" });
+                                let text = format!("{}: {} {} Â· {} ms{}", sensor["name"].as_str().unwrap_or("Sensor"), value, sensor["unit"].as_str().unwrap_or(""), age, if age > 3000 { " Â· STALE" } else { "" });
                                 ui.label(text);
                                 self.alerts.add_sensor_ui(ui,device,sensor);
                                 let key=(device["info"]["id"].as_str().unwrap_or_default().to_owned(),sensor["id"].as_str().unwrap_or_default().to_owned());
@@ -355,10 +361,242 @@ impl Panels {
                             }
                         }
                     }
-                    if let Some(diagnostics) = &snapshot.diagnostics { ui.monospace(serde_json::to_string_pretty(diagnostics).unwrap_or_default()); }
+                    if let Some(diagnostics) = &snapshot.diagnostics {
+                        ui.collapsing("Diagnostics JSON", |ui| {
+                            ui.monospace(serde_json::to_string_pretty(diagnostics).unwrap_or_default());
+                        });
+                    }
                 }
                 _ => {}
             }
         });
+    }
+}
+
+/// Temperature/duty axes for the interactive curve graph; matches the range
+/// the numeric editor allows (`-20..=110 Â°C`).
+const T_MIN: f32 = -20.0;
+const T_MAX: f32 = 110.0;
+/// Mouse distance (px) at which a graph point counts as picked.
+const PICK_RADIUS: f32 = 18.0;
+
+/// Interactive graph: drag points, double-click to add, right-click to
+/// remove. Shows the minimum duty band, the critical temperature marker and
+/// the simulated temperature from the slider below. The geometry helpers
+/// (`clamp_moved_point`/`insert_curve_point`) live on `FanCurve` so both GUIs
+/// share exactly the same editing rules.
+fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
+    let (outer, resp) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width().min(600.0), 190.0),
+        egui::Sense::click_and_drag(),
+    );
+    let rect = egui::Rect::from_min_max(outer.min, egui::pos2(outer.right(), outer.bottom() - 14.0));
+    let painter = ui.painter();
+    painter.rect_filled(outer, 4.0, egui::Color32::from_gray(24));
+
+    let to_pos = |t: f32, d: f32| {
+        egui::pos2(
+            rect.left() + ((t - T_MIN) / (T_MAX - T_MIN)).clamp(0.0, 1.0) * rect.width(),
+            rect.bottom() - (d.clamp(0.0, 100.0) / 100.0) * rect.height(),
+        )
+    };
+    let t_at =
+        |x: f32| T_MIN + (x - rect.left()).clamp(0.0, rect.width()) / rect.width() * (T_MAX - T_MIN);
+    let d_at = |y: f32| (rect.bottom() - y).clamp(0.0, rect.height()) / rect.height() * 100.0;
+
+    for t in (0..=100).step_by(20) {
+        let x = to_pos(t as f32, 0.0).x;
+        painter.line_segment(
+            [egui::pos2(x, rect.top()), egui::pos2(x, rect.bottom())],
+            egui::Stroke::new(1.0, egui::Color32::from_gray(50)),
+        );
+        painter.text(
+            egui::pos2(x, rect.bottom() + 3.0),
+            egui::Align2::CENTER_TOP,
+            format!("{t}"),
+            egui::FontId::proportional(9.0),
+            egui::Color32::from_gray(120),
+        );
+    }
+    for d in (0..=100).step_by(25) {
+        let y = to_pos(0.0, d as f32).y;
+        painter.line_segment(
+            [egui::pos2(rect.left(), y), egui::pos2(rect.right(), y)],
+            egui::Stroke::new(1.0, egui::Color32::from_gray(50)),
+        );
+        painter.text(
+            egui::pos2(rect.left() + 3.0, y - 11.0),
+            egui::Align2::LEFT_TOP,
+            format!("{d}%"),
+            egui::FontId::proportional(9.0),
+            egui::Color32::from_gray(120),
+        );
+    }
+    let min_y = to_pos(0.0, p.curve.minimum_percent).y;
+    painter.rect_filled(
+        egui::Rect::from_min_max(
+            egui::pos2(rect.left(), min_y),
+            egui::pos2(rect.right(), rect.bottom()),
+        ),
+        0.0,
+        crate::theme::SELECTION.gamma_multiply(0.35),
+    );
+    painter.line_segment(
+        [egui::pos2(rect.left(), min_y), egui::pos2(rect.right(), min_y)],
+        egui::Stroke::new(1.0, crate::theme::ACCENT.gamma_multiply(0.6)),
+    );
+    if (T_MIN..=T_MAX).contains(&p.curve.critical_c) {
+        let x = to_pos(p.curve.critical_c, 0.0).x;
+        painter.line_segment(
+            [egui::pos2(x, rect.top()), egui::pos2(x, rect.bottom())],
+            egui::Stroke::new(1.5, crate::theme::WARN),
+        );
+        painter.text(
+            egui::pos2(x - 4.0, rect.top() + 3.0),
+            egui::Align2::RIGHT_TOP,
+            "âš ",
+            egui::FontId::proportional(12.0),
+            crate::theme::WARN,
+        );
+    }
+
+    let pts_before: Vec<egui::Pos2> = p
+        .curve
+        .points
+        .iter()
+        .map(|point| to_pos(point.temperature_c, point.duty_percent))
+        .collect();
+    let picked = |position: Option<egui::Pos2>, pts: &[egui::Pos2]| -> Option<usize> {
+        let pointer = position?;
+        let (index, distance) = pts
+            .iter()
+            .enumerate()
+            .min_by(|a, b| a.1.distance_sq(pointer).total_cmp(&b.1.distance_sq(pointer)))?;
+        (distance.sqrt() <= PICK_RADIUS).then_some(index)
+    };
+    if resp.dragged() {
+        let pointer = resp.interact_pointer_pos();
+        if p.curve_drag.is_none() {
+            p.curve_drag = picked(pointer, &pts_before);
+        }
+        if let (Some(pointer), Some(index)) = (pointer, p.curve_drag) {
+            p.curve.clamp_moved_point(index, t_at(pointer.x), d_at(pointer.y));
+        }
+    } else {
+        p.curve_drag = None;
+    }
+    if resp.double_clicked() {
+        if let Some(pointer) = resp.interact_pointer_pos() {
+            if picked(Some(pointer), &pts_before).is_none() {
+                p.curve.insert_curve_point(t_at(pointer.x), d_at(pointer.y));
+            }
+        }
+    }
+    if resp.clicked_by(egui::PointerButton::Secondary) {
+        if let Some(pointer) = resp.interact_pointer_pos() {
+            if let Some(index) = picked(Some(pointer), &pts_before) {
+                if p.curve.points.len() > 2 {
+                    p.curve.points.remove(index);
+                }
+                p.curve_drag = None;
+            }
+        }
+    }
+
+    let pts: Vec<egui::Pos2> = p
+        .curve
+        .points
+        .iter()
+        .map(|point| to_pos(point.temperature_c, point.duty_percent))
+        .collect();
+    painter.add(egui::Shape::line(
+        pts.clone(),
+        egui::Stroke::new(2.0, crate::theme::ACCENT),
+    ));
+    for (index, pos) in pts.iter().enumerate() {
+        let radius = if p.curve_drag == Some(index) { 5.5 } else { 4.0 };
+        let fill = if p.curve_drag == Some(index) {
+            crate::theme::ACCENT
+        } else {
+            egui::Color32::WHITE
+        };
+        painter.circle_filled(*pos, radius, fill);
+    }
+
+    // Simulated temperature marker with the resulting output duty.
+    let duty_now = p.curve.duty(Some(p.temperature), 0);
+    let sim_x = to_pos(p.temperature, 0.0).x;
+    painter.line_segment(
+        [egui::pos2(sim_x, rect.top()), egui::pos2(sim_x, rect.bottom())],
+        egui::Stroke::new(1.0, crate::theme::WARN.gamma_multiply(0.55)),
+    );
+    painter.circle_filled(to_pos(p.temperature, duty_now), 3.0, crate::theme::WARN);
+    painter.text(
+        egui::pos2(sim_x + 4.0, rect.top() + 18.0),
+        egui::Align2::LEFT_TOP,
+        format!("{:.0} Â°C â†’ {:.0} %", p.temperature, duty_now),
+        egui::FontId::proportional(11.0),
+        crate::theme::WARN,
+    );
+    ui.label("X: âˆ’20â€“110 Â°C Â· Y: 0â€“100 % duty");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn curve() -> FanCurve {
+        FanCurve {
+            points: vec![
+                CurvePoint {
+                    temperature_c: 25.0,
+                    duty_percent: 30.0,
+                },
+                CurvePoint {
+                    temperature_c: 50.0,
+                    duty_percent: 60.0,
+                },
+                CurvePoint {
+                    temperature_c: 75.0,
+                    duty_percent: 100.0,
+                },
+            ],
+            ..FanCurve::default()
+        }
+    }
+
+    #[test]
+    fn dragged_points_stay_between_their_neighbours() {
+        let mut c = curve();
+        // The last point cannot move beyond the critical temperature and
+        // duty cannot fall below the previous point.
+        c.clamp_moved_point(2, 105.0, 30.0);
+        assert!(c.validate().is_ok());
+        assert_eq!(c.points[2].duty_percent, 60.0);
+        // Dragged duty must never fall below the previous point.
+        c.clamp_moved_point(1, 40.0, 10.0);
+        assert!(c.validate().is_ok());
+        assert!(c.points[1].duty_percent >= c.points[0].duty_percent);
+        // The first point cannot cross the second.
+        c.clamp_moved_point(0, 90.0, 20.0);
+        assert!(c.validate().is_ok());
+        assert!(c.points[0].temperature_c < c.points[1].temperature_c);
+    }
+
+    #[test]
+    fn double_click_inserts_a_sorted_point() {
+        let mut c = curve();
+        assert_eq!(c.insert_curve_point(40.0, 45.0), Some(1));
+        assert!(c.validate().is_ok());
+        assert_eq!(c.points[1].temperature_c, 40.0);
+        assert_eq!(c.points[1].duty_percent, 45.0);
+        assert_eq!(c.insert_curve_point(10.0, 30.0), Some(0));
+        assert!(c.validate().is_ok());
+        // The curve is full at 16 points.
+        let mut full = FanCurve::default();
+        for s in 0..16 {
+            full.insert_curve_point(10.0 + s as f32, 100.0);
+        }
+        assert_eq!(full.insert_curve_point(120.0, 100.0), None);
     }
 }

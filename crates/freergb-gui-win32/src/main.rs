@@ -1,0 +1,1 @@
+//! freeRGB Win32 GUI (placeholder; replaced below during this branch).

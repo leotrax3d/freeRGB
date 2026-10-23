@@ -1668,6 +1668,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-gui-win32"
+version = "0.1.0"
+dependencies = [
+ "freergb-client",
+ "freergb-control",
+ "freergb-core",
+ "freergb-effects",
+ "freergb-update",
+ "serde",
+ "serde_json",
+ "windows-sys 0.61.2",
+ "winresource",
+]
+
+[[package]]
 name = "freergb-hid"
 version = "0.1.0"
 dependencies = [

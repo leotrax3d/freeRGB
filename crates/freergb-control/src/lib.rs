@@ -60,6 +60,79 @@ impl Default for FanCurve {
 }
 
 impl FanCurve {
+    /// Moves the curve point at `index` onto `temperature_c`/`duty_percent`,
+    /// clamped so the curve stays valid while dragging or typing: temperatures
+    /// stay between the neighbours, duty stays non-decreasing and at or above
+    /// the minimum, and the last point cannot move past the critical
+    /// temperature. Returns `true` when the point moved.
+    pub fn clamp_moved_point(
+        &mut self,
+        index: usize,
+        temperature_c: f32,
+        duty_percent: f32,
+    ) -> bool {
+        if index >= self.points.len() {
+            return false;
+        }
+        let minimum = self.minimum_percent;
+        let (min_t, max_t) = (
+            if index == 0 {
+                -20.0
+            } else {
+                self.points[index - 1].temperature_c + 0.05
+            },
+            if index + 1 < self.points.len() {
+                self.points[index + 1].temperature_c - 0.05
+            } else {
+                self.critical_c.min(110.0)
+            },
+        );
+        let (lo, hi) = (
+            minimum.max(if index == 0 {
+                0.0
+            } else {
+                self.points[index - 1].duty_percent
+            }),
+            if index + 1 < self.points.len() {
+                self.points[index + 1].duty_percent.max(minimum)
+            } else {
+                100.0
+            },
+        );
+        let point = &mut self.points[index];
+        let before = (point.temperature_c, point.duty_percent);
+        point.temperature_c = temperature_c.clamp(min_t.min(max_t), max_t);
+        point.duty_percent = duty_percent.clamp(lo.min(hi), hi);
+        before != (point.temperature_c, point.duty_percent)
+    }
+
+    /// Inserts a curve point at the temperature-sorted position and clamps it
+    /// into the curve. Returns the insert index, or `None` when the curve is
+    /// full (16 points) or already has a point at this temperature slot.
+    pub fn insert_curve_point(
+        &mut self,
+        temperature_c: f32,
+        duty_percent: f32,
+    ) -> Option<usize> {
+        if self.points.len() >= 16 {
+            return None;
+        }
+        let index = self
+            .points
+            .iter()
+            .position(|point| point.temperature_c > temperature_c)
+            .unwrap_or(self.points.len());
+        self.points.insert(
+            index,
+            CurvePoint {
+                temperature_c,
+                duty_percent,
+            },
+        );
+        self.clamp_moved_point(index, temperature_c, duty_percent);
+        Some(index)
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if !(2..=16).contains(&self.points.len()) {
             return Err("curve needs 2..16 points".into());
