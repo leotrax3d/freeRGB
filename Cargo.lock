@@ -1889,6 +1889,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-nollie"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-razer-chroma"
 version = "0.1.0"
 dependencies = [
