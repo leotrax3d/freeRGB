@@ -40,6 +40,7 @@ function Safety({ onAccepted }: { onAccepted: () => void }) {
   const [checked, setChecked] = useState<boolean[]>(SAFETY_CONFIRMATIONS.map(() => false));
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const accept = async () => {
     setPending(true);
     setError(null);
@@ -54,7 +55,7 @@ function Safety({ onAccepted }: { onAccepted: () => void }) {
   };
   return (
     <div role="alertdialog" aria-labelledby="safety-title" aria-describedby="safety-risks"
-      className="flex flex-col gap-5 rounded-card border-2 border-danger bg-[#5c0b0b] p-6 text-text shadow-[0_0_0_6px_rgb(220_38_38/0.25)]">
+      className="flex flex-col gap-5 rounded-card border-2 border-danger bg-[#5c0b0b] p-6 text-text">
       <div className="flex items-start gap-3">
         <ShieldAlert className="mt-0.5 size-8 shrink-0 text-danger-text" aria-hidden />
         <div className="flex flex-col gap-1">
@@ -79,10 +80,22 @@ function Safety({ onAccepted }: { onAccepted: () => void }) {
         ))}
       </div>
       {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-caption text-text-muted">Without this confirmation freeRGB never changes fan or pump speeds. Lighting works either way.</span>
-        <Button variant="danger" disabled={!checked.every(Boolean) || pending} onClick={() => void accept()}>I understand and accept</Button>
-      </div>
+      {confirming ? (
+        // Second, explicit question before fan control is unlocked.
+        <div role="alertdialog" aria-labelledby="safety-confirm" className="flex flex-col gap-3 rounded-control border border-danger bg-black/40 p-4 animate-[fade-in_var(--duration-base)_var(--ease-out)]">
+          <strong id="safety-confirm" className="text-body">Are you sure?</strong>
+          <p className="text-small text-text-muted">freeRGB will be allowed to change fan and pump speeds on this PC. You can withdraw this at any time in Settings → Setup.</p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="ghost" disabled={pending} onClick={() => setConfirming(false)}>Go back</Button>
+            <Button variant="danger" disabled={pending} onClick={() => void accept()}>Yes, enable fan control</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-caption text-text-muted">Without this confirmation freeRGB never changes fan or pump speeds. Lighting works either way.</span>
+          <Button variant="danger" disabled={!checked.every(Boolean) || pending} onClick={() => setConfirming(true)}>I understand and accept</Button>
+        </div>
+      )}
     </div>
   );
 }
