@@ -306,7 +306,8 @@ mod tests {
             },
         );
         assert_eq!(pending.len(), 3);
-        // Different devices stay separate.
+        // Different devices stay separate; the pre-barrier brightness 0.8
+        // counts as its own setter, so four setters remain.
         push_command(
             &mut pending,
             Command {
@@ -322,6 +323,6 @@ mod tests {
             },
         );
         let setters = pending.iter().filter(|c| is_setter(c.method)).count();
-        assert_eq!(setters, 3);
+        assert_eq!(setters, 4);
     }
 }

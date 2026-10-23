@@ -23,8 +23,8 @@ pub fn install(ctx: &egui::Context) {
     visuals.faint_bg_color = egui::Color32::from_rgb(38, 41, 48);
     visuals.hyperlink_color = ACCENT;
     visuals.selection.bg_fill = SELECTION;
-    visuals.selection.stroke = egui::Stroke::new(1.0, ACCENT);
-    let radius = egui::CornerRadius::same(6);
+    visuals.selection.stroke = egui::Stroke::new(1.0_f32, ACCENT);
+    let radius = egui::Rounding::same(6.0);
     for state in [
         &mut visuals.widgets.noninteractive,
         &mut visuals.widgets.inactive,
@@ -32,9 +32,9 @@ pub fn install(ctx: &egui::Context) {
         &mut visuals.widgets.active,
         &mut visuals.widgets.open,
     ] {
-        state.corner_radius = radius;
+        state.rounding = radius;
     }
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.2, ACCENT.gamma_multiply(0.75));
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.2_f32, ACCENT.gamma_multiply(0.75));
     visuals.widgets.hovered.expansion = 2.0;
     let mut style = egui::Style {
         visuals,
@@ -42,6 +42,5 @@ pub fn install(ctx: &egui::Context) {
     };
     style.spacing.item_spacing = egui::vec2(10.0, 6.0);
     style.spacing.button_padding = egui::vec2(10.0, 7.0);
-    style.spacing.scroll_bar_width = 10.0;
     ctx.set_style(style);
 }

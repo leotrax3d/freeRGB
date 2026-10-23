@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 /// 0x00BBGGRR helper.
 pub const fn rgb(r: u8, g: u8, b: u8) -> COLORREF {
-    u32::from(b) << 16 | u32::from(g) << 8 | u32::from(r)
+    (b as u32) << 16 | (g as u32) << 8 | r as u32
 }
 
 /// Visual style used for every widget.
@@ -52,8 +52,15 @@ pub struct ButtonColors {
     pub primary_top: COLORREF,
     pub primary_bottom: COLORREF,
     pub primary_border: COLORREF,
+    /// The greyed-out state Win7 shows for disabled command buttons.
+    pub disabled_top: COLORREF,
+    pub disabled_bottom: COLORREF,
+    pub disabled_border: COLORREF,
 }
 
+/// Complete skin description; not every widget reads every palette entry
+/// yet (the reserved colours keep both skins evolvable).
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub struct Palette {
     pub window: COLORREF,
@@ -90,6 +97,13 @@ pub struct Palette {
 }
 
 const ACCENT: COLORREF = rgb(0, 155, 222);
+
+/// Healthy/connected accent.
+pub const GOOD: COLORREF = rgb(0, 153, 51);
+/// Advisory warning accent (conflicts, unverified states).
+pub const WARN: COLORREF = rgb(217, 133, 0);
+/// Error accent (unreachable, failed calls).
+pub const BAD: COLORREF = rgb(196, 43, 28);
 
 pub fn palette(style: Style) -> Palette {
     match style {
@@ -133,6 +147,9 @@ pub fn palette(style: Style) -> Palette {
                 primary_top: rgb(24, 150, 210),
                 primary_bottom: rgb(0, 120, 185),
                 primary_border: rgb(0, 105, 165),
+                disabled_top: rgb(249, 249, 249),
+                disabled_bottom: rgb(240, 240, 240),
+                disabled_border: rgb(211, 211, 211),
             },
             radius: 5.0,
             chrome_gradient: false,
@@ -181,6 +198,10 @@ pub fn palette(style: Style) -> Palette {
                 primary_top: rgb(86, 160, 222),
                 primary_bottom: rgb(45, 113, 184),
                 primary_border: rgb(31, 92, 158),
+                // Disabled: flat pale grey, dim text.
+                disabled_top: rgb(243, 244, 245),
+                disabled_bottom: rgb(233, 235, 237),
+                disabled_border: rgb(198, 199, 200),
             },
             radius: 3.0,
             chrome_gradient: true,
@@ -227,20 +248,20 @@ pub fn create_fonts(dc: HDC, scale: f32) -> Fonts {
                 0,
                 0,
                 0,
-                DEFAULT_CHARSET,
-                OUT_DEFAULT_PRECIS,
-                CLIP_DEFAULT_PRECIS,
-                CLEARTYPE_QUALITY,
-                DEFAULT_PITCH,
+                DEFAULT_CHARSET as u32,
+                OUT_DEFAULT_PRECIS as u32,
+                CLIP_DEFAULT_PRECIS as u32,
+                CLEARTYPE_QUALITY as u32,
+                DEFAULT_PITCH as u32,
                 face(name).as_ptr(),
             )
         };
         let fonts = Fonts {
-            body: make(9.0, FW_NORMAL, "Segoe UI"),
-            small: make(8.0, FW_NORMAL, "Segoe UI"),
-            strong: make(9.0, FW_SEMIBOLD, "Segoe UI"),
-            heading: make(11.0, FW_SEMIBOLD, "Segoe UI"),
-            mono: make(9.0, FW_NORMAL, "Consolas"),
+            body: make(9.0, FW_NORMAL as i32, "Segoe UI"),
+            small: make(8.0, FW_NORMAL as i32, "Segoe UI"),
+            strong: make(9.0, FW_SEMIBOLD as i32, "Segoe UI"),
+            heading: make(11.0, FW_SEMIBOLD as i32, "Segoe UI"),
+            mono: make(9.0, FW_NORMAL as i32, "Consolas"),
             line: 0.0,
         };
         // Measure the body line height with DrawText so labels get the
@@ -262,7 +283,7 @@ pub fn create_fonts(dc: HDC, scale: f32) -> Fonts {
         );
         SelectObject(dc, old);
         Fonts {
-            line: f32::from(rect.bottom - rect.top).max(14.0 * scale),
+            line: ((rect.bottom - rect.top) as f32).max(14.0 * scale),
             ..fonts
         }
     }

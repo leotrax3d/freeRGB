@@ -100,8 +100,6 @@ pub struct Popup {
     /// Scroll offset in items.
     pub offset: i32,
     pub items: Vec<String>,
-    /// Last drawn list rect for hit-testing (logical).
-    pub rect: Rect,
 }
 
 /// Stable widget ids: FNV-1a over the page and label.
@@ -139,23 +137,24 @@ pub struct Ui<'a> {
 fn lerp_color(a: COLORREF, b: COLORREF, t: f32) -> COLORREF {
     let channel = |shift: u32| {
         let (x, y) = ((a >> shift) & 0xFF, (b >> shift) & 0xFF);
-        (f32::from(x) + (f32::from(y) - f32::from(x)) * t).round() as u32
+        ((x as f32) + ((y as f32) - (x as f32)) * t).round() as u32
     };
     channel(0) | channel(8) << 8 | channel(16) << 16
 }
 
 impl Ui<'_> {
-    pub fn new(
+    #[allow(clippy::too_many_arguments)]
+    pub fn new<'a>(
         dc: HDC,
         scale: f32,
         width: f32,
         height: f32,
         palette: Palette,
         fonts: Fonts,
-        input: &Input,
-        widgets: &mut Widgets,
-        brushes: &mut theme::Brushes,
-    ) -> Ui<'_> {
+        input: &'a Input,
+        widgets: &'a mut Widgets,
+        brushes: &'a mut theme::Brushes,
+    ) -> Ui<'a> {
         Ui {
             dc,
             scale,
@@ -258,7 +257,7 @@ impl Ui<'_> {
         let rect_px = self.px(rect);
         let bands = (rect_px.bottom - rect_px.top).max(1);
         for line in rect_px.top..rect_px.bottom {
-            let t = f32::from(line - rect_px.top) / f32::from(bands);
+            let t = (line - rect_px.top) as f32 / bands as f32;
             let band = RECT {
                 left: rect_px.left,
                 top: line,
@@ -334,6 +333,9 @@ impl Ui<'_> {
         }
     }
 
+    /// Filled rounded box with a 1-px border. `fill` is a (top, bottom)
+    /// gradient when `Some`.
+    #[allow(dead_code)] // widget API; upcoming pages
     pub fn border(&mut self, rect: &Rect, color: COLORREF) {
         let rect_px = self.px(rect);
         let pen = unsafe { CreatePen(PS_SOLID, 1, color) };
@@ -364,7 +366,7 @@ impl Ui<'_> {
     pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, color: COLORREF, width: i32) {
         let pen = unsafe { CreatePen(PS_SOLID, width, color) };
         let old_pen = unsafe { SelectObject(self.dc, pen as _) };
-        let old_brush = unsafe { SelectObject(self.dc, unsafe { GetStockObject(NULL_BRUSH) } as _) };
+        let old_brush = unsafe { SelectObject(self.dc, GetStockObject(NULL_BRUSH) as _) };
         unsafe {
             MoveToEx(self.dc, self.s(x1), self.s(y1), std::ptr::null_mut());
             LineTo(self.dc, self.s(x2), self.s(y2));
@@ -407,8 +409,8 @@ impl Ui<'_> {
             }
             SelectObject(self.dc, old);
             (
-                f32::from(size.cx) / self.scale,
-                f32::from(size.cy) / self.scale,
+                size.cx as f32 / self.scale,
+                size.cy as f32 / self.scale,
             )
         }
     }
@@ -471,16 +473,24 @@ impl Ui<'_> {
 
     // ---- widgets ----
 
+    #[allow(dead_code)] // widget API; upcoming pages
     pub fn label(&mut self, text: &str) {
         self.label_color(text, Font::Body, self.palette.text);
     }
 
+    /// Paragraph layout like the egui GUI: tight line spacing inside a
+    /// block, one blank half-row after it.
     pub fn label_color(&mut self, text: &str, font: Font, color: COLORREF) {
         let lines = self.wrap(text, font, self.column_width());
         let line_h = self.fonts.line;
+        let empty = lines.is_empty();
         for line in lines {
-            let rect = self.item(self.column_width(), line_h);
+            let rect = Rect::new(self.cursor.0, self.cursor.1, self.column_width(), line_h);
             self.text(&rect, &line, font, color, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            self.cursor.1 += line_h + 3.0;
+        }
+        if !empty {
+            self.cursor.1 += 5.0;
         }
     }
 
@@ -490,6 +500,7 @@ impl Ui<'_> {
 
     pub fn heading(&mut self, text: &str) {
         self.label_color(text, Font::Heading, self.palette.text);
+        self.advance(5.0); // headings breathe like the egui top rows
     }
 
     pub fn hint(&mut self, text: &str) {
@@ -504,19 +515,46 @@ impl Ui<'_> {
     pub fn button(&mut self, id: u64, text: &str, primary: bool) -> bool {
         let width = self.column_width().min(160.0);
         let rect = self.item(width, 30.0);
-        self.button_at(id, &rect, text, primary)
+        self.button_at_enabled(id, &rect, text, primary, true)
     }
 
+    /// Item-based button with an explicit enabled flag (greyed-out look,
+    /// click ignored).
+    #[allow(dead_code)] // widget API; upcoming pages
     pub fn button_fixed(&mut self, id: u64, text: &str, w: f32, primary: bool) -> bool {
         let rect = self.item(w, 30.0);
-        self.button_at(id, &rect, text, primary)
+        self.button_at_enabled(id, &rect, text, primary, true)
+    }
+
+    pub fn button_enabled(&mut self, id: u64, text: &str, primary: bool, enabled: bool) -> bool {
+        let width = self.column_width().min(160.0);
+        let rect = self.item(width, 30.0);
+        self.button_at_enabled(id, &rect, text, primary, enabled)
     }
 
     pub fn button_at(&mut self, id: u64, rect: &Rect, text: &str, primary: bool) -> bool {
+        self.button_at_enabled(id, rect, text, primary, true)
+    }
+
+    pub fn button_at_enabled(
+        &mut self,
+        id: u64,
+        rect: &Rect,
+        text: &str,
+        primary: bool,
+        enabled: bool,
+    ) -> bool {
         self.claim_press(id, rect);
         let (hovered, pressed) = self.hovered_or_pressed(id, rect);
         let button = &self.palette.button;
-        let (top, bottom, border, color) = if primary {
+        let (top, bottom, border, color) = if !enabled {
+            (
+                button.disabled_top,
+                button.disabled_bottom,
+                button.disabled_border,
+                self.palette.text_dim,
+            )
+        } else if primary {
             (
                 button.primary_top,
                 button.primary_bottom,
@@ -541,17 +579,37 @@ impl Ui<'_> {
             (button.top, button.bottom, button.border, self.palette.text)
         };
         self.box_(rect, Some((top, bottom)), Some(border));
-        // Aero gloss: a light band across the top third.
-        if self.palette.chrome_gradient {
-            let gloss = rect.with_margin(2.0);
-            let gloss = Rect::new(gloss.x, gloss.y, gloss.w, gloss.h * 0.4);
-            self.gradient_v(&gloss, lerp_color(top, 0xFFFFFF, 0.35), lerp_color(top, 0xFFFFFF, 0.05));
+        // The classic Win7 relief: a brighter inner top edge and a darker
+        // inner bottom edge, on top of the gradient.
+        if enabled {
+            let inner_w = (rect.w - 8.0).max(0.0);
+            if inner_w > 0.0 {
+                self.fill(
+                    &Rect::new(rect.x + 4.0, rect.y + 2.0, inner_w, 1.0),
+                    lerp_color(top, 0xFFFFFF, 0.55),
+                );
+                self.fill(
+                    &Rect::new(rect.x + 4.0, rect.bottom() - 3.0, inner_w, 1.0),
+                    lerp_color(bottom, 0x000000, 0.18),
+                );
+            }
+            // Aero gloss: a light band across the top third.
+            if self.palette.chrome_gradient {
+                let gloss = rect.with_margin(2.0);
+                let gloss = Rect::new(gloss.x, gloss.y, gloss.w, gloss.h * 0.4);
+                self.gradient_v(
+                    &gloss,
+                    lerp_color(top, 0xFFFFFF, 0.35),
+                    lerp_color(top, 0xFFFFFF, 0.05),
+                );
+            }
         }
         self.text(rect, text, Font::Body, color, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        self.click(id, rect)
+        enabled && self.click(id, rect)
     }
 
-    /// Checkbox row; returns `true` when the value changed.
+    /// Checkbox row with the Win7 look: white box, blue border while hovered,
+    /// pale-blue gloss when checked. Returns `true` when the value changed.
     pub fn checkbox(&mut self, id: u64, checked: &mut bool, text: &str) -> bool {
         let rect = self.item(self.column_width(), 22.0);
         self.claim_press(id, &rect);
@@ -559,17 +617,30 @@ impl Ui<'_> {
         if clicked {
             *checked = !*checked;
         }
+        let hovered = self.contains(&rect);
         let box_rect = Rect::new(rect.x, rect.y + (rect.h - 15.0) / 2.0, 15.0, 15.0);
-        self.box_(
-            &box_rect,
-            Some((
-                if *checked { self.palette.accent } else { self.palette.field },
-                if *checked { self.palette.accent } else { self.palette.field },
-            )),
-            Some(if *checked { self.palette.accent } else { self.palette.field_border }),
-        );
         if *checked {
-            self.text(&box_rect, "✓", Font::Small, self.palette.text_inv, DT_CENTER | DT_VCENTER);
+            self.box_(
+                &box_rect,
+                Some((
+                    lerp_color(self.palette.accent, 0xFFFFFF, 0.45),
+                    self.palette.accent,
+                )),
+                Some(self.palette.selected_border),
+            );
+            self.text(
+                &box_rect,
+                "✓",
+                Font::Small,
+                self.palette.text,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+            );
+        } else {
+            self.box_(
+                &box_rect,
+                Some((self.palette.field, self.palette.field)),
+                Some(if hovered { self.palette.accent } else { self.palette.field_border }),
+            );
         }
         let text_rect = Rect::new(
             box_rect.right() + 6.0,
@@ -622,11 +693,13 @@ impl Ui<'_> {
         );
         let center = track.y + track.h / 2.0;
         let groove = Rect::new(track.x, center - 3.0, track.w, 6.0);
-        self.box_(&groove, Some((self.palette.track, self.palette.track)), None);
-        let t = ((value - min) / (max - min).max(f32::EPSILON)).clamp(0.0, 1.0);
-        let fill_w = track.w * t;
-        let fill_rect = Rect::new(track.x, center - 3.0, fill_w, 6.0);
+        self.box_(&groove, Some((self.palette.track, self.palette.track)), Some(self.palette.field_border));
+        let t = ((*value - min) / (max - min).max(f32::EPSILON)).clamp(0.0, 1.0);
+        // The thumb travels inside the rail so it never clips at the ends.
+        let travel = (track.w - 14.0).max(0.0);
+        let thumb_x = track.x + 7.0 + travel * t;
         if t > 0.0 {
+            let fill_rect = Rect::new(track.x, center - 3.0, (thumb_x - track.x).max(1.0), 6.0);
             self.box_(
                 &fill_rect,
                 Some((self.palette.track_fill, self.palette.accent_dim)),
@@ -634,7 +707,7 @@ impl Ui<'_> {
             );
         }
         self.circle(
-            track.x + fill_w,
+            thumb_x,
             center,
             7.0,
             self.palette.field,
@@ -650,6 +723,7 @@ impl Ui<'_> {
     }
 
     /// Single-line text input with an explicit width (point tables).
+    #[allow(dead_code)] // widget API; upcoming pages
     pub fn text_line_fixed(&mut self, id: u64, value: &mut String, w: f32, hint: &str) -> bool {
         let rect = self.item(w, 26.0);
         self.text_input_at(id, &rect, value, false, Some(hint))
@@ -682,6 +756,13 @@ impl Ui<'_> {
             Some((self.palette.field, self.palette.field)),
             Some(if focused { self.palette.focus_border } else { self.palette.field_border }),
         );
+        if focused {
+            // The soft outer glow ring around a focused field.
+            self.border(
+                &Rect::new(rect.x - 1.5, rect.y - 1.5, rect.w + 3.0, rect.h + 3.0),
+                self.palette.accent_dim,
+            );
+        }
         let inner = rect.with_margin(6.0);
         let lines = self.wrap_visible(value, multiline, &inner);
         let scroll = self.widgets.text_scroll.get(&id).copied().unwrap_or(0.0);
@@ -755,7 +836,6 @@ impl Ui<'_> {
                     anchor: rect,
                     offset: 0,
                     items: items.to_vec(),
-                    rect: Rect::default(),
                 });
             }
         }
@@ -769,24 +849,34 @@ impl Ui<'_> {
         self.box_(
             &rect,
             Some((self.palette.field, self.palette.field)),
-            Some(self.palette.field_border),
+            Some(if self.contains(&rect) { self.palette.button.hover_border } else { self.palette.field_border }),
         );
         let text = selected
             .and_then(|index| items.get(index))
             .map(String::as_str)
             .unwrap_or(placeholder);
         self.text(
-            &Rect::new(rect.x + 7.0, rect.y, rect.w - 26.0, rect.h),
+            &Rect::new(rect.x + 7.0, rect.y, rect.w - 30.0, rect.h),
             text,
             Font::Body,
             if selected.is_some() { self.palette.text } else { self.palette.text_dim },
             DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
         );
+        // The Win7 dropdown compartment: separator line and its own field.
+        let compartment = Rect::new(rect.right() - 22.0, rect.y, 22.0, rect.h);
+        self.line(
+            compartment.x,
+            rect.y + 4.0,
+            compartment.x,
+            rect.bottom() - 4.0,
+            self.palette.field_border,
+            1,
+        );
         self.text(
-            &Rect::new(rect.right() - 22.0, rect.y, 22.0, rect.h),
+            &compartment,
             "▾",
-            Font::Body,
-            self.palette.text_dim,
+            Font::Small,
+            self.palette.text,
             DT_CENTER | DT_VCENTER | DT_SINGLELINE,
         );
         choice
@@ -804,7 +894,7 @@ impl Ui<'_> {
         }
         let item_h = 26.0;
         let visible = popup.items.len().min(8) as i32;
-        let list_h = f32::from(visible) * item_h;
+        let list_h = visible as f32 * item_h;
         let below = popup.anchor.bottom() + 2.0;
         let (list_y, _up) = if below + list_h <= self.height - 4.0 {
             (below, false)
@@ -812,8 +902,9 @@ impl Ui<'_> {
             (popup.anchor.y - list_h - 2.0, true)
         };
         let list = Rect::new(popup.anchor.x, list_y, popup.anchor.w, list_h);
-        // Outside click closes; wheel scrolls the list.
-        if self.input.just_down && !self.contains(&list) {
+        // Outside click closes; a click on the face belongs to the combo
+        // toggle. Wheel scrolls the list.
+        if self.input.just_down && !self.contains(&list) && !self.contains(&popup.anchor) {
             self.widgets.popup_choice = None;
             return;
         }
@@ -830,7 +921,7 @@ impl Ui<'_> {
             let Some(item) = popup.items.get(index as usize) else {
                 break;
             };
-            let rect = Rect::new(list.x + 1.0, list.y + f32::from(row) * item_h, list.w - 2.0, item_h);
+            let rect = Rect::new(list.x + 1.0, list.y + row as f32 * item_h, list.w - 2.0, item_h);
             let hovered = self.contains(&rect);
             if hovered {
                 self.fill(&rect, self.palette.list_hover);
@@ -849,7 +940,7 @@ impl Ui<'_> {
         if let Some(index) = choice {
             self.widgets.popup_choice = Some((popup.id, index));
         } else {
-            self.widgets.popup = Some(Popup { offset, rect: list, ..popup });
+            self.widgets.popup = Some(Popup { offset, ..popup });
         }
     }
 }
@@ -857,6 +948,10 @@ impl Ui<'_> {
 /// Pure text-editing helpers (unit tested without Windows).
 pub mod edit {
     use super::Ui;
+    use crate::ffi::{
+        CloseClipboard, GetClipboardData, GlobalLock, GlobalUnlock, HGLOBAL, OpenClipboard,
+        CF_UNICODETEXT,
+    };
 
     /// Byte offset of a (line, column) char caret.
     pub fn offset(value: &str, line: usize, column: usize) -> usize {
@@ -864,24 +959,12 @@ pub mod edit {
         let mut start = 0;
         for (index, ch) in value.char_indices() {
             if current_line == line {
-                if column == 0 {
-                    return index;
-                }
-                let chars = value[start..].lines().next().unwrap_or("").chars().count();
-                if column >= chars {
-                    return start + value[start..].lines().next().unwrap_or("").len();
-                }
-                let mut consumed = 0;
-                for (i, c) in value[start..].char_indices() {
-                    if consumed == column {
-                        return start + i;
-                    }
-                    if c == '\n' {
-                        return start + i;
-                    }
-                    consumed += 1;
-                }
-                return start + value[start..].lines().next().unwrap_or("").len();
+                let rest = &value[index..];
+                let end = rest.find('\n').unwrap_or(rest.len());
+                return rest[..end]
+                    .char_indices()
+                    .nth(column)
+                    .map_or(index + end, |(i, _)| index + i);
             }
             if ch == '\n' {
                 current_line += 1;
@@ -913,14 +996,14 @@ pub mod edit {
     }
 
     /// Caret for a click inside `rect` (single line only in v1).
-    pub fn caret_at_point(ui: &Ui, rect: &crate::Rect, value: &str, multiline: bool) -> (usize, usize) {
+    pub fn caret_at_point(ui: &Ui, rect: &crate::ui::Rect, value: &str, multiline: bool) -> (usize, usize) {
         if !multiline {
             let inner = rect.with_margin(6.0);
             let x = (ui.input.mouse.0 - inner.x).max(0.0);
             let mut width = 0.0;
             let mut column = 0;
             for ch in value.chars() {
-                let w = ui.measure(ch, crate::theme::Font::Mono).0;
+                let w = ui.measure(&ch.to_string(), crate::theme::Font::Mono).0;
                 if width + w / 2.0 > x {
                     break;
                 }

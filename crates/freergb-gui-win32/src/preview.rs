@@ -11,7 +11,6 @@ use std::time::Instant;
 pub const WIDTH: usize = 128;
 pub const HEIGHT: usize = 32;
 
-#[derive(Default)]
 pub struct Preview {
     spec: Option<EffectSpec>,
     effect: Option<Box<dyn Effect>>,
@@ -21,12 +20,24 @@ pub struct Preview {
     bits: Vec<u32>,
 }
 
+impl Default for Preview {
+    fn default() -> Self {
+        Self {
+            spec: None,
+            effect: None,
+            canvas: Canvas::new(WIDTH, HEIGHT),
+            started: None,
+            bits: Vec::new(),
+        }
+    }
+}
+
 impl Preview {
     /// Renders the current frame for `spec` and stretches it into `dest`
     /// (logical rect) on `dc`.
     pub fn blit(&mut self, dc: HDC, scale: f32, dest: &Rect, spec: &EffectSpec) {
         if self.spec.as_ref() != Some(spec) {
-            self.effect = spec.build();
+            self.effect = Some(spec.build());
             self.spec = Some(spec.clone());
             self.started = Some(Instant::now());
         }

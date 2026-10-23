@@ -13,6 +13,10 @@ pub enum Kind {
     /// A completed action (saved, applied, deleted).
     Success,
     /// A failed action that the daemon could not execute.
+    ///
+    /// Kept next to [`Toasts::error`]; the Classic GUI surfaces daemon
+    /// failures in the status strip, so no caller needs this yet.
+    #[allow(dead_code)]
     Error,
 }
 
@@ -37,6 +41,7 @@ impl Toasts {
         });
     }
 
+    #[allow(dead_code)]
     pub fn error(&mut self, text: impl Into<String>) {
         self.push(Toast {
             kind: Kind::Error,
@@ -70,11 +75,11 @@ impl Toasts {
                         ),
                         Kind::Error => (egui::Color32::from_rgb(46, 30, 30), crate::theme::BAD, "✕"),
                     };
-                    egui::Frame::new()
+                    egui::Frame::none()
                         .fill(fill)
-                        .stroke(egui::Stroke::new(1.0, accent.gamma_multiply(0.8)))
-                        .corner_radius(egui::CornerRadius::same(8))
-                        .inner_margin(egui::Margin::symmetric(12, 8))
+                        .stroke(egui::Stroke::new(1.0_f32, accent.gamma_multiply(0.8)))
+                        .rounding(egui::Rounding::same(8.0))
+                        .inner_margin(egui::Margin::symmetric(12.0, 8.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
                                 ui.colored_label(accent, mark);

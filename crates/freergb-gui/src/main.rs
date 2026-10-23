@@ -867,7 +867,7 @@ impl eframe::App for App {
                         if self.panels.page == page {
                             button = button
                                 .fill(theme::SELECTION)
-                                .stroke(egui::Stroke::new(1.0, theme::ACCENT));
+                                .stroke(egui::Stroke::new(1.0_f32, theme::ACCENT));
                         }
                         if ui.add_sized([140.0, 30.0], button).clicked() {
                             self.panels.page = page;

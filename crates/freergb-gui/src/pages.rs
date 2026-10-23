@@ -1,4 +1,4 @@
-﻿use super::toast::Toasts;
+use super::toast::Toasts;
 use super::{Command, Snapshot};
 use eframe::egui;
 use freergb_control::{CurvePoint, FanCurve};
@@ -243,7 +243,7 @@ impl Panels {
                         }
                         if let Some(channels) = snapshot.control["cooling_channels"].as_array() {
                             for channel in channels {
-                                ui.label(format!("{} Â· {} Â· {} {} Â· read only", channel["name"].as_str().unwrap_or("Channel"), channel["kind"].as_str().unwrap_or(""), channel["reading"]["value"], channel["reading"]["unit"].as_str().unwrap_or("")));
+                                ui.label(format!("{} · {} · {} {} · read only", channel["name"].as_str().unwrap_or("Channel"), channel["kind"].as_str().unwrap_or(""), channel["reading"]["value"], channel["reading"]["unit"].as_str().unwrap_or("")));
                             }
                         }
                         ui.small("Header/control pairing and PWM/DC mode require verification. RGB/ARGB is a separate connection.");
@@ -255,7 +255,7 @@ impl Panels {
                         ui.horizontal_wrapped(|ui| { for (name, curve) in curves { if ui.button(name).clicked() { if let Ok(curve) = serde_json::from_value(curve.clone()) { self.curve = curve; self.curve_name = name.clone(); } } } });
                     }
                     egui::Grid::new("curve-points").striped(true).show(ui, |ui| {
-                        ui.label("Temperature Â°C"); ui.label("Fan duty %"); ui.end_row();
+                        ui.label("Temperature °C"); ui.label("Fan duty %"); ui.end_row();
                         let mut remove = None;
                         for (i, point) in self.curve.points.iter_mut().enumerate() {
                             ui.add(egui::DragValue::new(&mut point.temperature_c).range(-20.0..=110.0));
@@ -275,17 +275,17 @@ impl Panels {
                             *limit = (value >= 1.0).then_some(value);
                         }
                     }
-                    ui.add(egui::Slider::new(&mut self.curve.critical_c, 40.0..=110.0).text("Emergency temperature Â°C"));
-                    ui.add(egui::Slider::new(&mut self.curve.hysteresis_c, 0.0..=10.0).text("Cooling hysteresis Â°C"));
+                    ui.add(egui::Slider::new(&mut self.curve.critical_c, 40.0..=110.0).text("Emergency temperature °C"));
+                    ui.add(egui::Slider::new(&mut self.curve.hysteresis_c, 0.0..=10.0).text("Cooling hysteresis °C"));
                     let validation = self.curve.validate();
                     if let Err(error) = &validation { ui.colored_label(egui::Color32::LIGHT_RED, error); }
                     ui.horizontal(|ui| {
-                        if ui.add_enabled(snapshot.connected && validation.is_ok(), egui::Button::new("Save curve")).clicked() { send("cooling.curves.save", json!({"name":self.curve_name,"curve":self.curve})); toasts.success(format!("Curve â€œ{}â€ saved", self.curve_name)); }
-                        if ui.button("Delete saved curve").clicked() { send("cooling.curves.delete", json!({"name":self.curve_name})); toasts.success(format!("Curve â€œ{}â€ deleted", self.curve_name)); }
+                        if ui.add_enabled(snapshot.connected && validation.is_ok(), egui::Button::new("Save curve")).clicked() { send("cooling.curves.save", json!({"name":self.curve_name,"curve":self.curve})); toasts.success(format!("Curve “{}” saved", self.curve_name)); }
+                        if ui.button("Delete saved curve").clicked() { send("cooling.curves.delete", json!({"name":self.curve_name})); toasts.success(format!("Curve “{}” deleted", self.curve_name)); }
                     });
                     draw_curve_graph(self, ui);
-                    ui.small("Drag points Â· double-click to add Â· right-click to remove. Edits clamp to their neighbours so the curve stays valid.");
-                    ui.add(egui::Slider::new(&mut self.temperature, 20.0..=100.0).text("Simulated temperature Â°C"));
+                    ui.small("Drag points · double-click to add · right-click to remove. Edits clamp to their neighbours so the curve stays valid.");
+                    ui.add(egui::Slider::new(&mut self.temperature, 20.0..=100.0).text("Simulated temperature °C"));
                     ui.label(format!("Target fan output: {:.1}% (preview)", self.curve.duty(Some(self.temperature), 0)));
                     self.custom_sensors.ui(ui,tx,snapshot,&self.curve);
                     ui.collapsing("Live motherboard fan control (experimental)",|ui|{self.mainboard_cooling.show(ui,snapshot,tx,&self.curve);});
@@ -306,10 +306,10 @@ impl Panels {
                     let parsed = serde_json::from_str::<freergb_control::MacroDefinition>(&self.macro_json).map_err(|e| e.to_string()).and_then(|m| m.validate().map(|()| m));
                     if let Err(error) = &parsed { ui.colored_label(egui::Color32::LIGHT_RED, error); }
                     ui.horizontal(|ui| {
-                        if ui.add_enabled(snapshot.connected && parsed.is_ok(), egui::Button::new("Save macro")).clicked() { send("macros.save", json!({"name":self.macro_name,"definition":parsed.as_ref().unwrap()})); toasts.success(format!("Macro â€œ{}â€ saved", self.macro_name)); }
-                        if ui.button("Run saved macro").clicked() { send("macros.run", json!({"name":self.macro_name})); toasts.success(format!("Macro â€œ{}â€ started", self.macro_name)); }
+                        if ui.add_enabled(snapshot.connected && parsed.is_ok(), egui::Button::new("Save macro")).clicked() { send("macros.save", json!({"name":self.macro_name,"definition":parsed.as_ref().unwrap()})); toasts.success(format!("Macro “{}” saved", self.macro_name)); }
+                        if ui.button("Run saved macro").clicked() { send("macros.run", json!({"name":self.macro_name})); toasts.success(format!("Macro “{}” started", self.macro_name)); }
                         if ui.button("Cancel").clicked() { send("macros.cancel", json!({})); }
-                        if ui.button("Delete saved macro").clicked() { send("macros.delete", json!({"name":self.macro_name})); toasts.success(format!("Macro â€œ{}â€ deleted", self.macro_name)); }
+                        if ui.button("Delete saved macro").clicked() { send("macros.delete", json!({"name":self.macro_name})); toasts.success(format!("Macro “{}” deleted", self.macro_name)); }
                     });
                 }
                 3 => {
@@ -338,13 +338,13 @@ impl Panels {
                     ui.heading("Monitoring");
                     self.alerts.ui(ui);
                     if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); toasts.success("Diagnostic report exported"); }
-                    if ui.add_enabled(snapshot.connected,egui::Button::new("â€¦with fan hardware details")).on_hover_text("Adds board model, BIOS, chip, support tier and channel-test result (no serials or readings).").clicked() { send("gui.export_diagnostics",serde_json::json!({"include_cooling_hardware":true})); toasts.success("Diagnostic report exported (with cooling hardware)"); }
+                    if ui.add_enabled(snapshot.connected,egui::Button::new("…with fan hardware details")).on_hover_text("Adds board model, BIOS, chip, support tier and channel-test result (no serials or readings).").clicked() { send("gui.export_diagnostics",serde_json::json!({"include_cooling_hardware":true})); toasts.success("Diagnostic report exported (with cooling hardware)"); }
                     if let Some(path)=&snapshot.exported_report { ui.label(format!("Report saved: {}",path.display())); }
                     ui.label("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
                     if let Some(entries) = snapshot.control["monitoring_sensors"].as_array() {
                         for entry in entries.iter().filter(|entry| entry["provider"] == "mainboard.lhm") {
                             let sensor = &entry["sensor"];
-                            ui.label(format!("{} / {}: {} {} Â· {} ms", entry["device_name"].as_str().unwrap_or("Mainboard"), sensor["name"].as_str().unwrap_or("Sensor"), sensor["value"], sensor["unit"].as_str().unwrap_or(""), sensor["age_ms"]));
+                            ui.label(format!("{} / {}: {} {} · {} ms", entry["device_name"].as_str().unwrap_or("Mainboard"), sensor["name"].as_str().unwrap_or("Sensor"), sensor["value"], sensor["unit"].as_str().unwrap_or(""), sensor["age_ms"]));
                         }
                     }
                     for device in &snapshot.devices {
@@ -353,7 +353,7 @@ impl Panels {
                             for sensor in sensors {
                                 let age = sensor["age_ms"].as_u64().unwrap_or(u64::MAX);
                                 let value = sensor["value"].as_f64().map_or_else(|| "missing".into(), |v| format!("{v:.0}"));
-                                let text = format!("{}: {} {} Â· {} ms{}", sensor["name"].as_str().unwrap_or("Sensor"), value, sensor["unit"].as_str().unwrap_or(""), age, if age > 3000 { " Â· STALE" } else { "" });
+                                let text = format!("{}: {} {} · {} ms{}", sensor["name"].as_str().unwrap_or("Sensor"), value, sensor["unit"].as_str().unwrap_or(""), age, if age > 3000 { " · STALE" } else { "" });
                                 ui.label(text);
                                 self.alerts.add_sensor_ui(ui,device,sensor);
                                 let key=(device["info"]["id"].as_str().unwrap_or_default().to_owned(),sensor["id"].as_str().unwrap_or_default().to_owned());
@@ -374,7 +374,7 @@ impl Panels {
 }
 
 /// Temperature/duty axes for the interactive curve graph; matches the range
-/// the numeric editor allows (`-20..=110 Â°C`).
+/// the numeric editor allows (`-20..=110 °C`).
 const T_MIN: f32 = -20.0;
 const T_MAX: f32 = 110.0;
 /// Mouse distance (px) at which a graph point counts as picked.
@@ -408,7 +408,7 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
         let x = to_pos(t as f32, 0.0).x;
         painter.line_segment(
             [egui::pos2(x, rect.top()), egui::pos2(x, rect.bottom())],
-            egui::Stroke::new(1.0, egui::Color32::from_gray(50)),
+            egui::Stroke::new(1.0_f32, egui::Color32::from_gray(50)),
         );
         painter.text(
             egui::pos2(x, rect.bottom() + 3.0),
@@ -422,7 +422,7 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
         let y = to_pos(0.0, d as f32).y;
         painter.line_segment(
             [egui::pos2(rect.left(), y), egui::pos2(rect.right(), y)],
-            egui::Stroke::new(1.0, egui::Color32::from_gray(50)),
+            egui::Stroke::new(1.0_f32, egui::Color32::from_gray(50)),
         );
         painter.text(
             egui::pos2(rect.left() + 3.0, y - 11.0),
@@ -443,18 +443,18 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
     );
     painter.line_segment(
         [egui::pos2(rect.left(), min_y), egui::pos2(rect.right(), min_y)],
-        egui::Stroke::new(1.0, crate::theme::ACCENT.gamma_multiply(0.6)),
+        egui::Stroke::new(1.0_f32, crate::theme::ACCENT.gamma_multiply(0.6)),
     );
     if (T_MIN..=T_MAX).contains(&p.curve.critical_c) {
         let x = to_pos(p.curve.critical_c, 0.0).x;
         painter.line_segment(
             [egui::pos2(x, rect.top()), egui::pos2(x, rect.bottom())],
-            egui::Stroke::new(1.5, crate::theme::WARN),
+            egui::Stroke::new(1.5_f32, crate::theme::WARN),
         );
         painter.text(
             egui::pos2(x - 4.0, rect.top() + 3.0),
             egui::Align2::RIGHT_TOP,
-            "âš ",
+            "⚠",
             egui::FontId::proportional(12.0),
             crate::theme::WARN,
         );
@@ -468,11 +468,11 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
         .collect();
     let picked = |position: Option<egui::Pos2>, pts: &[egui::Pos2]| -> Option<usize> {
         let pointer = position?;
-        let (index, distance) = pts
+        let (index, closest) = pts
             .iter()
             .enumerate()
             .min_by(|a, b| a.1.distance_sq(pointer).total_cmp(&b.1.distance_sq(pointer)))?;
-        (distance.sqrt() <= PICK_RADIUS).then_some(index)
+        (closest.distance_sq(pointer).sqrt() <= PICK_RADIUS).then_some(index)
     };
     if resp.dragged() {
         let pointer = resp.interact_pointer_pos();
@@ -511,7 +511,7 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
         .collect();
     painter.add(egui::Shape::line(
         pts.clone(),
-        egui::Stroke::new(2.0, crate::theme::ACCENT),
+        egui::Stroke::new(2.0_f32, crate::theme::ACCENT),
     ));
     for (index, pos) in pts.iter().enumerate() {
         let radius = if p.curve_drag == Some(index) { 5.5 } else { 4.0 };
@@ -528,17 +528,17 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
     let sim_x = to_pos(p.temperature, 0.0).x;
     painter.line_segment(
         [egui::pos2(sim_x, rect.top()), egui::pos2(sim_x, rect.bottom())],
-        egui::Stroke::new(1.0, crate::theme::WARN.gamma_multiply(0.55)),
+        egui::Stroke::new(1.0_f32, crate::theme::WARN.gamma_multiply(0.55)),
     );
     painter.circle_filled(to_pos(p.temperature, duty_now), 3.0, crate::theme::WARN);
     painter.text(
         egui::pos2(sim_x + 4.0, rect.top() + 18.0),
         egui::Align2::LEFT_TOP,
-        format!("{:.0} Â°C â†’ {:.0} %", p.temperature, duty_now),
+        format!("{:.0} °C → {:.0} %", p.temperature, duty_now),
         egui::FontId::proportional(11.0),
         crate::theme::WARN,
     );
-    ui.label("X: âˆ’20â€“110 Â°C Â· Y: 0â€“100 % duty");
+    ui.label("X: −20–110 °C · Y: 0–100 % duty");
 }
 
 #[cfg(test)]

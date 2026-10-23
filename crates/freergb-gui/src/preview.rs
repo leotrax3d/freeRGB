@@ -41,23 +41,24 @@ impl Preview {
     /// repaints while visible.
     pub fn show(&mut self, ui: &mut egui::Ui, spec: &EffectSpec) {
         if self.spec.as_ref() != Some(spec) {
-            self.effect = spec.build();
+            self.effect = Some(spec.build());
             self.spec = Some(spec.clone());
             self.started = Some(Instant::now());
         }
-        let image = egui::ColorImage::new([WIDTH, HEIGHT], {
-            if let (Some(started), Some(effect)) = (self.started, &mut self.effect) {
-                effect.render(started.elapsed(), &mut self.canvas);
+        let mut pixels = Vec::with_capacity(WIDTH * HEIGHT);
+        if let (Some(started), Some(effect)) = (self.started, &mut self.effect) {
+            effect.render(started.elapsed(), &mut self.canvas);
+        }
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let rgb = self.canvas.get(x, y).unwrap_or_default().to_array();
+                pixels.push(egui::Color32::from_rgb(rgb[0], rgb[1], rgb[2]));
             }
-            let mut pixels = Vec::with_capacity(WIDTH * HEIGHT);
-            for y in 0..HEIGHT {
-                for x in 0..WIDTH {
-                    let rgb = self.canvas.get(x, y).unwrap_or_default().to_array();
-                    pixels.push(egui::Color32::from_rgb(rgb[0], rgb[1], rgb[2]));
-                }
-            }
-            pixels
-        });
+        }
+        let image = egui::ColorImage {
+            size: [WIDTH, HEIGHT],
+            pixels,
+        };
         let texture = self.texture.get_or_insert_with(|| {
             ui.ctx()
                 .load_texture("effect-preview", image.clone(), egui::TextureOptions::LINEAR)
