@@ -144,6 +144,6 @@ fn layouts_are_valid() {
         assert_eq!(led.pos.0, n as u16);
         assert_eq!(led.name, format!("LED {}", n));
     }
-    assert!(m.frame(&vec![Rgb { r: 0, g: 0, b: 0 }; 6], &mut h).is_ok());
-    assert!(m.frame(&vec![Rgb { r: 0, g: 0, b: 0 }; 5], &mut h).is_err());
+    assert!(m.frame(&[Rgb { r: 0, g: 0, b: 0 }; 6], &mut h).is_ok());
+    assert!(m.frame(&[Rgb { r: 0, g: 0, b: 0 }; 5], &mut h).is_err());
 }
