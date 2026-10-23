@@ -131,7 +131,10 @@ internal static class Mainboard
         foreach (object child in (IEnumerable)Get(hardware, "SubHardware")) Walk(child, output, clock, depth + 1, ref sensorCount);
     }
 #if NATIVE_CONTROL_WORKER
-    private static HashSet<string> held = new HashSet<string>();
+    // Channels a crashed lower-tier worker left at 100% (until reboot); kept on
+    // disk so a restarted snapshot worker still reports them.
+    private static HashSet<string> held;
+    private static string HeldPath { get { return Path.Combine(Path.GetDirectoryName(BrokerTransport.DirectoryPath), "mainboard-control-held.json"); } }
     // Inventory only (no I/O): which tier the chip can reach and whether LHM's
     // cached mode already reports software control (foreign takeover refused).
     private static Dictionary<string, object> Support(object hardware, object sensor)
@@ -139,6 +142,7 @@ internal static class Mainboard
         object control = Get(sensor, "Control");
         string chip = NativeNctEvidence.AuditedChip(control);
         string id = Get(hardware, "Identifier").ToString() + "|" + Get(sensor, "Identifier").ToString();
+        if (held == null) held = direct ? NativeStateFile.Load(HeldPath, true) : new HashSet<string>();
         return new Dictionary<string, object> {
             {"tier", chip != null ? "verified" : "lhm_supported"}, {"register_readback", chip != null},
             {"software_mode", Get(control, "ControlMode").ToString() == "Software"},
@@ -228,7 +232,12 @@ internal static class Mainboard
                     return NativeNctEvidence.RecoverProtected(Get(matches[0],"Control"),recorded);
                 bool heldFull;
                 bool recovered=NativeControl.RecoverFallbackProtected(Get(matches[0],"Control"),recorded,out heldFull);
-                if (heldFull) held.Add((string)pending["hardware_id"] + "|" + (string)pending["sensor_id"]);
+                if (heldFull)
+                {
+                    if (held == null) held = NativeStateFile.Load(HeldPath, true);
+                    held.Add((string)pending["hardware_id"] + "|" + (string)pending["sensor_id"]);
+                    try { NativeStateFile.Save(HeldPath, held); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                }
                 return recovered;
             },active);
         }

@@ -23,14 +23,13 @@ Menu:
 * Open freeRGB / Open freeRGB Classic (left click on the icon opens the GUI).
 * Pause lighting (`lighting.pause`): devices return to their own hardware
   lighting, like when conflicting RGB software runs; resume restores the effect.
-  Not persisted across a service restart.
+  Persisted in the daemon state; survives service restarts and reboots.
 * Brightness 25/50/75/100 % and lighting profiles.
 * Pause fan control (`cooling.fans.pause`): stops an interactive fan session and
   asks the protected service to return every background channel to firmware
   (BIOS) control. No UAC: pausing only reduces control and resuming restarts the
-  configuration the user already authorized. Paused until resumed or the
-  service restarts (e.g. reboot); applying a new configuration or profile
-  resumes. Unavailable while the safety notice is not accepted.
+  configuration the user already authorized. Paused until resumed, also across
+  service restarts and reboots (`mainboard-control-paused.json`). Unavailable while the safety notice is not accepted.
 * Cooling profiles (`cooling.profiles.activate`, asks for UAC).
 * Start freeRGB service (when it is not running) / Quit freeRGB
   (`daemon.shutdown`; background fan curves keep running in the protected

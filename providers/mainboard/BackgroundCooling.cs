@@ -305,9 +305,12 @@ internal sealed class BackgroundCooling : IDisposable
     private readonly List<Channel> channels = new List<Channel>();
     private Thread statusThread;
     private static string Root { get { return Path.GetDirectoryName(BrokerTransport.DirectoryPath); } }
+    private static string PausePath { get { return Path.Combine(Root, "mainboard-control-paused.json"); } }
     internal void Start()
     {
         BrokerService.CheckInstallation(false);
+        // A user pause lasts until resumed, also across service restarts/reboots.
+        paused = NativeStateFile.Load(PausePath, false).Contains("background");
         string path = Path.Combine(Root, ConfigName);
         List<BackgroundChannelConfig> configs = new List<BackgroundChannelConfig>();
         if (File.Exists(path))
@@ -319,7 +322,7 @@ internal sealed class BackgroundCooling : IDisposable
         lock (gate)
             foreach (var config in configs)
             {
-                var channel = new Channel { Config = config, Controller = new BackgroundChannelController(config) };
+                var channel = new Channel { Config = config, Controller = new BackgroundChannelController(config), Suspended = paused };
                 channel.Thread = new Thread(delegate() { Run(channel); }) { IsBackground = true, Name = "freeRGB background cooling" };
                 channels.Add(channel);
                 channel.Thread.Start();
@@ -344,6 +347,8 @@ internal sealed class BackgroundCooling : IDisposable
     internal void PauseAll(bool pause)
     {
         paused = pause;
+        try { NativeStateFile.Save(PausePath, pause ? new[] { "background" } : new string[0]); }
+        catch (IOException) { } catch (UnauthorizedAccessException) { }
         lock (gate) foreach (var c in channels) c.Suspended = pause;
         WriteStatus(null);
     }

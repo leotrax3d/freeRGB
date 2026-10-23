@@ -46,6 +46,36 @@ internal static class NativeAuthorizationRules
             throw new InvalidDataException("Reduced commissioning duty requires explicit protected fan authorization.");
     }
 }
+// Small protected state files next to the journal (SYSTEM writers only).
+// Boot-bound lists expire with the Windows boot they were written in.
+internal static class NativeStateFile
+{
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern ulong GetTickCount64();
+    internal static DateTime BootUtc { get { return DateTime.UtcNow - TimeSpan.FromMilliseconds(GetTickCount64()); } }
+    internal static HashSet<string> Load(string path, bool bootBound)
+    {
+        var items = new HashSet<string>();
+        try
+        {
+            if (!File.Exists(path) || new FileInfo(path).Length > 16384) return items;
+            var value = new JavaScriptSerializer { MaxJsonLength = 16384, RecursionLimit = 4 }.DeserializeObject(File.ReadAllText(path)) as Dictionary<string,object>;
+            if (value == null || !Object.Equals(value["version"],1) || !(value["items"] is object[])) return items;
+            DateTime boot;
+            if (bootBound && (!(value["boot_utc"] is string) || !DateTime.TryParse((string)value["boot_utc"],null,System.Globalization.DateTimeStyles.RoundtripKind,out boot) ||
+                Math.Abs((boot.ToUniversalTime() - BootUtc).TotalMinutes) > 2)) return items;
+            foreach (object item in (object[])value["items"]) if (item is string && ((string)item).Length <= 1024) items.Add((string)item);
+        }
+        catch (Exception error) { if (error is OutOfMemoryException) throw; }
+        return items;
+    }
+    internal static void Save(string path, IEnumerable<string> items)
+    {
+        string temporary = path + ".tmp";
+        File.WriteAllText(temporary, new JavaScriptSerializer().Serialize(new { version = 1, boot_utc = BootUtc.ToString("o"), items = new List<string>(items) }));
+        if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
+    }
+}
 internal sealed class NativeControlIdentity
 {
     internal readonly string HardwareId, SensorId;
