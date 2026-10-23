@@ -87,6 +87,8 @@ export interface DeviceSummary {
 }
 
 export interface Diagnostics {
+  incident_session?: string;
+  incidents?: { id: number; source: string; message: string; details: string }[];
   uptime_s: number;
   ticks: number;
   target_fps: number;

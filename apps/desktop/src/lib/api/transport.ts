@@ -63,5 +63,9 @@ export function transport(): Promise<Transport> {
   current ??= !__WEB_DEMO__ && inTauri()
     ? tauriTransport()
     : import("../mock/transport").then((m) => m.mockTransport());
-  return current;
+  const pending = current;
+  return pending.catch((error: unknown) => {
+    if (current === pending) current = undefined;
+    throw error;
+  });
 }

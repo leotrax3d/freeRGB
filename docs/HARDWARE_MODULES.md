@@ -23,6 +23,7 @@ GUI (Tauri)  --JSON-RPC-->  freergbd  --stdio, module protocol v1-->  module pro
 | Daemon glue + `modules.*` API | `crates/freergb-daemon/src/modules.rs`, `api.rs` | MIT OR Apache-2.0 |
 | Setup UI | `apps/desktop/src/features/setup/` | MIT OR Apache-2.0 |
 | Razer module (OpenRGB port) | `modules/razer-chroma` | **GPL-2.0-or-later** |
+| Redragon mouse module (OpenRGB port) | `modules/redragon-mouse` | **GPL-2.0-or-later** |
 
 ## Decisions
 

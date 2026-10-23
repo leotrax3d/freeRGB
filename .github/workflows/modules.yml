@@ -78,13 +78,19 @@ jobs:
         with:
           node-version: 22
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
           git fetch -q --depth 1 origin "$OPENRGB_COMMIT" && git checkout -q FETCH_HEAD
-          cd .. && node scripts/openrgb/port-razer-devices.mjs openrgb "$OPENRGB_COMMIT"
-          git diff --exit-code -- modules/razer-chroma/src/devices_table.rs
+          cd ..
+          if [ "$MODULE" = "razer-chroma" ]; then
+            node scripts/openrgb/port-razer-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/razer-chroma/src/devices_table.rs
+          else
+            node scripts/openrgb/port-redragon-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/redragon-mouse/src/devices_table.rs
+          fi
       - name: Source archive
         run: |
           set -euo pipefail

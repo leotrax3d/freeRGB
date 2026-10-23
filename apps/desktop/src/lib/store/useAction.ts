@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { actionFailure } from "../notifications";
 import { toast } from "@/components/toast";
 
 /**
@@ -17,6 +18,8 @@ export function useAction() {
       if (success) toast(success);
       return true;
     } catch (e) {
+      const notice = actionFailure(e);
+      if (notice) toast(notice.message, notice.tone, notice.details);
       setError(e instanceof Error ? e.message : String(e));
       return false;
     } finally {

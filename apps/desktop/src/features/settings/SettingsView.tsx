@@ -56,6 +56,22 @@ function Plugins() {
   );
 }
 
+function IncidentHistory() {
+  const incidents = useDaemon((s) => s.diagnostics?.incidents);
+  return <Section title="Service incident history">
+    <p className="text-small text-text-muted">Recent problems during this service session, including those recorded while the window was closed. Entries may already be resolved.</p>
+    {!incidents?.length ? <p className="text-small text-text-muted">No recorded incidents.</p> :
+      <ul className="max-h-80 overflow-auto rounded-card bg-surface-sunken px-4 divide-y divide-border">
+        {[...incidents].reverse().map((incident) => <li key={incident.id} className="py-3 text-small">
+          <p>{incident.message}</p>
+          <details className="mt-1 text-text-muted"><summary className="cursor-pointer">Technical details</summary>
+            <pre className="mt-2 whitespace-pre-wrap break-all text-xs">{incident.source}{"\n"}{incident.details}</pre>
+          </details>
+        </li>)}
+      </ul>}
+  </Section>;
+}
+
 export default function SettingsView() {
   useSlices("plugins");
   const connection = useDaemon((s) => s.connection);
@@ -63,6 +79,7 @@ export default function SettingsView() {
   return (
     <>
       <PageHeader title="Settings" />
+      <IncidentHistory />
       <Plugins />
       <KeyboardReactions />
       <Section title="Classic tools">

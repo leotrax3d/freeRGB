@@ -6,10 +6,16 @@ import { startDaemonSync } from "./lib/store/daemon";
 import "./styles/globals.css";
 
 const root = createRoot(document.getElementById("root")!);
-void startDaemonSync().catch((error: unknown) => {
-  if (__WEB_DEMO__) root.render(<DemoFailure />);
-  else console.error("Could not connect to freeRGB", error);
-});
+function connect() {
+  void startDaemonSync().catch((error: unknown) => {
+    if (__WEB_DEMO__) root.render(<DemoFailure />);
+    else {
+      console.error("Could not connect to freeRGB", error);
+      setTimeout(connect, 5000);
+    }
+  });
+}
+connect();
 
 root.render(
   <StrictMode>

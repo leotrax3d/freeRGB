@@ -22,6 +22,7 @@ export function useDaemonValue(remote: number | undefined, write: (value: number
           () => setError(null),
           (e: unknown) => {
             if (e instanceof RpcError && e.detail.kind === "superseded") return;
+            setLocal(null);
             setError(e instanceof Error ? e.message : String(e));
           },
         );

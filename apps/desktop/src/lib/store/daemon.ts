@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import type { OptionalSlice, Slices } from "../api/types";
 import { transport, type Transport } from "../api/transport";
+import { toast } from "@/components/toast";
+import { actionFailure, incidentObserver } from "../notifications";
 
 /**
  * Daemon state as pushed by the backend poller. Each slice is replaced only
@@ -15,17 +17,38 @@ export interface DaemonState extends Partial<Slices> {
 
 export const useDaemon = create<DaemonState>(() => ({ loading: true, mode: null }));
 
+const notices = incidentObserver((notice) => toast(notice.message, notice.tone, notice.details));
+function apply(update: Partial<DaemonState>) {
+  if (update.connection) notices.connection(update.connection);
+  if (update.diagnostics) notices.diagnostics(update.diagnostics);
+  useDaemon.setState(update);
+}
 let started = false;
 
 /** Connects the store to the transport once per app lifetime. */
 export async function startDaemonSync(): Promise<void> {
   if (started) return;
   started = true;
-  const t = await transport();
-  // Subscribe first so no change between snapshot and listen gets lost.
-  await t.subscribe((slice, value) => useDaemon.setState({ [slice]: value } as Partial<DaemonState>));
-  const snapshot = await t.snapshot();
-  useDaemon.setState({ ...snapshot, loading: false, mode: t.kind });
+  let unsubscribe: (() => void) | undefined;
+  try {
+    const t = await transport();
+    const changed = new Set<keyof Slices>();
+    unsubscribe = await t.subscribe((slice, value) => {
+      changed.add(slice);
+      apply({ [slice]: value } as Partial<DaemonState>);
+    });
+    await t.wantSlices([...wanted.keys()]);
+    const snapshot = await t.snapshot();
+    for (const slice of changed) delete snapshot[slice];
+    apply({ ...snapshot, loading: false, mode: t.kind });
+  } catch (error) {
+    unsubscribe?.();
+    started = false;
+    useDaemon.setState({ loading: false });
+    const notice = actionFailure(error);
+    if (notice) toast(notice.message, notice.tone, notice.details);
+    throw error;
+  }
 }
 
 const wanted = new Map<OptionalSlice, number>();
@@ -52,8 +75,8 @@ export function requireSlices(slices: OptionalSlice[]): () => void {
 }
 
 async function sync() {
-  const t = await transport();
-  await t.wantSlices([...wanted.keys()]);
+  try { const t = await transport(); await t.wantSlices([...wanted.keys()]); }
+  catch (error) { const notice = actionFailure(error); if (notice) toast(notice.message, notice.tone, notice.details); }
 }
 
 /** Keeps the given optional slices polled while the calling component is mounted. */
@@ -63,5 +86,10 @@ export function useSlices(...slices: OptionalSlice[]) {
 }
 
 export async function rpc<T = unknown>(method: string, params?: unknown): Promise<T> {
-  return (await transport()).rpc<T>(method, params);
+  try { return await (await transport()).rpc<T>(method, params); }
+  catch (error) {
+    const notice = actionFailure(error);
+    if (notice) toast(notice.message, notice.tone, notice.details);
+    throw error;
+  }
 }

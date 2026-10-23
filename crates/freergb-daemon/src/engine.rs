@@ -77,6 +77,8 @@ pub struct DeviceSummary {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Diagnostics {
+    pub incident_session: String,
+    pub incidents: Vec<crate::notifications::Incident>,
     /// Audio capture device while an audio effect runs, or the error.
     pub audio: Option<String>,
     /// Captured monitor while a screen effect runs, or the error.
@@ -93,6 +95,7 @@ pub struct Diagnostics {
 }
 
 pub struct Engine {
+    incidents: std::sync::Mutex<crate::notifications::Journal>,
     pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
@@ -271,6 +274,10 @@ fn run_worker(
 }
 
 impl Engine {
+    pub fn observe_error(&self, source: &str, message: &str, error: Option<&str>) {
+        guard(&self.incidents).observe(source, message, error);
+    }
+
     pub fn new(spec: EffectSpec, target_fps: u32) -> Self {
         let now = Instant::now();
         let mut engine = Self {
@@ -303,6 +310,7 @@ impl Engine {
             audio_error: None,
             screen: None,
             screen_error: None,
+            incidents: Default::default(),
         };
         if engine.spec.needs_audio() || engine.spec.needs_screen() {
             // Starts the capture the effect needs.
@@ -662,9 +670,12 @@ impl Engine {
     fn persist(&self) {
         if let Some(path) = &self.state_path {
             let s = self.current_state();
-            if let Err(e) = state::save(path, &s) {
-                tracing::warn!(path = %path.display(), error = %e, "saving state failed");
-            }
+            let result = state::save(path, &s);
+            guard(&self.incidents).observe(
+                "storage",
+                "Settings could not be saved. Changes may be lost after restart.",
+                result.as_ref().err().map(|e| e.to_string()).as_deref(),
+            );
         }
     }
 
@@ -800,7 +811,14 @@ impl Engine {
                 MacroStep::Effect { effect } => self.set_effect(effect),
                 MacroStep::Text { .. } | MacroStep::Key { .. } | MacroStep::Chord { .. } => {
                     if let Err(error) = crate::control::input(&step) {
+                        self.observe_error(
+                            "macro-input",
+                            "The macro stopped because keyboard input failed.",
+                            Some(&error),
+                        );
                         self.controls.fail(error);
+                    } else {
+                        self.observe_error("macro-input", "", None);
                     }
                 }
                 MacroStep::Delay { .. } => {}
@@ -858,6 +876,37 @@ impl Engine {
             cv.notify_one();
         }
 
+        {
+            let mut journal = guard(&self.incidents);
+            for worker in &self.workers {
+                let view = guard(&worker.view);
+                journal.observe(
+                    &format!("device:{}", worker.id.0),
+                    &format!(
+                        "{} is unavailable. freeRGB will try to reconnect.",
+                        view.info.name
+                    ),
+                    view.last_error.as_deref(),
+                );
+            }
+            for (id, plugin) in &self.plugins {
+                journal.observe(
+                    &format!("plugin:{id}"),
+                    "A device plugin is unavailable. Check Devices for details.",
+                    plugin.error.as_deref(),
+                );
+            }
+            journal.observe(
+                "audio",
+                "Audio capture is unavailable. Audio lighting may stay dark.",
+                self.audio_error.as_deref(),
+            );
+            journal.observe(
+                "screen",
+                "Screen capture is unavailable. Screen lighting may stay dark.",
+                self.screen_error.as_deref(),
+            );
+        }
         self.ticks += 1;
         let (since, ticks_then, _) = self.fps_window;
         let elapsed = now.saturating_duration_since(since);
@@ -932,7 +981,10 @@ impl Engine {
     }
 
     pub fn diagnostics(&self) -> Diagnostics {
+        let incidents = guard(&self.incidents);
         Diagnostics {
+            incident_session: incidents.session.clone(),
+            incidents: incidents.entries(),
             audio: match (&self.audio, &self.audio_error) {
                 (Some(a), _) => Some(format!("capturing: {}", a.device_name())),
                 (None, Some(e)) => Some(format!("error: {e}")),

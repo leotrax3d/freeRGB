@@ -831,6 +831,19 @@ impl eframe::App for App {
             if let Some(e) = &error {
                 ui.colored_label(egui::Color32::from_rgb(230, 90, 90), e);
             }
+            if let Some(entries) = diag.as_ref().and_then(|d| d["incidents"].as_array()) {
+                if !entries.is_empty() {
+                    ui.collapsing(format!("Service incident history ({})", entries.len()), |ui| {
+                        ui.label("Recent problems in this service session; entries may already be resolved.");
+                        egui::ScrollArea::vertical().max_height(180.0).show(ui, |ui| {
+                            for entry in entries.iter().rev() {
+                                ui.label(entry["message"].as_str().unwrap_or("Service error"))
+                                    .on_hover_text(entry["details"].as_str().unwrap_or(""));
+                            }
+                        });
+                    });
+                }
+            }
             let conflicts: Vec<&str> = diag
                 .as_ref()
                 .and_then(|d| d.get("conflicts"))

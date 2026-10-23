@@ -471,6 +471,33 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn incidents_survive_offline_and_are_non_consuming_over_rpc() {
+        use super::*;
+        use std::sync::{Arc, Mutex};
+        let engine: SharedEngine = Arc::new(Mutex::new(Engine::new(
+            freergb_effects::EffectSpec::Solid {
+                color: freergb_core::Rgb::BLACK,
+            },
+            30,
+        )));
+        {
+            let e = lock(&engine);
+            e.observe_error("device:a", "Device unavailable", Some("timeout"));
+            e.observe_error("device:b", "Device unavailable", Some("access denied"));
+            e.observe_error("device:a", "Device unavailable", Some("retry timeout"));
+            e.observe_error("device:a", "", None);
+        }
+        let request = r#"{"id":1,"method":"diagnostics.get"}"#;
+        let first = call(&engine, request);
+        let second = call(&engine, request);
+        assert_eq!(first["result"]["incidents"], second["result"]["incidents"]);
+        let entries = first["result"]["incidents"].as_array().unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0]["details"], "timeout");
+        assert_eq!(entries[1]["id"], 2);
+        assert!(first["result"]["incident_session"].as_str().is_some());
+    }
+    #[test]
     fn cooling_sessions_disabled_and_invalid_requests_use_rpc_errors() {
         use super::*;
         use freergb_core::Rgb;

@@ -50,10 +50,15 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
     let list = match freergb_hid::enumerate() {
         Ok(l) => l,
         Err(e) => {
-            tracing::warn!(error = %e, "HID enumeration failed");
+            lock(engine).observe_error(
+                "hid-scan",
+                "USB device discovery failed. freeRGB will retry automatically.",
+                Some(&e.to_string()),
+            );
             return 0;
         }
     };
+    lock(engine).observe_error("hid-scan", "", None);
     if !conflicts.is_empty() || lock(engine).has_hardware_plugins() {
         // Setup still shows what is attached; nothing is opened.
         crate::modules::scan(engine, &list, &Default::default(), false);
@@ -114,10 +119,18 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
         }
         match HidapiTransport::open(info) {
             Ok(t) => {
+                lock(engine).observe_error(&format!("hid-open:{}", info.path), "", None);
                 lock(engine).add_device(make(t, info.serial.clone()));
                 added += 1;
             }
-            Err(e) => tracing::warn!(path = %info.path, error = %e, "open failed"),
+            Err(e) => lock(engine).observe_error(
+                &format!("hid-open:{}", info.path),
+                &format!(
+                    "{} could not be opened. Check device access; freeRGB will retry.",
+                    m.device_name
+                ),
+                Some(&e.to_string()),
+            ),
         }
     }
     crate::modules::scan(engine, &list, &builtin, true);

@@ -32,3 +32,5 @@ pub type SharedEngine = Arc<Mutex<engine::Engine>>;
 pub fn lock(engine: &SharedEngine) -> MutexGuard<'_, engine::Engine> {
     engine.lock().unwrap_or_else(|e| e.into_inner())
 }
+
+pub mod notifications;
