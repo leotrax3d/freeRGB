@@ -35,6 +35,8 @@ impl Module for Nzxt {
         h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         let d = table::device(i).ok_or_else(|| err("unsupported NZXT device"))?;
+        // upstream: NZXTHue2Controller.cpp ReadDeviceList: request 20 03 and read
+        // 64-byte replies until the device list answers (21 03).
         h.write(&report::device_list_request()).map_err(err)?;
         let mut reply = Vec::new();
         for _ in 0..10 {
@@ -42,6 +44,9 @@ impl Module for Nzxt {
             if reply.len() == 64 && reply.starts_with(&[0x21, 3]) {
                 break;
             }
+        }
+        if !(reply.len() == 64 && reply.starts_with(&[0x21, 3])) {
+            return Err(err("NZXT device-list reply was not received"));
         }
         self.channels = report::parse_device_list(&reply, d.channels);
         let total: usize = self.channels.iter().map(|z| z.iter().sum::<usize>()).sum();
@@ -68,7 +73,7 @@ impl Module for Nzxt {
             name: table::identify(i).model.unwrap_or_else(|| "NZXT".into()),
             kind: DeviceKind::LightingController,
             layout: LedLayout {
-                width: leds.len() as u16,
+                width: leds.len().min(u16::MAX as usize) as u16,
                 height: d.channels as u16,
                 leds,
             },
@@ -85,14 +90,28 @@ impl Module for Nzxt {
         if colors.len() != total {
             return Err(err("invalid NZXT frame"));
         }
+        // upstream: RGBController_NZXTHue2 DeviceUpdateLEDs calls
+        // SetChannelLEDs for every zone: first direct group (up to 20), optional
+        // second group, then apply — even for channels without devices.
         let mut off = 0;
         for (c, z) in self.channels.iter().enumerate() {
-            let n = z.iter().sum::<usize>();
-            for (g, chunk) in colors[off..off + n].chunks(20).enumerate() {
-                h.write(&report::direct(c, g, chunk)).map_err(err)?;
+            let n = z.iter().sum::<usize>().min(2 * report::LED_PER_GROUP);
+            h.write(&report::direct(
+                c,
+                0,
+                &colors[off..off + n.min(report::LED_PER_GROUP)],
+            ))
+            .map_err(err)?;
+            if n > report::LED_PER_GROUP {
+                h.write(&report::direct(
+                    c,
+                    1,
+                    &colors[off + report::LED_PER_GROUP..off + n],
+                ))
+                .map_err(err)?;
             }
             h.write(&report::apply(c)).map_err(err)?;
-            off += n;
+            off += self.channels[c].iter().sum::<usize>();
         }
         Ok(())
     }
@@ -102,9 +121,4 @@ impl Module for Nzxt {
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog_has_21_detectors() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 21);
-    }
-}
+mod tests;

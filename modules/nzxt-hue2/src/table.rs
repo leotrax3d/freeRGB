@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+use crate::devices_table::DETECTORS;
 use freergb_module_api::{DeviceKind, Identification, InterfaceInfo};
 #[derive(Debug)]
 pub struct Detector {
@@ -6,23 +7,26 @@ pub struct Detector {
     pub handler: &'static str,
     pub vid: u16,
     pub pid: u16,
+    /// RGB channel count from the upstream spawn_hue call; 0 marks a detector
+    /// routed to a different controller (Kraken X3) that cannot use this protocol.
     pub channels: usize,
 }
 pub fn identify(i: &InterfaceInfo) -> Identification {
-    let d = crate::devices_table::DETECTORS
-        .iter()
-        .find(|d| d.vid == i.vid && d.pid == i.pid);
-    Identification {
-        supported: d.is_some(),
-        model: d.map(|x| x.name.into()),
-        kind: d.map(|_| DeviceKind::LightingController),
-        reason: d
-            .is_none()
-            .then(|| "no NZXT HID detector for this VID/PID".into()),
+    match device(i) {
+        Some(d) => Identification {
+            supported: true,
+            model: Some(d.name.into()),
+            kind: Some(DeviceKind::LightingController),
+            reason: None,
+        },
+        None => Identification {
+            supported: false,
+            model: None,
+            kind: None,
+            reason: Some("no NZXT HID detector for this VID/PID".into()),
+        },
     }
 }
 pub fn device(i: &InterfaceInfo) -> Option<&'static Detector> {
-    crate::devices_table::DETECTORS
-        .iter()
-        .find(|d| d.vid == i.vid && d.pid == i.pid)
+    DETECTORS.iter().find(|d| d.vid == i.vid && d.pid == i.pid)
 }

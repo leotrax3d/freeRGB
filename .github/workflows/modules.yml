@@ -165,6 +165,10 @@ jobs:
             git diff --exit-code -- modules/asus-monitor/src/devices_table.rs
           elif [ "$MODULE" = "drgb" ]; then
             echo "drgb device table is inventoried manually; add a generator before enabling support" >&2
+          elif [ "$MODULE" = "nzxt-hue2" ]; then
+            node scripts/openrgb/port-nzxt-hue2-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-nzxt-hue2
+            git diff --exit-code -- modules/nzxt-hue2/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1

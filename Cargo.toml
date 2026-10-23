@@ -41,6 +41,7 @@ members = [
     "modules/corsair-commander-core",
     "modules/asus-monitor",
     "modules/drgb",
+    "modules/nzxt-hue2",
 ]
 
 [workspace.package]
