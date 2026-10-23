@@ -175,7 +175,9 @@ export function CurvesSection() {
               · arrow keys adjust, Shift for bigger steps
             </p>
           )}
-          <div className="grid gap-4 @xl:grid-cols-3">
+          <details className="group rounded-control border border-border">
+            <summary className="cursor-pointer select-none px-3 py-2 text-small text-text-muted hover:text-text">Advanced: minimum, critical, hysteresis, step limits</summary>
+            <div className="grid gap-4 p-3 pt-1 @xl:grid-cols-3">
             <LimitSlider label="Minimum duty" unit="%" value={draft.minimum_percent} min={0} max={100} onChange={(v) => setDraft(withMinimum(draft, v))} />
             <LimitSlider
               label="Critical"
@@ -188,7 +190,8 @@ export function CurvesSection() {
             <LimitSlider label="Hysteresis" unit="°C" value={draft.hysteresis_c} min={0} max={10} step={0.5} onChange={(v) => setDraft({ ...draft, hysteresis_c: v })} />
             <LimitSlider label="Step up (0 = off)" unit="%/s" value={draft.max_rise_percent_per_s ?? 0} min={0} max={100} onChange={(v) => setDraft({ ...draft, max_rise_percent_per_s: v >= 1 ? v : undefined })} />
             <LimitSlider label="Step down (0 = off)" unit="%/s" value={draft.max_fall_percent_per_s ?? 0} min={0} max={100} onChange={(v) => setDraft({ ...draft, max_fall_percent_per_s: v >= 1 ? v : undefined })} />
-          </div>
+            </div>
+          </details>
           <div className="flex flex-col gap-1.5 rounded-control bg-surface p-3">
             <div className="flex justify-between text-small">
               <span>Try a temperature</span>
