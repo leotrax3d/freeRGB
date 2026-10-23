@@ -148,6 +148,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `ThermaltakeRiingController` | ported | `8f1b5eb` | 51 | Direct mode for Riing/Quad/Trio fully ported; hardware effect modes, Save/Fan packets and the Quad keepalive thread omitted by module API |
 | `SteelSeriesController` | partial | `cd5f62b` | 0 | 76 detector rows audited; all 17 controller-specific protocols remain unsupported; generic packet claim removed |
 | `MSIMotherboardController` | partial | `b0d7a33` | 0 | 124 detector rows audited; four complete controller lifecycles remain unsupported |
+| `LogitechController` | partial | `a9dbdc3` | 13 | 55 detector rows audited. Fully ported Direct-mode: G213 (1), G915 wired+wireless (4), G203L (2), G600 (1), G933 (1), X56 (4). G815, G915Receiver2, G203 (Prodigy), G303/G403/GPRO, Wired/Wireless HID++, LightspeedReceiver and HIDPP20 wildcard paths are inventoried but unsupported (device-index, SW-control-claim, name-probe and frame-layout gaps); fabricated 0x02 fallthrough removed |
 | `DasKeyboardController` | partial | `1b7d153` | 0 | 3 detector rows audited; complete keyboard initialization, per-key mapping, direct mode and cleanup remain unsupported |
 | `CherryKeyboardController` | ported | `a4b5b21` | 25 | Direct mode fully ported (126-LED 21x6 matrix, interface 1 + usage page 0xFF1C matching); hardware effect modes omitted |
 | `AsusAuraUSBController` | partial | `b6edab9` | 0 | 100 external detector rows audited; built-in 0b05:19af excluded; controller-specific lifecycles remain unsupported |
