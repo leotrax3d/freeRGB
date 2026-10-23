@@ -355,6 +355,7 @@ impl Engine {
     }
     pub fn set_lighting_paused(&mut self, paused: bool) -> usize {
         self.lighting_paused = paused;
+        self.persist();
         if paused {
             let released = self.release_hardware();
             let mut conflicts = self.conflicts.clone();
@@ -665,6 +666,7 @@ impl Engine {
         self.brightness = s.brightness.clamp(0.0, 1.0);
         self.device_brightness = s.device_brightness;
         self.device_regions = s.device_regions;
+        self.lighting_paused = s.lighting_paused;
         self.profiles_dir = crate::profiles::dir_for_state(&path);
         self.state_path = Some(path);
         self
@@ -695,6 +697,7 @@ impl Engine {
             brightness: self.brightness,
             device_brightness: self.device_brightness.clone(),
             device_regions: self.device_regions.clone(),
+            lighting_paused: self.lighting_paused,
         }
     }
 
