@@ -160,6 +160,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `MSIKeyboardController` | partial | `634be02` | 0 | Four detector rows audited; MS_1565 and MSI_64 packet structures, zone layouts and mode lifecycles remain unsupported. |
 | `MSILaptopController` | partial | `025d945` | 0 | Four detector rows audited; model matrices, 525-byte keyboard transfers, commit packets and lightbar mapping remain unsupported. |
 | `CorsairHydroPlatinumController` | ported | `a5c312b` | 13 | Direct mode fully ported: magic init, monotonic sequence number, 20-LED combined chunk frames (commands 4/5/6), hardware-magic shutdown restore, 5x5 CPU block + optional fan zone (5 Elite PIDs CPU-only). No firmware read. |
+| `CorsairPeripheralController` | partial | pending | 0 | 39 detector rows audited; audit found no fully ported path (fabricated packets removed). Generic handler needs firmware-info typing, typed LightingControl and STREAM keyboard path; K55 PRO XT needs 8 06/07 key-bank stream (111 LEDs); K65 Mini needs LED position map, 64-LED layout and keepalive. |
 
 
 The per-family status ledger is maintained below this inventory by the porting

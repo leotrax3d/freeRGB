@@ -36,6 +36,7 @@ members = [
     "modules/logitech",
     "modules/nollie",
     "modules/corsair-hydro-platinum",
+    "modules/corsair-peripheral",
 ]
 
 [workspace.package]
