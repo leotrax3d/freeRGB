@@ -168,6 +168,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `NZXTHue2Controller` | ported | `241dc17` | 21 | Direct mode fully ported for all 21 detector rows: device-list query, id-to-LED table (0x10..0x1F fixed), per-channel direct/apply incl. empty channels, RGB channel counts from upstream spawn_hue calls. Fan/pump/temperature reads and 2023-effects omitted |
 | `HyperXMouseController` | partial | `f8fe0af` | 0 | 14 detector rows audited (was 12; interface/usage qualification added). No Direct-mode path is byte-exact: Surge RGB-plane feature report (264 bytes, 0x07 report id), FPS `07 0A`, Haste setup+color feature reports, Raid start/end bytes, Dart per-LED writes; fabricated builders removed |
 | `AresonController` | ported | `b3838fe` | 6 | Direct mode fully ported: 17-byte Static-mode feature report (speed byte and checksum corrected), interface 1/usage 0xFF02/2 matching |
+| `AnnePro2Controller` | ported | `72525ea` | 5 | Direct mode fully ported: 5-packet 64-byte stream with upstream 51-byte payload layout, real frame index mapping with the 9 gap triplets (LED_REAL_COUNT 70), upstream 5x14 key names, interface 1 matching |
 
 
 The per-family status ledger is maintained below this inventory by the porting
