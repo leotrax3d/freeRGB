@@ -15,6 +15,10 @@ internal sealed class NativeControlBroker : IDisposable
     // Set by the service: an interactive session first stops the background
     // curve on the same channel (explicit return), then resumes it afterwards.
     internal static Action<string> SuspendBackground = null, ResumeBackground = null;
+    // Pause returns every background channel to firmware; resume restarts only
+    // the configuration the user already authorized (UAC). Neither widens rights.
+    internal static Action<bool> PauseBackground = null;
+    internal static Func<bool> BackgroundPaused = null;
     private readonly NamedPipeServerStream pipe;
     private readonly Thread thread;
     private volatile bool stopping;
@@ -66,7 +70,16 @@ internal sealed class NativeControlBroker : IDisposable
             {
                 pipe.WaitForConnection();
                 if (stopping) return;
-                if (BrokerTransport.ReadRecord(pipe,2000,256) != "open") throw new InvalidDataException("Expected native session open.");
+                string first=BrokerTransport.ReadRecord(pipe,2000,256);
+                if (first == "background pause" || first == "background resume" || first == "background status")
+                {
+                    stage="background";
+                    if (first != "background status" && PauseBackground != null) PauseBackground(first == "background pause");
+                    bool paused=BackgroundPaused != null && BackgroundPaused();
+                    BrokerTransport.Write(pipe,Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(new {version=1,background_paused=paused})+"\n"));
+                    continue;
+                }
+                if (first != "open") throw new InvalidDataException("Expected native session open.");
                 lock (admission)
                 {
                     if (maintenance || stopping) throw new InvalidOperationException("Native control admission closed for maintenance.");
@@ -167,6 +180,20 @@ internal sealed class NativeControlBroker : IDisposable
             throw new InvalidOperationException("Native bridge still running; maintenance must remain blocked.");
     }
 
+    // Tray/daemon helper: pause, resume or query background fan control.
+    internal static int Background(string action)
+    {
+        if (action != "pause" && action != "resume" && action != "status") return 2;
+        using (var connection=BrokerTransport.Connect(PipeName))
+        {
+            var owner=(SecurityIdentifier)connection.GetAccessControl().GetOwner(typeof(SecurityIdentifier));
+            if (!owner.IsWellKnown(WellKnownSidType.LocalSystemSid) || !BrokerTransport.IsServiceServer(connection))
+                throw new InvalidOperationException("Control endpoint is not the registered SYSTEM service.");
+            BrokerTransport.Write(connection,Encoding.ASCII.GetBytes("background "+action+"\n"));
+            Console.WriteLine(BrokerTransport.ReadRecord(connection,12000,256)); Console.Out.Flush();
+            return 0;
+        }
+    }
     internal static int Relay()
     {
         using (var connection=BrokerTransport.Connect(PipeName))

@@ -6,7 +6,7 @@ import { BrandRing } from "@/components/brand";
 import { Banner, EmptyState } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { transport } from "@/lib/api/transport";
-import { useDaemon } from "@/lib/store/daemon";
+import { rpc, useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
 import { Sidebar } from "./Sidebar";
 import { SetupWizard } from "@/features/setup/SetupWizard";
@@ -48,8 +48,20 @@ function ServiceUnavailable({ error }: { error: string | null }) {
   );
 }
 
+/** Daemon pseudo-conflict while the user paused lighting (engine::PAUSED_BY_USER). */
+const PAUSED_BY_USER = "Paused by you";
+
 function Conflicts() {
-  const conflicts = useDaemon((s) => s.diagnostics?.conflicts);
+  const all = useDaemon((s) => s.diagnostics?.conflicts);
+  const paused = all?.includes(PAUSED_BY_USER) ?? false;
+  const conflicts = all?.filter((c) => c !== PAUSED_BY_USER);
+  if (paused)
+    return (
+      <Banner tone="info">
+        <span className="flex-1">Lighting is paused — your devices show their own hardware lighting. Fans are not affected.</span>
+        <Button size="sm" onClick={() => void rpc("lighting.pause", { paused: false })}>Resume lighting</Button>
+      </Banner>
+    );
   if (!conflicts?.length) return null;
   return (
     <Banner tone="warn">

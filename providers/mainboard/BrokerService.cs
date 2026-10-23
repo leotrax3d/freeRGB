@@ -36,6 +36,8 @@ internal sealed class BrokerService : ServiceBase
             var next = new BackgroundCooling();
             NativeControlBroker.SuspendBackground = next.Suspend;
             NativeControlBroker.ResumeBackground = next.Resume;
+            NativeControlBroker.PauseBackground = next.PauseAll;
+            NativeControlBroker.BackgroundPaused = delegate { return next.Paused; };
             next.Start();
             background = next;
         }

@@ -50,12 +50,12 @@ Name: english; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: startmenu; Description: "Startmenü-Verknüpfungen erstellen"; GroupDescription: "Verknüpfungen:"
 Name: desktopicon; Description: "Desktop-Verknüpfung erstellen"; GroupDescription: "Verknüpfungen:"; Flags: unchecked
-Name: autostart; Description: "freeRGB bei der Windows-Anmeldung starten"; GroupDescription: "Autostart:"
 
 [Files]
 Source: "{#BinDir}\freergb-launcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-gui.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-desktop.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BinDir}\freergb-tray.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergbd.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-mainboard.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb-keyboard-input.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -81,9 +81,9 @@ Name: "{group}\Uninstall freeRGB"; Filename: "{uninstallexe}"; Tasks: startmenu
 Name: "{autodesktop}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; Tasks: desktopicon
 
 [Registry]
-; Per-machine install: the daemon starts at every user's logon (HKLM Run).
-Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "freeRGB"; ValueData: """{app}\freergb-launcher.exe"" --daemon-only"; Tasks: autostart; Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "freeRGB"; Flags: deletevalue; Check: RemoveOwnedAutostart
+; Always: service and tray start at every user's sign-in, without the GUI
+; (fan curves already run from boot in the protected service).
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "freeRGB"; ValueData: """{app}\freergb-launcher.exe"" --daemon-only"; Flags: uninsdeletevalue
 
 [InstallDelete]
 Type: files; Name: "{group}\freeRGB.lnk"; Check: not WizardIsTaskSelected('startmenu')
@@ -97,6 +97,7 @@ Type: files; Name: "{autodesktop}\freeRGB.lnk"; Check: not WizardIsTaskSelected(
 Filename: "{app}\freergb-launcher.exe"; Flags: nowait runasoriginaluser skipifsilent
 
 [UninstallRun]
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM freergb-tray.exe /F"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopTray"
 Filename: "{app}\freergb.exe"; Parameters: "stop-installed-daemon --directory ""{app}"""; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopDaemon"
 
 [UninstallDelete]
@@ -105,16 +106,6 @@ Type: files; Name: "{app}\mainboard-install-result.json"
 Type: filesandordirs; Name: "{app}\providers\lhm-{#LhmVersion}"
 
 [Code]
-function RemoveOwnedAutostart: Boolean;
-var Value: String;
-begin
-  Result := False;
-  if not WizardIsTaskSelected('autostart') then
-    if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Run', 'freeRGB', Value) then
-      Result := (CompareText(Value, '"' + ExpandConstant('{app}\freergb-launcher.exe') + '"') = 0) or
-        (CompareText(Value, '"' + ExpandConstant('{app}\freergb-launcher.exe') + '" --daemon-only') = 0);
-end;
-
 #include "competitors.iss"
 #include "mainboard-prerequisites.iss"
 

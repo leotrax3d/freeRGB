@@ -548,6 +548,37 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 )),
             }
         }
+        "cooling.fans.pause" => params["paused"]
+            .as_bool()
+            .ok_or_else(|| invalid_params("paused:boolean required"))
+            .and_then(|paused| {
+                // Interactive session first (explicit firmware return), then the
+                // background channels in the protected service.
+                let helper = {
+                    let engine = lock(engine);
+                    if paused {
+                        let status = engine.cooling_sessions.status();
+                        if let Some(job) = status.job_id {
+                            let _ = engine.cooling_sessions.stop(job);
+                        }
+                    }
+                    engine.background.helper()
+                };
+                let helper = helper.ok_or_else(|| {
+                    (-32006, "Fan control requires the optional mainboard service".to_owned())
+                })?;
+                crate::background::set_paused(&helper, paused)
+                    .map(|state| json!({"paused": state}))
+                    .map_err(|e| (-32006, e))
+            }),
+        "lighting.status" => Ok(json!({"paused": lock(engine).lighting_paused()})),
+        "lighting.pause" => params["paused"]
+            .as_bool()
+            .ok_or_else(|| invalid_params("paused:boolean required"))
+            .map(|paused| {
+                let released = lock(engine).set_lighting_paused(paused);
+                json!({"paused": paused, "released": released})
+            }),
         "brightness.set" => params
             .get("value")
             .and_then(Value::as_f64)

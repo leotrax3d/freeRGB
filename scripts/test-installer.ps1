@@ -79,7 +79,7 @@ $daemon = $null
 $fixtureBrokerInstalled = $false
 try {
     Install-Test 'fresh-defaults' 'DEFAULT'
-    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','freergb-keyboard-input.exe','unins000.exe')) {
+    foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-tray.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','freergb-keyboard-input.exe','unins000.exe')) {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing installed file $file"
     }
     Assert-True (Test-Path -LiteralPath "$group/freeRGB.lnk") 'Start Menu should default on.'
@@ -102,9 +102,9 @@ try {
     $daemon = $null
     Assert-True (-not (Test-Path -LiteralPath "$group/freeRGB.lnk")) 'Deselected Start Menu shortcut remains.'
     Assert-True (Test-Path -LiteralPath $desktop) 'Selected desktop shortcut missing.'
-    Assert-True ($null -eq (Get-Startup)) 'Deselected startup entry remains.'
+    Assert-True ((Get-Startup) -eq ('"' + (Join-Path $app 'freergb-launcher.exe') + '" --daemon-only')) 'Service autostart must always stay registered.'
     $daemon = Start-Virtual $BinDir
-    Install-Test 'upgrade-other-copy-running' 'startmenu,autostart'
+    Install-Test 'upgrade-other-copy-running' 'startmenu'
     Assert-True (-not $daemon.HasExited) 'Setup stopped a daemon from another checkout.'
     & (Join-Path $BinDir 'freergb.exe') stop-installed-daemon --directory $BinDir
     Assert-True ($LASTEXITCODE -eq 0 -and $daemon.WaitForExit(10000)) 'Unrelated test daemon cleanup failed.'

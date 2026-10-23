@@ -338,8 +338,18 @@ internal sealed class BackgroundCooling : IDisposable
         while (target.Controller.State == "running" && deadline.ElapsedMilliseconds < 5000) Thread.Sleep(50);
         if (target.Controller.State == "running") throw new InvalidOperationException("Background channel did not release in time.");
     }
+    // User pause (tray): every channel returns to firmware until resumed.
+    private volatile bool paused;
+    internal bool Paused { get { return paused; } }
+    internal void PauseAll(bool pause)
+    {
+        paused = pause;
+        lock (gate) foreach (var c in channels) c.Suspended = pause;
+        WriteStatus(null);
+    }
     internal void Resume(string controlId)
     {
+        if (paused) return; // A user pause outlasts an interactive session.
         lock (gate) foreach (var c in channels) if (c.Config.ControlId == controlId) c.Suspended = false;
     }
     private void Run(Channel channel)
@@ -419,7 +429,7 @@ internal sealed class BackgroundCooling : IDisposable
                     entries.Add(new { control_id = c.Config.ControlId, tier = NativeTiers.Name(c.Config.Tier), state = c.Controller.State,
                         duty_percent = c.Controller.Duty, fault = c.Controller.Fault, warning = c.Controller.Warning });
             string path = Path.Combine(Root, StatusName), temporary = path + ".tmp";
-            File.WriteAllText(temporary, new JavaScriptSerializer().Serialize(new { version = 1, error = error, updated_utc = DateTime.UtcNow.ToString("o"), channels = entries }));
+            File.WriteAllText(temporary, new JavaScriptSerializer().Serialize(new { version = 1, error = error, paused = paused, updated_utc = DateTime.UtcNow.ToString("o"), channels = entries }));
             if (File.Exists(path)) File.Replace(temporary, path, null); else File.Move(temporary, path);
         }
         catch (IOException) { } catch (UnauthorizedAccessException) { }
