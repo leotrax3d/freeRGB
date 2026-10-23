@@ -136,8 +136,8 @@ internal static class MainboardMaintenance
             if (!String.Equals(System.Reflection.Assembly.GetExecutingAssembly().Location,BrokerTransport.ServicePath,StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Use the installed protected authorization service.");
             new BrokerRegistration(args[2]).ValidateOwner();
-            foreach (int index in new[] {3,4,5})
-                if (!System.Text.RegularExpressions.Regex.IsMatch(args[index],"^/lpc/[a-z0-9]+/[0-9]+/(control|temperature|fan)/[0-9]+$")) throw new ArgumentException("Invalid selected source identity.");
+            if (!NativeSources.IsChannel(args[3]) || !NativeSources.IsTemperatureList(args[4]) || !NativeSources.IsChannel(args[5]))
+                throw new ArgumentException("Invalid selected source identity.");
             int critical,minimum;
             if (!Int32.TryParse(args[6],out critical) || critical < 40 || critical > 100 ||
                 !Int32.TryParse(args[7],out minimum) || minimum < (args.Length == 10 ? 0 : 40) || minimum > 100) throw new ArgumentException("Invalid native control limits.");

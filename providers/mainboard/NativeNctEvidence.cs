@@ -28,6 +28,57 @@ internal static class NativeIsa
         try { action(); }
         finally { release.Invoke(null,null); }
     }
+    // Several temperature sources (hottest wins). Sources on the control's own
+    // chip are read inside the checked ISA refresh; CPU/GPU sources are refreshed
+    // through their own LHM hardware (their own bus locks). A missing or
+    // unreadable source throws: the independent guard then expires.
+    internal static void ReadSources(object control, string[] temperatureIds, string rpmId, Func<string,object> find, out double temperature, out double rpm)
+    {
+        if (temperatureIds.Length == 1 && find == null)
+        {
+            ReadTelemetry(control,temperatureIds[0],rpmId,out temperature,out rpm);
+            return;
+        }
+        object selected = control.GetType().GetProperty("Sensor").GetValue(control,null);
+        object hardware = selected.GetType().GetProperty("Hardware").GetValue(selected,null);
+        string chip = hardware.GetType().GetProperty("Identifier").GetValue(hardware,null).ToString() + "/";
+        double hottest = Double.NegativeInfinity, rpmValue = 0;
+        bool rpmFound = false;
+        var onChip = new List<string>();
+        foreach (string id in temperatureIds) if (id.StartsWith(chip,StringComparison.Ordinal)) onChip.Add(id);
+        Locked(control.GetType().Assembly,"Trusted telemetry",delegate {
+            hardware.GetType().GetMethod("Update",Type.EmptyTypes).Invoke(hardware,null);
+            foreach (object sensor in (System.Collections.IEnumerable)hardware.GetType().GetProperty("Sensors").GetValue(hardware,null))
+            {
+                string id=sensor.GetType().GetProperty("Identifier").GetValue(sensor,null).ToString();
+                string kind=sensor.GetType().GetProperty("SensorType").GetValue(sensor,null).ToString();
+                object raw=sensor.GetType().GetProperty("Value").GetValue(sensor,null);
+                if (id == rpmId && kind == "Fan" && raw != null) { rpmValue=Convert.ToDouble(raw); rpmFound=true; }
+                if (onChip.Contains(id) && kind == "Temperature")
+                {
+                    if (raw == null) throw new InvalidOperationException("Selected native telemetry is unavailable.");
+                    hottest=Math.Max(hottest,Convert.ToDouble(raw));
+                    onChip.Remove(id);
+                }
+            }
+        });
+        if (!rpmFound || onChip.Count != 0) throw new InvalidOperationException("Selected native temperature/RPM identities are not available.");
+        foreach (string id in temperatureIds)
+        {
+            if (id.StartsWith(chip,StringComparison.Ordinal)) continue;
+            object sensor = find == null ? null : find(id);
+            if (sensor == null) throw new InvalidOperationException("Selected temperature source is not available.");
+            object owner = sensor.GetType().GetProperty("Hardware").GetValue(sensor,null);
+            owner.GetType().GetMethod("Update",Type.EmptyTypes).Invoke(owner,null);
+            object raw = sensor.GetType().GetProperty("Value").GetValue(sensor,null);
+            if (raw == null || sensor.GetType().GetProperty("SensorType").GetValue(sensor,null).ToString() != "Temperature")
+                throw new InvalidOperationException("Selected temperature source is unavailable.");
+            hottest=Math.Max(hottest,Convert.ToDouble(raw));
+        }
+        temperature=hottest; rpm=rpmValue;
+        if (Double.IsNaN(temperature) || Double.IsInfinity(temperature) || Double.IsNaN(rpm) || Double.IsInfinity(rpm))
+            throw new InvalidOperationException("Nonfinite native telemetry.");
+    }
     // A successful, checked ISA acquisition surrounds the entire LHM refresh.
     // Without this, its silent lock-failure path can relabel cached data as fresh.
     internal static void ReadTelemetry(object control, string temperatureId, string rpmId, out double temperature, out double rpm)

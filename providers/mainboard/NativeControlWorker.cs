@@ -11,7 +11,7 @@ using System.Web.Script.Serialization;
 #if NATIVE_CONTROL_WORKER
 internal static class NativeControlWorker
 {
-    internal static int Run(object control, string pipeName, string encoded)
+    internal static int Run(object control, string pipeName, string encoded, Func<string,object> findTemperature)
     {
         BrokerService.CheckInstallation(true);
         if (!System.Text.RegularExpressions.Regex.IsMatch(pipeName,"^freergb-control-worker-[a-f0-9]{32}$")) throw new InvalidDataException("Invalid private pipe name.");
@@ -28,6 +28,10 @@ internal static class NativeControlWorker
         NativeAuthorizationRules.Validate(binding,minimum,out tier,out pump,out pumpUnlocked);
         string temperatureId=(string)binding["temperature_id"], rpmId=(string)binding["rpm_id"];
         if (temperatureId.Length > 512 || rpmId.Length > 512) throw new InvalidDataException("Sensor identity too large.");
+        // One SuperIO source keeps the original (verified) path; otherwise CPU/GPU
+        // and mixed (hottest-of) sources are read by NativeIsa.ReadSources.
+        string[] temperatures = NativeSources.Temperatures(temperatureId);
+        bool single = temperatures.Length == 1 && temperatures[0].StartsWith("/lpc/",StringComparison.Ordinal);
         bool legacy = !binding.ContainsKey("tier");
         // The legacy/verified path is unchanged: register evidence is mandatory.
         var native=legacy ? NativeControl.CreateCommissioningProtected(control,minimum) : NativeControl.CreateTieredProtected(control,pump,minimum,tier,pumpUnlocked);
@@ -37,8 +41,9 @@ internal static class NativeControlWorker
         Action sample=delegate {
             long acquired=clock.ElapsedMilliseconds;
             double celsius,rpm;
-            if (evidence != null) evidence.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
-            else NativeIsa.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
+            if (single && evidence != null) evidence.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
+            else if (single) NativeIsa.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
+            else NativeIsa.ReadSources(control,temperatures,rpmId,findTemperature,out celsius,out rpm);
             guard.Observe(clock.ElapsedMilliseconds,acquired,celsius,rpm);
         };
         sample(); // Validated fresh data before any acquisition.

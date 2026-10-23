@@ -182,8 +182,9 @@ internal sealed class BackgroundChannelConfig
                 RpmId = value.ContainsKey("rpm_id") ? value["rpm_id"] as string : null,
             };
             string hardware = Base(config.ControlId,"control");
-            if (Base(config.TemperatureId,"temperature") != hardware || Base(config.RpmId,"fan") != hardware)
-                throw new InvalidDataException("Temperature and RPM must be on the control's hardware.");
+            if (Base(config.RpmId,"fan") != hardware)
+                throw new InvalidDataException("The RPM sensor must be on the control's hardware.");
+            NativeSources.Temperatures(config.TemperatureId); // SuperIO, CPU or GPU; up to three, hottest wins.
             if (!seen.Add(config.ControlId)) throw new InvalidDataException("Duplicate background channel.");
             if (!(value.ContainsKey("floor_percent") && value["floor_percent"] is int) || !(value.ContainsKey("critical_c") && value["critical_c"] is int))
                 throw new InvalidDataException("Background floor/critical must be integers.");

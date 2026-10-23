@@ -113,6 +113,12 @@ internal static class BackgroundCoolingTests
             "{\"version\":2,\"channels\":[]}",
             "not json" })
             Reject(delegate { BackgroundChannelConfig.ParseAll(bad); },"Unsafe background configuration accepted: " + bad);
+        // CPU/GPU and mixed (hottest-of) temperature sources.
+        BackgroundChannelConfig.ParseAll(Config(Channel("",40,"verified","fan").Replace("/lpc/it8689e/0/temperature/0","/amdcpu/0/temperature/2,/gpu-nvidia/0/temperature/0,/lpc/it8689e/0/temperature/0")));
+        Assert(NativeSources.Temperatures("/intelcpu/0/temperature/5").Length == 1 && NativeSources.IsTemperatureList("/gpu-intel-integrated/0/temperature/0"),"CPU/GPU temperature sources rejected.");
+        foreach (string bad in new[] { "", "/amdcpu/0/temperature/1,/amdcpu/0/temperature/1", "/a/0/temperature/1", "/amdcpu/0/load/1", "/amdcpu/0/temperature/1,/amdcpu/0/temperature/2,/amdcpu/0/temperature/3,/amdcpu/0/temperature/4" })
+            Assert(!NativeSources.IsTemperatureList(bad),"Unsafe temperature source accepted: " + bad);
+        Assert(!NativeSources.IsChannel("/amdcpu/0/fan/1") && NativeSources.IsChannel("/lpc/nct6701d/0/fan/2"),"Fan/control identities must stay SuperIO.");
         var many = new List<string>();
         for (int i = 0; i < 9; i++) many.Add(Channel("",40,"verified","fan").Replace("control/1","control/" + i));
         Reject(delegate { BackgroundChannelConfig.ParseAll(Config(many.ToArray())); },"More than eight background channels accepted.");

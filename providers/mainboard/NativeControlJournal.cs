@@ -48,6 +48,28 @@ internal static class NativeAuthorizationRules
 }
 // Small protected state files next to the journal (SYSTEM writers only).
 // Boot-bound lists expire with the Windows boot they were written in.
+// Temperature sources for fan curves: SuperIO, CPU or GPU sensors. A list of
+// up to three ("a,b,c") means "the hottest of them" (mixed curve source).
+internal static class NativeSources
+{
+    private static readonly System.Text.RegularExpressions.Regex Control = new System.Text.RegularExpressions.Regex("^/lpc/[a-z0-9]+/[0-9]+/(control|fan)/[0-9]+$");
+    private static readonly System.Text.RegularExpressions.Regex Temperature = new System.Text.RegularExpressions.Regex("^/(lpc/[a-z0-9]+|amdcpu|intelcpu|gpu-[a-z]+(-[a-z]+)*)/[0-9]+/temperature/[0-9]+$");
+    internal static bool IsChannel(string id) { return id != null && id.Length <= 128 && Control.IsMatch(id); }
+    internal static string[] Temperatures(string list)
+    {
+        if (list == null || list.Length > 400) throw new InvalidDataException("Invalid temperature sources.");
+        var parts = list.Split(',');
+        var seen = new HashSet<string>();
+        if (parts.Length < 1 || parts.Length > 3) throw new InvalidDataException("One to three temperature sources required.");
+        foreach (string part in parts)
+            if (part.Length > 128 || !Temperature.IsMatch(part) || !seen.Add(part)) throw new InvalidDataException("Invalid temperature source identity.");
+        return parts;
+    }
+    internal static bool IsTemperatureList(string list)
+    {
+        try { Temperatures(list); return true; } catch (InvalidDataException) { return false; }
+    }
+}
 internal static class NativeStateFile
 {
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]

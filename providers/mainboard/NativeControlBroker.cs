@@ -85,9 +85,11 @@ internal sealed class NativeControlBroker : IDisposable
         if (!(value["expires_utc"] is string) || !DateTime.TryParseExact((string)value["expires_utc"],"o",System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.RoundtripKind,out expiry) || expiry.Kind != DateTimeKind.Utc || expiry <= DateTime.UtcNow || expiry > DateTime.UtcNow.AddMinutes(5))
             throw new InvalidDataException("Commissioning authorization expired or invalid.");
-        foreach (string key in new[] { "control_id","temperature_id","rpm_id" })
-            if (!(value[key] is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)value[key],"^/lpc/[a-z0-9]+/[0-9]+/(control|temperature|fan)/[0-9]+$"))
+        foreach (string key in new[] { "control_id","rpm_id" })
+            if (!(value[key] is string) || !NativeSources.IsChannel((string)value[key]))
                 throw new InvalidDataException("Invalid authorized native source identity.");
+        if (!(value["temperature_id"] is string) || !NativeSources.IsTemperatureList((string)value["temperature_id"]))
+            throw new InvalidDataException("Invalid authorized temperature source.");
         return value;
     }
     private void Serve()
@@ -305,8 +307,7 @@ internal sealed class NativeControlBroker : IDisposable
     {
         // Legacy: control temperature rpm critical minimum. Tiered appends: tier role.
         if (args.Length != 6 && args.Length != 8) return 2;
-        foreach(int index in new[] {1,2,3})
-            if (!System.Text.RegularExpressions.Regex.IsMatch(args[index],"^/lpc/[a-z0-9]+/[0-9]+/(control|temperature|fan)/[0-9]+$")) return 2;
+        if (!NativeSources.IsChannel(args[1]) || !NativeSources.IsTemperatureList(args[2]) || !NativeSources.IsChannel(args[3])) return 2;
         int critical,minimum;
         if (!Int32.TryParse(args[4],out critical) || critical < 40 || critical > 100 ||
             !Int32.TryParse(args[5],out minimum) || minimum < (args.Length == 8 ? 0 : 40) || minimum > 100) return 2;

@@ -199,11 +199,10 @@ impl StartRequest {
             Some(base.into())
         };
         let base = sensor(&self.control_id, "control").ok_or("Invalid native control identity")?;
-        if sensor(&self.temperature_id, "temperature").as_ref() != Some(&base)
-            || sensor(&self.rpm_id, "fan").as_ref() != Some(&base)
-        {
-            return Err("Exact temperature/RPM on the same native hardware required".into());
+        if sensor(&self.rpm_id, "fan").as_ref() != Some(&base) {
+            return Err("The RPM sensor must be on the same native hardware as the control".into());
         }
+        temperature_sources(&self.temperature_id)?;
         match self.mode.as_str() {
             "curve" if self.critical_c.is_none() => {
                 let curve = self.curve.clone().ok_or("Curve required")?;
@@ -265,6 +264,46 @@ impl StartRequest {
         }
     }
 }
+/// Curve temperature sources: one to three SuperIO, CPU or GPU temperatures
+/// ("a,b,c"); the protected worker uses the hottest. Mirrors `NativeSources`.
+pub fn temperature_sources(list: &str) -> Result<Vec<&str>, String> {
+    let parts: Vec<&str> = list.split(',').collect();
+    let valid = |id: &str| {
+        let Some(rest) = id.strip_prefix('/') else {
+            return false;
+        };
+        let segments: Vec<&str> = rest.split('/').collect();
+        let tail_ok = |instance: &str, kind: &str, index: &str| {
+            instance.parse::<u16>().is_ok() && kind == "temperature" && index.parse::<u16>().is_ok()
+        };
+        let name_ok = |name: &str| {
+            !name.is_empty()
+                && name
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        };
+        id.len() <= 128
+            && match segments.as_slice() {
+                ["lpc", chip, instance, kind, index] => {
+                    name_ok(chip) && tail_ok(instance, kind, index)
+                }
+                ["amdcpu" | "intelcpu", instance, kind, index] => tail_ok(instance, kind, index),
+                [gpu, instance, kind, index] if gpu.starts_with("gpu-") => {
+                    gpu[4..]
+                        .split('-')
+                        .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_lowercase()))
+                        && tail_ok(instance, kind, index)
+                }
+                _ => false,
+            }
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    if !(1..=3).contains(&parts.len()) || parts.iter().any(|p| !valid(p) || !seen.insert(*p)) {
+        return Err("Choose one to three temperature sources (motherboard, CPU or GPU)".into());
+    }
+    Ok(parts)
+}
+
 #[derive(Clone, Serialize)]
 pub struct Status {
     pub available: bool,
@@ -754,6 +793,33 @@ mod tests {
         curve.critical_c = None;
         curve.curve = Some(FanCurve::default());
         assert!(curve.plan(&SessionPolicy::legacy()).is_err());
+    }
+
+    #[test]
+    fn temperature_sources_accept_cpu_gpu_and_hottest_of_lists() {
+        assert!(temperature_sources("/amdcpu/0/temperature/2").is_ok());
+        assert_eq!(
+            temperature_sources("/lpc/nct6701d/0/temperature/1,/gpu-nvidia/0/temperature/0")
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(temperature_sources("/gpu-intel-integrated/0/temperature/0").is_ok());
+        for bad in [
+            "",
+            "/amdcpu/0/load/1",
+            "/x/0/temperature/1",
+            "/amdcpu/0/temperature/1,/amdcpu/0/temperature/1",
+            "/amdcpu/0/temperature/1,/amdcpu/0/temperature/2,/amdcpu/0/temperature/3,/amdcpu/0/temperature/4",
+        ] {
+            assert!(temperature_sources(bad).is_err(), "{bad}");
+        }
+        let mut r = request();
+        r.temperature_id = "/intelcpu/0/temperature/0".into();
+        assert!(r.validate().is_ok(), "CPU temperature with a SuperIO fan");
+        let mut r = request();
+        r.rpm_id = "/lpc/nct6701d/1/fan/2".into();
+        assert!(r.validate().is_err(), "RPM must stay on the control chip");
     }
 
     #[test]

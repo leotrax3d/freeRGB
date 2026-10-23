@@ -167,3 +167,15 @@ a supervision fault no longer drops the transport: the runtime sends `close` (10
 then the worker's owned firmware return) and reports `fault`; a worker-side fault
 return is accepted as such. Verified workers keep the previous hold-100%/recovery
 behaviour. Reports add `tier`, `return_evidence`, `fault`, `warning`.
+
+## CPU/GPU and mixed temperature sources (2026-10-23)
+
+Curves may use CPU (`/amdcpu/…`, `/intelcpu/…`) and GPU (`/gpu-…`) temperatures
+in addition to SuperIO sensors; up to three sources can be combined and the
+hottest one drives the curve (FanControl-style "max" mix). The protected service
+now enables LHM's CPU and GPU groups (read-only). One SuperIO source keeps the
+original checked path; other sources are refreshed through their own LHM
+hardware inside the worker, and any missing or unreadable source stops the
+fresh samples so the independent guard returns the channel. The RPM sensor must
+stay on the control's chip. Validation: `NativeSources` (C#) and
+`cooling_sessions::temperature_sources` (Rust).

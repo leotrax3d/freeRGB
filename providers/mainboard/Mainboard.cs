@@ -96,6 +96,9 @@ internal static class Mainboard
         // Default Computer settings are memory-only. No persisted control settings
         // are loaded. Only motherboard/SuperIO groups are enabled, never USB/GPU.
         computer.GetType().GetProperty("IsMotherboardEnabled").SetValue(computer, true, null);
+        // CPU and GPU temperatures (read-only) as fan-curve sources.
+        computer.GetType().GetProperty("IsCpuEnabled").SetValue(computer, true, null);
+        computer.GetType().GetProperty("IsGpuEnabled").SetValue(computer, true, null);
         Invoke(computer, "Open");
         return null;
     }
@@ -287,6 +290,13 @@ internal static class Mainboard
 #endif
     }
 #if NATIVE_CONTROL_WORKER
+    private static void FindSensor(object hardware, string id, string type, List<object> matches, int depth)
+    {
+        if (depth > 16) throw new InvalidDataException("Hardware tree depth exceeded.");
+        foreach (object sensor in (IEnumerable)Get(hardware,"Sensors"))
+            if (Get(sensor,"SensorType").ToString() == type && Get(sensor,"Identifier").ToString() == id) matches.Add(sensor);
+        foreach (object child in (IEnumerable)Get(hardware,"SubHardware")) FindSensor(child,id,type,matches,depth+1);
+    }
     private static void FindControl(object hardware, string id, List<object> matches, int depth)
     {
         if (depth > 16) throw new InvalidDataException("Hardware tree depth exceeded.");
@@ -327,7 +337,12 @@ internal static class Mainboard
             var controls=new List<object>();
             foreach (object hardware in (IEnumerable)Get(computer,"Hardware")) FindControl(hardware,args[2],controls,0);
             if (controls.Count != 1) throw new InvalidOperationException("Control identity is not unique.");
-            return NativeControlWorker.Run(Get(controls[0],"Control"),args[1],args[3]);
+            Func<string,object> findTemperature = delegate(string id) {
+                var found=new List<object>();
+                foreach (object hardware in (IEnumerable)Get(computer,"Hardware")) FindSensor(hardware,id,"Temperature",found,0);
+                return found.Count == 1 ? found[0] : null;
+            };
+            return NativeControlWorker.Run(Get(controls[0],"Control"),args[1],args[3],findTemperature);
         }
 #endif
         if (args.Length == 1 && args[0] == "--self-test")
