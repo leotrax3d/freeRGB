@@ -181,6 +181,10 @@ jobs:
             node scripts/openrgb/port-annepro2-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-annepro2
             git diff --exit-code -- modules/annepro2/src/devices_table.rs modules/annepro2/src/led_names.rs
+          elif [ "$MODULE" = "fnatic-streak" ]; then
+            node scripts/openrgb/port-fnatic-streak-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-fnatic-streak
+            git diff --exit-code -- modules/fnatic-streak/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1

@@ -45,6 +45,7 @@ members = [
     "modules/hyperx-mouse",
     "modules/areson",
     "modules/annepro2",
+    "modules/fnatic-streak",
 ]
 
 [workspace.package]
