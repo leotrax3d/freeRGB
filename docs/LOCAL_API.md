@@ -534,3 +534,11 @@ accepts `{ "type": "marketplace", "id": "aurora", "version": "1.0.0",
 normal state/profiles and resolved from verified installed packages on restart.
 See [the marketplace API and security contract](EFFECT_MARKETPLACE.md) for job
 completion, ABI, installation, permissions and error behavior.
+
+## Linux hwmon fan control (additive, 2026-10-24)
+
+`cooling.hwmon.get`, `cooling.hwmon.set` and `cooling.hwmon.release` control
+motherboard fan headers through the Linux kernel hwmon drivers. Parameters,
+limits and recovery behaviour: [COOLING_LINUX_HWMON.md](COOLING_LINUX_HWMON.md).
+The provider `mainboard.hwmon` is appended to `cooling.providers.list`, its
+channels to `cooling.channels.list` and its readings to `monitoring.sensors.list`.

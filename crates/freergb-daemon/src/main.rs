@@ -44,10 +44,12 @@ struct Args {
     /// Allow user-triggered macros to send text/keys to the foreground app.
     #[arg(long)]
     enable_input_macros: bool,
-    /// Opt in to experimental ASUS Aura motherboard RGB/ARGB USB control (not fans).
+    /// Test override: open ASUS Aura motherboard RGB even when vendor software
+    /// runs or management is switched off, with the LED counts below instead of
+    /// the saved device settings. Normally motherboard RGB is configured in the GUI.
     #[arg(long)]
     enable_asus_aura: bool,
-    /// Manual LED counts for four ARGB headers; zero disables that header.
+    /// Override LED counts for four ARGB headers; zero disables that header.
     #[arg(long, default_value="0,0,0,0", value_parser=parse_argb_counts, requires="enable_asus_aura")]
     asus_argb_leds: [u16; 4],
     #[arg(
@@ -74,6 +76,9 @@ struct Args {
     /// Neither restore nor save effect/brightness.
     #[arg(long)]
     no_state: bool,
+    /// Do not read or control Linux hwmon motherboard fan headers.
+    #[arg(long)]
+    no_hwmon: bool,
     /// Also drive the Corsair iCUE LINK hub (fans/AIO lighting). Keeps the hub in
     /// software mode while running; an RPM watchdog returns it to hardware mode
     /// on any fan or pump slowdown.
@@ -203,6 +208,26 @@ fn main() -> Result<()> {
             engine = engine.with_state_file(path);
         }
     }
+    #[cfg(target_os = "linux")]
+    if !args.no_hardware && !args.no_hwmon {
+        // Kernel hwmon: reading is passive; headers are written only after an
+        // explicit assignment (cooling.hwmon.set) or a saved one for this board.
+        let root = std::env::var_os("FREERGB_HWMON_ROOT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| "/sys/class/hwmon".into());
+        let state_dir = (!args.no_state)
+            .then(state::default_path)
+            .flatten()
+            .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+        engine.hwmon =
+            freergb_daemon::hwmon::HwmonProvider::new(root, "/sys/class/dmi/id".into(), state_dir);
+        engine
+            .hwmon
+            .set_unrestricted(engine.fan_support.config.unrestricted_enabled);
+        if let Err(error) = engine.hwmon.start(true) {
+            tracing::warn!(%error, "Linux hwmon fan provider unavailable");
+        }
+    }
     let manifests = args
         .plugins
         .iter()
@@ -295,9 +320,14 @@ fn render_loop(
 ) {
     let period = Duration::from_secs_f64(1.0 / f64::from(lock(&engine).target_fps()));
     let mut last_scan = Instant::now();
+    let mut last_resume = Instant::now();
     while !stop.load(Ordering::SeqCst) {
         let t0 = Instant::now();
         lock(&engine).tick(t0);
+        if last_resume.elapsed() >= Duration::from_secs(1) {
+            last_resume = Instant::now();
+            lock(&engine).resume_cooling();
+        }
         if let Some(every) = rescan {
             let requested = lock(&engine)
                 .modules

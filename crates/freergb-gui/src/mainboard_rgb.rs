@@ -1,0 +1,258 @@
+//! RPC-only motherboard RGB settings: global switch, LED count and name per
+//! ARGB header. Validation and device handling live in the daemon
+//! (`mainboard_rgb.get`/`mainboard_rgb.save`, docs/MAINBOARD_RGB.md).
+use super::{Command, Snapshot};
+use eframe::egui;
+use serde_json::{json, Map, Value};
+
+/// Driven controller families: (vid, pids, ARGB headers, label).
+const FAMILIES: &[(u64, &[u64], usize, &str)] = &[
+    (
+        0x0b05,
+        &[0x18f3, 0x1939, 0x19af, 0x1aa6, 0x1bed],
+        4,
+        "ASUS Aura",
+    ),
+    (0x048d, &[0x5702, 0x8297], 2, "Gigabyte RGB Fusion 2"),
+    (0x26ce, &[0x01a2, 0x01a6], 3, "ASRock Polychrome"),
+];
+
+/// Controllers to show: detected motherboard devices plus saved keys, sorted.
+pub fn controllers(
+    devices: &[Value],
+    saved: &Map<String, Value>,
+) -> Vec<(String, &'static str, usize, bool)> {
+    let mut out: Vec<(String, &'static str, usize, bool)> = Vec::new();
+    for device in devices {
+        let (Some(vid), Some(pid)) = (
+            device["info"]["usb_vid"].as_u64(),
+            device["info"]["usb_pid"].as_u64(),
+        ) else {
+            continue;
+        };
+        if let Some((_, _, headers, label)) = FAMILIES
+            .iter()
+            .find(|(v, p, _, _)| *v == vid && p.contains(&pid))
+        {
+            let key = format!("{vid:04x}:{pid:04x}");
+            if !out.iter().any(|c| c.0 == key) {
+                out.push((key, label, *headers, true));
+            }
+        }
+    }
+    for key in saved.keys() {
+        if out.iter().any(|c| &c.0 == key) {
+            continue;
+        }
+        let ids: Vec<u64> = key
+            .split(':')
+            .filter_map(|x| u64::from_str_radix(x, 16).ok())
+            .collect();
+        let family = FAMILIES
+            .iter()
+            .find(|(v, p, _, _)| ids.len() == 2 && *v == ids[0] && p.contains(&ids[1]));
+        out.push((
+            key.clone(),
+            family.map_or("Controller", |f| f.3),
+            family.map_or(4, |f| f.2),
+            false,
+        ));
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+/// Sets one header in `settings`, padding the list; counts clamped, blank names dropped.
+pub fn set_header(settings: &mut Value, key: &str, index: usize, leds: u16, name: &str, max: u16) {
+    if !settings["controllers"].is_object() {
+        settings["controllers"] = json!({});
+    }
+    let list = settings["controllers"]
+        .as_object_mut()
+        .expect("object")
+        .entry(key.to_owned())
+        .or_insert_with(|| json!([]));
+    if !list.is_array() {
+        *list = json!([]);
+    }
+    let list = list.as_array_mut().expect("array");
+    while list.len() <= index {
+        list.push(json!({"leds": 0}));
+    }
+    let name: String = name.trim().chars().take(40).collect();
+    list[index] = if name.is_empty() {
+        json!({"leds": leds.min(max)})
+    } else {
+        json!({"leds": leds.min(max), "name": name})
+    };
+}
+
+#[derive(Default)]
+pub struct MainboardRgbPanel {
+    draft: Option<Value>,
+    dirty: bool,
+    fans: u16,
+}
+
+impl MainboardRgbPanel {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        snapshot: &Snapshot,
+        tx: &std::sync::mpsc::Sender<Command>,
+    ) {
+        let state = &snapshot.control["mainboard_rgb"];
+        if !state["settings"].is_object() {
+            ui.label("Motherboard RGB settings require an updated daemon.");
+            return;
+        }
+        if !self.dirty {
+            self.draft = Some(state["settings"].clone());
+        }
+        let max = state["max_leds"].as_u64().unwrap_or(512) as u16;
+        let presets: Vec<u16> = state["fan_presets"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_u64())
+                    .map(|v| v as u16)
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.fans = self.fans.max(1);
+        let draft = self.draft.get_or_insert_with(|| state["settings"].clone());
+        let mut enabled = draft["enabled"].as_bool().unwrap_or(true);
+        if ui
+            .checkbox(&mut enabled, "Manage motherboard RGB (ARGB/RGB headers)")
+            .changed()
+        {
+            draft["enabled"] = json!(enabled);
+            self.dirty = true;
+        }
+        if let Some(vendors) = state["vendor_software"]
+            .as_array()
+            .filter(|v| !v.is_empty())
+        {
+            let names: Vec<&str> = vendors.iter().filter_map(Value::as_str).collect();
+            ui.colored_label(
+                egui::Color32::YELLOW,
+                format!("{} is running and controls the motherboard lighting; freeRGB leaves it alone until it is closed.", names.join(", ")),
+            );
+        }
+        if let Some(error) = state["error"].as_str() {
+            ui.colored_label(egui::Color32::LIGHT_RED, error);
+        }
+        if enabled {
+            let saved = draft["controllers"]
+                .as_object()
+                .cloned()
+                .unwrap_or_default();
+            let list = controllers(&snapshot.devices, &saved);
+            if list.is_empty() {
+                ui.label("No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB).");
+            }
+            for (key, label, headers, detected) in list {
+                ui.group(|ui| {
+                    ui.label(format!(
+                        "{label} · {key}{}",
+                        if detected { "" } else { " · not detected" }
+                    ));
+                    for index in 0..headers {
+                        let header = &draft["controllers"][&key][index];
+                        let mut leds = header["leds"].as_u64().unwrap_or(0) as u16;
+                        let mut name = header["name"].as_str().unwrap_or("").to_owned();
+                        let mut changed = false;
+                        ui.horizontal(|ui| {
+                            ui.label(format!("ARGB {}", index + 1));
+                            changed |= ui
+                                .add(
+                                    egui::TextEdit::singleline(&mut name)
+                                        .hint_text(format!("ARGB header {}", index + 1))
+                                        .desired_width(140.0)
+                                        .char_limit(40),
+                                )
+                                .changed();
+                            changed |= ui
+                                .add(
+                                    egui::DragValue::new(&mut leds)
+                                        .range(0..=max)
+                                        .suffix(" LEDs"),
+                                )
+                                .changed();
+                            ui.small("Fan preset:");
+                            for per in &presets {
+                                if ui
+                                    .small_button(format!(
+                                        "{}{per}",
+                                        if self.fans > 1 {
+                                            format!("{}×", self.fans)
+                                        } else {
+                                            String::new()
+                                        }
+                                    ))
+                                    .clicked()
+                                {
+                                    leds = per.saturating_mul(self.fans);
+                                    changed = true;
+                                }
+                            }
+                        });
+                        if changed {
+                            set_header(draft, &key, index, leds, &name, max);
+                            self.dirty = true;
+                        }
+                    }
+                });
+            }
+            ui.horizontal(|ui| {
+                ui.label("Fans chained per header for presets");
+                ui.add(egui::DragValue::new(&mut self.fans).range(1..=8));
+            });
+        }
+        ui.horizontal(|ui| {
+            if ui
+                .add_enabled(self.dirty, egui::Button::new("Save"))
+                .clicked()
+            {
+                let _ = tx.send(Command {
+                    method: "mainboard_rgb.save",
+                    params: json!({"settings": draft}),
+                });
+                self.dirty = false;
+            }
+            if self.dirty && ui.button("Discard").clicked() {
+                self.dirty = false;
+            }
+        });
+        ui.small("Headers with 0 LEDs keep their firmware effect. Lighting returns to the firmware effect when freeRGB stops.");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lists_detected_and_saved_controllers_and_edits_headers() {
+        let devices = vec![
+            json!({"info": {"usb_vid": 0x0b05, "usb_pid": 0x19af}}),
+            json!({"info": {"usb_vid": 0x1b1c, "usb_pid": 0x1bfd}}),
+        ];
+        let mut settings = json!({"enabled": true, "controllers": {"048d:5702": [{"leds": 16}]}});
+        let list = controllers(&devices, settings["controllers"].as_object().unwrap());
+        assert_eq!(
+            list,
+            vec![
+                ("048d:5702".to_owned(), "Gigabyte RGB Fusion 2", 2, false),
+                ("0b05:19af".to_owned(), "ASUS Aura", 4, true),
+            ]
+        );
+        set_header(&mut settings, "0b05:19af", 2, 700, "  Front fans ", 512);
+        assert_eq!(
+            settings["controllers"]["0b05:19af"],
+            json!([{"leds": 0}, {"leds": 0}, {"leds": 512, "name": "Front fans"}])
+        );
+        set_header(&mut settings, "0b05:19af", 2, 8, " ", 512);
+        assert_eq!(settings["controllers"]["0b05:19af"][2], json!({"leds": 8}));
+    }
+}

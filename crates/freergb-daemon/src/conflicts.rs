@@ -15,13 +15,50 @@ const KNOWN: &[(&str, &str)] = &[
     ("openrgb", "OpenRGB"),
 ];
 
+/// Motherboard vendor lighting software (lower case image names). While one
+/// runs freeRGB does not open motherboard RGB controllers and shows a warning;
+/// other devices keep working.
+const MAINBOARD_VENDORS: &[(&str, &str)] = &[
+    ("armourycrate.exe", "ASUS Armoury Crate"),
+    ("armourycrate.service.exe", "ASUS Armoury Crate"),
+    ("armourycrateservice.exe", "ASUS Armoury Crate"),
+    ("lightingservice.exe", "ASUS Aura Lighting Service"),
+    ("msi center.exe", "MSI Center"),
+    ("msi.centralserver.exe", "MSI Center"),
+    ("mysticlight.exe", "MSI Mystic Light"),
+    ("mystic_light_service.exe", "MSI Mystic Light"),
+    ("rgbfusion.exe", "Gigabyte RGB Fusion"),
+    ("rgbfusion2.exe", "Gigabyte RGB Fusion"),
+    ("gigabytecontrolcenter.exe", "Gigabyte Control Center"),
+    ("polychromergb.exe", "ASRock Polychrome RGB"),
+];
+
+/// Motherboard vendor lighting products among `processes`, sorted and de-duplicated.
+pub fn mainboard_vendors_in<'a>(processes: impl IntoIterator<Item = &'a str>) -> Vec<&'static str> {
+    lookup(MAINBOARD_VENDORS, processes)
+}
+
+/// Currently running motherboard vendor lighting software.
+pub fn mainboard_vendors_running() -> Vec<&'static str> {
+    process_names()
+        .map(|names| mainboard_vendors_in(names.iter().map(String::as_str)))
+        .unwrap_or_default()
+}
+
 /// Products of `processes` (image names) that conflict, sorted and de-duplicated.
 pub fn find_in<'a>(processes: impl IntoIterator<Item = &'a str>) -> Vec<&'static str> {
+    lookup(KNOWN, processes)
+}
+
+fn lookup<'a>(
+    table: &[(&str, &'static str)],
+    processes: impl IntoIterator<Item = &'a str>,
+) -> Vec<&'static str> {
     let mut found: Vec<&'static str> = processes
         .into_iter()
         .filter_map(|p| {
             let p = p.trim().to_lowercase();
-            KNOWN
+            table
                 .iter()
                 .find(|(name, _)| p == *name)
                 .map(|(_, product)| *product)
@@ -105,5 +142,25 @@ mod tests {
     fn service_alone_is_not_a_conflict() {
         assert!(find_in(["SignalRgbService.exe", "explorer.exe", "freergbd.exe"]).is_empty());
         assert_eq!(find_in(["openrgb"]), vec!["OpenRGB"]);
+    }
+
+    #[test]
+    fn mainboard_vendor_software_is_a_warning_not_a_global_conflict() {
+        let running = [
+            "ArmouryCrate.exe",
+            "LightingService.exe",
+            "RGBFusion.exe",
+            "explorer.exe",
+        ];
+        assert!(find_in(running).is_empty());
+        assert_eq!(
+            mainboard_vendors_in(running),
+            vec![
+                "ASUS Armoury Crate",
+                "ASUS Aura Lighting Service",
+                "Gigabyte RGB Fusion"
+            ]
+        );
+        assert!(mainboard_vendors_in(["freergbd.exe"]).is_empty());
     }
 }

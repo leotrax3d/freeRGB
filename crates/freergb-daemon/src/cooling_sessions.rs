@@ -16,7 +16,7 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StartRequest {
     pub mode: String,
@@ -327,9 +327,11 @@ pub struct Status {
 }
 
 const ACTIVE: [&str; 3] = ["authorizing", "executing", "stopping"];
-/// Concurrent interactive sessions (one per channel); recent jobs kept for display.
-const MAX_ACTIVE: usize = 8;
-const MAX_KEPT: usize = 16;
+/// Concurrent interactive sessions (one per channel, each its own task on the
+/// shared worker); recent jobs kept for display. The command queue is bounded.
+pub const MAX_ACTIVE: usize = 16;
+const MAX_KEPT: usize = 32;
+const QUEUE: usize = 2 * MAX_ACTIVE;
 
 struct Board {
     available: bool,
@@ -388,7 +390,7 @@ impl CoolingSessions {
             return Err("Native cooling requires Windows".into());
         }
         let mut result = Self::default();
-        let (tx, rx) = mpsc::channel(16);
+        let (tx, rx) = mpsc::channel(QUEUE);
         let view = result.view.clone();
         result
             .view
@@ -512,6 +514,43 @@ impl CoolingSessions {
             .ok_or("Cooling disabled")?
             .try_send(Command::Stop(id))
             .map_err(|_| "Cooling queue unavailable".to_owned())
+    }
+}
+impl CoolingSessions {
+    /// Control of an active job, if it is active.
+    pub fn active_control(&self, id: u64) -> Option<String> {
+        let board = self.view.lock().unwrap_or_else(|e| e.into_inner());
+        board
+            .jobs
+            .get(&id)
+            .filter(|j| ACTIVE.contains(&j.state.as_str()))
+            .and_then(|j| j.control_id.clone())
+    }
+    /// Active jobs, newest first.
+    pub fn active(&self) -> Vec<Status> {
+        let board = self.view.lock().unwrap_or_else(|e| e.into_inner());
+        board
+            .jobs
+            .values()
+            .rev()
+            .filter(|j| ACTIVE.contains(&j.state.as_str()))
+            .cloned()
+            .collect()
+    }
+    /// Stops every active job (each returns its own channel). Returns how many
+    /// stop requests were queued; a full queue is reported as an error.
+    pub fn stop_all(&self) -> Result<usize, String> {
+        let ids: Vec<u64> = self.active().iter().filter_map(|j| j.job_id).collect();
+        let mut failed = None;
+        for id in &ids {
+            if let Err(error) = self.stop(*id) {
+                failed = Some(error);
+            }
+        }
+        match failed {
+            Some(error) => Err(error),
+            None => Ok(ids.len()),
+        }
     }
 }
 impl Drop for CoolingSessions {
@@ -929,5 +968,51 @@ mod tests {
         assert_eq!(status.job_id, Some(second));
         assert_eq!(status.jobs.len(), 2);
         assert!(sessions.stop(first).is_ok() && sessions.stop(99).is_err());
+        assert!(matches!(receiver.try_recv(), Ok(Command::Stop(id)) if id == first));
+    }
+
+    #[test]
+    fn sixteen_channels_at_most_and_stop_all_reaches_every_job() {
+        let mut sessions = CoolingSessions::default();
+        let (sender, mut receiver) = mpsc::channel(QUEUE);
+        sessions.sender = Some(sender);
+        sessions.view.lock().unwrap().available = true;
+        let mut ids = Vec::new();
+        for index in 0..MAX_ACTIVE {
+            let mut channel = request();
+            let (chip, header) = (index / 7, index % 7);
+            channel.control_id = format!("/lpc/nct6701d/{chip}/control/{header}");
+            channel.rpm_id = format!("/lpc/nct6701d/{chip}/fan/{header}");
+            channel.temperature_id = format!("/lpc/nct6701d/{chip}/temperature/1");
+            ids.push(sessions.start(channel, &SessionPolicy::legacy()).unwrap());
+        }
+        let mut extra = request();
+        extra.control_id = "/lpc/nct6701d/2/control/5".into();
+        extra.rpm_id = "/lpc/nct6701d/2/fan/5".into();
+        extra.temperature_id = "/lpc/nct6701d/2/temperature/1".into();
+        assert!(sessions.start(extra, &SessionPolicy::legacy()).is_err());
+        assert_eq!(sessions.active().len(), MAX_ACTIVE);
+        assert_eq!(
+            sessions.active_control(ids[3]).as_deref(),
+            Some("/lpc/nct6701d/0/control/3")
+        );
+        while receiver.try_recv().is_ok() {}
+        assert_eq!(sessions.stop_all().unwrap(), MAX_ACTIVE);
+        let mut stopped = Vec::new();
+        while let Ok(Command::Stop(id)) = receiver.try_recv() {
+            stopped.push(id);
+        }
+        stopped.sort_unstable();
+        assert_eq!(stopped, ids);
+        // A finished job on one channel leaves the others running.
+        update(
+            &sessions.view,
+            ids[0],
+            "faulted",
+            None,
+            Some("sensor lost".into()),
+        );
+        assert_eq!(sessions.active().len(), MAX_ACTIVE - 1);
+        assert!(sessions.active_control(ids[0]).is_none());
     }
 }
