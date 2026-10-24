@@ -85,7 +85,8 @@ Ziel: RGB-/ARGB-Lüfter an Mainboard-Headern der großen Hersteller werden
 automatisch erkannt und laufen wie jedes andere Gerät (Effekte, Layout-Canvas,
 Helligkeit, Profile).
 
-1. **ASUS Aura USB:** Allowlist auf alle in OpenRGB gelisteten ASUS-Aura-
+1. **Geräteliste:** `docs/MAINBOARD_RGB_DEVICES.md` ist die Zielliste; Status-Spalte bei Umsetzung auf „Supported“ aktualisieren.
+2. **ASUS Aura USB:** Allowlist auf alle in OpenRGB gelisteten ASUS-Aura-
    Mainboard-USB-IDs erweitern. Gen1/Gen2-Handling beibehalten.
 2. **Weitere Hersteller (USB-HID):** MSI Mystic Light (USB, z. B. `1462:7Bxx`),
    Gigabyte RGB Fusion 2 USB (`048d:5702`/`048d:8297`), ASRock Polychrome USB.

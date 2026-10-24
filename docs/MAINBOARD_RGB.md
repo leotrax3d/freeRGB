@@ -7,6 +7,7 @@ provider. Broad manufacturer coverage remains work in progress.
 Initial allowlist: ASUS `0b05:19af`, vendor interface usage page `ff72`, usage `00a1`.
 Other ASUS IDs and MSI/Gigabyte/ASRock protocols are not enabled by inference.
 Detection is experimental; normal startup leaves this adapter unopened.
+See [MAINBOARD_RGB_DEVICES.md](MAINBOARD_RGB_DEVICES.md) for the list of known USB controllers.
 
 Advanced opt-in, through the existing launcher:
 
