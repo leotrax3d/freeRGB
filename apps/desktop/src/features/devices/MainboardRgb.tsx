@@ -27,7 +27,7 @@ export function MainboardRgb() {
         <Banner tone="warn">{view.vendor_software.join(", ")} is running and controls the motherboard lighting. freeRGB leaves the motherboard alone until it is closed.</Banner>
       )}
       {view.error && <Banner tone="error">{view.error}</Banner>}
-      {draft.enabled && controllers.length === 0 && <p className="text-small text-text-muted">No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB).</p>}
+      {draft.enabled && controllers.length === 0 && <p className="text-small text-text-muted">No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB).</p>}
       {draft.enabled && controllers.map((c) => (
         <div key={c.key} className="flex flex-col gap-2 rounded-card border border-border p-3">
           <div className="flex items-center gap-2 text-small font-medium"><Cpu className="size-4" aria-hidden />{c.label}<span className="text-caption text-text-subtle">{c.key}{c.device ? "" : " · not detected"}</span></div>

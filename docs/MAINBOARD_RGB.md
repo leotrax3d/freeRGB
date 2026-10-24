@@ -1,4 +1,4 @@
-# Motherboard RGB/ARGB (ASUS Aura USB, Gigabyte RGB Fusion 2 USB)
+# Motherboard RGB/ARGB (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB)
 
 This controls lighting, not fan power, PWM/DC, pump duty or temperatures. It needs
 the existing OS HID driver, not PawnIO. Mainboard SuperIO fans use a different
@@ -14,9 +14,9 @@ See [MAINBOARD_RGB_DEVICES.md](MAINBOARD_RGB_DEVICES.md) for the list of known U
 | ASUS Aura motherboard USB | `0b05:18f3`, `0b05:1939`, `0b05:19af`, `0b05:1aa6`, `0b05:1bed` | `ff72`/`00a1` | Driven (fixed RGB, 12 V headers, up to 4 ARGB headers, Gen1 ARGB selection) |
 | Gigabyte RGB Fusion 2 USB (IT5702/IT8297) | `048d:5702`, `048d:8297` | `ff89`/`00cc` | Driven (D_LED1/D_LED2 ARGB headers) |
 | Gigabyte Fusion 2 variants | `048d:5711`, `048d:8950`, `0414:a100` | `ff89`/`00cc` | Identified only (more headers/other calibration) |
-| ASUS Aura addressable controllers | `0b05:1867`, `0b05:1872`, `0b05:18a3`, `0b05:18a5` | any | Identified only |
+| ASUS Aura addressable controllers | `0b05:1867`, `0b05:1872`, `0b05:18a3`, `0b05:18a5` | any | Not driven by the core; the GPL module `modules/asus-aura-usb` (installed through device setup) can claim them |
 | MSI Mystic Light USB | `1462:7b00`–`1462:7eff`, `1462:1720` | any | Identified only (board-specific 112/162/185/761-byte families not implemented) |
-| ASRock Polychrome USB | `26ce:01a2` | any | Identified only |
+| ASRock Polychrome USB | `26ce:01a2`, `26ce:01a6` | any | Driven (per-LED; ARGB1/ARGB2/ARGB3 up to 100 LEDs each, 12 V and onboard zones as fixed LEDs) |
 | SMBus/I²C motherboard RGB (older ASUS/MSI/Gigabyte/ASRock boards, ENE/Aura SMBus, Polychrome SMBus) | — | — | **Not supported** (no SMBus access in freeRGB) |
 
 "Identified only" controllers appear in diagnostics and are never written to.
@@ -62,6 +62,35 @@ re-enables the stored firmware effect on release/fault (volatile). Direct colour
 `cc 58|59 offLo offHi count` + up to 19 RGB triples, byte offset little endian.
 Never sent: flash save, effect programming, fan or power commands.
 
+## ASRock Polychrome USB wire facts
+
+65-byte output reports (report ID 0), each answered by a 64-byte input report.
+`14` header reads: config `02` = LED count per zone (RGB1, RGB2, ARGB1, ARGB2,
+PCH, IO, PCB, ARGB3/audio; `0x1e` = absent), `03` = RGB-swap bitmask, `01` =
+availability bitmask. `11 zone` reads a zone's effect (mode at 4, colour 5..7,
+speed 8). Anything implausible stops before the first write.
+
+Taking control: the LED-count table is written (`15 02 …`) only if the user's ARGB
+counts differ (30 is rejected because it equals the absent marker), hardware
+RGB swap is switched off (`15 03 00`, it flickers in per-LED mode) and colour
+bytes are ordered per zone instead (GRB, or RGB where the original swap bit was
+set). Frames: `10 _ ff e3` with LEDs from byte 9 (18 per report), then
+`10 _ ff e4` from byte 5 (19 per report), byte 0x40 = `0x65`; zones packed in
+order, padded to the sum of zone maxima + 8 LEDs. Release writes back the
+original LED-count table, swap byte and each zone's effect (`10 zone mode r g b
+speed ff`; a per-LED mode falls back to spectrum cycle). The commit/save command
+`0x12` is never sent.
+
+## GPL hardware modules
+
+`modules/integration` (merged here) adds GPL modules, among them
+`modules/asus-aura-usb`. The core adapters above take precedence: the hardware
+scan never lets a module claim an interface a built-in adapter drives. Modules
+are installed per device through device setup (signed catalog), not by
+default. The GPL Gigabyte module branch (`module/gigabyte-rgbfusion2`) was not
+taken: it is a stub (no controller query, no effect switch, wrong offset field,
+no fallback); the core `gigabyte_fusion2.rs` is used instead.
+
 ## OpenRGB reference
 
 Protocol facts were checked against OpenRGB commit
@@ -69,14 +98,16 @@ Protocol facts were checked against OpenRGB commit
 was copied. Files: `Controllers/AsusAuraUSBController/AsusAuraUSBControllerDetect.cpp`,
 `Controllers/GigabyteRGBFusion2USBController/GigabyteRGBFusion2USBController{.cpp,.h}`,
 `.../GigabyteRGBFusion2USBControllerDetect.cpp`, `.../GigabyteFusion2USB_Devices.h`,
-`Controllers/ASRockPolychromeUSBController/*`,
+`Controllers/ASRockPolychromeUSBController/ASRockPolychromeUSBController{.cpp,.h}`,
+`.../RGBController_ASRockPolychromeUSB.cpp`, `.../ASRockPolychromeUSBControllerDetect.cpp`
+(unchanged at commit `7182807a288a9e8107a84fbebc44239677f1ea24`, which lists the same ASUS/Gigabyte IDs),
 `Controllers/MSIMotherboardController/MSIMotherboardControllerDetect.cpp`.
 
 ## Hardware validation
 
 No motherboard RGB controller has been tested on real hardware by the maintainers
 for this release; all of the above is verified against mock transports only
-(`asus_aura.rs`, `gigabyte_fusion2.rs` tests). Please report results with the
+(`asus_aura.rs`, `gigabyte_fusion2.rs`, `asrock_polychrome.rs` tests). Please report results with the
 "Hardware report" issue template.
 
 ## Earlier notes (ASUS Aura)

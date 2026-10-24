@@ -14,6 +14,7 @@ const FAMILIES: &[(u64, &[u64], usize, &str)] = &[
         "ASUS Aura",
     ),
     (0x048d, &[0x5702, 0x8297], 2, "Gigabyte RGB Fusion 2"),
+    (0x26ce, &[0x01a2, 0x01a6], 3, "ASRock Polychrome"),
 ];
 
 /// Controllers to show: detected motherboard devices plus saved keys, sorted.
@@ -148,7 +149,7 @@ impl MainboardRgbPanel {
                 .unwrap_or_default();
             let list = controllers(&snapshot.devices, &saved);
             if list.is_empty() {
-                ui.label("No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB).");
+                ui.label("No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB).");
             }
             for (key, label, headers, detected) in list {
                 ui.group(|ui| {

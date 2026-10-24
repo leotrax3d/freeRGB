@@ -119,6 +119,20 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
                     }),
                 )
             }
+            "asrock-polychrome-usb" => {
+                let (counts, names) = mainboard.headers::<3>(vid, pid);
+                (
+                    DeviceId(format!("hid:26ce:{pid:04x}:{serial}")),
+                    Box::new(move |transport, serial| {
+                        Box::new(
+                            freergb_protocols::asrock_polychrome::PolychromeDevice::new(
+                                transport, pid, serial, counts,
+                            )
+                            .with_names(names),
+                        ) as Box<dyn RgbDevice>
+                    }),
+                )
+            }
             "gigabyte-fusion2-usb" => {
                 let (counts, names) = mainboard.headers::<2>(vid, pid);
                 (

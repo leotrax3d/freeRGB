@@ -93,4 +93,4 @@ storage, missing-data behavior, tests and appropriate hardware acceptance.
 
 ## Status update 2026-10-24
 
-Motherboard fan control (up to 16 concurrent live channels, stop all, resume after restart with identity check) and motherboard RGB (ASUS Aura USB all motherboard PIDs, Gigabyte RGB Fusion 2 USB, GUI header configuration, on by default) are no longer experimental; safety mechanisms are unchanged. MSI Mystic Light and ASRock Polychrome USB are identified only; SMBus-only boards are not supported. Hardware validation: mock-tested only except CHA_FAN2 single-channel; see `MAINBOARD_RGB.md` and `COOLING_RUNTIME.md`.
+Motherboard fan control (up to 16 concurrent live channels, stop all, resume after restart with identity check) and motherboard RGB (ASUS Aura USB all motherboard PIDs, Gigabyte RGB Fusion 2 USB, GUI header configuration, on by default) are no longer experimental; safety mechanisms are unchanged. ASRock Polychrome USB is driven too; MSI Mystic Light is identified only (separate MSI work); SMBus-only boards are not supported. Hardware validation: mock-tested only except CHA_FAN2 single-channel; see `MAINBOARD_RGB.md` and `COOLING_RUNTIME.md`.

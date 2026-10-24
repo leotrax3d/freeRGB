@@ -16,6 +16,7 @@ export interface MainboardRgbView {
 const FAMILIES: { vid: number; pids: number[]; headers: number; label: string }[] = [
   { vid: 0x0b05, pids: [0x18f3, 0x1939, 0x19af, 0x1aa6, 0x1bed], headers: 4, label: "ASUS Aura" },
   { vid: 0x048d, pids: [0x5702, 0x8297], headers: 2, label: "Gigabyte RGB Fusion 2" },
+  { vid: 0x26ce, pids: [0x01a2, 0x01a6], headers: 3, label: "ASRock Polychrome" },
 ];
 
 export const controllerKey = (vid: number, pid: number) =>

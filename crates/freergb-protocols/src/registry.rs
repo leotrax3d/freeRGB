@@ -137,13 +137,6 @@ const IDENTIFIED_RANGES: &[(u16, u16, u16, &str, &str)] = &[
         "msi-mystic-light",
         "MSI Mystic Light motherboard RGB",
     ),
-    (
-        0x26CE,
-        0x01A2,
-        0x01A2,
-        "asrock-polychrome-usb",
-        "ASRock Polychrome USB motherboard RGB",
-    ),
 ];
 
 /// Looks up the adapter for one HID interface using the built-in device
@@ -182,6 +175,14 @@ pub fn match_interface_with(
                     device_name: e.name.to_owned(),
                     level: e.level,
                 })
+        })
+        .or_else(|| {
+            // ASRock Polychrome USB: any interface of these two controllers.
+            (vid == 0x26CE && matches!(pid, 0x01A2 | 0x01A6)).then(|| AdapterMatch {
+                adapter: "asrock-polychrome-usb",
+                device_name: "ASRock Polychrome motherboard RGB/ARGB".to_owned(),
+                level: SupportLevel::Experimental,
+            })
         })
         .or_else(|| {
             IDENTIFIED_RANGES
@@ -262,12 +263,18 @@ mod tests {
         assert_eq!(it5711.level, SupportLevel::Identified);
         for (vid, pid, adapter) in [
             (0x1462, 0x7C56, "msi-mystic-light"),
-            (0x26CE, 0x01A2, "asrock-polychrome-usb"),
             (0x0B05, 0x18A5, "asus-aura-addressable"),
         ] {
             let m = match_interface(vid, pid, 0x0001, 0x0000).unwrap();
             assert_eq!((m.adapter, m.level), (adapter, SupportLevel::Identified));
             assert!(is_mainboard_rgb(m.adapter));
+        }
+        for pid in [0x01A2, 0x01A6] {
+            let m = match_interface(0x26CE, pid, 0xFF00, 0x0001).unwrap();
+            assert_eq!(
+                (m.adapter, m.level),
+                ("asrock-polychrome-usb", SupportLevel::Experimental)
+            );
         }
         assert!(!is_mainboard_rgb("corsair-bragi"));
     }
