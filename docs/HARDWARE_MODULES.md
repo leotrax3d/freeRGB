@@ -259,8 +259,8 @@ collection (interface 0, usage 1/2) through hidapi from the daemon.
 
 ## Known limitations
 
-* No release signing key exists yet; until it is added and the `modules`
-  release is published, the default source reports "catalog unavailable".
+* The release signing key exists (public key in `keys/release-keys.txt`); until
+  the `modules` release is published, the default source reports "catalog unavailable".
 * Only Windows and Linux x86_64 packages; Linux needs udev access to the
   hidraw node (not yet in `packaging/linux` rules for Razer).
 * Razer: no keyboard-layout devices, no custom/ARGB matrix devices, no
