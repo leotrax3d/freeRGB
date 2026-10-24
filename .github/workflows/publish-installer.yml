@@ -1,0 +1,78 @@
+name: Publish verified installer
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Package run containing the installer
+        required: true
+      tag:
+        description: Existing draft release tag
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PACKAGE_RUN: ${{ inputs.run_id }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - name: Resolve successful Package source
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$PACKAGE_RUN" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PACKAGE_RUN" > "$RUNNER_TEMP/package-run.json"
+          python3 - <<'PY'
+          import json, os, re
+          run = json.load(open(os.environ['RUNNER_TEMP'] + '/package-run.json'))
+          assert run['conclusion'] == 'success', 'Package run must be successful'
+          assert run['path'] == '.github/workflows/package.yml', 'Expected Package workflow'
+          commit = run['head_sha']
+          assert re.fullmatch(r'[0-9a-f]{40}', commit)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'commit={commit}\n')
+          PY
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.package.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: freeRGB-windows-installer
+          path: target/dist
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify artifacts against the exact tested source
+        run: python3 scripts/check-release.py --tag "$RELEASE_TAG" --artifacts target/dist
+      - name: Upload, verify and publish existing draft
+        env:
+          EXPECTED_COMMIT: ${{ steps.package.outputs.commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --json isDraft,isPrerelease,targetCommitish > "$RUNNER_TEMP/release.json"
+          python3 - <<'PY'
+          import json, os
+          release = json.load(open(os.environ['RUNNER_TEMP'] + '/release.json'))
+          assert release['isDraft'], 'Only an existing draft may be published'
+          assert release['targetCommitish'] == os.environ['EXPECTED_COMMIT'], 'Release source differs from Package source'
+          assert release['isPrerelease'], 'Beta release must remain a prerelease'
+          PY
+          gh release upload "$RELEASE_TAG" target/dist/* --clobber
+          gh release view "$RELEASE_TAG" --json assets > "$RUNNER_TEMP/uploaded-assets.json"
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          local = {p.name: p for p in Path('target/dist').iterdir()}
+          assets = json.load(open(os.environ['RUNNER_TEMP'] + '/uploaded-assets.json'))['assets']
+          assert {a['name'] for a in assets} == set(local), 'Unexpected release assets'
+          for asset in assets:
+              data = local[asset['name']].read_bytes()
+              assert asset['size'] == len(data), 'Upload size differs'
+              assert asset['digest'] == 'sha256:' + hashlib.sha256(data).hexdigest(), 'Uploaded digest differs'
+          PY
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease
