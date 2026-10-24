@@ -329,8 +329,43 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     .map_err(invalid_params)
             }),
         "monitoring.sensors.list" => Ok(json!(lock(engine).monitoring_sensors())),
-        "cooling.providers.list" => Ok(json!([lock(engine).mainboard.summary()])),
-        "cooling.channels.list" => Ok(json!(lock(engine).mainboard.channels())),
+        "cooling.providers.list" => {
+            let engine = lock(engine);
+            let mut providers = vec![engine.mainboard.summary()];
+            if engine.hwmon.started() {
+                providers.push(engine.hwmon.summary());
+            }
+            Ok(json!(providers))
+        }
+        "cooling.channels.list" => {
+            let engine = lock(engine);
+            let mut channels = engine.mainboard.channels();
+            channels.extend(engine.hwmon.channels());
+            Ok(json!(channels))
+        }
+        "cooling.hwmon.get" => Ok(lock(engine).hwmon.view()),
+        "cooling.hwmon.set" => serde_json::from_value::<crate::hwmon::Assignment>(params.clone())
+            .map_err(invalid_params)
+            .and_then(|assignment| {
+                let engine = lock(engine);
+                engine
+                    .onboarding
+                    .require_safety()
+                    .map_err(|e| (-32006, e))?;
+                engine
+                    .hwmon
+                    .assign(assignment)
+                    .map(|()| json!(true))
+                    .map_err(|e| (-32006, e))
+            }),
+        "cooling.hwmon.release" => {
+            let channel = params["channel_id"].as_str();
+            lock(engine)
+                .hwmon
+                .release(channel)
+                .map(|released| json!({"released": released}))
+                .map_err(|e| (-32006, e))
+        }
         "cooling.sessions.status" => Ok(json!(lock(engine).cooling_sessions.status())),
         "cooling.sessions.start" => serde_json::from_value(params.clone())
             .map_err(invalid_params)
@@ -392,6 +427,7 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     .fan_support
                     .set_unrestricted(enabled)
                     .map_err(|e| (-32000, e))?;
+                engine.hwmon.set_unrestricted(enabled);
                 Ok(json!({"background_reapplied": !enabled && engine.reapply_background()}))
             }),
         "cooling.channels.unlock" | "cooling.channels.confirm_pump" => {
@@ -673,6 +709,19 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     }
                     engine.background.helper()
                 };
+                let hwmon = {
+                    let engine = lock(engine);
+                    engine
+                        .hwmon
+                        .started()
+                        .then(|| engine.hwmon.set_paused(paused))
+                };
+                if let Some(result) = hwmon {
+                    let state = result.map_err(|e| (-32006, e))?;
+                    if helper.is_none() {
+                        return Ok(json!({"paused": state}));
+                    }
+                }
                 let helper = helper.ok_or_else(|| {
                     (-32006, "Fan control requires the optional mainboard service".to_owned())
                 })?;

@@ -350,6 +350,16 @@ export function mockTransport(): Transport {
         case "cooling.bindings.save":
           bindingsConfig = ((p.config as { bindings: ChannelBinding[] }).bindings); emit("cooling_bindings");
           return true as T;
+        case "cooling.hwmon.get":
+          return { started: true, board: { manufacturer: "ASUSTeK COMPUTER INC.", product: "TUF GAMING B650-PLUS", bios_version: "3024" }, paused: false, unrestricted: false, floor_percent: 40,
+            chips: [{ id: "nct6799@platform/nct6775.656", name: "nct6799", read_only_hint: false,
+              temps: [{ index: 1, label: "SYSTIN", celsius: 34 }, { index: 2, label: "CPUTIN", celsius: 46 }],
+              fans: [{ index: 1, label: "Fan 1", rpm: 1180 }, { index: 2, label: "Fan 2", rpm: 960 }],
+              pwms: [1, 2].map((i) => ({ channel_id: `nct6799@platform/nct6775.656/pwm${i}`, label: `PWM ${i}`, percent: 45, enable: 5, mode: 1, writable: true, paired_fan: i })) }],
+            assignments: [], status: [] } as T;
+        case "cooling.hwmon.set":
+        case "cooling.hwmon.release":
+          return true as T;
         case "mainboard_rgb.get":
           return { settings: mainboardRgb, max_headers: 4, max_leds: 512, fan_presets: [8, 12, 16, 18], vendor_software: [], error: null } as T;
         case "mainboard_rgb.save": {

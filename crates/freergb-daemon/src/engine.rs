@@ -122,6 +122,8 @@ pub struct Engine {
     pub keyboard: crate::keyboard::KeyboardReactive,
     pub controls: crate::control::Controls,
     pub mainboard: crate::mainboard::MainboardProvider,
+    /// Linux kernel hwmon fan headers (not started on other platforms).
+    pub hwmon: crate::hwmon::HwmonProvider,
     sensor_refresh_at: Option<Instant>,
     plugins: std::collections::BTreeMap<String, PluginEntry>,
     /// Hardware module setup service (absent with --no-modules).
@@ -306,6 +308,7 @@ impl Engine {
             keyboard: Default::default(),
             controls: Default::default(),
             mainboard: Default::default(),
+            hwmon: Default::default(),
             cooling_sessions: Default::default(),
             background: Default::default(),
             fan_support: Default::default(),
@@ -1281,6 +1284,7 @@ impl Engine {
     /// All cached sensor providers, without introducing non-RGB devices into devices.list.
     pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
         let mut entries = self.mainboard.sensors();
+        entries.extend(self.hwmon.sensors());
         for device in self.devices() {
             for mut sensor in device.sensors {
                 if device.status != DeviceStatus::Connected {
@@ -1342,6 +1346,7 @@ impl Engine {
     /// Waits until all workers have finished.
     pub fn shutdown(&mut self) {
         self.keyboard.stop();
+        self.hwmon.shutdown();
         for w in &self.workers {
             w.stop.store(true, Ordering::SeqCst);
             w.slot.1.notify_one();

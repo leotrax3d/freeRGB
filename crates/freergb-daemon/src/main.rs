@@ -76,6 +76,9 @@ struct Args {
     /// Neither restore nor save effect/brightness.
     #[arg(long)]
     no_state: bool,
+    /// Do not read or control Linux hwmon motherboard fan headers.
+    #[arg(long)]
+    no_hwmon: bool,
     /// Also drive the Corsair iCUE LINK hub (fans/AIO lighting). Keeps the hub in
     /// software mode while running; an RPM watchdog returns it to hardware mode
     /// on any fan or pump slowdown.
@@ -203,6 +206,26 @@ fn main() -> Result<()> {
         if let Some(path) = state::default_path() {
             tracing::info!(path = %path.display(), "state file");
             engine = engine.with_state_file(path);
+        }
+    }
+    #[cfg(target_os = "linux")]
+    if !args.no_hardware && !args.no_hwmon {
+        // Kernel hwmon: reading is passive; headers are written only after an
+        // explicit assignment (cooling.hwmon.set) or a saved one for this board.
+        let root = std::env::var_os("FREERGB_HWMON_ROOT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| "/sys/class/hwmon".into());
+        let state_dir = (!args.no_state)
+            .then(state::default_path)
+            .flatten()
+            .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+        engine.hwmon =
+            freergb_daemon::hwmon::HwmonProvider::new(root, "/sys/class/dmi/id".into(), state_dir);
+        engine
+            .hwmon
+            .set_unrestricted(engine.fan_support.config.unrestricted_enabled);
+        if let Err(error) = engine.hwmon.start(true) {
+            tracing::warn!(%error, "Linux hwmon fan provider unavailable");
         }
     }
     let manifests = args

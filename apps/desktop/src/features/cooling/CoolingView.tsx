@@ -7,6 +7,7 @@ import { LiveSession } from "./LiveSession";
 import { ChannelBindings } from "./ChannelBindings";
 import { UnrestrictedSection } from "./UnrestrictedSection";
 import { CoolingActions, FanOverview } from "./FanOverview";
+import { HwmonSection } from "./HwmonSection";
 
 /** Fans first: what each header does now and one place to change it. */
 export default function CoolingView() {
@@ -16,6 +17,7 @@ export default function CoolingView() {
       <PageHeader title="Cooling" description="Your fans, what controls them, and the curves they follow." actions={<CoolingActions />} />
       <div className="@container flex flex-col gap-8">
         <FanOverview />
+        <HwmonSection />
         <LiveSession />
         <CurvesSection />
         <details className="group flex flex-col gap-6 rounded-card border border-border px-4 py-3">

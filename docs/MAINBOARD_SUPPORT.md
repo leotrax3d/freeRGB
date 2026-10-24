@@ -14,7 +14,7 @@ required to start freeRGB or use its existing RGB adapters. A general Windows
 SuperIO backend cannot promise fan control through standard user-mode APIs on
 every motherboard. A self-written kernel driver would still require installation,
 signing, maintenance and hardware-specific validation; it is not a dependency-free
-shortcut. Linux hwmon is a separate future provider using existing kernel drivers.
+shortcut. Linux uses the kernel hwmon drivers for reading and control; see `COOLING_LINUX_HWMON.md`.
 
 The current Windows LHM provider is **optional and experimental**, off by default.
 Normal/default/silent installation does not install PawnIO. An unchecked Setup

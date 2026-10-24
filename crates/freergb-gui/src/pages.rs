@@ -25,6 +25,7 @@ pub struct Panels {
     mainboard_cooling: super::mainboard_cooling::MainboardCooling,
     channel_bindings: super::channel_bindings::BindingsPanel,
     mainboard_rgb: super::mainboard_rgb::MainboardRgbPanel,
+    hwmon: super::hwmon_cooling::HwmonPanel,
     custom_sensors: super::custom_sensors::CustomSensors,
     alerts: super::alerts::Alerts,
     hotkeys: super::hotkeys::Hotkeys,
@@ -183,7 +184,7 @@ impl Default for Panels {
                 }
             }
         });
-        Self { mainboard_cooling:Default::default(),mainboard_rgb:Default::default(),channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), curve_drag: None, temperature: 40.0,
+        Self { mainboard_cooling:Default::default(),mainboard_rgb:Default::default(),hwmon:Default::default(),channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), curve_drag: None, temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
@@ -232,6 +233,10 @@ impl Panels {
             match self.page {
                 1 => {
                     ui.heading("Cooling / fan curves");
+                    if snapshot.control["hwmon"]["started"] == true {
+                        let curve = self.curve.clone();
+                        ui.collapsing("Motherboard fans (Linux hwmon)", |ui| self.hwmon.show(ui, snapshot, tx, &curve));
+                    }
                     ui.collapsing("Motherboard channel assignments", |ui| {
                         self.channel_bindings.show(ui, snapshot, tx);
                     });
@@ -392,7 +397,8 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
         egui::vec2(ui.available_width().min(600.0), 190.0),
         egui::Sense::click_and_drag(),
     );
-    let rect = egui::Rect::from_min_max(outer.min, egui::pos2(outer.right(), outer.bottom() - 14.0));
+    let rect =
+        egui::Rect::from_min_max(outer.min, egui::pos2(outer.right(), outer.bottom() - 14.0));
     let painter = ui.painter();
     painter.rect_filled(outer, 4.0, egui::Color32::from_gray(24));
 
@@ -402,8 +408,9 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
             rect.bottom() - (d.clamp(0.0, 100.0) / 100.0) * rect.height(),
         )
     };
-    let t_at =
-        |x: f32| T_MIN + (x - rect.left()).clamp(0.0, rect.width()) / rect.width() * (T_MAX - T_MIN);
+    let t_at = |x: f32| {
+        T_MIN + (x - rect.left()).clamp(0.0, rect.width()) / rect.width() * (T_MAX - T_MIN)
+    };
     let d_at = |y: f32| (rect.bottom() - y).clamp(0.0, rect.height()) / rect.height() * 100.0;
 
     for t in (0..=100).step_by(20) {
@@ -444,7 +451,10 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
         crate::theme::SELECTION.gamma_multiply(0.35),
     );
     painter.line_segment(
-        [egui::pos2(rect.left(), min_y), egui::pos2(rect.right(), min_y)],
+        [
+            egui::pos2(rect.left(), min_y),
+            egui::pos2(rect.right(), min_y),
+        ],
         egui::Stroke::new(1.0_f32, crate::theme::ACCENT.gamma_multiply(0.6)),
     );
     if (T_MIN..=T_MAX).contains(&p.curve.critical_c) {
@@ -470,10 +480,10 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
         .collect();
     let picked = |position: Option<egui::Pos2>, pts: &[egui::Pos2]| -> Option<usize> {
         let pointer = position?;
-        let (index, closest) = pts
-            .iter()
-            .enumerate()
-            .min_by(|a, b| a.1.distance_sq(pointer).total_cmp(&b.1.distance_sq(pointer)))?;
+        let (index, closest) = pts.iter().enumerate().min_by(|a, b| {
+            a.1.distance_sq(pointer)
+                .total_cmp(&b.1.distance_sq(pointer))
+        })?;
         (closest.distance_sq(pointer).sqrt() <= PICK_RADIUS).then_some(index)
     };
     if resp.dragged() {
@@ -482,7 +492,8 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
             p.curve_drag = picked(pointer, &pts_before);
         }
         if let (Some(pointer), Some(index)) = (pointer, p.curve_drag) {
-            p.curve.clamp_moved_point(index, t_at(pointer.x), d_at(pointer.y));
+            p.curve
+                .clamp_moved_point(index, t_at(pointer.x), d_at(pointer.y));
         }
     } else {
         p.curve_drag = None;
@@ -516,7 +527,11 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
         egui::Stroke::new(2.0_f32, crate::theme::ACCENT),
     ));
     for (index, pos) in pts.iter().enumerate() {
-        let radius = if p.curve_drag == Some(index) { 5.5 } else { 4.0 };
+        let radius = if p.curve_drag == Some(index) {
+            5.5
+        } else {
+            4.0
+        };
         let fill = if p.curve_drag == Some(index) {
             crate::theme::ACCENT
         } else {
@@ -529,7 +544,10 @@ fn draw_curve_graph(p: &mut Panels, ui: &mut egui::Ui) {
     let duty_now = p.curve.duty(Some(p.temperature), 0);
     let sim_x = to_pos(p.temperature, 0.0).x;
     painter.line_segment(
-        [egui::pos2(sim_x, rect.top()), egui::pos2(sim_x, rect.bottom())],
+        [
+            egui::pos2(sim_x, rect.top()),
+            egui::pos2(sim_x, rect.bottom()),
+        ],
         egui::Stroke::new(1.0_f32, crate::theme::WARN.gamma_multiply(0.55)),
     );
     painter.circle_filled(to_pos(p.temperature, duty_now), 3.0, crate::theme::WARN);
