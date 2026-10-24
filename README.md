@@ -116,8 +116,8 @@ Then run `npm run tauri dev` in `apps/desktop`, or
 | --- | --- | --- |
 | Corsair K70 CORE RGB (`1b1c:1bfd`) | Validated | Per-key RGB; ISO/ANSI mapping |
 | Corsair iCUE LINK System Hub (`1b1c:0c3f`) | Experimental, opt-in | Selected RX/LX fan, Titan RX AIO head and LCD-ring lighting; RPM watchdog |
-| ASUS AURA USB (`0b05:19af`) | Experimental | Protocol/mock tests; physical RGB/ARGB header acceptance pending |
-| Motherboard fan control | Experimental | Explicit sessions, fan identification and UAC; limited channel evidence |
+| Motherboard RGB: ASUS Aura USB, Gigabyte RGB Fusion 2 USB | Supported, auto-detected | Per-header ARGB LED counts/names in the GUI; mock-tested only, see [Motherboard RGB](docs/MAINBOARD_RGB.md#hardware-validation) |
+| Motherboard fan control (Windows) | Supported with mainboard components | Up to 16 live channels, curves/fixed speed, stop all, resume after restart; watchdog, floors and BIOS return always on |
 | Other identified devices | Discovery only | Detection does not imply control support |
 
 AIO LCD display content and DDR5 RGB control are not supported.

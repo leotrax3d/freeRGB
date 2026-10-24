@@ -236,3 +236,7 @@ Service-client continuation during journal CI:
 Journal baseline554f1c5 now passed CI39483452355, Package39483452206,
 broker39483452345 and native quick39483452459. The later typed-client increment
 has its own fresh CI/Package pending after commit; do not conflate those results.
+
+## Status update 2026-10-24
+
+Motherboard fan control (up to 16 concurrent live channels, stop all, resume after restart with identity check) and motherboard RGB (ASUS Aura USB all motherboard PIDs, Gigabyte RGB Fusion 2 USB, GUI header configuration, on by default) are no longer experimental; safety mechanisms are unchanged. MSI Mystic Light and ASRock Polychrome USB are identified only; SMBus-only boards are not supported. Hardware validation: mock-tested only except CHA_FAN2 single-channel; see `MAINBOARD_RGB.md` and `COOLING_RUNTIME.md`.

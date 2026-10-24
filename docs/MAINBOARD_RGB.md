@@ -1,19 +1,85 @@
-# Motherboard RGB/ARGB: experimental ASUS USB backend
+# Motherboard RGB/ARGB (ASUS Aura USB, Gigabyte RGB Fusion 2 USB)
 
 This controls lighting, not fan power, PWM/DC, pump duty or temperatures. It needs
 the existing OS HID driver, not PawnIO. Mainboard SuperIO fans use a different
-provider. Broad manufacturer coverage remains work in progress.
+provider.
 
-Initial allowlist: ASUS `0b05:19af`, vendor interface usage page `ff72`, usage `00a1`.
-Other ASUS IDs and MSI/Gigabyte/ASRock protocols are not enabled by inference.
-Detection is experimental; normal startup leaves this adapter unopened.
+## Supported controllers
+
 See [MAINBOARD_RGB_DEVICES.md](MAINBOARD_RGB_DEVICES.md) for the list of known USB controllers.
 
-Advanced opt-in, through the existing launcher:
+
+| Family | USB IDs | Interface | State |
+| --- | --- | --- | --- |
+| ASUS Aura motherboard USB | `0b05:18f3`, `0b05:1939`, `0b05:19af`, `0b05:1aa6`, `0b05:1bed` | `ff72`/`00a1` | Driven (fixed RGB, 12 V headers, up to 4 ARGB headers, Gen1 ARGB selection) |
+| Gigabyte RGB Fusion 2 USB (IT5702/IT8297) | `048d:5702`, `048d:8297` | `ff89`/`00cc` | Driven (D_LED1/D_LED2 ARGB headers) |
+| Gigabyte Fusion 2 variants | `048d:5711`, `048d:8950`, `0414:a100` | `ff89`/`00cc` | Identified only (more headers/other calibration) |
+| ASUS Aura addressable controllers | `0b05:1867`, `0b05:1872`, `0b05:18a3`, `0b05:18a5` | any | Identified only |
+| MSI Mystic Light USB | `1462:7b00`–`1462:7eff`, `1462:1720` | any | Identified only (board-specific 112/162/185/761-byte families not implemented) |
+| ASRock Polychrome USB | `26ce:01a2` | any | Identified only |
+| SMBus/I²C motherboard RGB (older ASUS/MSI/Gigabyte/ASRock boards, ENE/Aura SMBus, Polychrome SMBus) | — | — | **Not supported** (no SMBus access in freeRGB) |
+
+"Identified only" controllers appear in diagnostics and are never written to.
+
+## Configuration (both GUIs, daemon RPC)
+
+Supported controllers are detected and opened at startup like any other device.
+`mainboard-rgb.json` (per-user config directory) holds:
+
+- `enabled` — global "Manage motherboard RGB" switch, default **on**;
+- per controller (`vvvv:pppp`) up to four headers with `leds` (0..512) and an
+  optional `name` shown on the layout canvas. Presets for 8/12/16/18-LED fans
+  (times chained fans) are offered by the GUI.
+
+RPC: `mainboard_rgb.get`, `mainboard_rgb.save {settings}`; saving releases the
+controllers so the next scan reopens them with the new header table. A header
+with 0 LEDs is left out of frames and keeps its firmware effect.
+
+If ASUS Armoury Crate / Aura Lighting Service, MSI Center / Mystic Light,
+Gigabyte RGB Fusion / Control Center or ASRock Polychrome RGB is running, freeRGB
+does not open motherboard controllers and the Devices page shows a warning.
+Other devices keep working.
+
+Test override (unchanged flags, now optional):
 
 ```powershell
 freergb-launcher --enable-asus-aura --asus-argb-leds 24,24,0,0
 ```
+
+`--enable-asus-aura` opens ASUS Aura even when management is off or vendor
+software runs, with the given LED counts instead of the saved settings.
+
+## Gigabyte RGB Fusion 2 USB wire facts
+
+64-byte feature reports, report ID `0xcc`. `cc 60` then a feature read returns the
+controller information (product string at 12..40, strip-length classes at 8..10,
+colour order words for D_LED1/D_LED2 at 44 and 48: bytes 2/1/0 are the index of
+R/G/B within a triple; anything that is not a permutation is rejected before any
+mode write). `cc 34 a b c` sets strip-length classes (32/64/256/512/1024 LEDs, two
+nibbles per byte) and is only sent when D_LED1/D_LED2 change. `cc 32 mask` disables
+the built-in effect of the selected headers (bit 0 D_LED1, bit 1 D_LED2); `cc 32 00`
+re-enables the stored firmware effect on release/fault (volatile). Direct colour:
+`cc 58|59 offLo offHi count` + up to 19 RGB triples, byte offset little endian.
+Never sent: flash save, effect programming, fan or power commands.
+
+## OpenRGB reference
+
+Protocol facts were checked against OpenRGB commit
+`c43424b4ba94748b913a6551c274251a5211510c` (GPL-2.0) as a reference only; no code
+was copied. Files: `Controllers/AsusAuraUSBController/AsusAuraUSBControllerDetect.cpp`,
+`Controllers/GigabyteRGBFusion2USBController/GigabyteRGBFusion2USBController{.cpp,.h}`,
+`.../GigabyteRGBFusion2USBControllerDetect.cpp`, `.../GigabyteFusion2USB_Devices.h`,
+`Controllers/ASRockPolychromeUSBController/*`,
+`Controllers/MSIMotherboardController/MSIMotherboardControllerDetect.cpp`.
+
+## Hardware validation
+
+No motherboard RGB controller has been tested on real hardware by the maintainers
+for this release; all of the above is verified against mock transports only
+(`asus_aura.rs`, `gigabyte_fusion2.rs` tests). Please report results with the
+"Hardware report" issue template.
+
+## Earlier notes (ASUS Aura)
 
 The option only affects a newly started daemon. Stop an existing daemon explicitly
 before changing its startup options; closing the GUI does not stop it. Demo mode
