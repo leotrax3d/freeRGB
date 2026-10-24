@@ -90,13 +90,133 @@ jobs:
         with:
           node-version: 24.19.0
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry' || env.MODULE == 'lenovo' || env.MODULE == 'nzxt-hue2' || env.MODULE == 'nollie' || env.MODULE == 'evision-keyboard' || env.MODULE == 'hyperx-keyboard' || env.MODULE == 'hyperx-mouse' || env.MODULE == 'gaizonggai' || env.MODULE == 'lianli' || env.MODULE == 'asus-monitor' || env.MODULE == 'corsair-commander-core' || env.MODULE == 'corsair-lighting-node' || env.MODULE == 'evga-usb' || env.MODULE == 'a4tech' || env.MODULE == 'areson' || env.MODULE == 'annepro2' || env.MODULE == 'gigabyte-rgbfusion2' || env.MODULE == 'corsair-hydro-platinum' || env.MODULE == 'sinowealth' || env.MODULE == 'royuan-keyboard'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
           git fetch -q --depth 1 origin "$OPENRGB_COMMIT" && git checkout -q FETCH_HEAD
-          cd .. && node scripts/openrgb/port-razer-devices.mjs openrgb "$OPENRGB_COMMIT"
-          git diff --exit-code -- modules/razer-chroma/src/devices_table.rs
+          cd ..
+          if [ "$MODULE" = "razer-chroma" ]; then
+            node scripts/openrgb/port-razer-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/razer-chroma/src/devices_table.rs
+          elif [ "$MODULE" = "redragon-mouse" ]; then
+            node scripts/openrgb/port-redragon-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/redragon-mouse/src/devices_table.rs
+          elif [ "$MODULE" = "luxafor" ]; then
+            node scripts/openrgb/port-luxafor-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/luxafor/src/devices_table.rs
+          elif [ "$MODULE" = "msi-motherboard" ]; then
+            node scripts/openrgb/port-msi-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/msi-motherboard/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-usb" ]; then
+            node scripts/openrgb/port-asus-aura-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/asus-aura-usb/src/devices_table.rs
+          elif [ "$MODULE" = "steelseries" ]; then
+            node scripts/openrgb/port-steelseries-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/steelseries/src/devices_table.rs
+          elif [ "$MODULE" = "thermaltake-riing" ]; then
+            node scripts/openrgb/port-thermaltake-riing-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/thermaltake-riing/src/devices_table.rs
+          elif [ "$MODULE" = "corsair-peripheral" ]; then
+            node scripts/openrgb/port-corsair-peripheral-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/corsair-peripheral/src/devices_table.rs
+          elif [ "$MODULE" = "coolermaster" ]; then
+            node scripts/openrgb/port-coolermaster-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/coolermaster/src/devices_table.rs
+          elif [ "$MODULE" = "corsair-peripheral-v2" ]; then
+            node scripts/openrgb/port-corsair-peripheral-v2-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/corsair-peripheral-v2/src/devices_table.rs
+          elif [ "$MODULE" = "drgb" ]; then
+            node scripts/openrgb/port-drgb-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/drgb/src/devices_table.rs
+          elif [ "$MODULE" = "cherry" ]; then
+            node scripts/openrgb/port-cherry-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-cherry
+            git diff --exit-code -- modules/cherry/src/devices_table.rs
+          elif [ "$MODULE" = "lenovo" ]; then
+            node scripts/openrgb/port-lenovo-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-lenovo
+            git diff --exit-code -- modules/lenovo/src/devices_table.rs
+          elif [ "$MODULE" = "nzxt-hue2" ]; then
+            node scripts/openrgb/port-nzxt-hue2-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-nzxt-hue2
+            git diff --exit-code -- modules/nzxt-hue2/src/devices_table.rs
+          elif [ "$MODULE" = "roccat" ]; then
+              node scripts/openrgb/port-roccat-devices.mjs openrgb "$OPENRGB_COMMIT"
+              cargo fmt --package freergb-module-roccat
+              git diff --exit-code -- modules/roccat/src/devices_table.rs
+          elif [ "$MODULE" = "nollie" ]; then
+            node scripts/openrgb/port-nollie-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-nollie
+            git diff --exit-code -- modules/nollie/src/devices_table.rs
+          elif [ "$MODULE" = "evision-keyboard" ]; then
+            node scripts/openrgb/port-evision-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-evision-keyboard
+            git diff --exit-code -- modules/evision-keyboard/src/devices_table.rs
+          elif [ "$MODULE" = "hyperx-keyboard" ]; then
+            node scripts/openrgb/port-hyperx-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-hyperx-keyboard
+            git diff --exit-code -- modules/hyperx-keyboard/src/devices_table.rs
+          elif [ "$MODULE" = "corsair-hydro-platinum" ]; then
+            node scripts/openrgb/port-corsair-hydro-platinum-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-corsair-hydro-platinum
+            git diff --exit-code -- modules/corsair-hydro-platinum/src/devices_table.rs
+          elif [ "$MODULE" = "sinowealth" ]; then
+            node scripts/openrgb/port-sinowealth-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-sinowealth
+            git diff --exit-code -- modules/sinowealth/src/devices_table.rs
+          elif [ "$MODULE" = "hyperx-mouse" ]; then
+            node scripts/openrgb/port-hyperx-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-hyperx-mouse
+            git diff --exit-code -- modules/hyperx-mouse/src/devices_table.rs
+          elif [ "$MODULE" = "gaizonggai" ]; then
+            node scripts/openrgb/port-gaizonggai-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-gaizonggai
+            git diff --exit-code -- modules/gaizonggai/src/devices_table.rs
+          elif [ "$MODULE" = "lianli" ]; then
+            node scripts/openrgb/port-lianli-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-lianli
+            git diff --exit-code -- modules/lianli/src/devices_table.rs
+          elif [ "$MODULE" = "corsair-commander-core" ]; then
+            node scripts/openrgb/port-corsair-commander-core-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-corsair-commander-core
+            git diff --exit-code -- modules/corsair-commander-core/src/devices_table.rs
+          elif [ "$MODULE" = "corsair-lighting-node" ]; then
+            node scripts/openrgb/port-corsair-lighting-node-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-corsair-lighting-node
+            git diff --exit-code -- modules/corsair-lighting-node/src/devices_table.rs
+          elif [ "$MODULE" = "evga-usb" ]; then
+            node scripts/openrgb/port-evga-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-evga-usb
+            git diff --exit-code -- modules/evga-usb/src/devices_table.rs
+          elif [ "$MODULE" = "a4tech" ]; then
+            node scripts/openrgb/port-a4tech-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-a4tech
+            git diff --exit-code -- modules/a4tech/src/devices_table.rs
+          elif [ "$MODULE" = "areson" ]; then
+            node scripts/openrgb/port-areson-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-areson
+            git diff --exit-code -- modules/areson/src/devices_table.rs
+          elif [ "$MODULE" = "annepro2" ]; then
+            node scripts/openrgb/port-annepro2-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-annepro2
+            git diff --exit-code -- modules/annepro2/src/devices_table.rs
+          elif [ "$MODULE" = "royuan-keyboard" ]; then
+            node scripts/openrgb/port-royuan-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-royuan-keyboard
+            git diff --exit-code -- modules/royuan-keyboard/src/devices_table.rs
+          elif [ "$MODULE" = "gigabyte-rgbfusion2" ]; then
+            node scripts/openrgb/port-gigabyte-rgbfusion2-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-gigabyte-rgbfusion2
+            git diff --exit-code -- modules/gigabyte-rgbfusion2/src/devices_table.rs
+          elif [ "$MODULE" = "asus-monitor" ]; then
+            node scripts/openrgb/port-asus-monitor-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-monitor
+            git diff --exit-code -- modules/asus-monitor/src/devices_table.rs
+          else
+            node scripts/openrgb/port-logitech-devices.mjs openrgb "$OPENRGB_COMMIT"
+            git diff --exit-code -- modules/logitech/src/devices_table.rs
+          fi
       - name: Source archive
         run: |
           set -euo pipefail

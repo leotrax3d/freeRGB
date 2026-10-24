@@ -1,0 +1,1 @@
+{"id":"asus-aura-usb","name":"ASUS Aura USB","version":"0.1.0","api":1,"license":"GPL-2.0-or-later","transport":"usb-hid","vendor":{"vid":"0B05","name":"ASUSTek"},"detectors":100,"omitted":["0b05:19af"]}

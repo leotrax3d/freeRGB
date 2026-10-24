@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+root = "modules/corsair-peripheral-v2"
+include = ["Cargo.toml","src","COPYING","PROVENANCE.md","module-info.json"]

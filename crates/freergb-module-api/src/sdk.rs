@@ -23,6 +23,16 @@ pub trait Module {
         interface: &InterfaceInfo,
         hid: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError>;
+    /// Initialize with optional user-provided zone sizes. The default keeps
+    /// existing modules source- and wire-compatible.
+    fn initialize_with_zones(
+        &mut self,
+        interface: &InterfaceInfo,
+        _zones: Option<&[Zone]>,
+        hid: &mut dyn Hid,
+    ) -> Result<Capabilities, ModuleError> {
+        self.initialize(interface, hid)
+    }
     fn frame(&mut self, colors: &[Rgb], hid: &mut dyn Hid) -> Result<(), ModuleError>;
     fn status(&self) -> Status {
         Status {
@@ -175,15 +185,15 @@ pub fn serve<M: Module, R: BufRead, W: Write>(module: &mut M, input: R, output: 
                 }
                 Method::Identify { interface } => serde_json::to_value(module.identify(interface))
                     .map_err(|e| protocol(e.to_string())),
-                Method::Initialize { interface } => {
-                    module.initialize(interface, &mut host).and_then(|caps| {
+                Method::Initialize { interface, zones } => module
+                    .initialize_with_zones(interface, zones.as_deref(), &mut host)
+                    .and_then(|caps| {
                         if caps.layout.leds.is_empty() || caps.layout.leds.len() > MAX_LEDS {
                             return Err(protocol("module reported an invalid layout"));
                         }
                         leds = Some(caps.layout.leds.len());
                         serde_json::to_value(caps).map_err(|e| protocol(e.to_string()))
-                    })
-                }
+                    }),
                 Method::Frame { rgb } => match leds {
                     None => Err(protocol("frame before initialize")),
                     Some(n) => unpack_rgb(rgb, n)

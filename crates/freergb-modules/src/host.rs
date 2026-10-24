@@ -13,8 +13,8 @@ use freergb_device_api::{
 };
 use freergb_module_api::{
     decode, encode, pack_rgb, Call, CallReply, Capabilities, ErrorCode, InterfaceInfo, Method,
-    ModuleError, ModuleInfo, Op, Request, Response, MAX_CALLS_PER_REQUEST, MAX_MESSAGE, MAX_REPORT,
-    MODULE_API,
+    ModuleError, ModuleInfo, Op, Request, Response, Zone, MAX_CALLS_PER_REQUEST, MAX_MESSAGE,
+    MAX_REPORT, MODULE_API,
 };
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
@@ -329,6 +329,7 @@ pub struct ModuleDevice {
     status: DeviceStatus,
     failures: u32,
     last_error: Option<ModuleError>,
+    zones: Option<Vec<Zone>>,
 }
 
 impl ModuleDevice {
@@ -364,7 +365,14 @@ impl ModuleDevice {
             status: DeviceStatus::Disconnected,
             failures: 0,
             last_error: None,
+            zones: None,
         }
+    }
+
+    /// Sets optional user configuration for variable-sized zones. Omitting it
+    /// preserves the module's OpenRGB-derived defaults.
+    pub fn set_zones(&mut self, zones: Option<Vec<Zone>>) {
+        self.zones = zones;
     }
 
     pub fn last_error(&self) -> Option<&ModuleError> {
@@ -422,6 +430,7 @@ impl RgbDevice for ModuleDevice {
         let result = process.request(
             Method::Initialize {
                 interface: self.interface.clone(),
+                zones: self.zones.clone(),
             },
             INITIALIZE_TIMEOUT,
             &mut self.transport,
