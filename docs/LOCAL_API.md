@@ -33,6 +33,8 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `cooling.status` | – | Hardware-control availability and reason (currently preview only) |
 | `cooling.sensors.get` / `cooling.sensors.save` | – / `{graph:{version:1,nodes:{...}}}` | Read/validate/save the custom Celsius source graph; evaluation and bounded history run in the daemon. See `CUSTOM_SENSORS.md`. |
 | `cooling.curves.list` | – | Map of curve names to definitions |
+| `cooling.curve_set.get` / `cooling.curve_set.save` | – / `{set:{nodes:{name:{type,...}}}}` | Read/validate/save the composite curve set (`graph`, `constant`, `trigger`, `mix`, `follow`; cycle-checked). Not bound to fan channels. |
+| `cooling.curve_set.values` | – | `{now_ms,outputs:{name:{percent,failsafe}},simulated:true}`: read-only evaluation against live sensor readings and custom sensor nodes; missing/stale/critical inputs give 100 % with `failsafe` and propagate through mix/follow. |
 | `cooling.curves.save` / `cooling.curves.delete` | `{name,curve}` / `{name}` | Validate/store or delete curve |
 | `cooling.preview` | `{curve,temperature_c?,age_ms?}` | `{duty_percent,simulated:true}`; no hardware write |
 | `cooling.sessions.status` | – | Experimental live session `{available,job_id,state,report,error}`; independent of legacy preview `cooling.status` |

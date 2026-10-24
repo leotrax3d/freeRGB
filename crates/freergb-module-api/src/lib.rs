@@ -17,6 +17,7 @@
 //!   `{"v":1,"call":3,"error":"..."}`. Nothing else is sent unsolicited.
 
 pub mod sdk;
+pub mod bus;
 
 use base64::Engine as _;
 use freergb_core::{LedLayout, Rgb};

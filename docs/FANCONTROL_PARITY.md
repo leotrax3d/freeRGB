@@ -50,10 +50,10 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 | Control | Hysteresis/delay | Basic hysteresis | Delay/boundary behavior |
 | Curves | Linear | Graph preview supports two points | Native binding |
 | Curves | Graph | Preview/editor | Broader shape support |
-| Curves | Constant | Evaluator (`freergb-control::curves`) | Daemon binding, editor |
-| Curves | Combination | Mix evaluator: max/min/avg/sum, fail-safe propagation | Daemon binding, editor |
-| Curves | Two-threshold switching | Trigger evaluator with hold time | Daemon binding, editor |
-| Curves | Following another output | Follow evaluator, cycle-checked graph | Daemon binding, editor |
+| Curves | Constant | Evaluator, daemon storage + live preview API, Tauri editor | Channel binding (needs multi-sensor protected sessions) |
+| Curves | Combination | Mix (max/min/avg/sum), fail-safe propagation, preview API, editor | Channel binding (needs multi-sensor protected sessions) |
+| Curves | Two-threshold switching | Trigger with hold time, preview API, editor | Channel binding (needs multi-sensor protected sessions) |
+| Curves | Following another output | Follow, cycle-checked, preview API, editor | Channel binding (needs multi-sensor protected sessions) |
 | Curves | Adaptive equilibrium | Missing | Trend controller/validation |
 | Sensors | Combinations | Daemon evaluation/editor/storage | Hardware source acceptance |
 | Sensors | Correction | Daemon evaluation/editor/storage | Native binding |

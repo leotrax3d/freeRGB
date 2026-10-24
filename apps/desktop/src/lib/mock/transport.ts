@@ -4,7 +4,7 @@
 
 import type { SliceListener, Transport } from "../api/transport";
 import { RpcError } from "../api/transport";
-import { DEFAULT_CURVE, type FanCurve, type MacroDefinition, type SensorGraph } from "../api/control";
+import { DEFAULT_CURVE, type CurveSet, type FanCurve, type MacroDefinition, type SensorGraph } from "../api/control";
 import type { ChannelBinding, OnboardingStatus, BackgroundChannel, ChannelEvidenceView, CoolingBackground, CoolingChannel, CoolingSession, CoolingSupportView, DeviceSummary, EffectSpec, MonitoringSensor, Slices } from "../api/types";
 import effectDefaults from "../api/fixtures/effects.json";
 import effectCatalog from "../../../../../effects/catalog.json";
@@ -98,6 +98,7 @@ export function mockTransport(): Transport {
   const macros: Record<string, MacroDefinition> = {
     Flash: { repeat: 2, steps: [{ type: "color", color: { r: 255, g: 0, b: 0 } }, { type: "delay", ms: 300 }, { type: "brightness", value: 0.7 }] },
   };
+  let curveSet: CurveSet = { nodes: { floor: { type: "constant", percent: 35 }, case: { type: "follow", source: "floor", scale: 1, offset_percent: 10 } } };
   let graph: SensorGraph = { version: 1, nodes: { coolant: { type: "input", source: "[\"mock:link\",\"temperature:4\"]" } } };
 
   // Mock motherboard fan control (nothing is written): one verified Nuvoton
@@ -467,6 +468,29 @@ export function mockTransport(): Transport {
           return true as T;
         case "marketplace.status":
           return { packages: { source: "Browser preview — official examples", catalog: effectCatalog.effects, installed: [], job: null, error: null, failure: null, ratings: { configured: false, by_effect: {}, mine: {}, updated_at: null, loading: false, saving: null, error: null } }, active: effect, runtime_error: null, runtime_error_code: null } as T;
+        case "cooling.curve_set.get":
+          return curveSet as T;
+        case "cooling.curve_set.save":
+          curveSet = p.set as CurveSet;
+          return true as T;
+        case "cooling.curve_set.values": {
+          // Sensor-driven nodes are not simulated in the browser: they fail safe.
+          const outputs: Record<string, { percent: number; failsafe: boolean }> = {};
+          const evaluate = (name: string, depth = 0): { percent: number; failsafe: boolean } => {
+            const n = curveSet.nodes[name];
+            if (outputs[name]) return outputs[name]!;
+            const safe = { percent: 100, failsafe: true };
+            const clamp = (v: number) => Math.min(100, Math.max(0, v));
+            const r = !n || depth > 64 ? safe
+              : n.type === "constant" ? { percent: n.percent, failsafe: false }
+              : n.type === "follow" ? ((i) => (i.failsafe ? safe : { percent: clamp(i.percent * n.scale + n.offset_percent), failsafe: false }))(evaluate(n.source, depth + 1))
+              : n.type === "mix" ? ((ins) => ins.some((i) => i.failsafe) ? safe : { percent: clamp(n.function === "maximum" ? Math.max(...ins.map((i) => i.percent)) : n.function === "minimum" ? Math.min(...ins.map((i) => i.percent)) : n.function === "sum" ? ins.reduce((a, i) => a + i.percent, 0) : ins.reduce((a, i) => a + i.percent, 0) / ins.length), failsafe: false })(n.sources.map((x) => evaluate(x, depth + 1)))
+              : safe;
+            return (outputs[name] = r);
+          };
+          Object.keys(curveSet.nodes).forEach((n) => evaluate(n));
+          return { now_ms: Date.now(), outputs, simulated: true } as T;
+        }
         default:
           throw new RpcError({ kind: "rpc", code: -32601, message: `${method} is not mocked` });
       }

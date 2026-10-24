@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page";
 import { useSlices } from "@/lib/store/daemon";
 import { CurvesSection } from "./CurvesSection";
 import { SensorsSection } from "./SensorsSection";
+import { CompositeCurvesSection } from "./CompositeCurvesSection";
 import { LiveSession } from "./LiveSession";
 import { ChannelBindings } from "./ChannelBindings";
 import { UnrestrictedSection } from "./UnrestrictedSection";
@@ -23,12 +24,13 @@ export default function CoolingView() {
         <details className="group flex flex-col gap-6 rounded-card border border-border px-4 py-3">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-small font-medium text-text-subtle">
             <ChevronRight className="size-4 transition-transform duration-(--duration-base) group-open:rotate-90" aria-hidden />
-            Advanced: unrestricted control, header labels, custom sensors
+            Advanced: unrestricted control, header labels, custom sensors, composite curves
           </summary>
           <div className="mt-4 flex flex-col gap-8">
             <UnrestrictedSection />
             <ChannelBindings />
             <SensorsSection />
+            <CompositeCurvesSection />
           </div>
         </details>
       </div>
