@@ -63,7 +63,7 @@ jobs:
           assert release['isPrerelease'], 'Beta release must remain a prerelease'
           PY
           gh release upload "$RELEASE_TAG" target/dist/* --clobber
-          gh release view "$RELEASE_TAG" --json assets > "$RUNNER_TEMP/uploaded-assets.json"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > "$RUNNER_TEMP/uploaded-assets.json"
           python3 - <<'PY'
           import hashlib, json, os
           from pathlib import Path
