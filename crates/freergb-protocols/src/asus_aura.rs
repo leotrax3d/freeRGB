@@ -23,15 +23,15 @@ impl Capabilities {
         if !(64..=65).contains(&report.len()) || report[0] != 0xec || report[1] != 0x30 {
             return Err(invalid("invalid Aura configuration reply"));
         }
+        let rgb_headers = report[4 + 0x1d];
+        // Some firmware (e.g. PRIME X870-P) reports 0 fixed LEDs next to its
+        // 12V headers; the headers still sit on the fixed channel.
         let capabilities = Self {
-            fixed_leds: report[4 + 0x1b],
-            rgb_headers: report[4 + 0x1d],
+            fixed_leds: report[4 + 0x1b].max(rgb_headers),
+            rgb_headers,
             argb_headers: report[4 + 2],
         };
-        if capabilities.fixed_leds > 16
-            || capabilities.rgb_headers > capabilities.fixed_leds
-            || capabilities.argb_headers > 4
-        {
+        if capabilities.fixed_leds > 16 || capabilities.argb_headers > 4 {
             return Err(invalid("unsupported Aura header/LED configuration"));
         }
         Ok(capabilities)
@@ -368,7 +368,7 @@ mod tests {
     fn discovery_rejects_truncation_and_impossible_headers_before_mode_writes() {
         for bytes in [vec![], reply()[..63].to_vec(), {
             let mut value = reply();
-            value[33] = 5;
+            value[33] = 17;
             value
         }] {
             assert!(Capabilities::decode(&bytes).is_err());
@@ -378,6 +378,22 @@ mod tests {
         assert!(device.connect().is_err());
         assert_eq!(device.transport.written().len(), 1);
         assert_eq!(&device.transport.written()[0][..2], &[0xec, 0xb0]);
+    }
+    #[test]
+    fn rgb_headers_without_fixed_leds_use_the_fixed_channel() {
+        // PRIME X870-P WIFI (19af) reply: 0 fixed LEDs, 3 RGB headers, 3 ARGB.
+        let mut value = reply();
+        value[6] = 3;
+        value[31] = 0;
+        value[33] = 3;
+        assert_eq!(
+            Capabilities::decode(&value).unwrap(),
+            Capabilities {
+                fixed_leds: 3,
+                rgb_headers: 3,
+                argb_headers: 3
+            }
+        );
     }
     #[test]
     fn packets_apply_only_last_chunk_and_handle_ninth_offset_bit() {
