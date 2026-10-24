@@ -17,6 +17,7 @@ Only identifiers (facts) are listed here; no OpenRGB code is included.
 | --- | --- |
 | **Supported (experimental)** | Implemented in freeRGB, see `MAINBOARD_RGB.md` |
 | **Planned** | Covered by `docs/promts/multi-fan-control-and-mainboard-rgb.md` |
+| **Ported (module)** | OpenRGB family ported as GPL module, not yet merged to `main` (branch named) |
 | **Not planned** | SMBus-only controllers (need a driver) |
 
 ## How to find your controller
@@ -31,18 +32,18 @@ printed on the board and in the manual.
 | PID | Type | freeRGB |
 | --- | --- | --- |
 | `19af` | Aura Motherboard (usage page `ff72`, usage `00a1`) | Supported (experimental) |
-| `18f3` | Aura Motherboard | Planned |
-| `1939` | Aura Motherboard | Planned |
-| `1aa6` | Aura Motherboard | Planned |
-| `1bed` | Aura Motherboard | Planned |
-| `1867`, `1872`, `18a3`, `18a5` | Aura Addressable header controller | Planned |
+| `18f3` | Aura Motherboard | Ported (module, `modules/integration`) |
+| `1939` | Aura Motherboard | Ported (module, `modules/integration`) |
+| `1aa6` | Aura Motherboard | Ported (module, `modules/integration`) |
+| `1bed` | Aura Motherboard | Ported (module, `modules/integration`) |
+| `1867`, `1872`, `18a3`, `18a5` | Aura Addressable header controller | Ported (module, `modules/integration`) |
 
 Covers most ASUS boards roughly from the 400/500 series on. Older ASUS boards
 with Aura over SMBus are not listed.
 
 ## MSI Mystic Light (VID `1462`, PID = MS product code)
 
-Detected by OpenRGB (tested set), freeRGB status **Planned**:
+Detected by OpenRGB (tested set), freeRGB status **Ported (module, `modules/integration`, `modules/msi-motherboard`)**:
 
 ```
 MS-1720 MS-7B12 MS-7B16 MS-7B17 MS-7B18 MS-7B50 MS-7B85 MS-7B92 MS-7B93 MS-7C02 MS-7C34 MS-7C35
@@ -67,11 +68,11 @@ Older MSI boards without a USB Mystic Light controller are not covered.
 
 | VID:PID | freeRGB |
 | --- | --- |
-| `048d:8297` | Planned |
-| `048d:5702` | Planned |
-| `048d:5711` | Planned |
-| `048d:8950` | Planned |
-| `0414:a100` | Planned |
+| `048d:8297` | Ported (module, `module/gigabyte-rgbfusion2`) |
+| `048d:5702` | Ported (module, `module/gigabyte-rgbfusion2`) |
+| `048d:5711` | Ported (module, `module/gigabyte-rgbfusion2`) |
+| `048d:8950` | Ported (module, `module/gigabyte-rgbfusion2`) |
+| `0414:a100` | Ported (module, `module/gigabyte-rgbfusion2`) |
 
 Detected by chip, not by board name: any Gigabyte board with one of these chips
 (roughly X470/Z390 and newer) is covered. Header names such as `D_LED1`,

@@ -41,9 +41,13 @@ nein: baue sie herstellerneutral, damit MSI sie später nutzt:
 
 ### 2. ASUS: alle Aura-USB-IDs
 
-Allowlist um alle in `docs/MAINBOARD_RGB_DEVICES.md` gelisteten ASUS-IDs erweitern
-(Mainboard und Addressable). Automatische Erkennung ohne Opt-in.
-Mock-Tests pro ID-Gruppe.
+**Nicht neu bauen:** `modules/asus-aura-usb/` auf Branch `modules/integration`
+enthält bereits alle übrigen Aura-USB-IDs (Mainboard `18f3/1939/1aa6/1bed`,
+Addressable `1867/1872/18a3/18a5`); nur `0b05:19af` bleibt beim Kern-Adapter
+`asus_aura.rs`. Sorge dafür, dass das Modul nach `main` kommt, standardmäßig
+geladen wird und die gemeinsame Header-Konfiguration nutzt. Fehlende Mock-Tests
+ergänzen. Hinweis: `modules/msi-motherboard/` liegt dort ebenfalls schon –
+nicht anfassen (MSI-Agent).
 
 ### 3. Gigabyte RGB Fusion 2 USB
 
