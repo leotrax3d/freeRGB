@@ -47,9 +47,12 @@ Mock-Tests pro ID-Gruppe.
 
 ### 3. Gigabyte RGB Fusion 2 USB
 
-Alle fünf IDs aus der Liste. Header-Tabelle aus der Controller-Antwort, Namen wie
-`D_LED1`/`ARGB_V2_1`. Mock-Tests: Erkennung, Tabelle, Paketaufbau,
-ungültige Antworten → keine Writes, Fallback beim Beenden.
+**Nicht neu bauen:** Auf Branch `module/gigabyte-rgbfusion2` existiert bereits
+ein GPL-Modul (`modules/gigabyte-rgbfusion2/`) mit allen IDs (`048d:8297/8950/5702/5711`, …).
+Prüfe es, bringe es über `modules/integration` nach `main` (falls noch nicht
+geschehen) und schließe es an die gemeinsame Header-Konfiguration aus Schritt 1
+an. Fehlende Mock-Tests ergänzen (ungültige Antworten → keine Writes, Fallback
+beim Beenden). Prüfe vor Schritt 4 ebenso, ob es schon `module/asrock*`-Branches gibt.
 
 ### 4. ASRock Polychrome USB
 
