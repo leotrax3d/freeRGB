@@ -90,7 +90,7 @@ jobs:
         with:
           node-version: 24.19.0
       - name: Generated device table matches the pinned OpenRGB commit
-        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry' || env.MODULE == 'lenovo' || env.MODULE == 'nzxt-hue2' || env.MODULE == 'nollie' || env.MODULE == 'evision-keyboard' || env.MODULE == 'hyperx-keyboard' || env.MODULE == 'hyperx-mouse' || env.MODULE == 'gaizonggai' || env.MODULE == 'lianli' || env.MODULE == 'asus-monitor' || env.MODULE == 'corsair-commander-core' || env.MODULE == 'corsair-lighting-node' || env.MODULE == 'evga-usb' || env.MODULE == 'a4tech' || env.MODULE == 'areson' || env.MODULE == 'annepro2' || env.MODULE == 'gigabyte-rgbfusion2' || env.MODULE == 'corsair-hydro-platinum' || env.MODULE == 'sinowealth' || env.MODULE == 'royuan-keyboard'
+        if: env.MODULE == 'razer-chroma' || env.MODULE == 'redragon-mouse' || env.MODULE == 'luxafor' || env.MODULE == 'msi-motherboard' || env.MODULE == 'asus-aura-usb' || env.MODULE == 'steelseries' || env.MODULE == 'thermaltake-riing' || env.MODULE == 'logitech' || env.MODULE == 'corsair-peripheral' || env.MODULE == 'coolermaster' || env.MODULE == 'corsair-peripheral-v2' || env.MODULE == 'drgb' || env.MODULE == 'roccat' || env.MODULE == 'cherry' || env.MODULE == 'lenovo' || env.MODULE == 'nzxt-hue2' || env.MODULE == 'nollie' || env.MODULE == 'evision-keyboard' || env.MODULE == 'hyperx-keyboard' || env.MODULE == 'hyperx-mouse' || env.MODULE == 'gaizonggai' || env.MODULE == 'lianli' || env.MODULE == 'asus-monitor' || env.MODULE == 'corsair-commander-core' || env.MODULE == 'corsair-lighting-node' || env.MODULE == 'evga-usb' || env.MODULE == 'a4tech' || env.MODULE == 'areson' || env.MODULE == 'annepro2' || env.MODULE == 'gigabyte-rgbfusion2' || env.MODULE == 'corsair-hydro-platinum' || env.MODULE == 'sinowealth' || env.MODULE == 'royuan-keyboard' || env.MODULE == 'msi-keyboard' || env.MODULE == 'msi-laptop' || env.MODULE == 'asus-legacy-usb' || env.MODULE == 'das-keyboard' || env.MODULE == 'fnatic-streak' || env.MODULE == 'asus-aura-core' || env.MODULE == 'gigabyte-aorus-laptop' || env.MODULE == 'instant-mouse' || env.MODULE == 'sony-gamepad'
         run: |
           git init -q openrgb && cd openrgb
           git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
@@ -108,6 +108,38 @@ jobs:
           elif [ "$MODULE" = "msi-motherboard" ]; then
             node scripts/openrgb/port-msi-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/msi-motherboard/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-core" ]; then
+            node scripts/openrgb/port-asus-aura-core-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-core
+            git diff --exit-code -- modules/asus-aura-core/src/devices_table.rs
+          elif [ "$MODULE" = "gigabyte-aorus-laptop" ]; then
+            node scripts/openrgb/port-gigabyte-aorus-laptop-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-gigabyte-aorus-laptop
+            git diff --exit-code -- modules/gigabyte-aorus-laptop/src/devices_table.rs
+          elif [ "$MODULE" = "fnatic-streak" ]; then
+            node scripts/openrgb/port-fnatic-streak-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-fnatic-streak
+            git diff --exit-code -- modules/fnatic-streak/src/devices_table.rs
+          elif [ "$MODULE" = "das-keyboard" ]; then
+            node scripts/openrgb/port-das-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-das-keyboard
+            git diff --exit-code -- modules/das-keyboard/src/devices_table.rs
+          elif [ "$MODULE" = "asus-legacy-usb" ]; then
+            node scripts/openrgb/port-asus-legacy-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-legacy-usb
+            git diff --exit-code -- modules/asus-legacy-usb/src/devices_table.rs
+          elif [ "$MODULE" = "msi-laptop" ]; then
+            node scripts/openrgb/port-msi-laptop-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-msi-laptop
+            git diff --exit-code -- modules/msi-laptop/src/devices_table.rs
+          elif [ "$MODULE" = "msi-keyboard" ]; then
+            node scripts/openrgb/port-msi-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-msi-keyboard
+            git diff --exit-code -- modules/msi-keyboard/src/devices_table.rs
+          elif [ "$MODULE" = "instant-mouse" ]; then
+            node scripts/openrgb/port-instant-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-instant-mouse
+            git diff --exit-code -- modules/instant-mouse/src/devices_table.rs
           elif [ "$MODULE" = "asus-aura-usb" ]; then
             node scripts/openrgb/port-asus-aura-usb-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/asus-aura-usb/src/devices_table.rs
@@ -120,6 +152,10 @@ jobs:
           elif [ "$MODULE" = "corsair-peripheral" ]; then
             node scripts/openrgb/port-corsair-peripheral-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/corsair-peripheral/src/devices_table.rs
+          elif [ "$MODULE" = "sony-gamepad" ]; then
+            node scripts/openrgb/port-sony-gamepad-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-sony-gamepad
+            git diff --exit-code -- modules/sony-gamepad/src/devices_table.rs
           elif [ "$MODULE" = "coolermaster" ]; then
             node scripts/openrgb/port-coolermaster-devices.mjs openrgb "$OPENRGB_COMMIT"
             git diff --exit-code -- modules/coolermaster/src/devices_table.rs
