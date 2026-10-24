@@ -23,8 +23,9 @@ cross-version upgrade still require acceptance on disposable Windows systems.
 
 - Fan/pump control remains experimental and behind the existing safety gates.
   Simulation demonstrates decisions and transport faults, not physical cooling.
-- The final candidate has not been installed on native Windows in this audit.
-  See `BETA_READINESS_AUDIT.md` for the explicit release gates and evidence.
+- The candidate passed automated install/reinstall/uninstall on a disposable
+  native Windows runner. Interactive UAC and cross-version application acceptance
+  remain open; see `BETA_READINESS_AUDIT.md` for evidence and release gates.
 - The owner approved distributing the initial beta without publisher Authenticode signing; unsigned beta
   installers may trigger SmartScreen. SHA-256/GitHub provenance is not publisher signing.
 - The public hardware-module catalog must be available and signed by the compiled

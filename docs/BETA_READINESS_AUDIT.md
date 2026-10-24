@@ -1,5 +1,35 @@
 # Beta readiness audit — final RC, 2026-10-24
 
+## Latest Windows result: unsigned trial installer ready
+
+[Package run 40104663126](https://github.com/leotrax3d/FreeRGB/actions/runs/40104663126)
+completed successfully for commit `227214138b13de21bb57a52d737b41278f0e1622`.
+[Download the installer artifact](https://github.com/leotrax3d/FreeRGB/actions/runs/40104663126/artifacts/12565131407).
+No release was created or published; the draft-release job was skipped.
+
+- [x] Native Windows workspace tests, frontend/Tauri tests and release builds.
+- [x] Synthetic cooling faults, protected broker boundaries, SCM install/update/rollback/removal with a compile-time sensor fixture; no real hardware access.
+- [x] Official prerequisite download/hash/signature verification; no prerequisite installer or driver execution in that check.
+- [x] Inno compiler/model checks, actual machine-wide installer install/reinstall/uninstall, legacy refusal, scoped shutdown and preserved profiles on the disposable Windows runner.
+- [x] IPC/virtual rendering/plugin smoke and installer artifact checksum/provenance checks. Downloaded artifact was independently reverified locally.
+- [ ] Interactive UAC allow/cancel, real cross-version application upgrades and public signed module catalog availability remain open. This is a trial installer, not public-release approval.
+
+Installer: `freeRGB-0.1.0-beta.2-windows-x86_64-setup.exe`, Authenticode `NotSigned` as approved.
+SHA-256: `77f44f23f219ccdb576f55552212f6e0eab5da58d8d864a5f761ea322936ef06`.
+
+Build fixes: official ISCC PE resources contain version `0.0.0.0`; the pinned
+6.7.3 engine is now checked by its actual preprocessor version in a no-output
+probe, while archive hash and Authenticode checks remain mandatory. A missing
+Marketplace match arm in the newly merged Win32 GUI was corrected. Compiler
+setup now fails early, failed builds retain dependency caches, and the verified
+installer artifact uploads before the lifecycle checks.
+
+## Earlier audit snapshot
+
+The record below predates this successful Windows build. Its statements that the
+installer was not built/tested are superseded by the results above; the earlier
+Linux counts are historical and are not new measurements of the expanded workspace.
+
 ## Decision: NO-GO for public 0.1.0-beta.2
 
 The technically reproducible blockers found in source were corrected. Linux release
