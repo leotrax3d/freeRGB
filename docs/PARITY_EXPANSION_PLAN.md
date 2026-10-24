@@ -1,0 +1,65 @@
+# OpenRGB + FanControl parity expansion plan
+
+Status: 2026-10-24, branch `feature/parity-expansion`. This plan builds on the
+existing architecture; it does not replace it. Detailed per-area ledgers stay
+in [OPENRGB_PORTING.md](OPENRGB_PORTING.md), [FANCONTROL_PARITY.md](FANCONTROL_PARITY.md)
+and [COOLING_BROAD_SUPPORT_PLAN.md](COOLING_BROAD_SUPPORT_PLAN.md).
+
+## Current state (analysis)
+
+| Area | What exists | Gap to the reference |
+|---|---|---|
+| RGB device coverage | Native K70 CORE, iCUE LINK, ASUS Aura USB, Gigabyte Fusion 2, ASRock Polychrome; 42 GPL process modules ported from OpenRGB HID families (brokered via `freergb-module-api`) | OpenRGB has 121 HID families plus SMBus (RAM, GPU, legacy boards), PCI/I2C GPU, network and serial controllers. ~79 HID families and all non-HID transports are missing. Almost no module is hardware-accepted. |
+| RGB features | Shared canvas, 11 effects, layers, profiles, app rules, audio/screen | Per-device hardware modes are mostly omitted in ports (direct mode only); OpenRGB SDK server/client protocol missing. |
+| Fan control | LHM tiers, multi-channel journal, supervised writes, calibration, step limits, cooling profiles | Composite curves not bound to channels; RPM targets, adaptive equilibrium, text-file sensors, GPU fan control, cooling plugins. |
+| Service / GUI | Daemon independent of GUI; Classic Win32 GUI and Tauri GUI | Composite-curve editor; module manager UI parity. |
+
+### Branch audit
+
+* `module/fnatic-streak` (includes `module/gigabyte-aorus-laptop`): nine ported
+  families never merged. **Merged** on this branch: Sony gamepad, ASUS Aura
+  Core, Gigabyte Aorus laptop, Instant mouse, MSI keyboard, MSI laptop, ASUS
+  legacy USB, Das Keyboard, Fnatic Streak. All their tests pass.
+* `modules/integration`: a parallel, independent implementation of the same
+  families (and of SteelSeries/MSI motherboard/ASUS Aura USB) with fewer tests.
+  Merging would create duplicate implementations; **not merged**. Individual
+  fixes from it can be compared per module later if a hardware test disagrees.
+* `feature/tauri-gui`: already integrated through `codex/integrate-tauri-main`.
+* All other `module/*` and `feature/*` branches are fully contained in `main`.
+
+## Licensing
+
+freeRGB core is MIT/Apache-2.0. OpenRGB is GPL-2.0-or-later, so ported code
+stays in separately built GPL process modules that talk to the service only over
+the module protocol (see [HARDWARE_MODULES.md](HARDWARE_MODULES.md)). Continue
+this rule for every port. FanControl is proprietary: only its public
+documentation is used to define features; no code, resources or decompilation.
+LibreHardwareMonitor (MPL-2.0) remains an optional, separately shipped backend.
+
+## Increments
+
+1. **Done here:** merge the nine pending HID families (coverage 33 → 42 module
+   families).
+2. **Done here:** composite curve evaluator `freergb-control::curves`
+   (constant, two-threshold trigger with hold time, mix max/min/avg/sum,
+   follow with scale/offset). Cycle-checked graph; a missing, stale or
+   critical sensor yields 100% and propagates through mix/follow nodes so a
+   `minimum` mix cannot hide a failure. Pure policy with unit tests.
+3. Bind `CurveSet` to background channels in `freergb-daemon`
+   (`background.rs`, `cooling_profiles.rs`) with the existing tier floor and
+   supervisor; expose it in the local API; add editors to both GUIs.
+4. Continue the OpenRGB HID queue in priority order (`scripts/openrgb/inventory.mjs`):
+   next unported HID families with ≥2 devices (Mountain, QMK OpenRGB/Vial,
+   Realtek bridge, ViewSonic, Alienware, Wooting, Ducky, Cougar, ...).
+5. RPM target mode from the existing calibration data; text-file sensors with
+   freshness bounds; adaptive equilibrium curve.
+6. Non-HID transports, each behind explicit risk gating: SMBus RAM (deferred
+   for risk today), GPU I2C via vendor APIs, OpenRGB SDK network protocol
+   (client and server) to interoperate with existing OpenRGB setups.
+
+## What actually works now
+
+Only items with hardware evidence in [DEVICES.md](DEVICES.md) and
+[COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md) are validated. The newly merged
+modules and the composite curve evaluator are **simulated/unit-tested only**;
+the composite curves are not yet used by the daemon.
