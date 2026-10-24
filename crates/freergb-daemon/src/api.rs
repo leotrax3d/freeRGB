@@ -335,15 +335,46 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         "cooling.sessions.start" => serde_json::from_value(params.clone())
             .map_err(invalid_params)
             .and_then(|request: crate::cooling_sessions::StartRequest| {
-                let mut engine = lock(engine);
-                let policy = engine
-                    .cooling_policy(&request.control_id)
-                    .map_err(|error| (-32006, error))?;
-                engine
-                    .cooling_sessions
-                    .start(request, &policy)
+                lock(engine)
+                    .start_cooling(request)
                     .map(|job| json!({"job_id":job}))
                     .map_err(|error| (-32006, error))
+            }),
+        // Additive multi-channel API; single-job calls above stay unchanged.
+        "cooling.sessions.list" => {
+            let engine = lock(engine);
+            Ok(json!({
+                "active": engine.cooling_sessions.active(),
+                "max_active": crate::cooling_sessions::MAX_ACTIVE,
+                "assignments": engine.cooling_assignments.view(),
+            }))
+        }
+        "cooling.sessions.stop_all" => {
+            let mut engine = lock(engine);
+            engine.cooling_assignments.forget_all();
+            engine
+                .cooling_sessions
+                .stop_all()
+                .map(|stopped| json!({"stopped": stopped}))
+                .map_err(|error| (-32006, error))
+        }
+        "cooling.sessions.stop_channel" => params["control_id"]
+            .as_str()
+            .ok_or_else(|| invalid_params("control_id required"))
+            .and_then(|control_id| {
+                let mut engine = lock(engine);
+                engine.cooling_assignments.forget(control_id);
+                let jobs: Vec<u64> = engine
+                    .cooling_sessions
+                    .active()
+                    .iter()
+                    .filter(|j| j.control_id.as_deref() == Some(control_id))
+                    .filter_map(|j| j.job_id)
+                    .collect();
+                for job in &jobs {
+                    engine.cooling_sessions.stop(*job).map_err(|e| (-32006, e))?;
+                }
+                Ok(json!({"stopped": jobs.len()}))
             }),
         "cooling.background.get" => Ok(lock(engine).background.view()),
         "cooling.support.settings" => params["unrestricted_enabled"]
@@ -488,7 +519,12 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             .as_u64()
             .ok_or_else(|| invalid_params("job_id required"))
             .and_then(|job| {
-                lock(engine)
+                let mut engine = lock(engine);
+                // An explicit stop also ends the remembered assignment.
+                if let Some(control) = engine.cooling_sessions.active_control(job) {
+                    engine.cooling_assignments.forget(&control);
+                }
+                engine
                     .cooling_sessions
                     .stop(job)
                     .map(|()| json!(true))

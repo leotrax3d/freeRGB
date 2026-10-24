@@ -66,6 +66,14 @@ impl Bindings {
         json!({"config":self.config, "assignments":assignments, "error":self.error,
             "persistence_enabled":self.path.is_some()})
     }
+    /// Saved binding for a channel identity (`Channel::id`), if any.
+    pub fn binding(&self, channel_id: &str) -> Option<freergb_control::channels::ChannelBinding> {
+        self.config
+            .bindings
+            .iter()
+            .find(|b| b.control_id == channel_id)
+            .cloned()
+    }
     /// User-assigned role for a channel identity (`Channel::id`), if any.
     pub fn role(&self, channel_id: &str) -> Option<freergb_control::channels::ChannelRole> {
         self.config

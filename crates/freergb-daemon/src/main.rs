@@ -297,9 +297,14 @@ fn render_loop(
 ) {
     let period = Duration::from_secs_f64(1.0 / f64::from(lock(&engine).target_fps()));
     let mut last_scan = Instant::now();
+    let mut last_resume = Instant::now();
     while !stop.load(Ordering::SeqCst) {
         let t0 = Instant::now();
         lock(&engine).tick(t0);
+        if last_resume.elapsed() >= Duration::from_secs(1) {
+            last_resume = Instant::now();
+            lock(&engine).resume_cooling();
+        }
         if let Some(every) = rescan {
             let requested = lock(&engine)
                 .modules
