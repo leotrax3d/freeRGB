@@ -60,7 +60,8 @@ impl Toasts {
     /// Drops expired toasts and draws the remaining stack at bottom-right.
     pub fn show(&mut self, ctx: &egui::Context) {
         let now = Instant::now();
-        self.items.retain(|toast| now.duration_since(toast.born) < LIFETIME);
+        self.items
+            .retain(|toast| now.duration_since(toast.born) < LIFETIME);
         let expired = self.items.clone();
         egui::Area::new(egui::Id::new("toasts"))
             .anchor(egui::Align2::RIGHT_BOTTOM, [-16.0, -18.0])
@@ -68,12 +69,12 @@ impl Toasts {
             .show(ctx, |ui| {
                 for toast in expired {
                     let (fill, accent, mark) = match toast.kind {
-                        Kind::Success => (
-                            egui::Color32::from_rgb(26, 42, 32),
-                            crate::theme::GOOD,
-                            "✓",
-                        ),
-                        Kind::Error => (egui::Color32::from_rgb(46, 30, 30), crate::theme::BAD, "✕"),
+                        Kind::Success => {
+                            (egui::Color32::from_rgb(26, 42, 32), crate::theme::GOOD, "✓")
+                        }
+                        Kind::Error => {
+                            (egui::Color32::from_rgb(46, 30, 30), crate::theme::BAD, "✕")
+                        }
                     };
                     egui::Frame::none()
                         .fill(fill)

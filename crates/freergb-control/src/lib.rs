@@ -109,11 +109,7 @@ impl FanCurve {
     /// Inserts a curve point at the temperature-sorted position and clamps it
     /// into the curve. Returns the insert index, or `None` when the curve is
     /// full (16 points) or already has a point at this temperature slot.
-    pub fn insert_curve_point(
-        &mut self,
-        temperature_c: f32,
-        duty_percent: f32,
-    ) -> Option<usize> {
+    pub fn insert_curve_point(&mut self, temperature_c: f32, duty_percent: f32) -> Option<usize> {
         if self.points.len() >= 16 {
             return None;
         }

@@ -90,18 +90,20 @@ fn spawn_update_worker() -> (Arc<Mutex<UpdateView>>, Sender<UpdateCommand>) {
             } else {
                 match rx.recv_timeout(Duration::from_secs(6 * 3600)) {
                     Ok(command) => command,
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) if automatic => UpdateCommand::Check,
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) if automatic => {
+                        UpdateCommand::Check
+                    }
                     Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
                     Err(_) => break,
                 }
             };
             if let UpdateCommand::Automatic(value) = command {
                 if let Some(path) = &preference {
-                    let result = std::fs::create_dir_all(path.parent().unwrap()).and_then(|()| {
-                        std::fs::write(path, if value { "true" } else { "false" })
-                    });
+                    let result = std::fs::create_dir_all(path.parent().unwrap())
+                        .and_then(|()| std::fs::write(path, if value { "true" } else { "false" }));
                     if let Err(error) = result {
-                        worker.lock().unwrap_or_else(|e| e.into_inner()).message = error.to_string();
+                        worker.lock().unwrap_or_else(|e| e.into_inner()).message =
+                            error.to_string();
                         continue;
                     }
                 }
@@ -140,7 +142,10 @@ fn spawn_update_worker() -> (Arc<Mutex<UpdateView>>, Sender<UpdateCommand>) {
                         .update
                         .clone();
                     if let Some(update) = update {
-                        let directory = root.clone().unwrap_or_else(std::env::temp_dir).join("updates");
+                        let directory = root
+                            .clone()
+                            .unwrap_or_else(std::env::temp_dir)
+                            .join("updates");
                         let result = freergb_update::download(&update, &directory);
                         let mut view = worker.lock().unwrap_or_else(|e| e.into_inner());
                         match result {
@@ -156,9 +161,8 @@ fn spawn_update_worker() -> (Arc<Mutex<UpdateView>>, Sender<UpdateCommand>) {
             }
             let should_download = {
                 let mut view = worker.lock().unwrap_or_else(|e| e.into_inner());
-                let download = automatic
-                    && matches!(command, UpdateCommand::Check)
-                    && view.update.is_some();
+                let download =
+                    automatic && matches!(command, UpdateCommand::Check) && view.update.is_some();
                 view.busy = download;
                 download
             };
@@ -169,7 +173,10 @@ fn spawn_update_worker() -> (Arc<Mutex<UpdateView>>, Sender<UpdateCommand>) {
                     .update
                     .clone()
                     .unwrap();
-                let directory = root.clone().unwrap_or_else(std::env::temp_dir).join("updates");
+                let directory = root
+                    .clone()
+                    .unwrap_or_else(std::env::temp_dir)
+                    .join("updates");
                 let result = freergb_update::download(&update, &directory);
                 let mut view = worker.lock().unwrap_or_else(|e| e.into_inner());
                 view.busy = false;
@@ -239,7 +246,8 @@ impl Histories {
                 .get(key)
                 .is_some_and(|seen| now_s - seen <= 60.0)
         });
-        self.last_seen.retain(|key, _| self.series.contains_key(key));
+        self.last_seen
+            .retain(|key, _| self.series.contains_key(key));
         for series in self.series.values_mut() {
             if series.len() == Self::CAPACITY {
                 series.pop_front();
@@ -476,7 +484,10 @@ struct Row {
 
 impl Row {
     fn start(ui: &Ui) -> Self {
-        Row { x: ui.bounds.0, y: ui.cursor.1 }
+        Row {
+            x: ui.bounds.0,
+            y: ui.cursor.1,
+        }
     }
 
     fn next(&mut self, width: f32, height: f32) -> ui::Rect {
@@ -554,7 +565,11 @@ fn color_edit(
     if changed {
         *c = Rgb::from(arr);
     }
-    ui.box_(&swatch, Some((colorref(*c), colorref(*c))), Some(ui.palette.border));
+    ui.box_(
+        &swatch,
+        Some((colorref(*c), colorref(*c))),
+        Some(ui.palette.border),
+    );
     ui.set_cursor(x0, ui.cursor.1);
     ui.set_bounds(x0, x1);
     changed
@@ -567,14 +582,7 @@ fn effect_params(ui: &mut Ui, spec: &mut EffectSpec) -> bool {
     let period = |ui: &mut Ui, id: u64, ms: &mut u32, range: (f32, f32)| -> bool {
         let mut value = *ms as f32;
         let display = format!("{} ms", value.round() as u32);
-        if ui.slider(
-            id,
-            &mut value,
-            range.0,
-            range.1,
-            "period (ms)",
-            &display,
-        ) {
+        if ui.slider(id, &mut value, range.0, range.1, "period (ms)", &display) {
             *ms = value.round() as u32;
             true
         } else {
@@ -624,7 +632,12 @@ fn effect_params(ui: &mut Ui, spec: &mut EffectSpec) -> bool {
             );
         }
         EffectSpec::ColorCycle { period_ms } => {
-            changed |= period(ui, ui::id(&[page, "period"]), period_ms, (1_000.0, 60_000.0));
+            changed |= period(
+                ui,
+                ui::id(&[page, "period"]),
+                period_ms,
+                (1_000.0, 60_000.0),
+            );
         }
         EffectSpec::Scanner {
             color,
@@ -714,7 +727,9 @@ fn lighting(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Com
     let rect = ui.item(width, width * 32.0 / 128.0);
     ui.box_(&rect, Some((0x000000, 0x000000)), Some(ui.palette.border));
     let spec = pages.spec.clone();
-    pages.preview.blit(ui.dc, ui.scale, &rect.with_margin(2.0), &spec);
+    pages
+        .preview
+        .blit(ui.dc, ui.scale, &rect.with_margin(2.0), &spec);
 
     let items: Vec<String> = EffectSpec::NAMES
         .iter()
@@ -722,7 +737,12 @@ fn lighting(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Com
         .collect();
     let current = pages.spec.name();
     let selected = EffectSpec::NAMES.iter().position(|name| *name == current);
-    if let Some(choice) = ui.combo(ui::id(&["lighting", "effect"]), &items, selected, "(choose an effect)") {
+    if let Some(choice) = ui.combo(
+        ui::id(&["lighting", "effect"]),
+        &items,
+        selected,
+        "(choose an effect)",
+    ) {
         let name = EffectSpec::NAMES[choice];
         if name != current {
             if let Some(s) = EffectSpec::default_for(name) {
@@ -777,7 +797,11 @@ fn lighting(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Com
             }
             row.end(ui, 30.0);
         }
-        ui.text_line(ui::id(&["lighting", "custom-name"]), &mut pages.custom_name, "name for the current effect");
+        ui.text_line(
+            ui::id(&["lighting", "custom-name"]),
+            &mut pages.custom_name,
+            "name for the current effect",
+        );
         let name = pages.custom_name.trim().to_owned();
         {
             let mut row = Row::start(ui);
@@ -789,7 +813,11 @@ fn lighting(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Com
                 snapshot.connected && !name.is_empty(),
             ) {
                 if let Ok(value) = serde_json::to_value(&pages.spec) {
-                    send(tx, "custom_effects.save", json!({"name": name, "effect": value}));
+                    send(
+                        tx,
+                        "custom_effects.save",
+                        json!({"name": name, "effect": value}),
+                    );
                     pages.selected_custom = None;
                     pages.custom_name.clear();
                     pages.note("Custom effect saved");
@@ -846,10 +874,7 @@ fn lighting(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Com
             ui.hint("Profiles are disabled (daemon started with --no-state).");
         }
         Some(list) => {
-            if pages
-                .selected_profile
-                .is_some_and(|i| i >= list.len())
-            {
+            if pages.selected_profile.is_some_and(|i| i >= list.len()) {
                 pages.selected_profile = None;
             }
             if let Some(choice) = ui.combo(
@@ -1120,12 +1145,15 @@ fn curve_graph(ui: &mut Ui, pages: &mut Pages) {
             pages.curve_drag = picked(ui.input.mouse);
         }
         if let Some(index) = pages.curve_drag {
-            pages.curve
+            pages
+                .curve
                 .clamp_moved_point(index, t_at(ui.input.mouse.0), d_at(ui.input.mouse.1));
         }
     }
     if ui.input.double_click && ui.contains(&rect) && picked(ui.input.mouse).is_none() {
-        pages.curve.insert_curve_point(t_at(ui.input.mouse.0), d_at(ui.input.mouse.1));
+        pages
+            .curve
+            .insert_curve_point(t_at(ui.input.mouse.0), d_at(ui.input.mouse.1));
     }
     if ui.input.right_released && ui.contains(&rect) {
         if let Some(index) = picked(ui.input.mouse) {
@@ -1140,10 +1168,21 @@ fn curve_graph(ui: &mut Ui, pages: &mut Pages) {
     }
 
     for pair in pts_before.windows(2) {
-        ui.line(pair[0].0, pair[0].1, pair[1].0, pair[1].1, ui.palette.accent, 2);
+        ui.line(
+            pair[0].0,
+            pair[0].1,
+            pair[1].0,
+            pair[1].1,
+            ui.palette.accent,
+            2,
+        );
     }
     for (index, (x, y)) in pts_before.iter().enumerate() {
-        let radius = if pages.curve_drag == Some(index) { 5.5 } else { 4.0 };
+        let radius = if pages.curve_drag == Some(index) {
+            5.5
+        } else {
+            4.0
+        };
         let fill = if pages.curve_drag == Some(index) {
             ui.palette.accent
         } else {
@@ -1167,7 +1206,13 @@ fn curve_graph(ui: &mut Ui, pages: &mut Pages) {
 }
 
 /// Live motherboard cooling (experimental; same RPC as the Classic GUI).
-fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Command>, curve: &FanCurve) {
+fn mainboard_section(
+    ui: &mut Ui,
+    pages: &mut Pages,
+    snapshot: &Snapshot,
+    tx: &Sender<Command>,
+    curve: &FanCurve,
+) {
     let status = snapshot.control["cooling_session"].clone();
     let board = &mut pages.mainboard;
     ui.hint("Experimental motherboard fan control. Selecting a channel does not prove its physical header or PWM/DC mode.");
@@ -1184,7 +1229,9 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
                 if channel["kind"] != kind {
                     continue;
                 }
-                let Some(id) = channel["reading"]["id"].as_str() else { continue };
+                let Some(id) = channel["reading"]["id"].as_str() else {
+                    continue;
+                };
                 labels.push(id.to_owned());
                 ids.push(id.to_owned());
             }
@@ -1200,7 +1247,9 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
             if entry["provider"] != "mainboard.lhm" || entry["sensor"]["unit"] != "°C" {
                 continue;
             }
-            let Some(id) = entry["sensor"]["id"].as_str() else { continue };
+            let Some(id) = entry["sensor"]["id"].as_str() else {
+                continue;
+            };
             temperature_items.push(id.to_owned());
             temperature_ids.push(id.to_owned());
         }
@@ -1236,8 +1285,9 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
     let selected = snapshot.control["cooling_channels"]
         .as_array()
         .and_then(|list| {
-            list.iter()
-                .find(|channel| channel["kind"] == "control" && channel["reading"]["id"] == board.control.as_str())
+            list.iter().find(|channel| {
+                channel["kind"] == "control" && channel["reading"]["id"] == board.control.as_str()
+            })
         });
     let blocked = selected.and_then(refusal);
     if let Some(channel) = selected {
@@ -1246,9 +1296,13 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
             Font::Body,
             ui.palette.text,
         );
-        let evidence = snapshot.control["cooling_support"]["channels"][board.control.as_str()].clone();
+        let evidence =
+            snapshot.control["cooling_support"]["channels"][board.control.as_str()].clone();
         ui.label_color(
-            &format!("Channel test: {}", evidence["test"].as_str().unwrap_or("none")),
+            &format!(
+                "Channel test: {}",
+                evidence["test"].as_str().unwrap_or("none")
+            ),
             Font::Body,
             ui.palette.text,
         );
@@ -1265,8 +1319,8 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
         "I confirm this is a normal fan, not a pump, and the selected RPM belongs to it.",
     );
     ui.hint("Starting requests Windows UAC for this selected fan. Native curves require minimum ≥40% and critical temperature ≤100°C.");
-    let busy = ["authorizing", "executing", "stopping"]
-        .contains(&status["state"].as_str().unwrap_or(""));
+    let busy =
+        ["authorizing", "executing", "stopping"].contains(&status["state"].as_str().unwrap_or(""));
     let ready = snapshot.connected
         && board.confirmed
         && !board.control.is_empty()
@@ -1356,7 +1410,11 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
             true,
             snapshot.connected && busy,
         ) {
-            send(tx, "cooling.sessions.stop", json!({"job_id": status["job_id"]}));
+            send(
+                tx,
+                "cooling.sessions.stop",
+                json!({"job_id": status["job_id"]}),
+            );
         }
         row.end(ui, 30.0);
     }
@@ -1370,8 +1428,16 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
             theme::WARN,
         );
         let mut enabled = support["unrestricted_enabled"] == true;
-        if ui.checkbox(ui::id(&["cooling", "unrestricted"]), &mut enabled, "Allow unrestricted control (off by default)") {
-            send(tx, "cooling.support.settings", json!({"unrestricted_enabled": enabled}));
+        if ui.checkbox(
+            ui::id(&["cooling", "unrestricted"]),
+            &mut enabled,
+            "Allow unrestricted control (off by default)",
+        ) {
+            send(
+                tx,
+                "cooling.support.settings",
+                json!({"unrestricted_enabled": enabled}),
+            );
         }
         if enabled && !board.control.is_empty() {
             let state = support["channels"][board.control.as_str()]["unlock"]
@@ -1383,7 +1449,11 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
                 Font::Body,
                 ui.palette.text,
             );
-            ui.text_line(ui::id(&["cooling", "unlock-text"]), &mut board.confirmation, "confirmation");
+            ui.text_line(
+                ui::id(&["cooling", "unlock-text"]),
+                &mut board.confirmation,
+                "confirmation",
+            );
             let text = board.confirmation.trim().to_owned();
             let unlocked = state == "unlocked";
             let mut row = Row::start(ui);
@@ -1420,7 +1490,11 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
                 false,
                 snapshot.connected && state != "none",
             ) {
-                send(tx, "cooling.channels.revoke", json!({"control_id": board.control}));
+                send(
+                    tx,
+                    "cooling.channels.revoke",
+                    json!({"control_id": board.control}),
+                );
             }
             row.end(ui, 30.0);
         }
@@ -1434,7 +1508,11 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
             .as_array()
             .cloned()
             .unwrap_or_default();
-        for channel in background["service"]["channels"].as_array().into_iter().flatten() {
+        for channel in background["service"]["channels"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
             ui.label_color(
                 &format!(
                     "{} · {} · {}% · {}{}",
@@ -1452,7 +1530,9 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
             );
         }
         let applying = background["apply"]["state"] == "applying";
-        let duplicate = saved.iter().any(|channel| channel["control_id"] == board.control.as_str());
+        let duplicate = saved
+            .iter()
+            .any(|channel| channel["control_id"] == board.control.as_str());
         {
             let mut row = Row::start(ui);
             if ui.button_at_enabled(
@@ -1463,8 +1543,10 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
                 ready && !applying && !duplicate && saved.len() < 8,
             ) {
                 let mut next = saved.clone();
-                next.push(json!({"control_id": board.control, "temperature_id": board.temperature,
-                                 "rpm_id": board.rpm, "curve": curve, "confirmed_fan": true}));
+                next.push(
+                    json!({"control_id": board.control, "temperature_id": board.temperature,
+                                 "rpm_id": board.rpm, "curve": curve, "confirmed_fan": true}),
+                );
                 send(tx, "cooling.background.apply", json!({"channels": next}));
             }
             if ui.button_at_enabled(
@@ -1481,7 +1563,10 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
         // Cooling profiles.
         let profiles = snapshot.control["cooling_profiles"].clone();
         ui.label_color(
-            &format!("Cooling profiles (active: {})", profiles["active"].as_str().unwrap_or("none")),
+            &format!(
+                "Cooling profiles (active: {})",
+                profiles["active"].as_str().unwrap_or("none")
+            ),
             Font::Body,
             ui.palette.text,
         );
@@ -1490,7 +1575,9 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
             .into_iter()
             .flatten()
             .filter_map(|entry| {
-                entry["name"].as_str().map(|name| format!("{name} · {} channels", entry["channels"]))
+                entry["name"]
+                    .as_str()
+                    .map(|name| format!("{name} · {} channels", entry["channels"]))
             })
             .collect();
         let profile_names: Vec<String> = profiles["profiles"]
@@ -1517,7 +1604,11 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
                 true,
                 snapshot.connected && !applying && !board.profile.is_empty(),
             ) {
-                send(tx, "cooling.profiles.activate", json!({"name": board.profile}));
+                send(
+                    tx,
+                    "cooling.profiles.activate",
+                    json!({"name": board.profile}),
+                );
             }
             if ui.button_at_enabled(
                 ui::id(&["cooling", "bg-delete"]),
@@ -1526,15 +1617,28 @@ fn mainboard_section(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &S
                 false,
                 snapshot.connected && !board.profile.is_empty(),
             ) {
-                send(tx, "cooling.profiles.delete", json!({"name": board.profile}));
+                send(
+                    tx,
+                    "cooling.profiles.delete",
+                    json!({"name": board.profile}),
+                );
                 board.profile.clear();
             }
             row.end(ui, 30.0);
         }
-        ui.text_line(ui::id(&["cooling", "bg-profile-name"]), &mut board.profile_name, "profile name");
+        ui.text_line(
+            ui::id(&["cooling", "bg-profile-name"]),
+            &mut board.profile_name,
+            "profile name",
+        );
         let name = board.profile_name.trim().to_owned();
-        if snapshot.connected && !name.is_empty()
-            && ui.button(ui::id(&["cooling", "bg-profile-save"]), "Save current background as profile", false)
+        if snapshot.connected
+            && !name.is_empty()
+            && ui.button(
+                ui::id(&["cooling", "bg-profile-save"]),
+                "Save current background as profile",
+                false,
+            )
         {
             send(tx, "cooling.profiles.save", json!({"name": name}));
             board.profile = name;
@@ -1600,9 +1704,15 @@ fn cooling(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Comm
         Font::Small,
         theme::WARN,
     );
-    ui.hint("Edit, save and preview a temperature curve. Missing or stale sensors select 100% duty.");
+    ui.hint(
+        "Edit, save and preview a temperature curve. Missing or stale sensors select 100% duty.",
+    );
     ui.label_color("Name", Font::Strong, ui.palette.text);
-    ui.text_line(ui::id(&["cooling", "curve-name"]), &mut pages.curve_name, "curve name");
+    ui.text_line(
+        ui::id(&["cooling", "curve-name"]),
+        &mut pages.curve_name,
+        "curve name",
+    );
     if let Some(curves) = snapshot.control.get("curves").and_then(Value::as_object) {
         ui.strong("Saved curves");
         for (name, curve) in curves {
@@ -1659,8 +1769,14 @@ fn cooling(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Comm
         pages.curve.minimum_percent = value;
     }
     for (step, (slot, label)) in [
-        (&mut pages.curve.max_rise_percent_per_s, "Step up %/s (0 = off)"),
-        (&mut pages.curve.max_fall_percent_per_s, "Step down %/s (0 = off)"),
+        (
+            &mut pages.curve.max_rise_percent_per_s,
+            "Step up %/s (0 = off)",
+        ),
+        (
+            &mut pages.curve.max_fall_percent_per_s,
+            "Step down %/s (0 = off)",
+        ),
     ]
     .into_iter()
     .enumerate()
@@ -1729,7 +1845,11 @@ fn cooling(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Comm
         false,
         snapshot.connected,
     ) {
-        send(tx, "cooling.curves.delete", json!({"name": pages.curve_name}));
+        send(
+            tx,
+            "cooling.curves.delete",
+            json!({"name": pages.curve_name}),
+        );
         pages.note(format!("Curve “{}” deleted", pages.curve_name));
     }
     row.end(ui, 30.0);
@@ -1766,9 +1886,7 @@ fn cooling(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Comm
                 Font::Body,
                 ui.palette.text,
             );
-            ui.hint(
-                provider["message"].as_str().unwrap_or(""),
-            );
+            ui.hint(provider["message"].as_str().unwrap_or(""));
         }
     }
     if let Some(channels) = snapshot.control["cooling_channels"].as_array() {
@@ -1815,14 +1933,19 @@ fn macros(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Comma
         for (name, definition) in saved {
             if ui.button(ui::id(&["macros", "open", name]), name, false) {
                 pages.macro_name = name.clone();
-                pages.macro_json =
-                    serde_json::to_string_pretty(definition).unwrap_or_default();
+                pages.macro_json = serde_json::to_string_pretty(definition).unwrap_or_default();
             }
         }
     }
     ui.label_color("Name", Font::Strong, ui.palette.text);
-    ui.text_line(ui::id(&["macros", "name"]), &mut pages.macro_name, "macro name");
-    ui.hint("Add, edit and reorder steps. Text, keys and shortcuts target the foreground application.");
+    ui.text_line(
+        ui::id(&["macros", "name"]),
+        &mut pages.macro_name,
+        "macro name",
+    );
+    ui.hint(
+        "Add, edit and reorder steps. Text, keys and shortcuts target the foreground application.",
+    );
     ui.hint("Steps are stored as JSON; the Classic (egui) GUI offers the guided step editor.");
     ui.text_multiline(ui::id(&["macros", "json"]), &mut pages.macro_json, 190.0);
     let parsed = serde_json::from_str::<MacroDefinition>(&pages.macro_json)
@@ -1840,18 +1963,37 @@ fn macros(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<Comma
         snapshot.connected && parsed.is_ok(),
     ) {
         if let Ok(definition) = serde_json::to_value(parsed.as_ref()) {
-            send(tx, "macros.save", json!({"name": pages.macro_name, "definition": definition}));
+            send(
+                tx,
+                "macros.save",
+                json!({"name": pages.macro_name, "definition": definition}),
+            );
             pages.note(format!("Macro “{}” saved", pages.macro_name));
         }
     }
-    if ui.button_at(ui::id(&["macros", "run"]), &row.next(150.0, 30.0), "Run saved macro", false) {
+    if ui.button_at(
+        ui::id(&["macros", "run"]),
+        &row.next(150.0, 30.0),
+        "Run saved macro",
+        false,
+    ) {
         send(tx, "macros.run", json!({"name": pages.macro_name}));
         pages.note(format!("Macro “{}” started", pages.macro_name));
     }
-    if ui.button_at(ui::id(&["macros", "cancel"]), &row.next(90.0, 30.0), "Cancel", false) {
+    if ui.button_at(
+        ui::id(&["macros", "cancel"]),
+        &row.next(90.0, 30.0),
+        "Cancel",
+        false,
+    ) {
         send(tx, "macros.cancel", json!({}));
     }
-    if ui.button_at(ui::id(&["macros", "delete"]), &row.next(170.0, 30.0), "Delete saved macro", false) {
+    if ui.button_at(
+        ui::id(&["macros", "delete"]),
+        &row.next(170.0, 30.0),
+        "Delete saved macro",
+        false,
+    ) {
         send(tx, "macros.delete", json!({"name": pages.macro_name}));
         pages.note(format!("Macro “{}” deleted", pages.macro_name));
     }
@@ -1894,7 +2036,14 @@ fn series_graph(ui: &mut Ui, series: &std::collections::VecDeque<Sample>) {
         .filter_map(|(index, value)| value.map(|value| at(index, value)))
         .collect();
     for pair in points.windows(2) {
-        ui.line(pair[0].0, pair[0].1, pair[1].0, pair[1].1, ui.palette.accent, 1);
+        ui.line(
+            pair[0].0,
+            pair[0].1,
+            pair[1].0,
+            pair[1].1,
+            ui.palette.accent,
+            1,
+        );
     }
 }
 
@@ -1924,7 +2073,11 @@ fn monitoring(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<C
             false,
             connected,
         ) {
-            send(tx, "gui.export_diagnostics", json!({"include_cooling_hardware": true}));
+            send(
+                tx,
+                "gui.export_diagnostics",
+                json!({"include_cooling_hardware": true}),
+            );
             pages.note("Diagnostic report exported (with cooling hardware)");
         }
         row.end(ui, 30.0);
@@ -1939,7 +2092,10 @@ fn monitoring(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<C
     }
     ui.hint("Cached device sensors; missing or stale samples are marked. No synthetic CPU/GPU readings.");
     if let Some(entries) = snapshot.control["monitoring_sensors"].as_array() {
-        for entry in entries.iter().filter(|entry| entry["provider"] == "mainboard.lhm") {
+        for entry in entries
+            .iter()
+            .filter(|entry| entry["provider"] == "mainboard.lhm")
+        {
             let sensor = &entry["sensor"];
             ui.label_color(
                 &format!(
@@ -1956,12 +2112,13 @@ fn monitoring(ui: &mut Ui, pages: &mut Pages, snapshot: &Snapshot, tx: &Sender<C
         }
     }
     for device in &snapshot.devices {
-        let Some(sensors) = device["sensors"].as_array().filter(|sensors| !sensors.is_empty()) else {
+        let Some(sensors) = device["sensors"]
+            .as_array()
+            .filter(|sensors| !sensors.is_empty())
+        else {
             continue;
         };
-        ui.heading(
-            device["info"]["name"].as_str().unwrap_or("Device"),
-        );
+        ui.heading(device["info"]["name"].as_str().unwrap_or("Device"));
         for sensor in sensors {
             let age = sensor["age_ms"].as_u64().unwrap_or(u64::MAX);
             let value = sensor["value"]
@@ -2060,7 +2217,11 @@ fn updates(ui: &mut Ui, pages: &mut Pages) {
         );
     }
     if let (Some(path), Some(update)) = (&view.downloaded, &view.update) {
-        if ui.button(ui::id(&["updates", "install"]), "Run verified installer", true) {
+        if ui.button(
+            ui::id(&["updates", "install"]),
+            "Run verified installer",
+            true,
+        ) {
             let result = freergb_update::verify(path, update).and_then(|()| {
                 std::process::Command::new(path)
                     .spawn()

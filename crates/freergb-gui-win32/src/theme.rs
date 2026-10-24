@@ -274,13 +274,7 @@ pub fn create_fonts(dc: HDC, scale: f32) -> Fonts {
             right: 200,
             bottom: 40,
         };
-        DrawTextW(
-            dc,
-            text.as_ptr(),
-            text.len() as i32,
-            &mut rect,
-            DT_CALCRECT,
-        );
+        DrawTextW(dc, text.as_ptr(), text.len() as i32, &mut rect, DT_CALCRECT);
         SelectObject(dc, old);
         Fonts {
             line: ((rect.bottom - rect.top) as f32).max(14.0 * scale),
