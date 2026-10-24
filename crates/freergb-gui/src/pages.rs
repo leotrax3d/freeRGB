@@ -288,7 +288,7 @@ impl Panels {
                     ui.add(egui::Slider::new(&mut self.temperature, 20.0..=100.0).text("Simulated temperature °C"));
                     ui.label(format!("Target fan output: {:.1}% (preview)", self.curve.duty(Some(self.temperature), 0)));
                     self.custom_sensors.ui(ui,tx,snapshot,&self.curve);
-                    ui.collapsing("Live motherboard fan control (experimental)",|ui|{self.mainboard_cooling.show(ui,snapshot,tx,&self.curve);});
+                    ui.collapsing("Live motherboard fan control",|ui|{self.mainboard_cooling.show(ui,snapshot,tx,&self.curve);});
                 }
                 2 => {
                     ui.heading("Macros");

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pause, Play, Save } from "lucide-react";
+import { OctagonX, Pause, Play, Save } from "lucide-react";
 import { Banner } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -7,6 +7,7 @@ import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { FanCard } from "./FanCard";
 import { fanViews } from "./fanModel";
+import { activeCount } from "./liveModel";
 
 /** Profile switcher, save-as and the fan pause, shown in the page header. */
 export function CoolingActions() {
@@ -18,6 +19,8 @@ export function CoolingActions() {
   const [name, setName] = useState("");
   const paused = background?.service?.paused === true;
   const applying = background?.apply.state === "applying";
+  useSlices("cooling_session");
+  const live = activeCount(useDaemon((s) => s.cooling_session));
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex flex-wrap items-end gap-2">
@@ -37,6 +40,10 @@ export function CoolingActions() {
           </form>
         ) : (
           <Button size="sm" variant="secondary" disabled={(background?.saved.channels.length ?? 0) === 0} onClick={() => setSaving(true)}><Save />Save as profile</Button>
+        )}
+        {live > 0 && (
+          <Button size="sm" variant="danger" disabled={pending !== null}
+            onClick={() => run("stop_all", () => rpc("cooling.sessions.stop_all"))}><OctagonX />Stop all live fans ({live})</Button>
         )}
         <Button size="sm" variant={paused ? "primary" : "secondary"} disabled={pending !== null || applying || !background?.available}
           onClick={() => run("pause", () => rpc("cooling.fans.pause", { paused: !paused }))}>

@@ -8,6 +8,7 @@ import { useDaemon } from "@/lib/store/daemon";
 import { num } from "@/lib/format";
 import { useDaemonValue } from "@/lib/store/useDaemonValue";
 import { NewDevicesPanel, SetupExtras } from "@/features/setup/NewDevicesPanel";
+import { MainboardRgb } from "./MainboardRgb";
 
 const KINDS: Record<DeviceKind, { label: string; icon: LucideIcon }> = {
   Keyboard: { label: "Keyboards", icon: Keyboard },
@@ -128,6 +129,7 @@ export default function DevicesView() {
           ))}
         </div>
       )}
+      <MainboardRgb />
       <SetupExtras />
     </>
   );

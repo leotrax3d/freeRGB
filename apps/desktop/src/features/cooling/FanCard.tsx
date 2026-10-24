@@ -172,6 +172,10 @@ export function FanCard({ view, index }: { view: FanView; index: number }) {
             {view.role === "fan" && view.evidence?.test !== "passed" && (
               <Button size="sm" variant="ghost" disabled={busy || !view.temperature || !view.rpm} onClick={test}><FlaskConical />Channel test</Button>
             )}
+            {view.session && (
+              <Button size="sm" variant="danger" disabled={pending !== null}
+                onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: view.id }))}>Stop live</Button>
+            )}
             <span className="ml-auto flex items-center gap-2 text-caption text-text-subtle">
               <SupportBadge tier={view.tier} />
               <button type="button" className="underline-offset-2 hover:underline" onClick={() => void assign(null)}>Reassign</button>

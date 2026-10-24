@@ -118,6 +118,13 @@ export function mockTransport(): Transport {
     control("/lpc/it8689e/0", 1, "SYS_FAN1 Control (mock)", "lhm_supported"),
     fan("/lpc/it8689e/0", 1, "SYS_FAN1 (mock)", 980),
     control("/lpc/it8689e/0", 3, "SYS_FAN3 Control (mock)", "lhm_supported", true),
+    // Demo: more headers so several live channels can run at once.
+    control("/lpc/nct6701d/0", 0, "CPU_FAN Control (mock)", "verified"),
+    fan("/lpc/nct6701d/0", 0, "CPU_FAN (mock)", 1105),
+    control("/lpc/nct6701d/0", 1, "CHA_FAN1 Control (mock)", "verified"),
+    fan("/lpc/nct6701d/0", 1, "CHA_FAN1 (mock)", 870),
+    control("/lpc/nct6701d/0", 4, "AIO_PUMP Control (mock)", "verified"),
+    fan("/lpc/nct6701d/0", 4, "AIO_PUMP (mock)", 2650),
   ];
   const boardSensors: MonitoringSensor[] = [
     { provider: "mainboard.lhm", device_id: "mainboard.lhm:/lpc/nct6701d/0", device_name: "Nuvoton NCT6701D (mock)", sensor: reading("/lpc/nct6701d/0/temperature/1", "CPU (mock)", "°C", 46) },
@@ -128,11 +135,24 @@ export function mockTransport(): Transport {
   const setJob = (job: CoolingSession) => { mockJobs.set(job.job_id!, job); session = job; emit("cooling_session"); };
   let unrestricted = false;
   let onboarding: OnboardingStatus = { completed: false, safety_text_version: 1, safety_acknowledged: false, safety_acknowledged_unix: null };
-  let bindingsConfig: ChannelBinding[] = [];
+  // Demo: three identified headers (two fans, one pump) and two live channels.
+  const demoBinding = (index: number, header: string, role: "fan" | "pump"): ChannelBinding => ({
+    provider: "mainboard.lhm", device_id: "mainboard.lhm:/lpc/nct6701d/0", control_id: JSON.stringify(["/lpc/nct6701d/0", `/lpc/nct6701d/0/control/${index}`]),
+    tachometer_id: JSON.stringify(["/lpc/nct6701d/0", `/lpc/nct6701d/0/fan/${index}`]), header, role, electrical_mode: "unknown",
+  });
+  let mainboardRgb: { enabled: boolean; controllers: Record<string, { leds: number; name?: string | null }[]> } =
+    { enabled: true, controllers: { "0b05:19af": [{ leds: 16, name: "Front fans" }, { leds: 0 }, { leds: 0 }, { leds: 0 }] } };
+  let bindingsConfig: ChannelBinding[] = [demoBinding(0, "CPU_FAN", "fan"), demoBinding(1, "CHA_FAN1", "fan"), demoBinding(4, "AIO_PUMP", "pump")];
+  for (const [job, index, mode] of [[1, 0, "curve"], [2, 1, "manual"]] as const) {
+    mockJobs.set(job, { available: true, job_id: job, state: "executing", report: null, error: null, tier: "verified", mode, control_id: `/lpc/nct6701d/0/control/${index}` });
+  }
   const evidence: Record<string, ChannelEvidenceView> = {
     "/lpc/nct6701d/0/control/2": { test: "passed", tested: [{ duty_percent: 100, rpm: 1710 }, { duty_percent: 70, rpm: 1330 }, { duty_percent: 50, rpm: 1010 }], unlock: "none" },
     "/lpc/it8689e/0/control/1": { test: "none", tested: null, unlock: "none" },
     "/lpc/it8689e/0/control/3": { test: "none", tested: null, unlock: "none" },
+    "/lpc/nct6701d/0/control/0": { test: "passed", tested: [{ duty_percent: 100, rpm: 1900 }, { duty_percent: 70, rpm: 1400 }, { duty_percent: 50, rpm: 1050 }], unlock: "none" },
+    "/lpc/nct6701d/0/control/1": { test: "passed", tested: [{ duty_percent: 100, rpm: 1500 }, { duty_percent: 70, rpm: 1100 }, { duty_percent: 50, rpm: 820 }], unlock: "none" },
+    "/lpc/nct6701d/0/control/4": { test: "none", tested: null, unlock: "none" },
   };
   let backgroundSaved: BackgroundChannel[] = [];
   let applyState: CoolingBackground["apply"] = { state: "idle", error: null };
@@ -330,6 +350,27 @@ export function mockTransport(): Transport {
         case "cooling.bindings.save":
           bindingsConfig = ((p.config as { bindings: ChannelBinding[] }).bindings); emit("cooling_bindings");
           return true as T;
+        case "mainboard_rgb.get":
+          return { settings: mainboardRgb, max_headers: 4, max_leds: 512, fan_presets: [8, 12, 16, 18], vendor_software: [], error: null } as T;
+        case "mainboard_rgb.save": {
+          const next = p.settings as typeof mainboardRgb;
+          if (Object.values(next.controllers).some((h) => h.length > 4 || h.some((x) => x.leds < 0 || x.leds > 512))) fail("ARGB LED counts must be 0..=512");
+          mainboardRgb = next;
+          return { saved: true, released: 0 } as T;
+        }
+        case "cooling.sessions.list":
+          return { active: [...mockJobs.values()].filter((j) => ["authorizing", "executing", "stopping"].includes(j.state)).reverse(), max_active: 16,
+            assignments: { resume_pending: false, assignments: [
+              { control_id: "/lpc/it8689e/0/control/1", mode: "curve", temperature_id: "/lpc/it8689e/0/temperature/0", rpm_id: "/lpc/it8689e/0/fan/1", duty_percent: null,
+                needs_attention: "Hardware identity or channel binding changed since the curve was assigned; check the channel and start it again" },
+            ] } } as T;
+        case "cooling.sessions.stop_all":
+        case "cooling.sessions.stop_channel": {
+          const active = [...mockJobs.values()].filter((j) => ["authorizing", "executing", "stopping"].includes(j.state)
+            && (p.control_id === undefined || j.control_id === p.control_id));
+          for (const j of active) setJob({ ...j, state: "stopped" });
+          return { stopped: active.length } as T;
+        }
         case "cooling.sessions.stop": {
           const stopped = mockJobs.get(p.job_id as number);
           if (stopped) setJob({ ...stopped, state: "stopped" });
