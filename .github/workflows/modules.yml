@@ -201,6 +201,12 @@ jobs:
             node scripts/openrgb/port-gaizonggai-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-gaizonggai
             git diff --exit-code -- modules/gaizonggai/src/devices_table.rs
+          elif [ "$MODULE" = "lenovo" ]; then
+            echo "lenovo detector table is from the audited branch version (no generator yet)" >&2
+          elif [ "$MODULE" = "hyperx-keyboard" ]; then
+            node scripts/openrgb/port-hyperx-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-hyperx-keyboard
+            git diff --exit-code -- modules/hyperx-keyboard/src/devices_table.rs modules/hyperx-keyboard/src/layouts.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
