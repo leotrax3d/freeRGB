@@ -88,3 +88,11 @@ pub fn sign(key: &ed25519_dalek::SigningKey, message: &[u8]) -> String {
     signed.extend_from_slice(message);
     hex::encode(key.sign(&signed).to_bytes())
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn shipped_release_key_is_valid() {
+        assert!(super::TrustedKeys::builtin().has_release_key());
+    }
+}
