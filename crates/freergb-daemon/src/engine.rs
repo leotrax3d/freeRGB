@@ -1063,9 +1063,20 @@ impl Engine {
     /// continuous assignments for the next daemon start.
     pub fn start_cooling(
         &mut self,
-        request: crate::cooling_sessions::StartRequest,
+        mut request: crate::cooling_sessions::StartRequest,
     ) -> Result<u64, String> {
+        request.composite_feed = Some(self.controls.composite_feed.clone());
         let policy = self.cooling_policy(&request.control_id)?;
+        if request.mode == "composite"
+            && !request
+                .composite_output
+                .as_deref()
+                .is_some_and(|o| self.controls.has_composite_output(o))
+        {
+            return Err(
+                "Choose a saved composite curve (Cooling → Advanced → Composite curves)".into(),
+            );
+        }
         let remembered = crate::cooling_assignments::persistable(&request)
             .then(|| (request.clone(), self.cooling_identity(&request.control_id)));
         let job = self.cooling_sessions.start(request, &policy)?;
@@ -1091,7 +1102,8 @@ impl Engine {
         let requests = self
             .cooling_assignments
             .take_resumable(|id| identities.get(id).cloned(), ready);
-        for request in requests {
+        for mut request in requests {
+            request.composite_feed = Some(self.controls.composite_feed.clone());
             let control = request.control_id.clone();
             let result = self
                 .cooling_policy(&control)

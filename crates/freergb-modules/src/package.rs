@@ -28,6 +28,9 @@ pub struct PackageManifest {
     pub license: String,
     /// Copied from the catalog so installed modules match devices offline.
     pub devices: Vec<DeviceMatch>,
+    /// Schema 2 simulation policy, authenticated by the signed package digest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bus: Option<freergb_module_api::bus::Policy>,
     /// Every other file in the package with its SHA-256.
     pub files: BTreeMap<String, String>,
 }
@@ -43,9 +46,19 @@ pub fn safe_name(name: &str) -> bool {
 
 impl PackageManifest {
     pub fn validate(&self) -> Result<()> {
-        if self.schema != 1 || !valid_id(&self.id) || self.api.is_empty() || self.devices.is_empty()
-        {
+        if !valid_id(&self.id) || self.api.is_empty() {
             return Err(invalid("invalid package manifest"));
+        }
+        match (self.schema, &self.bus) {
+            (1, None) if !self.devices.is_empty() => {}
+            (2, Some(policy))
+                if self.api == [freergb_module_api::bus::API] && self.devices.is_empty() =>
+            {
+                policy
+                    .validate()
+                    .map_err(|_| invalid("invalid bus policy"))?;
+            }
+            _ => return Err(invalid("unsupported manifest schema or transport")),
         }
         if !self.files.contains_key(&self.executable) {
             return Err(invalid("package manifest does not list its executable"));

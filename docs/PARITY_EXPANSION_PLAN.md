@@ -45,15 +45,13 @@ LibreHardwareMonitor (MPL-2.0) remains an optional, separately shipped backend.
    follow with scale/offset). Cycle-checked graph; a missing, stale or
    critical sensor yields 100% and propagates through mix/follow nodes so a
    `minimum` mix cannot hide a failure. Pure policy with unit tests.
-3. **Partly done:** `CurveSet` is stored by the daemon (`cooling.curve_set.*`), evaluated
-   read-only against live and custom sensors, and edited in the Tauri GUI
-   (Cooling → Advanced → Composite curves). **Open decision:** driving fans
-   from it needs protected sessions with several temperature inputs. Today each
-   session (Rust runtime and the C# background service) binds exactly one
-   `temperature_id`, and the C# service mirrors the Rust curve evaluator via
-   shared vectors. Options: (a) the daemon feeds the evaluated duty to the
-   service as a supervised input, (b) the service receives the curve set and
-   all sensor ids and mirrors `curves.rs` in C#. Classic GUI editor still open.
+3. **Done (simulated):** `CurveSet` is stored by the daemon (`cooling.curve_set.*`),
+   edited in the Tauri GUI (Cooling → Advanced → Composite curves) and drives
+   fans through live sessions with `mode:"composite"` (decision 2026-10-24,
+   option a): the daemon evaluates the set every second and feeds the duty;
+   the protected worker keeps lease, floor and critical-temperature
+   supervision. Not in the boot-time C# service; no hardware acceptance yet;
+   Classic GUI editor still open.
 4. Continue the OpenRGB HID queue in priority order (`scripts/openrgb/inventory.mjs`):
    next unported HID families with ≥2 devices (Mountain, QMK OpenRGB/Vial,
    Realtek bridge, ViewSonic, Alienware, Wooting, Ducky, Cougar, ...).

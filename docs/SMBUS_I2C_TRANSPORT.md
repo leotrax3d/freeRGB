@@ -1,9 +1,10 @@
 # SMBus and I2C transport proposal
 
-Status: **design only; awaiting owner approval** (2026-10-24). No transport,
-manifest schema, driver, discovery probe or hardware access is enabled by this
-document. Existing module protocol v1 remains unchanged. Repository source and
-documentation language is English.
+Status: **simulation phase approved by owner; in-memory foundation implemented**
+(2026-10-24). API v2 bus types, schema-2 simulation policy validation and a daemon
+register-model broker exist. No driver, discovery probe or hardware access is
+enabled. Existing module protocol v1 remains unchanged. Repository source and
+documentation language is English. See `SMBUS_SIMULATION.md` for implemented scope.
 
 ## Scope and recommendation
 
@@ -102,7 +103,7 @@ Native executable modules remain trusted programs, not a sandbox. Broker policy
 protects this transport boundary; it cannot stop an elevated malicious module
 from opening hardware independently. Do not launch controller modules elevated.
 
-## Proposed additive protocol (not approved)
+## Additive protocol design (simulation approved; native integration pending)
 
 Negotiate a new module API version and explicit transport capabilities at hello;
 retain v1 HID behavior. Old hosts reject unsupported API requirements before
@@ -178,8 +179,10 @@ builds. A documentation-only proposal does not establish those results.
 
 ## Compatibility and follow-on work
 
-The requested `scripts/openrgb/compat-matrix.mjs`, `OPENRGB_COMPATIBILITY.md`
-and `openrgb-compatibility.json` do not exist at this baseline. The existing
+At the initial design baseline the requested `scripts/openrgb/compat-matrix.mjs`,
+`OPENRGB_COMPATIBILITY.md` and `openrgb-compatibility.json` were absent. Parallel
+repository work has since added them; use those files for current device counts.
+This simulation adds no device implementation and promotes no matrix row. The existing
 `inventory.mjs` scans only `REGISTER_HID_DETECTOR*`; its 121 families / 1179
 registrations / 1156 VID/PID entries are inventory counts, not verified support.
 Do not extrapolate non-HID device counts from them.
@@ -189,7 +192,9 @@ registrations at the pin. Each device row needs upstream name, family, transport
 IDs, implementation, functions and evidence. States: `not-implemented`,
 `blocked:<reason>`, `implemented` (code and simulated tests), `hardware-verified`
 (dated user test in `DEVICES.md`). Missing evidence stays open. No status changes
-are made by this proposal; per-transport before/after counts are not yet available.
+are made by this proposal. At simulation implementation baseline: GPU I2C 903
+open, DRAM 7 open, SMBus/I2C 8 open plus 1 blocked; implemented and verified are
+zero for all three, unchanged by the simulated transport.
 
 Upstream drift should compare the explicit pin with a resolved master commit,
 record both SHAs and report added/changed/removed registrations plus controller
@@ -211,10 +216,10 @@ Further authorized work remains:
 This table is a planning queue, not the requested complete generated device
 matrix or a completed clean-room protocol specification.
 
-## Owner approval requested
+## Approval record and remaining gates
 
-Approve the simulation-first broker/policy design and a separately negotiated
-module API extension before implementing it. Recommended sequence: mock and
+The owner approved the simulation-first broker/policy design and versioned module
+API extension on 2026-10-24 ("ja, weiter"). Recommended sequence: mock and
 policy tests; reviewed GPU GPL modules; public NvAPI backend after capability
 validation; optional PawnIO motherboard support only after artifact/license
 review. Keep RAM deferred, WinRing0 excluded and SDK binding loopback-only.

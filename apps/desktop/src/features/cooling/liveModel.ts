@@ -48,7 +48,7 @@ export function liveChannels(session: CoolingSession | null | undefined, list: S
     let state: LiveState;
     if (job.state === "authorizing") state = "starting";
     else if (job.state === "stopping") state = "stopping";
-    else if (job.state === "executing") state = job.mode === "curve" ? "curve" : job.mode === "manual" ? "manual" : "test";
+    else if (job.state === "executing") state = job.mode === "curve" || job.mode === "composite" ? "curve" : job.mode === "manual" ? "manual" : "test";
     else if (job.state === "faulted" || job.state === "failed" || job.state === "blocked") state = "fault";
     else { out.delete(id); continue; }
     out.set(id, { control_id: id, job_id: job.job_id, state, label: labelOf(state, job.mode ?? null), error: job.error ?? null });
@@ -64,7 +64,7 @@ export function liveChannels(session: CoolingSession | null | undefined, list: S
 function labelOf(state: LiveState, mode: string | null): string {
   switch (state) {
     case "starting": return "Waiting for Windows authorization";
-    case "curve": return "Curve active";
+    case "curve": return mode === "composite" ? "Composite curve active" : "Curve active";
     case "manual": return "Fixed speed active";
     case "test": return `${mode ?? "Test"} running`;
     case "stopping": return "Returning to BIOS";

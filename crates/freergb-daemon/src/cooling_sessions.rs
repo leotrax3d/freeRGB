@@ -29,6 +29,12 @@ pub struct StartRequest {
     /// Fixed duty for `mode:"manual"` (FanControl "manual percentage").
     #[serde(default)]
     pub duty_percent: Option<u8>,
+    /// Composite curve output name for `mode:"composite"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub composite_output: Option<String>,
+    /// Daemon-owned output feed, attached by the engine (never from JSON).
+    #[serde(skip)]
+    pub composite_feed: Option<crate::composite_feed::CompositeFeed>,
 }
 
 /// Daemon-side facts about the selected control: the protected inventory's
@@ -237,6 +243,35 @@ impl StartRequest {
                     minimum,
                     limits.tier,
                     runtime,
+                ))
+            }
+            "composite" if self.curve.is_none() => {
+                let output = self
+                    .composite_output
+                    .clone()
+                    .filter(|o| !o.is_empty() && o.len() <= 64)
+                    .ok_or("mode=composite requires composite_output")?;
+                let critical = self.critical_c.unwrap_or(80.0);
+                if !(40.0..=100.0).contains(&critical) {
+                    return Err("Critical temperature must be 40..100 C".into());
+                }
+                if limits.floor_percent == 100 && limits.tier == SupportTier::LhmSupported {
+                    return Err("Pass the guided channel test before running a composite curve on this LHM-supported channel".into());
+                }
+                Ok((
+                    ControlMode::Composite {
+                        output,
+                        critical_c: critical,
+                        // Without the daemon's feed every tick reads as 100%.
+                        feed: self.composite_feed.clone().unwrap_or_default(),
+                    },
+                    critical.floor() as u8,
+                    limits.floor_percent,
+                    limits.tier,
+                    RuntimeLimits {
+                        floor_percent: limits.floor_percent,
+                        allow_stop: limits.allow_stop,
+                    },
                 ))
             }
             mode @ ("calibration" | "channel_test") if self.curve.is_none() => {
@@ -683,6 +718,22 @@ mod tests {
             "confirmed_fan":true
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn composite_requests_need_an_output_and_sane_critical() {
+        let mut r = request();
+        r.mode = "composite".into();
+        assert!(r.validate().is_err());
+        r.composite_output = Some("case".into());
+        let (mode, critical, minimum) = r.validate().unwrap();
+        assert!(matches!(mode, ControlMode::Composite { .. }));
+        assert_eq!((critical, minimum), (80, 40));
+        r.critical_c = Some(120.0);
+        assert!(r.validate().is_err());
+        r.critical_c = None;
+        r.curve = Some(FanCurve::default());
+        assert!(r.validate().is_err());
     }
 
     #[test]

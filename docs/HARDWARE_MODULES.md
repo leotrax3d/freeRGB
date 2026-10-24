@@ -61,6 +61,10 @@ protocol covers 125 products, and the K70/LINK/ASUS work is unaffected.
 
 ## Module protocol, version 1
 
+The separate, simulation-only API 2 bus types and schema-2 policy foundation are
+documented in [SMBUS_SIMULATION.md](SMBUS_SIMULATION.md). They do not change this
+HID process protocol or enable native bus modules in production setup.
+
 UTF-8 JSON lines on stdin/stdout, one message per line, at most 256 KiB.
 
 | Host request (`{"v":1,"id":N,"method":…,"params":…}`) | Answer `result` |

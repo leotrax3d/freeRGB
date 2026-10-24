@@ -16,8 +16,8 @@
 //!   answers with `{"v":1,"call":3,"data":"<base64>","len":91}` or
 //!   `{"v":1,"call":3,"error":"..."}`. Nothing else is sent unsolicited.
 
-pub mod sdk;
 pub mod bus;
+pub mod sdk;
 
 use base64::Engine as _;
 use freergb_core::{LedLayout, Rgb};

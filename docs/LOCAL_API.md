@@ -38,7 +38,7 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `cooling.curves.save` / `cooling.curves.delete` | `{name,curve}` / `{name}` | Validate/store or delete curve |
 | `cooling.preview` | `{curve,temperature_c?,age_ms?}` | `{duty_percent,simulated:true}`; no hardware write |
 | `cooling.sessions.status` | – | Experimental live session `{available,job_id,state,report,error}`; independent of legacy preview `cooling.status` |
-| `cooling.sessions.start` | `{mode,control_id,temperature_id,rpm_id,confirmed_fan,curve?,critical_c?}` | `{job_id}`; asynchronous UAC authorization, then protected native acquisition |
+| `cooling.sessions.start` | `{mode,control_id,temperature_id,rpm_id,confirmed_fan,curve?,critical_c?,duty_percent?,composite_output?}` | `{job_id}`; asynchronous UAC authorization, then protected native acquisition |
 | `cooling.sessions.stop` | `{job_id:u64}` | `true` means stop queued; poll status for verified return |
 | `macros.list` | – | Map of named macro definitions |
 | `macros.save` / `macros.delete` | `{name,definition}` / `{name}` | Validate/store or delete |
@@ -350,6 +350,17 @@ be nonempty; INSTANCE parses as u16. All three IDs must name the same native
 hardware parent. This is syntax validation only: native authorization/binding also
 validates the actual supported chip and existing source identities. It never
 infers a physical header or CPU/coolant identity from a sensor label.
+
+For `mode=composite`, `composite_output` names a node of the saved composite
+curve set (`cooling.curve_set.*`) and `curve` must be absent; `critical_c`
+(40..100 C, default 80) applies to the session's own `temperature_id`. The daemon
+evaluates the set every second and feeds that duty to the session; a missing,
+stale (> 3 s) or fail-safe output, a stale session temperature or reaching
+`critical_c` gives 100%. The tier floor still applies, pumps are refused, and the
+protected worker's lease supervision returns the channel to firmware (or holds
+100% on legacy verified workers) if the daemon stops feeding it. Composite
+assignments are remembered and resumed like curve/manual ones. They run only as
+daemon-driven live sessions, never in the boot-time background service.
 
 For `mode=curve`, `curve` is required and `critical_c` must be absent/null. Curve
 fields are `points:[{temperature_c,duty_percent}]`, `minimum_percent`, `critical_c`,

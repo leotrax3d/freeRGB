@@ -50,10 +50,10 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 | Control | Hysteresis/delay | Basic hysteresis | Delay/boundary behavior |
 | Curves | Linear | Graph preview supports two points | Native binding |
 | Curves | Graph | Preview/editor | Broader shape support |
-| Curves | Constant | Evaluator, daemon storage + live preview API, Tauri editor | Channel binding (needs multi-sensor protected sessions) |
-| Curves | Combination | Mix (max/min/avg/sum), fail-safe propagation, preview API, editor | Channel binding (needs multi-sensor protected sessions) |
-| Curves | Two-threshold switching | Trigger with hold time, preview API, editor | Channel binding (needs multi-sensor protected sessions) |
-| Curves | Following another output | Follow, cycle-checked, preview API, editor | Channel binding (needs multi-sensor protected sessions) |
+| Curves | Constant | Evaluator, daemon storage + live preview API, Tauri editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
+| Curves | Combination | Mix (max/min/avg/sum), fail-safe propagation, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
+| Curves | Two-threshold switching | Trigger with hold time, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
+| Curves | Following another output | Follow, cycle-checked, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
 | Curves | Adaptive equilibrium | Missing | Trend controller/validation |
 | Sensors | Combinations | Daemon evaluation/editor/storage | Hardware source acceptance |
 | Sensors | Correction | Daemon evaluation/editor/storage | Native binding |

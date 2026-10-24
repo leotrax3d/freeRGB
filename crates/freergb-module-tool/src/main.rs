@@ -206,6 +206,7 @@ fn main() -> Result<()> {
                 executable: exe_name,
                 license,
                 devices,
+                bus: None,
                 files: Default::default(),
             };
             package::build(manifest, &contents, &out)?;

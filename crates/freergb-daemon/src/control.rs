@@ -30,6 +30,8 @@ pub struct Controls {
     library: Library,
     sensor_evaluator: freergb_control::sensors::SensorEvaluator,
     curve_evaluator: freergb_control::curves::CurveEvaluator,
+    /// Outputs read by live `mode:"composite"` sessions.
+    pub composite_feed: crate::composite_feed::CompositeFeed,
     sensor_epoch: Option<Instant>,
     sensor_inputs: BTreeMap<String, freergb_control::sensors::InputSample>,
     sensor_sources: BTreeMap<String, String>,
@@ -80,9 +82,38 @@ impl Controls {
                 }
             }
         }
-        let _ = self
+        let outputs = self.evaluate_curve_set(now);
+        self.composite_feed.publish(outputs, Instant::now());
+    }
+
+    /// Evaluates the composite curve set against live and derived sensors.
+    fn evaluate_curve_set(
+        &mut self,
+        now: u64,
+    ) -> BTreeMap<String, freergb_control::curves::CurveOutput> {
+        let derived = self
             .sensor_evaluator
-            .evaluate(&self.library.sensors, &self.sensor_inputs, now);
+            .evaluate(&self.library.sensors, &self.sensor_inputs, now)
+            .unwrap_or_default();
+        let inputs = &self.sensor_inputs;
+        let lookup = |id: &str| {
+            let (value, at) = match derived.get(id) {
+                Some(reading) => (reading.value, reading.sampled_at_ms),
+                None => inputs
+                    .get(id)
+                    .map_or((None, None), |s| (s.value, Some(s.sampled_at_ms))),
+            };
+            freergb_control::curves::SensorValue {
+                celsius: value.map(|v| v as f32),
+                age_ms: at.map_or(u64::MAX, |at| now.saturating_sub(at)),
+            }
+        };
+        self.curve_evaluator
+            .evaluate(&self.library.curve_set, lookup, now)
+    }
+
+    pub fn has_composite_output(&self, name: &str) -> bool {
+        self.library.curve_set.nodes.contains_key(name)
     }
     fn sensor_now(&mut self) -> u64 {
         self.sensor_epoch
@@ -179,28 +210,9 @@ impl Controls {
             return Ok(json!(true));
         }
         if method == "cooling.curve_set.values" {
-            // Read-only evaluation against live readings; never drives hardware.
+            // Preview of the same evaluation that composite sessions read.
             let now = self.sensor_now();
-            let derived = self
-                .sensor_evaluator
-                .evaluate(&self.library.sensors, &self.sensor_inputs, now)
-                .unwrap_or_default();
-            let inputs = &self.sensor_inputs;
-            let lookup = |id: &str| {
-                let (value, at) = match derived.get(id) {
-                    Some(reading) => (reading.value, reading.sampled_at_ms),
-                    None => inputs
-                        .get(id)
-                        .map_or((None, None), |s| (s.value, Some(s.sampled_at_ms))),
-                };
-                freergb_control::curves::SensorValue {
-                    celsius: value.map(|v| v as f32),
-                    age_ms: at.map_or(u64::MAX, |at| now.saturating_sub(at)),
-                }
-            };
-            let outputs = self
-                .curve_evaluator
-                .evaluate(&self.library.curve_set, lookup, now);
+            let outputs = self.evaluate_curve_set(now);
             let outputs: BTreeMap<_, _> = outputs
                 .into_iter()
                 .map(|(name, o)| (name, json!({"percent": o.percent, "failsafe": o.failsafe})))

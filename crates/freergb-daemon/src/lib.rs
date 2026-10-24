@@ -5,7 +5,9 @@
 
 pub mod api;
 pub mod background;
+pub mod bus_simulation;
 pub mod channel_bindings;
+pub mod composite_feed;
 pub mod conflicts;
 pub mod control;
 pub mod cooling_assignments;

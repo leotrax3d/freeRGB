@@ -10,6 +10,9 @@ import { SupportBadge } from "./SupportBadge";
 import { channelTier, controlRefusal, tierLabel } from "./support";
 import { floorFor } from "./fanModel";
 import { activeCount, clampDuty, liveChannels, liveConfirmation, type SessionList } from "./liveModel";
+import type { CurveSet } from "@/lib/api/control";
+
+type LiveMode = "curve" | "calibration" | "channel_test" | "manual" | "composite";
 
 /** Live state of every channel with per-channel and global stop. */
 export function LiveChannels() {
@@ -67,6 +70,13 @@ export function LiveSession() {
   const [temperature, setTemperature] = useState("");
   const [curveName, setCurveName] = useState("");
   const [manualDuty, setManualDuty] = useState(60);
+  const [composite, setComposite] = useState("");
+  const [compositeNames, setCompositeNames] = useState<string[]>([]);
+  useEffect(() => {
+    let live = true;
+    rpc<CurveSet>("cooling.curve_set.get").then((set) => { if (live) setCompositeNames(Object.keys(set.nodes)); }, () => {});
+    return () => { live = false; };
+  }, []);
   const { pending, error, run } = useAction();
   const [asking, setAsking] = useState<null | (() => void)>(null);
   // Several channels can run at once; only the selected channel's own job blocks it.
@@ -86,12 +96,12 @@ export function LiveSession() {
   const evidence = support?.channels[control];
   const floor = floorFor({ role, evidence: evidence ?? null, tier }, support?.unrestricted_enabled ?? false);
   const duty = clampDuty(manualDuty, floor);
-  const send = (mode: "curve" | "calibration" | "channel_test" | "manual") => run("start", () => rpc("cooling.sessions.start", {
+  const send = (mode: LiveMode) => run("start", () => rpc("cooling.sessions.start", {
     mode, control_id: control, rpm_id: rpm, temperature_id: temperature, confirmed_fan: confirmed,
-    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: duty } : { critical_c: curve?.critical_c ?? 80 }),
+    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: duty } : mode === "composite" ? { composite_output: composite, critical_c: 80 } : { critical_c: curve?.critical_c ?? 80 }),
   }));
   // One confirmation per app session, not per channel; the service still checks each.
-  const start = (mode: "curve" | "calibration" | "channel_test" | "manual") => {
+  const start = (mode: LiveMode) => {
     if (liveConfirmation.needed()) setAsking(() => () => send(mode));
     else send(mode);
   };
@@ -129,6 +139,13 @@ export function LiveSession() {
           </label>
           <Button variant="secondary" disabled={!ready} onClick={() => start("manual")}>Run fixed duty (UAC)</Button>
         </div>
+        {compositeNames.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Select label="Composite curve" placeholder="Composite curve" value={composite} options={compositeNames.map((n) => ({ value: n, label: n }))} onChange={setComposite} />
+            <Button variant="secondary" disabled={!ready || !composite} onClick={() => start("composite")}>Run composite curve (UAC)</Button>
+            <span className="basis-full text-caption text-text-subtle">The daemon evaluates the composite curve and feeds its duty to this channel. If the daemon stops, a sensor fails or the selected temperature reaches 80 °C, the fan goes to 100 % or back to the BIOS.</span>
+          </div>
+        )}
       </>}
       <div className="flex items-center gap-3 text-small">
         <span>Session: {status?.state ?? "unavailable"}{status?.job_id != null ? ` · ${status.job_id}` : ""}{status?.tier ? ` · ${tierLabel(status.tier)}` : ""}</span>
