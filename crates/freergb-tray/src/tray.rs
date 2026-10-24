@@ -57,7 +57,7 @@ fn icon(dimmed: bool) -> Option<Icon> {
     }
     buffer.truncate(info.buffer_size());
     if dimmed {
-        for pixel in buffer.chunks_exact_mut(4) {
+        for pixel in buffer.as_chunks_mut::<4>().0 {
             let grey = ((u16::from(pixel[0]) * 3 + u16::from(pixel[1]) * 6 + u16::from(pixel[2]))
                 / 10) as u8;
             pixel[0] = grey;
