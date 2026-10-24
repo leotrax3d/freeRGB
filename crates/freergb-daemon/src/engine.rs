@@ -902,9 +902,10 @@ impl Engine {
                     && self.keyboard.config.devices.contains(&w.id.0)
             });
         self.keyboard.tick(has_keyboard);
-        if self.sensor_refresh_at.map_or(true, |at| {
-            now.saturating_duration_since(at) >= Duration::from_secs(1)
-        }) {
+        if self
+            .sensor_refresh_at
+            .is_none_or(|at| now.saturating_duration_since(at) >= Duration::from_secs(1))
+        {
             self.sensor_refresh_at = Some(now);
             let mut devices = serde_json::json!(self.devices());
             for entry in self.mainboard.sensors() {

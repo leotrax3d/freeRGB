@@ -109,17 +109,25 @@ export function OnboardingWizard() {
   const [skippedSafety, setSkippedSafety] = useState(false);
   const [fans, setFans] = useState<Record<string, FanOutcome>>({});
   const [closing, setClosing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
   const heading = useRef<HTMLDivElement>(null);
   // The whole screen turns red while the safety notice is open.
   const warning = step === "safety" && !onboarding?.safety_acknowledged;
   useEffect(() => heading.current?.focus({ preventScroll: true }), [step]);
-  if (!onboarding || onboarding.completed || closing) return null;
+  if (!onboarding || onboarding.completed) return null;
 
   const finish = async () => {
     setClosing(true);
-    try { await rpc("modules.setup.complete"); } catch { /* already complete */ }
-    await rpc("onboarding.complete");
-    go("lighting");
+    setFinishError(null);
+    try {
+      await rpc("modules.setup.complete");
+      await rpc("onboarding.complete");
+      go("lighting");
+    } catch (error) {
+      setFinishError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setClosing(false);
+    }
   };
   const counts = (outcome: FanOutcome) => Object.values(fans).filter((o) => o === outcome).length;
   const devices = summary(modules?.cards.filter((c) => c.phase !== "unsupported") ?? []);
@@ -191,7 +199,8 @@ export function OnboardingWizard() {
                 {skippedSafety && <Summary icon={<CircleSlash />} title="Safety notice" text="Accept it later in Settings → Setup to enable fan control." />}
               </ul>
               <p className="text-small text-text-muted">Fan curves, background control and profiles are under Cooling. You can run this setup again from Settings.</p>
-              <div><Button variant="primary" disabled={closing} onClick={() => void finish()}>Open freeRGB</Button></div>
+              {finishError && <p role="alert" className="text-small text-danger-text">{finishError}</p>}
+              <div><Button variant="primary" disabled={closing} onClick={() => void finish()}>{closing ? "Saving setup…" : "Open freeRGB"}</Button></div>
             </div>
           )}
         </div>

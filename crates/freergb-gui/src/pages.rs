@@ -313,7 +313,7 @@ impl Panels {
                     let mut automatic = view.automatic;
                     if ui.checkbox(&mut automatic, "Automatically check and download updates every 6 hours").changed() { let _ = self.update_tx.send(UpdateCommand::Automatic(automatic)); }
                     ui.label("Installers come from GitHub Releases and are SHA-256 verified. Installation starts when you choose it.");
-                    ui.label("Private repository: FREERGB_GITHUB_TOKEN needs read access; tokens are read from the environment only.");
+                    ui.label("Public releases need no token. Private releases can use FREERGB_GITHUB_TOKEN from the environment.");
                     ui.horizontal(|ui| {
                         if ui.add_enabled(!view.busy, egui::Button::new("Check for updates")).clicked() { let _ = self.update_tx.send(UpdateCommand::Check); }
                         if ui.add_enabled(!view.busy && view.update.is_some(), egui::Button::new("Download update")).clicked() { let _ = self.update_tx.send(UpdateCommand::Download); }
@@ -322,7 +322,7 @@ impl Panels {
                     if let Some(update) = &view.update { ui.label(format!("Available version: {}", update.version)); }
                     if let (Some(path), Some(update)) = (&view.downloaded, &view.update) {
                         if ui.button("Run verified installer").clicked() {
-                            let result = freergb_update::verify(path, update).and_then(|()| std::process::Command::new(path).spawn().map(|_| ()).map_err(|e| e.to_string()));
+                            let result = freergb_update::install_verified(path, update);
                             self.message = Some(match result { Ok(()) => "Installer started. Close freeRGB when asked by setup.".into(), Err(error) => error });
                         }
                     }

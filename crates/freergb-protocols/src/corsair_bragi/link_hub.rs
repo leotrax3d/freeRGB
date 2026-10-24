@@ -193,7 +193,9 @@ pub fn checked_sensor_values(data: &[u8], data_type: u16) -> Result<Vec<Option<u
         return Err("truncated sensor table".into());
     }
     Ok(data[3..3 + count * 3]
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|entry| (entry[0] == 0).then(|| u16::from_le_bytes([entry[1], entry[2]])))
         .collect())
 }
@@ -546,7 +548,7 @@ impl RpmWatchdog {
                 continue;
             }
             let n = now.get(i).copied().flatten();
-            let bad = n.map_or(true, |n| n < b / 2);
+            let bad = n.is_none_or(|n| n < b / 2);
             if bad {
                 any_bad = true;
                 self.strikes[i] = self.strikes[i].saturating_add(1);

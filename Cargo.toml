@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+exclude = ["vendor/glib"]
 members = [
     "crates/freergb-effect-host",
     "crates/freergb-core",
@@ -24,11 +25,11 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/leotrax3d/FreeRGB"
-rust-version = "1.80"
+rust-version = "1.90"
 
 [workspace.dependencies]
 freergb-core = { path = "crates/freergb-core" }
@@ -57,3 +58,7 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
+
+[patch.crates-io]
+# Upstream fix for RUSTSEC-2024-0429 without a GTK ABI migration.
+glib = { path = "vendor/glib" }

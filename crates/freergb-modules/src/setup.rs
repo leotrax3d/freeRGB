@@ -429,7 +429,7 @@ impl Manager {
                     }
                     Some(r)
                         if r.error.is_some()
-                            && awaiting.map_or(true, |d| {
+                            && awaiting.is_none_or(|d| {
                                 now >= d
                                     || r.error.as_deref().is_some_and(|e| {
                                         e.contains("Unsupported") || e.contains("Permission")

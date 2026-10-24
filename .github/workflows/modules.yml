@@ -37,18 +37,25 @@ jobs:
             exe: ''
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - name: Validate module identifier
+        shell: bash
+        run: 'test "$MODULE" = razer-chroma'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
       - name: Module tests
-        run: cargo test -p freergb-module-${{ env.MODULE }} -p freergb-module-api -p freergb-modules --locked
+        shell: bash
+        run: cargo test -p freergb-module-$MODULE -p freergb-module-api -p freergb-modules --locked
       - name: End-to-end with the installed module (simulated device)
         if: env.MODULE == 'razer-chroma'
         run: |
           cargo build -p freergb-module-razer-chroma --locked
           cargo test -p freergb-modules --test e2e --locked -- --ignored
       - name: Build
-        run: cargo build --release --locked -p freergb-module-${{ env.MODULE }} -p freergb-module-tool
+        shell: bash
+        run: cargo build --release --locked -p freergb-module-$MODULE -p freergb-module-tool
       - name: Pack
         shell: bash
         run: |
@@ -62,7 +69,7 @@ jobs:
             --file modules/$MODULE/COPYING --file modules/$MODULE/PROVENANCE.md \
             --out "dist/freergb-module-$MODULE-$version-${{ matrix.target }}.zip"
           rm dist/devices.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: module-${{ matrix.target }}
           path: dist/*.zip
@@ -71,12 +78,17 @@ jobs:
   source:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - name: Validate module identifier
+        shell: bash
+        run: 'test "$MODULE" = razer-chroma'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
-          node-version: 22
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
       - name: Generated device table matches the pinned OpenRGB commit
         if: env.MODULE == 'razer-chroma'
         run: |
@@ -92,14 +104,23 @@ jobs:
           version=$(cargo metadata --format-version 1 --no-deps | jq -r ".packages[] | select(.name==\"freergb-module-$MODULE\") | .version")
           mkdir -p dist
           target/release/freergb-module-tool source --root . --manifest modules/$MODULE/source-workspace.toml \
-            --path Cargo.lock --path LICENSE-MIT --path LICENSE-APACHE --path crates/freergb-core \
+            --path Cargo.lock --path rust-toolchain.toml --path packaging/windows/mainboard-packages.json --path LICENSE-MIT --path LICENSE-APACHE --path crates/freergb-core \
             --path crates/freergb-module-api --path modules/$MODULE --path scripts/openrgb \
             --out "dist/freergb-module-$MODULE-$version-source.zip"
       - name: Source archive builds on its own
         run: |
           mkdir check && cd check && unzip -q ../dist/*-source.zip
-          cargo build --release -p freergb-module-$MODULE
-      - uses: actions/upload-artifact@v4
+          python3 ../scripts/freeze-module-source.py .
+          cargo build --release --locked -p freergb-module-$MODULE
+          cd ..
+          version=$(cargo metadata --format-version 1 --no-deps --locked | jq -r ".packages[] | select(.name==\"freergb-module-$MODULE\") | .version")
+          # Ship the exact normalized lock that was built, not the full parent
+          # workspace lock (which would require updates on a fresh extraction).
+          target/release/freergb-module-tool source --root check --manifest check/Cargo.toml \
+            --path Cargo.lock --path rust-toolchain.toml --path packaging/windows/mainboard-packages.json --path LICENSE-MIT --path LICENSE-APACHE --path crates/freergb-core \
+            --path crates/freergb-module-api --path modules/$MODULE --path scripts/openrgb \
+            --out "dist/freergb-module-$MODULE-$version-source.zip"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: module-source
           path: dist/*.zip
@@ -111,10 +132,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/download-artifact@v4
+      - name: Validate module identifier
+        shell: bash
+        run: 'test "$MODULE" = razer-chroma'
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: dist
           merge-multiple: true
@@ -144,7 +170,7 @@ jobs:
           rm -f "$RUNNER_TEMP/module.key"
           pub=$(grep -Ev '^\s*(#|$)' crates/freergb-modules/keys/release-keys.txt | head -n1)
           $tool verify --pubkey "$pub" --dir dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: module-release
           path: dist/*

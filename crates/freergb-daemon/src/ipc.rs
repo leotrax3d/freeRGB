@@ -124,13 +124,60 @@ async fn serve_named(
 }
 
 #[cfg(unix)]
-pub async fn serve(engine: SharedEngine, shutdown: Arc<Notify>) -> std::io::Result<()> {
+fn bind_socket(
+    path: &std::path::Path,
+) -> std::io::Result<(tokio::net::UnixListener, std::fs::File)> {
+    use std::os::unix::fs::FileTypeExt;
+    use std::os::unix::fs::OpenOptionsExt;
     use std::os::unix::fs::PermissionsExt;
 
+    // Hold this OS lock for the listener's whole lifetime. It also serializes
+    // stale-socket recovery, so simultaneous starts cannot unlink each other.
+    // Keep the lock file after shutdown: removing it would permit two lock inodes.
+    let lock = std::fs::File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .open(path.with_extension("sock.lock"))?;
+    lock.try_lock()
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::AddrInUse, error))?;
+    // A second daemon must not unlink a live endpoint or an unrelated file.
+    // Recover only a socket whose previous listener has actually gone away.
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_socket() => {
+            match std::os::unix::net::UnixStream::connect(path) {
+                Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused => {
+                    std::fs::remove_file(path)?;
+                }
+                Err(error) => return Err(error),
+                Ok(_) => {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::AddrInUse,
+                        "freeRGB API is already running",
+                    ))
+                }
+            }
+        }
+        Ok(_) => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "refusing to replace a non-socket API path",
+            ))
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    let listener = tokio::net::UnixListener::bind(path)?;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    Ok((listener, lock))
+}
+
+#[cfg(unix)]
+pub async fn serve(engine: SharedEngine, shutdown: Arc<Notify>) -> std::io::Result<()> {
     let path = socket_path();
-    let _ = std::fs::remove_file(&path);
-    let listener = tokio::net::UnixListener::bind(&path)?;
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+    let (listener, _endpoint_lock) = bind_socket(&path)?;
     tracing::info!(socket = %path.display(), "API listening");
     loop {
         let (stream, _) = listener.accept().await?;
@@ -145,6 +192,43 @@ mod tests {
     use freergb_core::Rgb;
     use freergb_effects::EffectSpec;
     use std::sync::Mutex;
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn unix_endpoint_preserves_live_listeners_files_and_symlinks() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+        let directory = std::env::temp_dir().join(format!("freergb-ipc-{}", std::process::id()));
+        std::fs::create_dir(&directory).unwrap();
+        let path = directory.join("api.sock");
+        let first = bind_socket(&path).unwrap();
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        assert_eq!(
+            bind_socket(&path).unwrap_err().kind(),
+            std::io::ErrorKind::AddrInUse
+        );
+        assert!(tokio::net::UnixStream::connect(&path).await.is_ok());
+        drop(first);
+        let recovered = bind_socket(&path).unwrap();
+        drop(recovered);
+        std::fs::remove_file(&path).unwrap();
+        std::fs::write(&path, b"preserve").unwrap();
+        assert!(bind_socket(&path).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"preserve");
+        std::fs::remove_file(&path).unwrap();
+        let target = directory.join("target");
+        std::fs::write(&target, b"preserve").unwrap();
+        symlink(&target, &path).unwrap();
+        assert!(bind_socket(&path).is_err());
+        assert!(std::fs::symlink_metadata(&path)
+            .unwrap()
+            .file_type()
+            .is_symlink());
+        assert_eq!(std::fs::read(&target).unwrap(), b"preserve");
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 
     #[tokio::test]
     async fn oversized_unterminated_request_closes_connection() {

@@ -99,6 +99,13 @@ pub fn sha256_file(path: &Path) -> Result<String> {
 /// Extracts `package` into the empty directory `into` and returns the
 /// manifest plus the SHA-256 of `module.json` itself.
 pub fn extract(package: &Path, into: &Path) -> Result<(PackageManifest, String)> {
+    if !std::fs::symlink_metadata(into)?.file_type().is_dir()
+        || std::fs::read_dir(into)?.next().transpose()?.is_some()
+    {
+        return Err(invalid(
+            "package destination must be an empty, real directory",
+        ));
+    }
     let file = std::fs::File::open(package)?;
     let mut archive = zip::ZipArchive::new(file).map_err(invalid)?;
     if archive.len() > MAX_FILES {
@@ -109,7 +116,7 @@ pub fn extract(package: &Path, into: &Path) -> Result<(PackageManifest, String)>
     let mut names = std::collections::BTreeSet::new();
     for index in 0..archive.len() {
         let entry = archive.by_index_raw(index).map_err(invalid)?;
-        let name = entry.name().to_owned();
+        let name = entry.name().map_err(invalid)?.into_owned();
         if !entry.is_file() || entry.is_symlink() || !safe_name(&name) || !names.insert(name) {
             return Err(invalid("package contains an unsafe or duplicate entry"));
         }
@@ -140,13 +147,21 @@ pub fn extract(package: &Path, into: &Path) -> Result<(PackageManifest, String)>
     if expected != names {
         return Err(invalid("package files differ from module.json"));
     }
-    std::fs::write(into.join(MANIFEST), &manifest_bytes)?;
+    let mut manifest_file = std::fs::File::options()
+        .write(true)
+        .create_new(true)
+        .open(into.join(MANIFEST))?;
+    manifest_file.write_all(&manifest_bytes)?;
+    manifest_file.sync_all()?;
     for (name, sha) in &manifest.files {
         let entry = archive.by_name(name).map_err(invalid)?;
         let declared = entry.size();
         let mut reader = entry.take(declared + 1);
         let path = into.join(name);
-        let mut out = std::fs::File::create(&path)?;
+        let mut out = std::fs::File::options()
+            .write(true)
+            .create_new(true)
+            .open(&path)?;
         let mut hash = Sha256::new();
         let mut buffer = [0u8; 64 * 1024];
         let mut written = 0u64;

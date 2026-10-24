@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 import { chordProblem, curveProblem, DEFAULT_CURVE, macroProblem } from "./control";
 
 describe("fan curve rules (mirror FanCurve::validate)", () => {
+  it("rejects non-finite limits, rates and point values before JSON turns them into null", () => {
+    for (const value of [NaN, Infinity, -Infinity]) {
+      for (const key of ["minimum_percent", "critical_c", "hysteresis_c", "max_rise_percent_per_s", "max_fall_percent_per_s"] as const)
+        expect(curveProblem({ ...DEFAULT_CURVE, [key]: value })).not.toBeNull();
+      for (const key of ["temperature_c", "duty_percent"] as const)
+        expect(curveProblem({ ...DEFAULT_CURVE, points: [{ ...DEFAULT_CURVE.points[0]!, [key]: value }, DEFAULT_CURVE.points[1]!] })).not.toBeNull();
+    }
+  });
   it("accepts the daemon default", () => expect(curveProblem(DEFAULT_CURVE)).toBeNull());
   it("rejects decreasing duty, unordered temperatures and points past critical", () => {
     const pts = DEFAULT_CURVE.points;
@@ -14,6 +22,13 @@ describe("fan curve rules (mirror FanCurve::validate)", () => {
 });
 
 describe("macro rules (mirror MacroDefinition::validate)", () => {
+  it("rejects negative, fractional and non-finite delays and non-finite brightness", () => {
+    for (const ms of [-1, 0.5, NaN, Infinity, -Infinity])
+      expect(macroProblem({ repeat: 1, steps: [{ type: "delay", ms }] })).not.toBeNull();
+    for (const value of [NaN, Infinity, -Infinity])
+      expect(macroProblem({ repeat: 1, steps: [{ type: "brightness", value }] })).not.toBeNull();
+    expect(macroProblem({ repeat: 1, steps: [{ type: "delay", ms: 0 }] })).toBeNull();
+  });
   const ok = { repeat: 1, steps: [{ type: "brightness" as const, value: 0.5 }] };
   it("accepts a simple macro", () => expect(macroProblem(ok)).toBeNull());
   it("enforces step, repeat and delay limits", () => {

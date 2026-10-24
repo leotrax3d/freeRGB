@@ -1,6 +1,6 @@
 param(
     [string]$Compiler,
-    [string]$Installer = "$PSScriptRoot/../target/dist/freeRGB-0.1.0-windows-x86_64-setup.exe",
+    [string]$Installer,
     [string]$BinDir = "$PSScriptRoot/../target/release",
     [switch]$ModelOnly
 )
@@ -34,6 +34,13 @@ Invoke-TestProcess "$workspace/target/installer-tests/installer-model-tests.exe"
 Assert-True ((Test-Path -LiteralPath $marker) -and (Get-Content -LiteralPath $marker -Raw).StartsWith('PASS:')) 'Installer model assertions failed.'
 Get-Content -LiteralPath $marker
 if ($ModelOnly) { exit 0 }
+if (-not $Installer) {
+    $metadata = & cargo metadata --manifest-path "$workspace/Cargo.toml" --format-version 1 --no-deps --locked | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve installer version.' }
+    $version = ($metadata.packages | Where-Object { $_.name -eq 'freergb-gui' }).version
+    if (-not $version) { throw 'Workspace application version is missing.' }
+    $Installer = Join-Path $workspace "target/dist/freeRGB-$version-windows-x86_64-setup.exe"
+}
 
 # Never use this acceptance script on an existing personal installation.
 # Per-machine install (docs/SETUP_WIZARD.md): HKLM registration, common shortcuts.
@@ -78,7 +85,31 @@ function Start-Virtual([string]$Directory) {
 $daemon = $null
 $fixtureBrokerInstalled = $false
 try {
+    # HKCU is attacker-controlled at the elevated installer boundary. A legacy
+    # entry must stop setup, never execute its registered command as admin.
+    $legacyKey = 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/{A635E27A-ADBF-4DC2-8BF4-4237EC0C96ED}_is1'
+    Assert-True (-not (Test-Path -LiteralPath $legacyKey)) 'Existing per-user install must not be touched.'
+    $legacyFixture = Join-Path $root 'legacy-fixture.exe'
+    $legacySource = Join-Path $root 'legacy-fixture.cs'
+    New-Item -ItemType Directory -Path $root -Force | Out-Null
+    [IO.File]::WriteAllText($legacySource,'class Fixture { static void Main() { System.IO.File.WriteAllText(System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory,"legacy-was-executed.txt"),"UNEXPECTED"); } }')
+    & (Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe') /nologo /target:winexe "/out:$legacyFixture" $legacySource
+    Assert-True ($LASTEXITCODE -eq 0) 'Legacy non-destructive marker fixture did not compile.'
+    New-Item -Path $legacyKey -Force | Out-Null
+    try {
+        New-ItemProperty -Path $legacyKey -Name UninstallString -Value ('"' + $legacyFixture + '"') -PropertyType String | Out-Null
+        $legacyLog = Join-Path $logs 'blocked-per-user.log'
+        Invoke-TestProcess $Installer @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',('/DIR="{0}"' -f $app),('/LOG="{0}"' -f $legacyLog)) @(1,2,3,4,5,6,7,8)
+        Assert-True ((Get-Content -LiteralPath $legacyLog -Raw).Contains('Windows-Einstellungen > Apps')) 'Legacy migration failed for an unexpected reason.'
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $root 'legacy-was-executed.txt'))) 'An elevated user-controlled uninstaller was executed.'
+        Assert-True (-not (Test-Path -LiteralPath "$app/freergbd.exe")) 'Setup continued despite the blocked legacy migration.'
+    } finally { Remove-Item -LiteralPath $legacyKey -Recurse -Force }
     Install-Test 'fresh-defaults' 'DEFAULT'
+    $provenancePath = Join-Path (Split-Path -Parent $Installer) ([IO.Path]::GetFileName($Installer) -replace '-setup\.exe$','-build.json')
+    $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
+    foreach ($entry in $provenance.payload.PSObject.Properties) {
+        Assert-True ((Get-FileHash -LiteralPath (Join-Path $app $entry.Name) -Algorithm SHA256).Hash.ToLowerInvariant() -eq $entry.Value) "Installed payload differs from build manifest: $($entry.Name)"
+    }
     foreach ($file in @('freergb.exe','freergbd.exe','freergb-gui.exe','freergb-launcher.exe','freergb-tray.exe','freergb-mainboard.exe','freergb-mainboard-service.exe','freergb-keyboard-input.exe','unins000.exe')) {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing installed file $file"
     }
@@ -87,7 +118,7 @@ try {
     Assert-True ((Get-Startup) -eq ('"' + (Join-Path $app 'freergb-launcher.exe') + '" --daemon-only')) 'Autostart should start only the daemon and quote spaces.'
     Assert-True (Test-Path -LiteralPath "$app/freergb-desktop.exe") 'Modern desktop executable missing.'
     Assert-True (Test-Path -LiteralPath "$group/freeRGB Classic.lnk") 'Classic fallback shortcut missing.'
-    foreach ($file in @('install-mainboard.ps1','remove-mainboard.ps1','mainboard-prerequisites.psm1','mainboard-packages.json')) {
+    foreach ($file in @('install-mainboard.ps1','remove-mainboard.ps1','stop-installed-tray.ps1','mainboard-prerequisites.psm1','mainboard-packages.json')) {
         Assert-True (Test-Path -LiteralPath (Join-Path $app $file)) "Missing optional prerequisite bootstrap file $file"
     }
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $app 'mainboard-provider.json'))) 'Default/silent setup must not enable optional motherboard access.'

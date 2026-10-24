@@ -148,7 +148,7 @@ impl CurveController {
         if target >= self.last_duty
             || self
                 .last_temperature
-                .map_or(true, |last| t <= last - curve.hysteresis_c)
+                .is_none_or(|last| t <= last - curve.hysteresis_c)
         {
             self.last_duty = target;
             self.last_temperature = Some(t);
@@ -165,6 +165,14 @@ impl CurveController {
         age_ms: u64,
         now_ms: u64,
     ) -> f32 {
+        if self.output.is_some_and(|(at, _)| now_ms < at) {
+            // A reversed clock must not freeze a previously low output through
+            // the rate limiter. Request the same fallback as stale telemetry.
+            self.last_temperature = None;
+            self.last_duty = 100.0;
+            self.output = Some((now_ms, 100.0));
+            return 100.0;
+        }
         let target = self.update(curve, temperature, age_ms);
         let emergency = target >= 100.0
             && (self.last_temperature.is_none()
@@ -346,6 +354,19 @@ pub fn execute_chord(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reversed_clock_bypasses_rate_limits_and_recovers_from_full_speed() {
+        let curve = FanCurve {
+            max_rise_percent_per_s: Some(1.0),
+            max_fall_percent_per_s: Some(1.0),
+            ..FanCurve::default()
+        };
+        let mut controller = CurveController::default();
+        assert_eq!(controller.update_at(&curve, Some(25.0), 0, 1000), 30.0);
+        assert_eq!(controller.update_at(&curve, Some(70.0), 0, 999), 100.0);
+        assert_eq!(controller.update_at(&curve, Some(25.0), 0, 1999), 99.0);
+        assert_eq!(controller.update_at(&curve, Some(90.0), 0, 2000), 100.0);
+    }
     #[test]
     fn chords_validate_and_always_attempt_modifier_cleanup() {
         let keys = vec!["c".into(), "ctrl".into()];

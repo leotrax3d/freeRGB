@@ -268,7 +268,7 @@ impl MainboardProvider {
     pub fn summary(&self) -> ProviderSummary {
         let cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
         let age_ms = cache.snapshot.as_ref().map(|(_, at)| elapsed_ms(*at));
-        let stale = cache.status == "ready" && age_ms.map_or(true, |age| age > STALE_MS);
+        let stale = cache.status == "ready" && age_ms.is_none_or(|age| age > STALE_MS);
         let board = cache.snapshot.as_ref().and_then(|(s, _)| s.board.clone());
         ProviderSummary {
             board,

@@ -115,7 +115,7 @@ export function SetupWizard({ embedded = false, onDone }: { embedded?: boolean; 
   const ready = cards.filter((c) => c.phase === "ready" && !c.builtin);
 
   const finish = async () => {
-    await setup.complete();
+    if (!await setup.complete()) return;
     setClosed(true);
     if (onDone) onDone();
     else go("lighting");
@@ -198,7 +198,7 @@ export function SetupWizard({ embedded = false, onDone }: { embedded?: boolean; 
         )}
 
         {stage === "done" && <LightTest ready={ready} />}
-        {setup.error && stage !== "done" && <p className="text-small text-danger-text">{setup.error}</p>}
+        {setup.error && <p role="alert" className="text-small text-danger-text">{setup.error}</p>}
 
         <footer className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-bg py-4">
           {stage === "select" ? (

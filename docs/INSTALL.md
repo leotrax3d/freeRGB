@@ -1,22 +1,23 @@
 # Installation
 
 The Windows installer can be built locally or through the GitHub Package workflow.
-There is not yet a published release. For actual hardware use, close SignalRGB/iCUE
+See the README for current prereleases and known issues. For actual hardware use, close SignalRGB/iCUE
 first; the daemon also detects common conflicts. Virtual demo mode can run alongside them.
 
 ## Windows 10 / 11
 
-Installer artifact: `target/dist/freeRGB-0.1.0-windows-x86_64-setup.exe` after packaging.
-It installs per user with an uninstaller. Setup asks independently about Start Menu
-entries (including Demo), a desktop shortcut and login startup. Start Menu and
-**autostart default on**; desktop defaults off.
+Installer artifact: `target/dist/freeRGB-<version>-windows-x86_64-setup.exe` after packaging.
+It installs machine-wide under Program Files with an uninstaller and an initial
+UAC prompt. Start Menu entries (including Demo) default on; the desktop shortcut
+defaults off. Machine-wide login startup always starts the daemon/tray.
 Windows login starts only the background daemon, without opening a GUI. The main
 shortcut opens Tauri; the separate **freeRGB Classic** shortcut opens the fallback.
 The modern GUI requires the Microsoft Edge WebView2 runtime on Windows.
-All options are editable, with previous
-choices retained on upgrades. Deselecting an option removes freeRGB's corresponding
-shortcut/startup entry. Default installation adds no driver/system service. An unchecked optional
-mainboard page can download/install prerequisites after explicit opt-in; see
+Shortcut choices are retained on upgrades; deselection removes those shortcuts.
+Interactive setup prepares verified motherboard prerequisites and the protected
+service. Silent setup skips these components unless the exact `/WITHMAINBOARD`
+argument is supplied. Fan control still requires separate safety acknowledgement
+and channel identification. See
 `MAINBOARD_INSTALLATION.md`. The README logo is
 used for Setup, installed executables, shortcuts and the GUI window.
 See `UPDATES.md`. Running the installer is a separate user action.
@@ -28,14 +29,16 @@ then confirm the list to start their registered manufacturer uninstallers. **Nex
 alone never uninstalls anything, and silent setup never runs these uninstallers.
 Manufacturer dialogs may require administrator approval or a restart. Unsupported
 or ambiguous entries can be removed through Windows Settings → Apps. Setup does
-not delete third-party files, drivers or registry leftovers itself. Actual vendor
+not execute per-user HKCU uninstaller commands with its elevated privileges;
+those programs and legacy per-user freeRGB installs must be removed through Apps.
+Setup does not delete third-party files, drivers or registry leftovers itself. Actual vendor
 uninstall acceptance has not been performed.
 
 Upgrade/uninstall requests graceful shutdown only if the daemon's canonical
 executable path matches the installed copy. Other checkouts are left running.
 Older daemons without this guarded API must be stopped manually before upgrading.
-Close the GUI when prompted by Windows/Setup; no forced process termination is
-added. Uninstall preserves `%APPDATA%\freeRGB` (profiles, curves, macros and settings).
+Close the GUI when prompted by Windows/Setup; the tray helper only terminates
+the installed executable after checking its process handle and full path. Uninstall preserves `%APPDATA%\freeRGB` (profiles, curves, macros and settings).
 
 `scripts/test-installer.ps1 -ModelOnly -Compiler PATH` checks product recognition
 and uninstall command parsing without installing anything. The Package workflow
@@ -74,6 +77,9 @@ State and profiles: `%APPDATA%\freeRGB\` (`state.json`, `profiles\`).
 
 ## Linux
 
+Use stable Rust (the locked dependency graph requires Rust 1.90 or newer;
+the current audit used Rust 1.99.1) and Node.js 22 or newer for the desktop UI.
+
 Status: Linux hardware is untested. An older CI run failed because PipeWire development
 libraries were missing; the dependency list has been corrected and a new result is pending.
 
@@ -81,7 +87,7 @@ Build dependencies (Debian/Ubuntu names):
 
 ```bash
 sudo apt install build-essential pkg-config libudev-dev \
-  libxkbcommon-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
+  libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
   libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev \
   libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 ```

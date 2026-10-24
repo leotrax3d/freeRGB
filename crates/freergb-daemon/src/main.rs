@@ -265,17 +265,17 @@ fn main() -> Result<()> {
 
     let rt = tokio::runtime::Runtime::new()?;
     let shutdown = Arc::new(Notify::new());
-    rt.block_on(async {
+    let api_result = rt.block_on(async {
         tokio::select! {
             r = async {
                 #[cfg(windows)]
                 if let Some(instance) = &args.ipc_instance { return ipc::serve_instance(engine.clone(),shutdown.clone(),instance).await; }
                 ipc::serve(engine.clone(),shutdown.clone()).await
             } => {
-                if let Err(e) = r { tracing::error!(error = %e, "API server stopped"); }
+                r
             }
-            _ = shutdown.notified() => tracing::info!("shutdown requested via API"),
-            _ = tokio::signal::ctrl_c() => tracing::info!("Ctrl+C"),
+            _ = shutdown.notified() => { tracing::info!("shutdown requested via API"); Ok(()) },
+            _ = tokio::signal::ctrl_c() => { tracing::info!("Ctrl+C"); Ok(()) },
         }
     });
 
@@ -283,6 +283,7 @@ fn main() -> Result<()> {
     let _ = render.join();
     lock(&engine).shutdown();
     tracing::info!("devices released, bye");
+    api_result?;
     Ok(())
 }
 

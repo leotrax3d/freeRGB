@@ -111,7 +111,17 @@ fn fetch<C: FnMut(&str) -> Result<Value, freergb_client::ClientError>>(
     }
     let mut out = Vec::new();
     for (slice, method) in CORE {
-        out.push((*slice, call(method).map_err(|e| e.to_string())?));
+        match call(method) {
+            Ok(value) => out.push((*slice, value)),
+            // A daemon may explicitly disable modules, or predate onboarding.
+            // Feature unavailability is not a transport disconnection.
+            Err(freergb_client::ClientError::Rpc { .. })
+                if matches!(*slice, "modules_setup" | "onboarding") =>
+            {
+                out.push((*slice, Value::Null));
+            }
+            Err(error) => return Err(error.to_string()),
+        }
     }
     for (slice, method) in OPTIONAL.iter().filter(|(s, _)| wanted.contains(*s)) {
         match call(method) {
@@ -200,6 +210,29 @@ where
 mod tests {
     use super::*;
     use std::sync::mpsc;
+
+    #[test]
+    fn disabled_modules_and_older_onboarding_keep_a_live_connection() {
+        let result = fetch(
+            &mut |method| match method {
+                "modules.status" => Err(freergb_client::ClientError::Rpc {
+                    code: -32006,
+                    message: "hardware modules are disabled".into(),
+                }),
+                "onboarding.get" => Err(freergb_client::ClientError::Rpc {
+                    code: -32601,
+                    message: "unknown method".into(),
+                }),
+                _ => Ok(json!({})),
+            },
+            &BTreeSet::new(),
+            &mut None,
+        )
+        .unwrap();
+        assert!(result.contains(&("modules_setup", Value::Null)));
+        assert!(result.contains(&("onboarding", Value::Null)));
+        assert!(result.iter().any(|(slice, _)| *slice == "devices"));
+    }
 
     #[test]
     fn lost_connection_clears_all_cached_readings_once_then_repopulates() {

@@ -1,4 +1,9 @@
 { Shared by setup and the compiler-built regression harness. }
+function MachineUninstaller(Root: Integer): Boolean;
+begin
+  Result := (Root = HKLM32) or (Root = HKLM64);
+end;
+
 function ProductFamily(Name, Publisher: String): String;
 begin
   Name := Lowercase(Trim(Name));

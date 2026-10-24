@@ -167,7 +167,7 @@ impl BindingsPanel {
                 self.dirty = true;
             }
         }
-        if channels.map_or(true, |c| c.is_empty()) {
+        if channels.is_none_or(|c| c.is_empty()) {
             ui.label("No motherboard channels available; saved annotations remain editable.");
         }
         let validation = config.validate();

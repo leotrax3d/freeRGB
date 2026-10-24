@@ -16,14 +16,39 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Release metadata and GLib backport integrity
+        shell: pwsh
+        run: |
+          python scripts/check-release.py
+          if ($LASTEXITCODE -ne 0) { throw 'Release metadata preflight failed.' }
+          python scripts/check-glib-backport.py
+          if ($LASTEXITCODE -ne 0) { throw 'GLib backport preflight failed.' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            python scripts/check-release.py --tag $env:GITHUB_REF_NAME
+            if ($LASTEXITCODE -ne 0) { throw 'Release tag/version mismatch.' }
+          }
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action, pinned toolchain below
         with:
-          node-version: 22
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
       - name: Tests
         run: cargo test --workspace --locked
+      - name: Desktop tests and locked Windows graph
+        shell: pwsh
+        run: |
+          npm ci --prefix apps/desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend install failed.' }
+          npm test --prefix apps/desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed.' }
+          cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop Rust tests failed.' }
+      - name: Installer shutdown failure models (no real processes)
+        shell: pwsh
+        run: ./scripts/test-installer-process-scope.ps1
       - name: Isolated cooling watchdog process tests (synthetic duties only)
         run: cargo test -p freergb-daemon --features cooling-fixture --test cooling_guard_process --locked
       - name: Optional motherboard provider transport (no hardware)
@@ -53,26 +78,26 @@ jobs:
       - name: Ensure installer compiler
         shell: pwsh
         run: |
-          if (-not (Test-Path "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe") -and -not (Test-Path "$env:ProgramFiles/Inno Setup 7/ISCC.exe")) {
-            choco install innosetup --yes --no-progress
-            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
-          }
+          $compiler = ./scripts/install-inno-compiler.ps1 -Destination "$env:RUNNER_TEMP/InnoSetup-6.7.3"
+          "INNO_COMPILER=$compiler" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Build installer
         shell: pwsh
-        run: ./packaging/windows/build-installer.ps1
+        run: ./packaging/windows/build-installer.ps1 -Compiler $env:INNO_COMPILER
+      - name: Verify candidate artifact checksums and provenance
+        run: python scripts/check-release.py --artifacts target/dist
       - name: IPC smoke
         shell: pwsh
         run: ./scripts/smoke-daemon.ps1 -WithPlugin
       - name: Isolated installer lifecycle acceptance
         shell: pwsh
-        run: ./scripts/test-installer.ps1
-      - uses: actions/upload-artifact@v4
+        run: ./scripts/test-installer.ps1 -Compiler $env:INNO_COMPILER
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: freeRGB-installer-acceptance-logs
           path: target/installer-acceptance/*
           if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: freeRGB-windows-installer
           path: target/dist/*
@@ -84,11 +109,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: freeRGB-windows-installer
           path: dist
+      - name: Reverify exact artifacts before draft creation
+        run: python scripts/check-release.py --tag "$GITHUB_REF_NAME" --artifacts dist
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}

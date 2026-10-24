@@ -36,19 +36,19 @@ export function curveProblem(c: FanCurve): string | null {
   if (c.points.length < 2 || c.points.length > 16) return "A curve needs 2 to 16 points.";
   // Mirrors FanCurve::validate. Native execution still enforces each channel's
   // tier floor (40 % unless the channel is unlocked as unrestricted).
-  if (c.minimum_percent < 0 || c.minimum_percent > 100) return "Minimum duty must be 0–100 %.";
-  if (c.critical_c < 40 || c.critical_c > 110) return "Critical temperature must be 40–110 °C.";
-  if (c.hysteresis_c < 0 || c.hysteresis_c > 10) return "Hysteresis must be 0–10 °C.";
+  if (!Number.isFinite(c.minimum_percent) || c.minimum_percent < 0 || c.minimum_percent > 100) return "Minimum duty must be 0–100 %.";
+  if (!Number.isFinite(c.critical_c) || c.critical_c < 40 || c.critical_c > 110) return "Critical temperature must be 40–110 °C.";
+  if (!Number.isFinite(c.hysteresis_c) || c.hysteresis_c < 0 || c.hysteresis_c > 10) return "Hysteresis must be 0–10 °C.";
   for (const [i, p] of c.points.entries()) {
-    if (p.temperature_c < -20 || p.temperature_c > 110) return "Point temperatures must be −20–110 °C.";
-    if (p.duty_percent < c.minimum_percent || p.duty_percent > 100) return "Point duty must be between the minimum and 100 %.";
+    if (!Number.isFinite(p.temperature_c) || p.temperature_c < -20 || p.temperature_c > 110) return "Point temperatures must be −20–110 °C.";
+    if (!Number.isFinite(p.duty_percent) || p.duty_percent < c.minimum_percent || p.duty_percent > 100) return "Point duty must be between the minimum and 100 %.";
     const prev = c.points[i - 1];
     if (prev && (p.temperature_c <= prev.temperature_c || p.duty_percent < prev.duty_percent))
       return "Temperatures must increase and duty must not decrease.";
   }
   if (c.points[c.points.length - 1]!.temperature_c > c.critical_c) return "The curve extends beyond the critical temperature.";
   for (const rate of [c.max_rise_percent_per_s, c.max_fall_percent_per_s])
-    if (rate !== undefined && (rate < 1 || rate > 100)) return "Step limits must be 1–100 %/s.";
+    if (rate !== undefined && (!Number.isFinite(rate) || rate < 1 || rate > 100)) return "Step limits must be 1–100 %/s.";
   return null;
 }
 
@@ -100,10 +100,10 @@ export function macroProblem(m: MacroDefinition): string | null {
   for (const [i, s] of m.steps.entries()) {
     const at = `Step ${i + 1}: `;
     if (s.type === "delay") {
-      if (s.ms > 10_000) return at + "a delay can be at most 10 s.";
+      if (!Number.isInteger(s.ms) || s.ms < 0 || s.ms > 10_000) return at + "a delay must be a whole number from 0 to 10 s.";
       delay += s.ms;
     }
-    if (s.type === "brightness" && (s.value < 0 || s.value > 1)) return at + "brightness must be 0–100 %.";
+    if (s.type === "brightness" && (!Number.isFinite(s.value) || s.value < 0 || s.value > 1)) return at + "brightness must be 0–100 %.";
     if (s.type === "text" && (s.text.length === 0 || new TextEncoder().encode(s.text).length > 1024)) return at + "text needs 1–1024 bytes.";
     if (s.type === "key" && !(SINGLE_KEYS as readonly string[]).includes(s.key)) return at + "unsupported key.";
     if (s.type === "chord") {

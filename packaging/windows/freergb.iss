@@ -68,10 +68,14 @@ Source: "{#BinDir}\freergb.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BinDir}\freergb.exe"; Flags: dontcopy
 Source: "{#BinDir}\freergb-mainboard-service.exe"; Flags: dontcopy
 Source: "prepare-mainboard.ps1"; Flags: dontcopy
+Source: "stop-installed-tray.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "stop-installed-tray.ps1"; Flags: dontcopy
 ; Verified LHM runtime and notices, bundled at build time (no download).
 Source: "{#BundleDir}\*"; DestDir: "{tmp}\prerequisites"; Flags: deleteafterinstall
 Source: "..\..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\vendor\glib\LICENSE"; DestDir: "{app}\licenses"; DestName: "glib-LICENSE.txt"; Flags: ignoreversion
+Source: "..\..\vendor\glib\FREERGB_BACKPORT.md"; DestDir: "{app}\licenses"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\freeRGB"; Filename: "{app}\freergb-launcher.exe"; AppUserModelID: "freeRGB.Desktop"; Tasks: startmenu
@@ -97,7 +101,6 @@ Type: files; Name: "{autodesktop}\freeRGB.lnk"; Check: not WizardIsTaskSelected(
 Filename: "{app}\freergb-launcher.exe"; Flags: nowait runasoriginaluser skipifsilent
 
 [UninstallRun]
-Filename: "{sys}\taskkill.exe"; Parameters: "/IM freergb-tray.exe /F"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopTray"
 Filename: "{app}\freergb.exe"; Parameters: "stop-installed-daemon --directory ""{app}"""; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "StopDaemon"
 
 [UninstallDelete]
@@ -120,23 +123,25 @@ begin
   Result := ShouldSkipCompetitorsPage(PageID);
 end;
 
-// Earlier releases installed per user. Remove that copy (its uninstaller stops
-// its daemon and protected service) before the per-machine install.
-procedure RemovePerUserInstallation;
-var Command, FileName, Params: String; Code: Integer;
+// HKCU uninstall commands are user-controlled. Never execute them from an
+// elevated setup process; legacy removal must happen through Windows Apps.
+function HasPerUserInstallation: Boolean;
+var Command: String;
 begin
-  if not RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A635E27A-ADBF-4DC2-8BF4-4237EC0C96ED}_is1',
-    'UninstallString', Command) then Exit;
-  FileName := RemoveQuotes(Command);
-  if not FileExists(FileName) then Exit;
-  Params := '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART';
-  if not Exec(FileName, Params, '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
-    Log('Previous per-user installation could not be removed automatically (code ' + IntToStr(Code) + ').');
+  Result := RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{A635E27A-ADBF-4DC2-8BF4-4237EC0C96ED}_is1',
+    'UninstallString', Command);
+end;
+
+function StopInstalledTray(Script: String): Boolean;
+var Code: Integer;
+begin
+  Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -ExecutionPolicy Bypass -File "' + Script + '" -InstallRoot "' + ExpandConstant('{app}') + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssInstall then RemovePerUserInstallation;
   if CurStep = ssPostInstall then InstallMainboardComponents;
 end;
 
@@ -144,8 +149,8 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var Code: Integer; Parameters: String;
 begin
   if CurUninstallStep <> usUninstall then Exit;
-  if not RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\freeRGBMainboard') and
-    not DirExists(ExpandConstant('{commonpf64}\freeRGB\MainboardBroker')) then Exit;
+  if RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\freeRGBMainboard') or
+    DirExists(ExpandConstant('{commonpf64}\freeRGB\MainboardBroker')) then begin
   Parameters := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\remove-mainboard.ps1') +
     '" -InstallRoot "' + ExpandConstant('{app}') + '" -ConsentToRemove';
   if UninstallSilent then Parameters := Parameters + ' -Silent';
@@ -154,6 +159,9 @@ begin
     RaiseException('Der Mainboard-Dienst konnte nicht entfernt werden. Die Deinstallation wurde vor dem Entfernen der Programmdateien angehalten.');
   if Code <> 0 then
     RaiseException('Der Mainboard-Dienst wurde nicht entfernt oder die Administratorabfrage wurde abgebrochen. freeRGB bleibt für einen erneuten Versuch installiert. Details: Program Files\freeRGB\mainboard-maintenance-result.json');
+  end;
+  if not StopInstalledTray(ExpandConstant('{app}\stop-installed-tray.ps1')) then
+    RaiseException('Die installierte freeRGB-Tray-Anwendung konnte nicht beendet werden. Programmdateien bleiben erhalten.');
 end;
 
 function NeedRestart: Boolean;
@@ -165,6 +173,10 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var ExitCode: Integer; Parameters: String;
 begin
   Result := '';
+  if HasPerUserInstallation then begin
+    Result := 'Bitte die frühere Installation für diesen Benutzer zuerst über Windows-Einstellungen > Apps deinstallieren und Setup erneut starten. Benutzerprofile bleiben erhalten.';
+    Exit;
+  end;
   ExtractTemporaryFile('freergb-mainboard-service.exe');
   ExtractTemporaryFile('prepare-mainboard.ps1');
   Parameters := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\prepare-mainboard.ps1') +
@@ -175,6 +187,11 @@ begin
   else if ExitCode <> 0 then
     Result := 'Mainboard-Rückgabe nicht bestätigt oder UAC abgebrochen. Programmdateien bleiben erhalten.';
   if Result <> '' then Exit;
+  ExtractTemporaryFile('stop-installed-tray.ps1');
+  if not StopInstalledTray(ExpandConstant('{tmp}\stop-installed-tray.ps1')) then begin
+    Result := 'Bitte die installierte freeRGB-Tray-Anwendung schließen und Setup erneut starten.';
+    Exit;
+  end;
   if FileExists(ExpandConstant('{app}\freergbd.exe')) then begin
     ExtractTemporaryFile('freergb.exe');
     if not Exec(ExpandConstant('{tmp}\freergb.exe'), 'stop-installed-daemon --directory "' + ExpandConstant('{app}') + '"', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then

@@ -155,7 +155,9 @@ impl StartRequest {
         // The role assigned during fan identification (bindings) is the
         // confirmation; `confirmed_fan` only stands in for unassigned headers.
         if !self.confirmed_fan && policy.evidence.role.is_none() {
-            return Err("Identify this header as a fan first (Cooling → the fan card → Identify)".into());
+            return Err(
+                "Identify this header as a fan first (Cooling → the fan card → Identify)".into(),
+            );
         }
         let pump = policy.evidence.role == Some(ChannelRole::Pump);
         // A pump is controlled only after an unrestricted unlock AND its second,

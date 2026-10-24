@@ -1,13 +1,16 @@
 [package]
 name = "freergb-desktop"
 description = "Modern freeRGB desktop GUI (Tauri); talks to freergbd only through the local API"
-version = "0.1.0-beta.1"
+version = "0.1.0-beta.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-rust-version = "1.80"
+rust-version = "1.90"
 
 # Own workspace: Tauri's dependency tree stays out of the main workspace and CI.
 [workspace]
+
+[patch.crates-io]
+glib = { path = "../../../vendor/glib" }
 
 [[bin]]
 name = "freergb-desktop"

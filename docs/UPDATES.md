@@ -1,42 +1,62 @@
 # Installation, releases and updates
 
 Windows setup is built from `packaging/windows/freergb.iss` using
-`build-installer.ps1`. The GitHub **Package** workflow builds/tests binaries and
-creates the installer as a workflow artifact. A `v<workspace version>` tag creates
-a **draft** release; no automatic publication. Manual workflow runs only upload
-artifacts. The installer filename is `freeRGB-<version>-windows-x86_64-setup.exe`.
+`build-installer.ps1`. The GitHub Package workflow produces an installer, SHA-256
+sidecar and build manifest. A matching `v<workspace version>` tag can create a
+**draft** release; manual runs upload artifacts. Nothing automatically publishes a
+release. The current `0.1.0-beta.2` candidate is unpublished; the existing beta.1
+Package run failed before packaging and its tag must not be reused.
 
-The application and libraries remain Rust; installer packaging uses Inno Setup.
-Setup installs per user under `%LOCALAPPDATA%/Programs/freeRGB`, adds start menu
-and uninstall entries, optionally a desktop shortcut and login startup (unchecked).
-It does not install a system service/driver or change firmware. The launcher starts
-the daemon and GUI; the Demo shortcut requests a virtual device if no daemon exists.
-Setup requests daemon shutdown before upgrade and uses Restart Manager to close
-running executables. Uninstall preserves profiles/config under `%APPDATA%/freeRGB`.
-The setup is not automatically installed during development.
+Setup installs machine-wide under Program Files and requests UAC elevation.
+Shortcuts launch the modern GUI, Classic fallback or virtual demo; login startup
+runs the background components. Interactive setup prepares motherboard dependencies
+and the protected service. Silent setup skips that preparation unless the exact
+`/WITHMAINBOARD` argument is present. Dependency downloads require pinned hashes
+and Windows publisher verification. Fan control retains separate consent and
+channel-identification gates; installing prerequisites does not certify hardware.
 
-The Updates tab uses the fixed `leotrax3d/FreeRGB` GitHub repository. It checks stable
-semantic versions, rejects downgrades/prereleases and requires the exact Windows
-installer plus GitHub's asset SHA-256 digest. Download size is bounded to 256 MiB;
-content is hashed before staging and again before starting setup. No Git checkout
-is modified by the updater. Checks/downloads run on a background worker.
+Setup refuses a legacy per-user installation before replacing files: remove it
+through Windows Apps first. Elevated setup never runs HKCU vendor-uninstaller
+commands. Upgrade/removal uses guarded shutdown of the installed daemon and an
+exact-path tray helper; unrelated copies remain running. Failure to stop the
+installed components prevents removal. Profiles under `%APPDATA%\freeRGB` survive
+uninstallation. See `INSTALL.md` for lifecycle tests and `MAINBOARD_INSTALLATION.md`
+for protected-service behavior.
 
-Automatic check/download is opt-in (every six hours while the GUI runs, plus startup).
-Installation is a visible user action using the normal installer. Preference is
-stored as `automatic-updates.json`; installer downloads live under the per-user
-config `updates/` directory. There is no unattended replacement of running binaries.
+Both GUIs use `freergb-update` and the fixed `leotrax3d/FreeRGB` GitHub repository.
+Stable builds use the latest stable release. Prerelease builds examine up to 100
+releases, accept only the same prerelease channel or promotion to stable, and
+select by SemVer. Drafts, rolling/non-version tags, other prerelease channels and
+downgrades are excluded. A newer eligible release with invalid asset metadata
+fails closed rather than silently falling back. The exact versioned Windows
+installer and GitHub asset SHA-256 digest are required.
 
-The repository is private and currently has no published release. Set
-`FREERGB_GITHUB_TOKEN` in the application environment for authorized read access;
-the application does not store that token. Without access/no release, the UI reports
-that condition. No repository visibility change or release publication is implied.
-There has not yet been a successful live version-to-version update test.
+HTTPS downloads are bounded to 256 MiB and use exclusively created staging files.
+The installer is hashed before staging and again before launch. On Windows the
+verified file handle denies modification/deletion through the synchronous launch
+handoff; DOS/UNC paths support spaces and Unicode. `ShellExecuteW` with `runas`
+requests UAC explicitly. Cancellation/failure returns an error; installation remains
+a visible user action. Native UAC acceptance of this candidate is still required.
 
-GitHub API reference: https://docs.github.com/en/rest/releases/assets
-Digest validation provides transport/artifact integrity against the selected release,
-not independent publisher signing. Authenticode signing and rollback remain open.
+Classic's automatic check/download is opt-in (startup and every six hours while
+running). Its preference is `automatic-updates.json`; staged files live in the
+per-user config `updates/` directory. Modern Settings → Updates exposes manual
+check/download/install and rejects concurrent update operations. It has no periodic
+background update check. No Git checkout is modified.
 
-**Modern GUI (2026-10-23):** Settings → Updates offers check, download and install
-with the same `freergb-update` logic as Classic (Tauri command `update_action`,
-`apps/desktop/src-tauri/src/updates.rs`); the staged installer is verified again
-before Setup starts. No automatic background checks in the modern GUI yet.
+`FREERGB_GITHUB_TOKEN` may supply authorized API access and is not persisted by the
+application. Access/not-found errors do not imply that the repository is private.
+There is no completed live version-to-version acceptance of the current candidate.
+
+Release tooling pins Rust, Node, action commits and Inno Setup. Preflight checks
+version/tag parity, release notes, trust anchors, exact artifact set, checksums and
+clean source provenance. The build manifest records the source commit, tools,
+installer Authenticode status and shipped executable hashes. The module source
+archive is independently built with a normalized lock containing only original
+package versions/checksums. This is not a claim of bit-identical executable builds.
+
+No freeRGB publisher Authenticode certificate is configured. SHA-256 and GitHub
+release metadata provide integrity within that distribution channel, not an
+independent publisher signature. SmartScreen, signed publication, cross-version
+upgrade/rollback and native installer/UAC validation remain release decisions or
+gates described in `BETA_READINESS_AUDIT.md`.

@@ -13,5 +13,13 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 semver = "1"
 sha2 = "0.10"
 
-[lints]
-workspace = true
+[target.'cfg(windows)'.dependencies]
+dunce = "1"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[lints.rust]
+# One documented Win32 call requests UAC; all other unsafe code stays denied.
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

@@ -68,7 +68,7 @@ impl Planner {
         if self
             .candidate
             .as_ref()
-            .map_or(true, |(candidate, _)| candidate != app)
+            .is_none_or(|(candidate, _)| candidate != app)
         {
             self.candidate = Some((app.into(), now));
         }
@@ -246,7 +246,7 @@ impl AppProfiles {
             }
             if self
                 .last_poll
-                .map_or(true, |last| last.elapsed().as_secs_f64() >= 1.0)
+                .is_none_or(|last| last.elapsed().as_secs_f64() >= 1.0)
             {
                 let _ = worker.requests.try_send(self.ticket);
                 self.last_poll = Some(Instant::now());

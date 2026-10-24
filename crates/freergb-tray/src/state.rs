@@ -113,7 +113,7 @@ impl TrayState {
             profiles: profiles.as_ref().map(names).unwrap_or_default(),
             fans_available: background["available"] == true,
             fans_paused: service["paused"] == true,
-            fans_locked: onboarding.is_some_and(|o| o["safety_acknowledged"] != true),
+            fans_locked: onboarding.is_none_or(|o| o["safety_acknowledged"] != true),
             fans_running: channels.iter().filter(|c| c["state"] == "running").count(),
             fan_faults: channels.iter().filter(|c| !c["fault"].is_null()).count(),
             cooling_profiles: names(&cooling["profiles"]),
@@ -177,6 +177,26 @@ mod tests {
         assert!(!state.connected && state.dimmed());
         assert_eq!(state.status_line(), "freeRGB service is not running");
         assert_eq!(state.fan_line(), "Fan control unavailable");
+        assert_eq!(
+            state.tooltip(),
+            "freeRGB — freeRGB service is not running\nFan control unavailable"
+        );
+    }
+
+    #[test]
+    fn missing_safety_reply_never_unlocks_fan_actions() {
+        let state = TrayState::from_replies(
+            Some(json!({"api_version":1})),
+            None,
+            None,
+            None,
+            None,
+            Some(json!({"available":true,"service":{"channels":[]}})),
+            None,
+            None,
+        );
+        assert!(state.connected && state.fans_available && state.fans_locked);
+        assert!(state.fan_line().contains("locked"));
     }
 
     #[test]

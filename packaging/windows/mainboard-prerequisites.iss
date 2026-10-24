@@ -3,6 +3,7 @@
 // downloaded and verified), the bundled LibreHardwareMonitor runtime and the
 // protected service are installed without a component page. A progress page
 // shows each step. Silent installs skip this unless /WITHMAINBOARD is given.
+#include "installer-policy.iss"
 var
   MainboardProgress: TOutputProgressWizardPage;
   MainboardRestart: Boolean;
@@ -15,8 +16,12 @@ begin
 end;
 
 function MainboardRequested: Boolean;
+var I: Integer;
 begin
-  Result := (not WizardSilent) or (Pos('/WITHMAINBOARD', UpperCase(GetCmdTail)) > 0);
+  Result := not WizardSilent;
+  if Result then Exit;
+  for I := 1 to ParamCount do
+    if IsMainboardOptIn(ParamStr(I)) then begin Result := True; Exit; end;
 end;
 
 // Lines "PROGRESS:<percent>:<text>" from install-mainboard.ps1 drive the page.
@@ -51,6 +56,10 @@ begin
   if not MainboardRequested then Exit;
   MainboardError := '';
   Owner := OriginalUserSid;
+  if Owner = '' then begin
+    MsgBox('The original signed-in user could not be identified. Motherboard components were not installed. Lighting still works; rerun Setup from the intended user account.', mbError, MB_OK);
+    Exit;
+  end;
   Parameters := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\install-mainboard.ps1') +
     '" -InstallRoot "' + ExpandConstant('{app}') + '" -ConsentToInstall -CacheDirectory "' + ExpandConstant('{tmp}\prerequisites') + '"';
   if Owner <> '' then Parameters := Parameters + ' -OwnerSid ' + Owner;

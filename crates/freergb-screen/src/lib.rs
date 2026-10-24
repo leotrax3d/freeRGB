@@ -85,7 +85,7 @@ impl ScreenInput {
                         }
                         Err(e) => {
                             failures += 1;
-                            if failures == 1 || failures % 100 == 0 {
+                            if failures == 1 || failures.is_multiple_of(100) {
                                 tracing::warn!(error = %e, failures, "screen capture failed");
                             }
                         }

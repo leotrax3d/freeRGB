@@ -3,6 +3,7 @@
 //! changes that need administrator consent still go through UAC in the daemon.
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+#[cfg(any(windows, test))]
 mod state;
 
 #[cfg(windows)]

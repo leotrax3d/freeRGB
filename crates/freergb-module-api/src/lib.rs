@@ -262,7 +262,9 @@ pub fn unpack_rgb(text: &str, leds: usize) -> Result<Vec<Rgb>, ModuleError> {
         ));
     }
     Ok(bytes
-        .chunks_exact(3)
+        .as_chunks::<3>()
+        .0
+        .iter()
         .map(|c| Rgb {
             r: c[0],
             g: c[1],

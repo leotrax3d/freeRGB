@@ -28,6 +28,7 @@ test('verified identities isolate votes, retries deduplicate, summaries reveal n
   };
   const call=(body,user)=>main({req:{bodyJson:body,headers:{'x-appwrite-key':'runtime-only',...(user?{'x-freergb-jwt':user}:{})}},res:{json:(body,status=200)=>({body,status})}});
   try {
+    assert.equal((await main({req:{bodyText:'{',headers:{}},res:{json:(body,status=200)=>({body,status})}})).status,400);
     assert.equal((await call({action:'rate',effect_id:'aurora',stars:5})).status,401);
     assert.equal((await call({action:'rate',effect_id:'aurora',stars:5},'forged')).status,401);
     assert.equal((await call({action:'rate',effect_id:'aurora',stars:6},'alice')).status,400);
@@ -66,10 +67,13 @@ test('verified identities isolate votes, retries deduplicate, summaries reveal n
     assert.equal((await call({...submission,request_id:'too-many'},'alice')).status,429);
     await call({action:'admin.block',submission_id:thread,request_id:'block-1'},'admin');
     assert.equal((await call({action:'rate',effect_id:'comet',stars:3},'alice')).status,403);
+    assert.equal((await call({action:'rate',effect_id:'aurora',stars:null},'alice')).status,403);
+    assert.equal(tables.ratings.size,2);
     await call({action:'admin.unblock',submission_id:thread,request_id:'unblock-1'},'admin');
     const quotaResults=await Promise.all(Array.from({length:12},()=>call({action:'rate',effect_id:'prism',stars:4},'bob')));
     assert.equal(quotaResults.filter(r=>r.status===200).length,9);
     assert.equal(quotaResults.filter(r=>r.status===429).length,3);
+    assert.equal((await call({action:'rate',effect_id:'aurora',stars:null},'bob')).status,429);
     await call({action:'admin.delete',submission_id:thread,request_id:'delete-1'},'admin');
     assert.equal((await call({action:'thread',submission_id:thread},'alice')).status,404);
     assert.equal(tables.messages.size,0);

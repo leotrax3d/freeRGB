@@ -30,7 +30,11 @@ export default async function main({req, res}) {
   const {quota}=security({id,create,find,fail});
   const administrative=adminOperations({api,find,list,create,rowsPath,id,query,fail,quota});
   try {
-    const body = req.bodyJson ?? JSON.parse(req.bodyText || '{}');
+    let body = req.bodyJson;
+    if (body == null) {
+      try {body = JSON.parse(req.bodyText || '{}');}
+      catch {fail(400,'Invalid JSON request');}
+    }
     if (!body || typeof body !== 'object' || Array.isArray(body)) fail(400,'Invalid request');
     if(Buffer.byteLength(JSON.stringify(body))>40000)fail(413,'Request too large');
     const {action, effect_id:effect} = body;
@@ -72,10 +76,12 @@ export default async function main({req, res}) {
     }
     if (action === 'rate') {
       if (!valid(effect) || (body.stars !== null && (!Number.isInteger(body.stars) || body.stars < 1 || body.stars > 5))) fail(400,'Choose one to five stars');
+      // Deletion is a mutation too: blocked users and exhausted quotas must
+      // not bypass the same policy by submitting a null rating.
+      await quota(user.$id,'rate',10,60);
       const row = id(user.$id,effect), path = `${rowsPath('ratings')}/${row}`;
       if(body.stars === null) {try {await api(path,'DELETE');} catch(e) {if(e.status!==404) throw e;}}
       else {
-        await quota(user.$id,'rate',10,60);
         const data = {effect_id:effect,user_id:user.$id,stars:body.stars};
         try {await create('ratings',row,data);} catch(e) {if(e.status!==409) throw e; await api(path,'PATCH',{data});}
       }

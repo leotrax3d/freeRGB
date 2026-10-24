@@ -23,30 +23,43 @@ jobs:
         os: [windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Release metadata and GLib backport integrity
+        shell: bash
+        run: |
+          python scripts/check-release.py
+          python scripts/test-release-preflight.py
+          python scripts/check-glib-backport.py
+      - name: Installer shutdown failure models (no real processes)
+        shell: pwsh
+        run: ./scripts/test-installer-process-scope.ps1
 
       - name: Linux system libraries (udev for hidapi, X11/Wayland/GL for egui)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libudev-dev libxkbcommon-dev libwayland-dev \
+          sudo apt-get install -y libudev-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
             libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev \
             libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action, pinned toolchain below
         with:
+          toolchain: 1.99.1
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version: 24.19.0
       - name: Desktop frontend dependencies
         working-directory: apps/desktop
         run: npm ci
       - name: Desktop frontend tests
         working-directory: apps/desktop
+        run: npm test
+      - name: Community identity, quota and privacy tests (mock backend)
+        working-directory: appwrite/community
         run: npm test
       - name: Desktop frontend build
         working-directory: apps/desktop
@@ -64,10 +77,10 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
 
       - name: Isolated cooling watchdog process tests (synthetic duties only)
         run: cargo test -p freergb-daemon --features cooling-fixture --test cooling_guard_process --locked
@@ -108,7 +121,10 @@ jobs:
         run: ./scripts/test-mainboard-deployment.ps1
 
       - name: release build
-        run: cargo build --workspace --release
+        run: cargo build --workspace --release --locked
+      - name: Optimized GLib soundness regression
+        if: runner.os == 'Linux'
+        run: cargo test -p freergb-screen --test glib_variant --release --locked
 
       - name: Supabase rating row-level security
         if: runner.os == 'Linux'

@@ -27,6 +27,11 @@ fn key() -> SigningKey {
     SigningKey::from_bytes(&[7u8; 32])
 }
 
+#[test]
+fn public_distribution_has_a_compiled_release_trust_anchor() {
+    assert!(TrustedKeys::builtin().has_release_key());
+}
+
 fn keys() -> TrustedKeys {
     TrustedKeys::default().with_development_key(key().verifying_key())
 }
@@ -210,6 +215,43 @@ fn package_extraction_rejects_unsafe_and_tampered_content() {
         zip.finish().unwrap();
     }
     assert!(package::extract(&bad, &temp("pkg-bad")).is_err());
+}
+
+#[test]
+fn extraction_never_overwrites_existing_files_or_follows_directory_links() {
+    let repo = temp("pkg-existing");
+    publish(&repo, "0.1.0", b"exe");
+    let package = repo.join("razer-chroma-0.1.0.zip");
+    let destination = temp("pkg-existing-out");
+    let existing = destination.join("module.json");
+    std::fs::write(&existing, b"preserve user data").unwrap();
+    assert!(package::extract(&package, &destination).is_err());
+    assert_eq!(std::fs::read(existing).unwrap(), b"preserve user data");
+    #[cfg(unix)]
+    {
+        let target = temp("pkg-link-target");
+        let linked = repo.join("linked");
+        std::os::unix::fs::symlink(&target, &linked).unwrap();
+        assert!(package::extract(&package, &linked).is_err());
+        assert_eq!(std::fs::read_dir(&target).unwrap().count(), 0);
+        std::fs::remove_dir_all(target).unwrap();
+    }
+    let malicious = repo.join("linked-entry.zip");
+    let mut archive = zip::ZipWriter::new(std::fs::File::create(&malicious).unwrap());
+    archive
+        .add_symlink(
+            "module.json",
+            "../outside",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+    archive.finish().unwrap();
+    let empty = temp("pkg-reject-link");
+    assert!(package::extract(&malicious, &empty).is_err());
+    assert_eq!(std::fs::read_dir(&empty).unwrap().count(), 0);
+    for path in [repo, destination, empty] {
+        std::fs::remove_dir_all(path).unwrap();
+    }
 }
 
 #[test]

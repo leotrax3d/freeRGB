@@ -64,6 +64,10 @@ begin
   try
     for I := 0 to GetArrayLength(Competitors) - 1 do
       if CompetitorPage.Values[I] and not Competitors[I].Attempted then begin
+        if not MachineUninstaller(Competitors[I].Root) then begin
+          MsgBox('Programmeinträge dieses Benutzers werden aus Sicherheitsgründen nicht erhöht ausgeführt. Bitte ' + Competitors[I].Name + ' über Windows-Einstellungen > Apps entfernen.', mbInformation, MB_OK);
+          Continue;
+        end;
         { Re-read the exact registered entry; never execute a stale changed command. }
         if not RegQueryStringValue(Competitors[I].Root, Competitors[I].Key, 'DisplayName', Name) or
            not RegQueryStringValue(Competitors[I].Root, Competitors[I].Key, 'UninstallString', Command) or

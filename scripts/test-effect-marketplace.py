@@ -65,6 +65,10 @@ with tempfile.TemporaryDirectory(prefix='freergb-effects-') as tmp:
             time.sleep(.02)
     try:
         start()
+        # A duplicate process must fail visibly without replacing the live API.
+        duplicate=subprocess.run([str(daemon),'--no-hardware','--no-state','--virtual-device','--no-modules'],env=environment,stdout=log,stderr=subprocess.STDOUT,timeout=10)
+        assert duplicate.returncode != 0,'duplicate daemon unexpectedly succeeded'
+        assert call('daemon.version')['api_version'] == 1,'duplicate daemon displaced the original API'
         call('marketplace.refresh');complete()
         call('marketplace.install',{'id':'aurora'});complete()
         selected=dict(type='marketplace',id='aurora',version='1.0.0',parameters=dict(speed=.7,brightness=.6))

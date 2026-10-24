@@ -1,5 +1,5 @@
 //! Release updates for the modern GUI, using the same verified updater as
-//! freeRGB Classic (`crates/freergb-update`): stable releases only, exact
+//! freeRGB Classic (`crates/freergb-update`): stable or current beta channel, exact
 //! installer asset, SHA-256 checked before staging and again before starting
 //! Setup. Installation is always an explicit user action (Setup asks for UAC).
 use std::path::PathBuf;
@@ -7,6 +7,7 @@ use std::sync::Mutex;
 
 #[derive(Default)]
 pub struct Updates {
+    operation: Mutex<()>,
     found: Mutex<Option<freergb_update::Update>>,
     downloaded: Mutex<Option<PathBuf>>,
 }
@@ -37,16 +38,28 @@ impl Updates {
             current: env!("CARGO_PKG_VERSION"),
             available: found.as_ref().map(|u| u.version.clone()),
             size: found.as_ref().map(|u| u.size),
-            downloaded: self.downloaded.lock().unwrap_or_else(|e| e.into_inner()).is_some(),
+            downloaded: self
+                .downloaded
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_some(),
         }
     }
     pub fn check(&self) -> Result<UpdateInfo, String> {
+        let _operation = self
+            .operation
+            .try_lock()
+            .map_err(|_| "An update operation is already in progress")?;
         let update = freergb_update::check()?;
         *self.found.lock().unwrap_or_else(|e| e.into_inner()) = update;
         *self.downloaded.lock().unwrap_or_else(|e| e.into_inner()) = None;
         Ok(self.info())
     }
     pub fn download(&self) -> Result<UpdateInfo, String> {
+        let _operation = self
+            .operation
+            .try_lock()
+            .map_err(|_| "An update operation is already in progress")?;
         let update = self
             .found
             .lock()
@@ -60,6 +73,10 @@ impl Updates {
     /// Re-verifies the staged installer, then starts it (it asks for UAC and
     /// stops the service and this window itself).
     pub fn install(&self) -> Result<(), String> {
+        let _operation = self
+            .operation
+            .try_lock()
+            .map_err(|_| "An update operation is already in progress")?;
         let update = self
             .found
             .lock()
@@ -72,10 +89,20 @@ impl Updates {
             .unwrap_or_else(|e| e.into_inner())
             .clone()
             .ok_or("Download the update first")?;
-        freergb_update::verify(&path, &update)?;
-        std::process::Command::new(&path)
-            .spawn()
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+        freergb_update::install_verified(&path, &update)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn overlapping_update_actions_are_rejected_before_network_or_execution() {
+        let updates = Updates::default();
+        let _operation = updates.operation.lock().unwrap();
+        assert!(matches!(updates.check(), Err(error) if error.contains("already in progress")));
+        assert!(matches!(updates.download(), Err(error) if error.contains("already in progress")));
+        assert!(matches!(updates.install(), Err(error) if error.contains("already in progress")));
     }
 }

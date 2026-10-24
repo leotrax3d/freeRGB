@@ -74,9 +74,9 @@ impl Detector {
     pub fn matches(&self, i: &InterfaceInfo) -> bool {
         self.vid == i.vid
             && self.pid == i.pid
-            && self.interface.map_or(true, |v| v == i.interface)
-            && self.usage_page.map_or(true, |v| v == i.usage_page)
-            && self.usage.map_or(true, |v| v == i.usage)
+            && self.interface.is_none_or(|v| v == i.interface)
+            && self.usage_page.is_none_or(|v| v == i.usage_page)
+            && self.usage.is_none_or(|v| v == i.usage)
     }
 }
 
