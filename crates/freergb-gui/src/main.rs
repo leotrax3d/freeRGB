@@ -24,7 +24,10 @@ mod keyboard_reactive;
 mod macro_editor;
 mod mainboard_cooling;
 mod pages;
+mod preview;
 mod sensor_history;
+mod theme;
+mod toast;
 
 /// Latest state fetched from the daemon.
 #[derive(Default)]
@@ -257,6 +260,8 @@ struct App {
     profile_revision: u64,
     app_profiles: app_profiles::AppProfiles,
     panels: pages::Panels,
+    toasts: toast::Toasts,
+    preview: preview::Preview,
     state: Arc<Mutex<Snapshot>>,
     tx: Sender<Command>,
     /// Controls are (re)loaded from the first snapshot newer than this.
@@ -275,6 +280,7 @@ struct App {
 
 impl App {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        theme::install(&cc.egui_ctx);
         let state = Arc::new(Mutex::new(Snapshot::default()));
         let (tx, rx) = mpsc::channel();
         let (s, ctx) = (state.clone(), cc.egui_ctx.clone());
@@ -286,6 +292,8 @@ impl App {
             profile_revision: 0,
             app_profiles: Default::default(),
             panels: Default::default(),
+            toasts: Default::default(),
+            preview: Default::default(),
             keyboard_panel: Default::default(),
             state,
             tx,
@@ -630,14 +638,15 @@ fn device_row(
 }
 
 /// Canvas layout editor: every device is a rectangle on the effect canvas.
-/// Drag to move, drag the bottom-right corner to resize. `local` holds
-/// positions changed here but not yet reported back by the daemon. Returns the
-/// region to send when a drag ends.
+/// Drag to move, drag the bottom-right corner to resize, right-click to reset
+/// a device to the full canvas. `local` holds positions changed here but not
+/// yet reported back by the daemon. Returns the region to send when a drag
+/// ends, and the device id whose region should reset to `Region::FULL`.
 fn layout_editor(
     ui: &mut egui::Ui,
     devices: &[Value],
     local: &mut std::collections::HashMap<String, Region>,
-) -> Option<(String, Region)> {
+) -> (Option<(String, Region)>, Option<String>) {
     const PALETTE: [egui::Color32; 6] = [
         egui::Color32::from_rgb(90, 160, 250),
         egui::Color32::from_rgb(250, 140, 70),
@@ -653,6 +662,7 @@ fn layout_editor(
     painter.rect_filled(canvas, 4.0, egui::Color32::from_gray(30));
     let (cw, ch) = (canvas.width(), canvas.height());
     let mut done = None;
+    let mut reset = None;
 
     for (i, d) in devices.iter().enumerate() {
         let Some(id) = d
@@ -717,6 +727,10 @@ fn layout_editor(
         if body.drag_stopped() || corner.drag_stopped() {
             done = Some((id.clone(), r));
         }
+        if body.secondary_clicked() {
+            reset = Some(id.clone());
+            local.remove(&id);
+        }
 
         let color = PALETTE[i % PALETTE.len()];
         let rect = egui::Rect::from_min_size(
@@ -738,12 +752,13 @@ fn layout_editor(
             egui::Color32::WHITE,
         );
     }
-    done
+    (done, reset)
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint_after(Duration::from_secs(1));
+        self.toasts.show(ctx);
         {
             let snapshot = self.state.lock().unwrap_or_else(|e| e.into_inner());
             self.panels.observe(&snapshot);
@@ -790,13 +805,14 @@ impl eframe::App for App {
             }
         }
 
+        let warnings = self.panels.sensor_warnings();
         egui::TopBottomPanel::top("status").show(ctx, |ui| {
             if self.app_profiles.active()
                 && ui.button("Application profiles active — pause").clicked()
             {
                 self.app_profiles.disable();
+                self.toasts.success("Application profiles paused");
             }
-            let warnings = self.panels.sensor_warnings();
             if warnings > 0
                 && ui
                     .button(format!("⚠ {warnings} sensor warning(s) — open Monitoring"))
@@ -806,38 +822,12 @@ impl eframe::App for App {
             }
             if self.panels.hotkeys_active() {
                 ui.colored_label(
-                    egui::Color32::LIGHT_GREEN,
+                    theme::GOOD,
                     "Global macro shortcuts active · Ctrl+Shift+F11 cancels",
                 );
             }
-            ui.horizontal_wrapped(|ui| {
-                for (page, name) in [
-                    (0, "Lighting"),
-                    (1, "Cooling"),
-                    (2, "Macros"),
-                    (4, "Monitoring"),
-                    (3, "Updates"),
-                ] {
-                    ui.selectable_value(&mut self.panels.page, page, name);
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.heading("freeRGB");
-                ui.separator();
-                if connected {
-                    let fps = diag
-                        .as_ref()
-                        .and_then(|d| d.get("measured_fps"))
-                        .and_then(Value::as_f64)
-                        .unwrap_or(0.0);
-                    ui.colored_label(egui::Color32::from_rgb(80, 200, 120), "daemon connected");
-                    ui.label(format!("{fps:.1} fps"));
-                } else {
-                    ui.colored_label(egui::Color32::from_rgb(230, 90, 90), "daemon not reachable");
-                }
-            });
             if let Some(e) = &error {
-                ui.colored_label(egui::Color32::from_rgb(230, 90, 90), e);
+                ui.colored_label(theme::BAD, e);
             }
             let conflicts: Vec<&str> = diag
                 .as_ref()
@@ -847,7 +837,7 @@ impl eframe::App for App {
                 .unwrap_or_default();
             if !conflicts.is_empty() {
                 ui.colored_label(
-                    egui::Color32::from_rgb(240, 180, 60),
+                    theme::WARN,
                     format!(
                         "{} is running – freeRGB leaves your hardware alone until it is closed.",
                         conflicts.join(", ")
@@ -855,6 +845,55 @@ impl eframe::App for App {
                 );
             }
         });
+
+        // Navigation rail with the daemon status pinned to the bottom.
+        egui::SidePanel::left("nav")
+            .resizable(false)
+            .min_width(170.0)
+            .show(ctx, |ui| {
+                ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                    ui.add_space(2.0);
+                    ui.strong("freeRGB · Classic");
+                    ui.add_space(6.0);
+                    for (page, name) in [
+                        (0, "Lighting"),
+                        (1, "Cooling"),
+                        (2, "Macros"),
+                        (4, "Monitoring"),
+                        (3, "Updates"),
+                    ] {
+                        let text = if page == 4 && warnings > 0 {
+                            format!("{name}  ⚠ {warnings}")
+                        } else {
+                            name.to_owned()
+                        };
+                        let mut button =
+                            egui::Button::new(egui::RichText::new(text).size(15.0));
+                        if self.panels.page == page {
+                            button = button
+                                .fill(theme::SELECTION)
+                                .stroke(egui::Stroke::new(1.0_f32, theme::ACCENT));
+                        }
+                        if ui.add_sized([140.0, 30.0], button).clicked() {
+                            self.panels.page = page;
+                        }
+                    }
+                });
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                    if connected {
+                        let fps = diag
+                            .as_ref()
+                            .and_then(|d| d.get("measured_fps"))
+                            .and_then(Value::as_f64)
+                            .unwrap_or(0.0);
+                        ui.small(format!("{fps:.1} fps"));
+                        ui.colored_label(theme::GOOD, "● daemon connected");
+                    } else {
+                        ui.colored_label(theme::BAD, "● daemon not reachable");
+                        ui.small("Start freergbd to connect.");
+                    }
+                });
+            });
 
         egui::SidePanel::left("devices")
             .min_width(240.0)
@@ -917,11 +956,15 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.panels.page != 0 {
                 let snapshot = self.state.lock().unwrap_or_else(|e| e.into_inner());
-                self.panels.draw(ui, &self.tx, &snapshot);
+                self.panels.draw(ui, &self.tx, &snapshot, &mut self.toasts);
                 return;
             }
             ui.add_enabled_ui(connected, |ui| {
                 ui.heading("Effect");
+                ui.small(
+                    "Live preview, rendered locally with the effect engine (audio and screen effects stay static).",
+                );
+                self.preview.show(ui, &self.spec);
                 let mut changed = false;
                 let current = self.spec.name();
                 egui::ComboBox::from_id_salt("effect")
@@ -959,10 +1002,12 @@ impl eframe::App for App {
                             if ui.add_enabled(sel.is_some(), egui::Button::new("Apply")).clicked() {
                                 self.send("gui.apply_custom_effect", json!({"name": sel}));
                                 self.sync_after_generation = Some(generation);
+                                self.toasts.success("Custom effect applied");
                             }
                             if ui.add_enabled(sel.is_some(), egui::Button::new("Delete")).clicked() {
                                 self.send("custom_effects.delete", json!({"name": sel}));
                                 self.selected_custom = None;
+                                self.toasts.success("Custom effect deleted");
                             }
                         });
                         ui.horizontal(|ui| {
@@ -977,6 +1022,7 @@ impl eframe::App for App {
                                     self.send("custom_effects.save", json!({"name": name, "effect": v}));
                                     self.selected_custom = Some(name);
                                     self.custom_name.clear();
+                                    self.toasts.success("Custom effect saved");
                                 }
                             }
                         });
@@ -1000,12 +1046,19 @@ impl eframe::App for App {
 
                 ui.separator();
                 ui.heading("Layout");
-                ui.label("Where each device sits on the effect canvas. Drag to move, drag the corner to resize.");
-                if let Some((id, r)) = layout_editor(ui, &devices, &mut self.device_regions) {
+                ui.label("Where each device sits on the effect canvas. Drag to move, drag the corner to resize, right-click to reset to the full canvas.");
+                let (layout_changed, layout_reset) =
+                    layout_editor(ui, &devices, &mut self.device_regions);
+                if let Some((id, r)) = layout_changed {
                     self.send(
                         "devices.set_region",
                         json!({"id": id, "x": r.x, "y": r.y, "w": r.w, "h": r.h}),
                     );
+                }
+                if let Some(id) = layout_reset {
+                    let mut params = serde_json::to_value(Region::FULL).unwrap_or(Value::Null);
+                    params["id"] = json!(id);
+                    self.send("devices.set_region", params);
                 }
 
                 ui.separator();
@@ -1045,12 +1098,14 @@ impl eframe::App for App {
                                 self.send("profiles.load", json!({"name": sel}));
                                 self.app_profiles.disable();
                                 self.sync_after_generation = Some(generation);
+                                self.toasts.success("Profile loaded");
                             }
                             if ui
                                 .add_enabled(sel.is_some(), egui::Button::new("Delete"))
                                 .clicked()
                             {
                                 self.send("profiles.delete", json!({"name": sel}));
+                                self.toasts.success("Profile deleted");
                             }
                         });
                         ui.horizontal(|ui| {
@@ -1067,6 +1122,7 @@ impl eframe::App for App {
                                 self.send("profiles.save", json!({"name": name}));
                                 self.selected_profile = Some(name);
                                 self.profile_name.clear();
+                                self.toasts.success("Profile saved");
                             }
                         });
                     }

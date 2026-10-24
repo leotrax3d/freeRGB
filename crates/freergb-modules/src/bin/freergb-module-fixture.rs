@@ -25,26 +25,18 @@ impl Module for Fixture {
     }
     fn initialize(
         &mut self,
-        _: &InterfaceInfo,
+        interface: &InterfaceInfo,
         hid: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        if self.0 == "refuse" {
-            return Err(ModuleError::new(ErrorCode::Unsupported, "fixture refuses"));
-        }
-        hid.write(&[0, 0xAB])?;
-        let echo = hid.read(8, 100)?;
-        if echo.first() != Some(&0xAB) {
-            return Err(ModuleError::new(ErrorCode::Protocol, "no echo"));
-        }
-        let leds = if self.0 == "bad-layout" { 0 } else { 2 };
-        Ok(Capabilities {
-            name: "Fixture Mouse".into(),
-            kind: DeviceKind::Mouse,
-            layout: LedLayout::strip(leds),
-            firmware: Some("v1".into()),
-            restore: Restore::LastFrame,
-            zones: vec![],
-        })
+        initialize_inner(&self.0, interface, None, hid)
+    }
+    fn initialize_with_zones(
+        &mut self,
+        interface: &InterfaceInfo,
+        zones: Option<&[Zone]>,
+        hid: &mut dyn Hid,
+    ) -> Result<Capabilities, ModuleError> {
+        initialize_inner(&self.0, interface, zones, hid)
     }
     fn frame(&mut self, colors: &[Rgb], hid: &mut dyn Hid) -> Result<(), ModuleError> {
         match self.0.as_str() {
@@ -65,6 +57,40 @@ impl Module for Fixture {
         hid.write(&[2, color.map_or(0, |c| c.r)])?;
         Ok(())
     }
+}
+
+fn initialize_inner(
+    mode: &str,
+    _: &InterfaceInfo,
+    configured_zones: Option<&[Zone]>,
+    hid: &mut dyn Hid,
+) -> Result<Capabilities, ModuleError> {
+    if mode == "refuse" {
+        return Err(ModuleError::new(ErrorCode::Unsupported, "fixture refuses"));
+    }
+    hid.write(&[0, 0xAB])?;
+    let echo = hid.read(8, 100)?;
+    if echo.first() != Some(&0xAB) {
+        return Err(ModuleError::new(ErrorCode::Protocol, "no echo"));
+    }
+    let leds = if mode == "bad-layout" {
+        0
+    } else {
+        configured_zones
+            .map(|zones| zones.iter().map(|zone| zone.leds).sum())
+            .unwrap_or(2)
+    };
+    Ok(Capabilities {
+        name: "Fixture Mouse".into(),
+        kind: DeviceKind::Mouse,
+        layout: LedLayout::strip(
+            u16::try_from(leds)
+                .map_err(|_| ModuleError::new(ErrorCode::Protocol, "too many fixture LEDs"))?,
+        ),
+        firmware: Some("v1".into()),
+        restore: Restore::LastFrame,
+        zones: configured_zones.map_or_else(Vec::new, |zones| zones.to_vec()),
+    })
 }
 
 fn main() {

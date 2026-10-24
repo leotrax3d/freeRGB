@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+use freergb_module_steelseries::devices_table::DETECTORS;
+fn main() {
+    if std::env::args().any(|a| a == "--list-devices") {
+        println!("{}",serde_json::to_string_pretty(&DETECTORS.iter().map(|d|serde_json::json!({"name":d.name,"vid":d.vid,"pid":d.pid,"kind":"accessory"})).collect::<Vec<_>>()).unwrap());
+        return;
+    }
+    freergb_module_api::sdk::run(freergb_module_steelseries::SteelSeries::default());
+}

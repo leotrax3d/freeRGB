@@ -172,6 +172,9 @@ pub enum Method {
     },
     Initialize {
         interface: InterfaceInfo,
+        /// Optional user configuration for variable-sized zone families.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        zones: Option<Vec<Zone>>,
     },
     /// RGB bytes in layout order, base64, exactly `3 * leds` bytes.
     Frame {
@@ -295,6 +298,28 @@ mod tests {
         assert_eq!(back.method, request.method);
         let hello: Request = serde_json::from_str(r#"{"v":1,"id":1,"method":"hello"}"#).unwrap();
         assert_eq!(hello.method, Method::Hello);
+        let initialize = Request {
+            v: MODULE_API,
+            id: 4,
+            method: Method::Initialize {
+                interface: InterfaceInfo {
+                    vid: 1,
+                    pid: 2,
+                    interface: 0,
+                    usage_page: 1,
+                    usage: 1,
+                    product: None,
+                },
+                zones: Some(vec![Zone {
+                    name: "Header 1".into(),
+                    leds: 12,
+                }]),
+            },
+        };
+        let text = serde_json::to_string(&initialize).unwrap();
+        assert!(text.contains("\"zones\":[{\"name\":\"Header 1\",\"leds\":12}]"));
+        let back: Request = serde_json::from_str(&text).unwrap();
+        assert_eq!(back.method, initialize.method);
     }
 
     #[test]

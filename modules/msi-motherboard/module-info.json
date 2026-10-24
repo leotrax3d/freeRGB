@@ -1,0 +1,11 @@
+{
+  "id": "msi-motherboard",
+  "name": "MSI Mystic Light motherboard",
+  "version": "0.1.0",
+  "api": 1,
+  "license": "GPL-2.0-or-later",
+  "transport": "usb-hid",
+  "vendors": [{"vid": "1462", "name": "MSI"}, {"vid": "0DB0", "name": "MSI common HID"}],
+  "device_count": 124,
+  "source_commit": "bbc77470a7cba56af60989e54ba910d5ac66a3ac"
+}
