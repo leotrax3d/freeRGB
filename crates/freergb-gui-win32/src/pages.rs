@@ -40,6 +40,7 @@ pub fn effect_label(name: &str) -> &'static str {
         "audio_spectrum" => "Audio spectrum",
         "screen_ambience" => "Screen ambience",
         "layers" => "Custom (layers)",
+        "marketplace" => "Marketplace effect",
         _ => "Unknown",
     }
 }
@@ -582,6 +583,9 @@ fn effect_params(ui: &mut Ui, spec: &mut EffectSpec) -> bool {
         }
     };
     match spec {
+        EffectSpec::Marketplace { .. } => {
+            ui.hint("Configure installed marketplace effects in the modern desktop app.");
+        }
         EffectSpec::Solid { color } => {
             changed = color_edit(ui, page, "solid", "Colour", color);
         }
