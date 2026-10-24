@@ -2,9 +2,166 @@
   <img src="assets/brand/github-banner.svg" alt="freeRGB — Open-source RGB control for Windows and Linux" width="100%">
 </p>
 
-# freeRGB
+<p align="center">
+  RGB control for Windows and Linux. Built with Rust, Tauri and React.
+</p>
 
-**Open-source RGB control for Windows and Linux, powered by Rust.**
+<p align="center">
+  <a href="https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/leotrax3d/FreeRGB/ci.yml?style=flat-square&label=CI" alt="CI"></a>
+  <a href="docs/RELEASE_NOTES_0.1.0-beta.2.md"><img src="https://img.shields.io/badge/status-beta-orange?style=flat-square" alt="Beta"></a>
+  <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey?style=flat-square" alt="Windows and Linux">
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green?style=flat-square" alt="MIT or Apache-2.0"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/leotrax3d/FreeRGB/releases">Downloads</a> ·
+  <a href="https://leotrax3d.github.io/FreeRGB/demo/">Live demo</a> ·
+  <a href="#gallery">Gallery</a> ·
+  <a href="docs/INSTALL.md">Installation</a> ·
+  <a href="https://github.com/leotrax3d/FreeRGB/issues">Issues</a>
+</p>
+
+## Features
+
+- **Lighting:** 11 built-in effects, audio-reactive lighting, screen ambience and a custom layer editor.
+- **Layout:** arrange devices on a shared effect canvas with per-device brightness.
+- **Profiles and macros:** save lighting configurations and automate effects, delays and repeats.
+- **Monitoring:** temperature/RPM history, warning rules and diagnostic exports.
+- **Effects and integrations:** sandboxed Rust effect packages, device plugins and a local JSON-RPC API.
+
+The background engine keeps running when the GUI closes. Ordinary lighting needs
+no cloud account or vendor application. Windows capture and input features do not
+yet have full Linux parity.
+
+## Gallery
+
+[![Lighting](docs/screenshots/lighting.png)](docs/screenshots/lighting.png)
+
+| Layout | Effect marketplace |
+| --- | --- |
+| [![Layout](docs/screenshots/layout.png)](docs/screenshots/layout.png) | [![Effect marketplace](docs/screenshots/marketplace.png)](docs/screenshots/marketplace.png) |
+
+| Monitoring | Cooling |
+| --- | --- |
+| [![Monitoring](docs/screenshots/monitoring.png)](docs/screenshots/monitoring.png) | [![Cooling](docs/screenshots/cooling.png)](docs/screenshots/cooling.png) |
+
+<details>
+<summary>Profiles, macros, devices and settings</summary>
+
+| Profiles | Macros |
+| --- | --- |
+| [![Profiles](docs/screenshots/profiles.png)](docs/screenshots/profiles.png) | [![Macros](docs/screenshots/macros.png)](docs/screenshots/macros.png) |
+
+| Devices | Settings |
+| --- | --- |
+| [![Devices](docs/screenshots/devices.png)](docs/screenshots/devices.png) | [![Settings](docs/screenshots/settings.png)](docs/screenshots/settings.png) |
+
+</details>
+
+## Installation
+
+Windows installers are listed under [Releases](https://github.com/leotrax3d/FreeRGB/releases).
+The current beta.2 candidate is not published yet. Initial beta installers are
+unsigned; Windows may display a publisher or SmartScreen warning.
+Linux currently requires a source build.
+
+See the [installation guide](docs/INSTALL.md) for dependencies, permissions and
+uninstallation, and [updates](docs/UPDATES.md) for checksum verification and upgrades.
+
+### Build from source
+
+Requires [Rust](https://rustup.rs/), Node.js and npm. The tested toolchain is pinned
+to Rust 1.99.1; release tooling uses Node 24.19.0. Install the
+[platform dependencies](docs/INSTALL.md) first. Windows requires MSVC and Visual Studio C++ Build Tools.
+
+```bash
+git clone https://github.com/leotrax3d/FreeRGB.git
+cd FreeRGB
+cargo build --workspace --release --locked
+```
+
+On Windows, build the modern GUI and launch:
+
+```powershell
+./scripts/build-desktop.ps1
+./target/release/freergb-launcher.exe
+```
+
+For Linux Tauri builds, udev rules and the systemd user service, see
+[INSTALL.md](docs/INSTALL.md). Use launcher flag `--classic` for the fallback GUI
+or `--daemon-only` for background operation.
+
+### Try without hardware
+
+For a browser preview, run in `apps/desktop`:
+
+```bash
+npm ci
+npm run dev -- --host 127.0.0.1
+```
+
+Open **http://127.0.0.1:1420**. The browser preview uses simulated devices.
+To test the native app with the real engine and a virtual device, start:
+
+```bash
+cargo run --release --locked -p freergb-daemon --bin freergbd -- --no-hardware --no-state --virtual-device
+```
+
+Then run `npm run tauri dev` in `apps/desktop`, or
+`cargo run --release --locked -p freergb-gui` for Classic.
+
+## Device support
+
+| Device or integration | Status | Scope |
+| --- | --- | --- |
+| Corsair K70 CORE RGB (`1b1c:1bfd`) | Validated | Per-key RGB; ISO/ANSI mapping |
+| Corsair iCUE LINK System Hub (`1b1c:0c3f`) | Experimental, opt-in | Selected RX/LX fan, Titan RX AIO head and LCD-ring lighting; RPM watchdog |
+| ASUS AURA USB (`0b05:19af`) | Experimental | Protocol/mock tests; physical RGB/ARGB header acceptance pending |
+| Motherboard fan control | Experimental | Explicit sessions, fan identification and UAC; limited channel evidence |
+| Other identified devices | Discovery only | Detection does not imply control support |
+
+AIO LCD display content and DDR5 RGB control are not supported.
+The LINK hub requires daemon flag `--enable-link-hub`.
+See [Devices](docs/DEVICES.md), [Protocols](docs/PROTOCOLS.md) and
+[Motherboard support](docs/MAINBOARD_SUPPORT.md) for exact models and limitations.
+
+## Safety
+
+- Close competing RGB controllers before accessing physical devices.
+- Cooling requires separate consent and channel identification. Read
+  [cooling safety](docs/COOLING_SAFETY.md) before enabling it.
+- Unsupported devices have no write adapter. No firmware or flash writes.
+- Device-process plugins run trusted native code; unlike effect packages, they are not sandboxed.
+
+The control API uses a local named pipe or Unix socket. See
+[Security](docs/SECURITY.md) for access and trust boundaries, and the
+[beta audit](docs/BETA_READINESS_AUDIT.md) for validation results and open release gates.
+
+## Documentation
+
+| Topic | Links |
+| --- | --- |
+| Setup | [Installation](docs/INSTALL.md) · [Updates](docs/UPDATES.md) |
+| Effects and automation | [Marketplace](docs/EFFECT_MARKETPLACE.md) · [Macros](docs/MACROS.md) · [Application profiles](docs/APPLICATION_PROFILES.md) |
+| Sensors and cooling | [Monitoring](docs/MONITORING.md) · [Custom sensors](docs/CUSTOM_SENSORS.md) · [Cooling safety](docs/COOLING_SAFETY.md) |
+| Development | [Architecture](docs/ARCHITECTURE.md) · [Local API](docs/LOCAL_API.md) · [Plugins](docs/PLUGIN_SYSTEM.md) · [Testing](docs/TESTING.md) |
+
+## Contributing
+
+[Report bugs](https://github.com/leotrax3d/FreeRGB/issues) with the version, platform,
+device IDs, reproduction steps and redacted diagnostics. Device-support contributions
+need protocol evidence and simulator tests.
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+```
+
+For frontend changes, also run `npm test` and `npm run build` in `apps/desktop`.
+
+<details>
+<summary>Roadmap</summary>
 
 <!-- progress:start -->
 **Delivery checklist: 51.3% complete — 20 of 39 milestones; 19 remaining.**
@@ -12,229 +169,16 @@
 [View completed and remaining work](docs/STATUS.md). Automatically calculated from the delivery checklist; milestones are equally weighted, not an estimate of effort or release readiness.
 <!-- progress:end -->
 
-[![CI](https://img.shields.io/github/actions/workflow/status/leotrax3d/FreeRGB/ci.yml?style=flat-square&label=CI)](https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml)
-![Status](https://img.shields.io/badge/status-beta-orange?style=flat-square)
+[Product plan](docs/PRODUCT_PLAN.md) · [Integration checklist](docs/INTEGRATION_CHECKLIST.md)
 
-> **Release candidate:** freeRGB 0.1.0-beta.2 is being prepared and is not published.
-> Read the [release notes and known issues](docs/RELEASE_NOTES_0.1.0-beta.2.md)
-> before enabling fan control.
-![Rust](https://img.shields.io/badge/rust-1.90%2B-blue?style=flat-square)
-![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green?style=flat-square)
-[![Downloads](https://img.shields.io/github/downloads/leotrax3d/FreeRGB/total?style=flat-square&color=10A37F&label=Downloads)](https://github.com/leotrax3d/FreeRGB/releases)
-[![Views](https://hits.sh/github.com/leotrax3d/FreeRGB.svg?label=Views&color=10A37F&style=flat-square)](https://github.com/leotrax3d/FreeRGB)
-
-freeRGB combines a background RGB service, a desktop interface and a local API.
-The service keeps running when the interface closes. No cloud account or vendor
-application is required for supported devices.
-
-[Get started](#getting-started) · [Device support](#device-support) · [Project status](#project-status) · [Documentation](#documentation)
-
-> [!IMPORTANT]
-> Early development. Device support is limited, experimental integrations require
-> explicit opt-in, and experimental motherboard fan control requires physical fan confirmation and UAC.
-> Close other RGB controllers before accessing real devices.
-
-## What freeRGB offers
-
-- **Lighting:** 11 built-in effects, audio-reactive lighting, screen ambience,
-  per-device brightness and placement on a shared effect canvas.
-- **Effect marketplace:** install and configure official portable Rust effects; sandboxed execution stays in the daemon. See [marketplace setup and publication](docs/EFFECT_MARKETPLACE.md).
-- **Custom effects:** a layered editor with blending, opacity, regions and a saved library.
-- **Profiles:** saved configurations and optional Windows foreground-application rules.
-- **Automation:** visual/JSON macro editing, run/cancel, delays, repeats and lighting
-  actions; optional Windows keyboard/media output and global shortcuts.
-- **Monitoring:** cached RPM/temperature readings, histories, sensor alerts,
-  custom Celsius source graphs and redacted diagnostic exports.
-- **Extensibility:** declarative device descriptions and explicitly trusted,
-  isolated device-plugin processes.
-- **Local control:** JSON-RPC over a Windows named pipe or Linux user socket.
-
-Implementation and hardware acceptance are tracked separately below. Windows
-capture/input features do not yet have Linux parity.
-
-## Project status
-
-The [delivery checklist](docs/STATUS.md) consolidates the product plan, worklist,
-cooling execution plan and feature-specific documentation. Completed items describe
-the named implementation milestone; acceptance and release milestones have their
-own open tasks.
-
-| Area | Available or implemented | Remaining |
-|---|---|---|
-| RGB engine and effects | Shared canvas, device workers, reconnect/hot-plug, effects and layered editor | Broader device coverage and extended combined-device soak tests |
-| Desktop interface | Integrated Tauri/React default with real daemon API; optional Classic fallback | Visual/platform acceptance and remaining Classic feature migration |
-| Profiles and automation | Persistence, Windows application rules, macro execution and opt-in shortcuts | Macro recording, device-specific macro keys and native interaction acceptance |
-| Reactive keyboard lighting | Daemon overlay, explicit K70 CORE mapping, optional Windows capture | Real typing-to-LED acceptance, more layouts/keyboards and Linux capture |
-| Monitoring and sensors | Histories, alerts, custom source graphs and optional protected motherboard reader | Verified source/channel identities and broader CPU/GPU/coolant coverage |
-| Cooling | Curve editor/storage, daemon-owned protected sessions and calibration, live dialogs in Tauri and Classic, channel annotations | Public-path interactive acceptance, sustained hardware/fault validation, multi-channel support and release maintenance acceptance |
-| Motherboard RGB/ARGB | Separate experimental ASUS USB backend | Real header colour/fallback acceptance, setup UI and more manufacturers |
-| Plugins | Device descriptions, process lifecycle/API and virtual reference | Hardware plugin acceptance, effect plugins and installation/hot reload |
-| Windows distribution | Installer, configuration preservation, CI lifecycle harness and verified update staging | Published signed release, cross-version update/rollback and interactive installer acceptance |
-| Linux | Shared Rust core/IPC, CI, udev rules and systemd user unit | Hardware acceptance, capture/input parity and distribution packages |
-
-**Next priorities:** finish protected cooling integration and fault acceptance;
-expose accepted controls through the daemon and both interfaces; complete modern
-GUI integration; validate distribution and expand hardware/platform coverage.
-
-Existing hardware results include an 80% curve, 100/80/60/40% calibration and
-verified return on one confirmed channel. The minimum recommendation remains
-unverified. Same-version active service replacement passed; release upgrades,
-rollback and uninstall remain open. The additive session API and Classic dialog
-still need interactive public-path acceptance. See the
-[current acceptance record](docs/COOLING_ACCEPTANCE.md),
-[cooling execution plan](docs/COOLING_IMPLEMENTATION_PLAN.md) and
-[protected bridge](docs/MAINBOARD_CONTROL_BRIDGE.md) for acceptance boundaries.
-
-## Device support
-
-Support is specific to a device/protocol, not an entire vendor.
-
-| Device or integration | Status | Scope |
-|---|---|---|
-| Corsair K70 CORE RGB (`1b1c:1bfd`) | Validated | Per-key RGB; ISO/ANSI mapping |
-| Corsair iCUE LINK System Hub (`1b1c:0c3f`) | Experimental, opt-in | Confirmed lighting on selected RX/LX fans, Titan RX AIO head and LCD ring; RPM watchdog |
-| ASUS AURA USB (`0b05:19af`) | Experimental backend | Protocol/mock tests; physical RGB/ARGB header acceptance pending |
-| Motherboard fan control | Experimental explicit sessions | Fan confirmation and UAC required; limited channel evidence, wider acceptance open |
-| Other identified devices | Discovery only | Identification does not imply lighting, display or cooling control |
-
-The AIO LCD display content and DDR5 RGB control are not supported.
-For exact IDs, evidence and limitations, see [devices](docs/DEVICES.md),
-[protocols](docs/PROTOCOLS.md) and [motherboard support](docs/MAINBOARD_SUPPORT.md).
-
-## Getting started
-
-### Build from source
-
-Requires Rust 1.90+ and platform build dependencies. Windows needs the MSVC
-toolchain and Visual Studio C++ Build Tools; Linux needs HID, GUI and audio/capture
-development packages. See [installation](docs/INSTALL.md) for the complete list.
-
-```bash
-git clone https://github.com/leotrax3d/FreeRGB.git
-cd FreeRGB
-cargo build --release
-```
-
-The modern frontend additionally requires Node.js 22+ and npm. On Windows,
-`./scripts/build-desktop.ps1` builds it into `target/release` alongside the Rust
-binaries. See [installation](docs/INSTALL.md) for Linux instructions.
-
-### Try without hardware
-
-Run the daemon and GUI in separate terminals:
-
-```bash
-cargo run --release -p freergb-daemon --bin freergbd -- --no-hardware --no-state --virtual-device
-```
-
-In the second terminal, run `cd apps/desktop`, `npm ci`, then `npm run tauri dev`.
-For the Classic fallback use `cargo run --release -p freergb-gui` from the root.
-Plain `npm run dev` is a labelled browser mock, not a hardware connection.
-
-### Connect supported hardware
-
-Close competing RGB applications, then discover devices read-only:
-
-```bash
-cargo run --release -p freergb-cli -- discover
-cargo run --release -p freergb-daemon --bin freergbd
-```
-
-Open the built default GUI from another terminal (Windows):
-
-```bash
-./target/release/freergb-launcher.exe
-```
-
-Use `--classic` for the fallback. Windows login startup uses `--daemon-only`, so
-it opens no GUI. Settings in the modern GUI can open Classic for its remaining
-tools: global macro shortcuts, application profiles, history/warnings and updates.
-
-The experimental iCUE LINK hub requires `--enable-link-hub` on the daemon.
-Closing the GUI leaves the daemon running. Ctrl+C or `daemon.shutdown` requests
-adapter-specific return to hardware control; failures must remain visible.
-
-Windows installer builds and Linux service/permission setup are documented in
-[INSTALL.md](docs/INSTALL.md). Update staging exists; a published release and a
-successful real version-to-version update remain delivery milestones.
-
-## Architecture
-
-The daemon owns device access, effect rendering, state, profiles and control
-policy. Desktop interfaces and the CLI use the same local API. Each device has
-an isolated worker so a slow device can skip frames without blocking others.
-
-The default interface uses Tauri 2/React. Classic uses egui and remains available.
-The [integration checklist](docs/INTEGRATION_CHECKLIST.md) tracks verified builds,
-tests and outstanding visual/hardware/platform acceptance; full release parity
-is not yet claimed.
-Optional Windows motherboard access uses a protected service/native boundary.
-
-See [architecture](docs/ARCHITECTURE.md), [decisions](docs/DECISIONS.md) and
-[local API](docs/LOCAL_API.md).
-
-## Safety and privacy
-
-- Unsupported devices have no write adapter; experimental adapters require their
-  documented activation. Detection alone never authorizes control.
-- No firmware or flash writes. Cooling and lighting are separate control paths.
-- LINK access is opt-in and uses an RPM watchdog. Productive motherboard cooling
-  remains gated on independent supervision, verified return and hardware acceptance.
-- Device return is adapter-specific. Experimental ASUS lighting fallback does
-  not restore previous user settings. Unresolved cooling recovery blocks control
-  and maintenance.
-- Common competing RGB processes are detected; simultaneous access can disrupt
-  vendor interfaces.
-- The control API is local: named pipe on Windows, user socket on Linux.
-  Process plugins are trusted executable code, **not sandboxed**.
-- Ordinary RGB installation requires no motherboard driver. Optional Windows
-  motherboard prerequisites require explicit setup opt-in.
-
-See [security](docs/SECURITY.md), [plugin trust](docs/PLUGIN_SYSTEM.md) and
-[cooling safety](docs/COOLING_SAFETY.md).
-
-## Documentation
-
-| Topic | Reference |
-|---|---|
-| Current delivery checklist and progress calculation | [Status](docs/STATUS.md) |
-| Product scope and implementation history | [Product plan](docs/PRODUCT_PLAN.md) · [Worklist](docs/WORKLIST.md) |
-| Setup and updates | [Installation](docs/INSTALL.md) · [Updates](docs/UPDATES.md) |
-| Device evidence and contribution process | [Devices](docs/DEVICES.md) · [Protocols](docs/PROTOCOLS.md) · [Reverse engineering](docs/REVERSE_ENGINEERING.md) |
-| Cooling implementation and remaining parity | [Execution plan](docs/COOLING_IMPLEMENTATION_PLAN.md) · [FanControl target](docs/FANCONTROL_PARITY.md) |
-| Automation and interaction | [Macros](docs/MACROS.md) · [Application profiles](docs/APPLICATION_PROFILES.md) · [Keyboard reactions](docs/KEYBOARD_REACTIVE.md) |
-| Sensors and troubleshooting | [Monitoring](docs/MONITORING.md) · [Custom sources](docs/CUSTOM_SENSORS.md) · [Diagnostics](docs/DIAGNOSTICS.md) |
-| Development and verification | [API](docs/LOCAL_API.md) · [Plugins](docs/PLUGIN_SYSTEM.md) · [Testing](docs/TESTING.md) · [Handoff](docs/HANDOFF.md) |
-
-## Contributing
-
-Device reports, reproducible bugs and Linux testing are welcome. Include the
-relevant version, platform, device IDs and redacted diagnostics. New adapters
-need documented protocol evidence, simulator tests and explicit hardware acceptance.
-
-Before submitting code:
-
-```bash
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-```
-
-For documentation changes, also run `python scripts/update-readme-progress.py --check`.
-When changing delivery status, update [STATUS.md](docs/STATUS.md) with supporting
-evidence and run `python scripts/update-readme-progress.py`.
+</details>
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+The core application is dual-licensed under [MIT](LICENSE-MIT) or
+[Apache-2.0](LICENSE-APACHE).
+Downloadable [hardware modules](modules) have separate licenses: `razer-chroma`
+is **GPL-2.0-or-later**, ported from OpenRGB; see its
+[provenance](modules/razer-chroma/PROVENANCE.md). Vendored dependencies retain their own licenses.
 
-Exception: downloadable hardware modules under [`modules/`](modules) are separate programs
-with their own license. `modules/razer-chroma` is a port of OpenRGB code and is licensed
-**GPL-2.0-or-later**; see its [PROVENANCE.md](modules/razer-chroma/PROVENANCE.md) and
-[docs/HARDWARE_MODULES.md](docs/HARDWARE_MODULES.md).
-Contributions use the same terms unless explicitly stated otherwise.
-
-freeRGB is independent and is not affiliated with or endorsed by hardware vendors
-or other RGB software projects. Product names belong to their respective owners.
-
+freeRGB is not affiliated with hardware vendors or other RGB software projects.
