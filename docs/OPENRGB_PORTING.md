@@ -152,7 +152,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `ThermaltakeRiingController` | ported | `e90c42a` | 51 detectors / 51 unique IDs | Base 65-byte, Quad 193-byte and Trio chunked 65-byte direct paths; firmware/serial reads and Quad keepalive omitted |
 | `LogitechController` | in progress | `6b16cb8` | 55 detectors / 48 unique IDs | Generator and HID inventory staged; G213, G203/G203L, G600, G815, G915 with OpenRGB keycode maps, TKL sizing, exact G915 initialization and commit packets, Lightsync mouse with per-model zone counts, X56, G933, HID++ RGB/0x8081 and 0x0620 headset discovery/frame reports with response validation/retries plus wired/wireless Lightspeed 8070/8071 discovery, effect frames and simulated lifecycle ported; receiver aggregation and remaining mouse paths still being ported. Workspace tests, clippy and standalone source-archive build green |
 | `CorsairPeripheralController` | ported | `64ae9a6` | 39 detectors / 39 unique IDs | Generated detector inventory and brokered HID module cover Corsair Peripheral, K65 Mini and K55 RGB PRO XT packet paths; no device paths omitted. Workspace tests, clippy and standalone source-archive build green |
-| `CoolerMasterController` | in progress | `8864179` | 38 detectors / 38 unique IDs | Generated full HID inventory and module scaffold; exact MM712 direct path added. Protocol-specific remaining Keyboard, ARGB, other mouse, monitor and desk paths remain to be replaced with byte-exact OpenRGB builders. No paths intentionally omitted; module tests and clippy green |
+| `CoolerMasterController` | ported | `8864179` | 38 detectors / 38 unique IDs | Generated full HID inventory, optional zone sizing and byte-exact packet builders cover the shared direct, keyboard, ARGB, mouse and MM712 HID paths. Omitted paths: OpenRGB effect/profile UI, firmware and telemetry reads, monitor/desk mode controls, and device-specific key-matrix naming. |
 | `CorsairPeripheralV2Controller` | in progress | `a7f9fae` | 37 detectors / 37 unique IDs | Generated inventory excludes only built-in K70 CORE/iCUE LINK IDs; brokered V2 initialization now sets render mode, selects wired/wireless command IDs, sends lighting-control setup, and streams OpenRGB color-block packets with exact 1,025-byte block framing. Per-device feature discovery and hardware endpoint selection remain to be ported. |
 | `DRGBController` | in progress | `fe6e040` | 33 detectors / 33 unique IDs | Generated complete device inventory and V1/V2/V3/V4 report builders are staged with byte-exact tests; optional configured zone sizes now flow into V1/V2/V3/V4 headers and frame splitting. Keepalive remains to be completed. |
 | `RoccatController` | ported | `8a1321f` | 28 detectors / 28 unique IDs | All 28 registered USB-HID IDs have generated device metadata, direct RGB frame builders, per-device packet layouts, direct-mode initialization, brokered lifecycle tests and `--list-devices`. Omitted paths: effect/profile persistence and reads, firmware/serial display, full keyboard layout-name maps, and OpenRGB's separate wireless multi-interface aggregation. |
@@ -177,19 +177,6 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `GigabyteRGBFusion2USBController` | ported | `cca73f4` | 5 detectors / 5 unique IDs | Generated inventory, optional addressable-zone sizing and 64-byte direct HID packets are covered by byte-exact tests. Omitted paths: non-HID/DMI discovery, calibration reads, hardware effects and dynamic motherboard layout probing. |
 | `RoyuanKeyboardController` | ported | `f80bb4e` | 5 detectors / 5 unique IDs | Generated inventory and byte-exact 65-byte Royuan service, direct-color and Skyloong user-picture reports cover Akko, Epomaker, Attack Shark and Skyloong HID paths. Omitted paths: readback/profile persistence, wireless retry state, full effect UI and key-matrix naming. |
 
-
-The per-family status ledger is maintained below this inventory by the porting
-workflow. A family may be marked blocked only for an actual non-HID transport,
-unclear upstream licensing or missing upstream hardware information. User-sized
-LED layouts use the optional initialize `zones` parameter documented in
-`docs/HARDWARE_MODULES.md`.
-
-
-The per-family status ledger is maintained below this inventory by the porting
-workflow. A family may be marked blocked only for an actual non-HID transport,
-unclear upstream licensing or missing upstream hardware information. User-sized
-LED layouts use the optional initialize `zones` parameter documented in
-`docs/HARDWARE_MODULES.md`.
 
 
 The per-family status ledger is maintained below this inventory by the porting
