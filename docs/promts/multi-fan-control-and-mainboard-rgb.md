@@ -88,27 +88,27 @@ Helligkeit, Profile).
 1. **Geräteliste:** `docs/MAINBOARD_RGB_DEVICES.md` ist die Zielliste; Status-Spalte bei Umsetzung auf „Supported“ aktualisieren.
 2. **ASUS Aura USB:** Allowlist auf alle in OpenRGB gelisteten ASUS-Aura-
    Mainboard-USB-IDs erweitern. Gen1/Gen2-Handling beibehalten.
-2. **Weitere Hersteller (USB-HID):** MSI Mystic Light (USB, z. B. `1462:7Bxx`),
+3. **Weitere Hersteller (USB-HID):** MSI Mystic Light (USB, z. B. `1462:7Bxx`),
    Gigabyte RGB Fusion 2 USB (`048d:5702`/`048d:8297`), ASRock Polychrome USB.
    Wo nur SMBus/I²C existiert (ältere Boards), **nicht** umsetzen, sondern in der
    Doku als „nicht unterstützt“ führen.
-3. **OpenRGB als Referenz:** Nutze OpenRGB (festen Commit nennen) nur als
+4. **OpenRGB als Referenz:** Nutze OpenRGB (festen Commit nennen) nur als
    Protokoll-Referenz. **Lizenz beachten:** Der Kern ist MIT OR Apache-2.0,
    OpenRGB ist GPL-2.0. Entweder unabhängige Rust-Implementierung aus
    dokumentierten Wire-Fakten (wie bei `asus_aura.rs`, mit Quelllinks in der Doku)
    oder ein GPL-Modul unter `modules/` nach dem Muster von `razer-chroma`.
    Kein kopierter C++-Code im Kern.
-4. **Konfiguration in der GUI statt Launcher-Flag:** `--enable-asus-aura` und
+5. **Konfiguration in der GUI statt Launcher-Flag:** `--enable-asus-aura` und
    `--asus-argb-leds` ersetzen durch Geräteeinstellungen in beiden GUIs:
    LED-Anzahl pro ARGB-Header, Header-Namen, optional Lüfter-Presets (z. B. 8,
    12, 16, 18 LEDs). Gespeichert im Daemon-State, über RPC. Flags bleiben als
    Override für Tests erhalten.
-5. **Automatische Aktivierung:** Unterstützte Controller werden beim Start
+6. **Automatische Aktivierung:** Unterstützte Controller werden beim Start
    normal erkannt und geöffnet (keine Opt-in-Pflicht mehr). Ein globaler Schalter
    „Mainboard-RGB verwalten“ (Standard: an) und Erkennung laufender
    Hersteller-Software (Armoury Crate, MSI Center, RGB Fusion), dann Warnung statt
    stillem Konflikt.
-6. **Tests:** Mock-Transport pro Hersteller: Erkennung, Header-Tabellen,
+7. **Tests:** Mock-Transport pro Hersteller: Erkennung, Header-Tabellen,
    Paketaufbau/Chunking, Fallback beim Beenden, ungültige Antworten → keine Writes.
 
 ## Status „normal“ statt „experimentell“
