@@ -38,14 +38,19 @@ begin
   MainboardProgress.SetProgress(StrToIntDef(Percent, 0), 100);
 end;
 
-// SID of the user who started Setup, captured as that user (not the elevated one).
+// SID of the signed-in user of Setup's session: owner of that session's
+// explorer.exe. Resolved by the elevated process because Inno's {tmp} is
+// admin-only, so the original (filtered) user cannot write a result there.
 function OriginalUserSid: String;
 var Code: Integer; Output: AnsiString; Target: String;
 begin
   Result := '';
   Target := ExpandConstant('{tmp}\original-user-sid.txt');
-  if ExecAsOriginalUser(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-    '-NoProfile -Command "[IO.File]::WriteAllText(''' + Target + ''',[Security.Principal.WindowsIdentity]::GetCurrent().User.Value)"',
+  if Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -Command "$s=(Get-Process -Id $PID).SessionId; ' +
+    '$o=@(Get-CimInstance Win32_Process -Filter (''Name=''''explorer.exe'''' AND SessionId=''+$s) | ' +
+    'ForEach-Object { (Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid).Sid } | Sort-Object -Unique); ' +
+    'if ($o.Count -ne 1) { exit 1 }; [IO.File]::WriteAllText(''' + Target + ''',$o[0])"',
     '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) and LoadStringFromFile(Target, Output) then
     Result := Trim(String(Output));
 end;

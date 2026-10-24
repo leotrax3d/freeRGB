@@ -1721,7 +1721,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-audio"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "cpal",
  "freergb-core",
@@ -1733,7 +1733,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-cli"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -1753,7 +1753,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-client"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -1763,7 +1763,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-control"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-core",
  "freergb-effects",
@@ -1773,7 +1773,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-core"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -1782,7 +1782,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-daemon"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -1810,7 +1810,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-device-api"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-core",
  "serde",
@@ -1821,7 +1821,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-effect-host"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "base64 0.22.1",
  "freergb-core",
@@ -1838,7 +1838,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-effects"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-core",
  "serde",
@@ -1847,7 +1847,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-gui"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "active-win-pos-rs",
  "eframe",
@@ -1864,7 +1864,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-gui-win32"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-client",
  "freergb-control",
@@ -1879,7 +1879,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-hid"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-device-api",
  "hidapi",
@@ -1908,7 +1908,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-api"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "base64 0.22.1",
  "freergb-core",
@@ -2198,7 +2198,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-tool"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -2214,7 +2214,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-modules"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "ed25519-dalek",
  "freergb-core",
@@ -2232,7 +2232,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-plugins"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-core",
  "freergb-device-api",
@@ -2243,7 +2243,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-protocols"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-core",
  "freergb-device-api",
@@ -2255,7 +2255,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-screen"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-core",
  "glib",
@@ -2266,7 +2266,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-tray"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "freergb-client",
  "png 0.18.1",
@@ -2278,7 +2278,7 @@ dependencies = [
 
 [[package]]
 name = "freergb-update"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "dunce",
  "reqwest",
