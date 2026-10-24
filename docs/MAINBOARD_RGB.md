@@ -21,7 +21,7 @@ See [MAINBOARD_RGB_DEVICES.md](MAINBOARD_RGB_DEVICES.md) for the list of known U
 
 "Identified only" controllers appear in diagnostics and are never written to.
 
-## Configuration (both GUIs, daemon RPC)
+## Configuration (modern GUI: Devices page; Classic: Monitoring → Motherboard RGB; daemon RPC)
 
 Supported controllers are detected and opened at startup like any other device.
 `mainboard-rgb.json` (per-user config directory) holds:

@@ -24,6 +24,7 @@ enum UpdateCommand {
 pub struct Panels {
     mainboard_cooling: super::mainboard_cooling::MainboardCooling,
     channel_bindings: super::channel_bindings::BindingsPanel,
+    mainboard_rgb: super::mainboard_rgb::MainboardRgbPanel,
     custom_sensors: super::custom_sensors::CustomSensors,
     alerts: super::alerts::Alerts,
     hotkeys: super::hotkeys::Hotkeys,
@@ -182,7 +183,7 @@ impl Default for Panels {
                 }
             }
         });
-        Self { mainboard_cooling:Default::default(),channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), curve_drag: None, temperature: 40.0,
+        Self { mainboard_cooling:Default::default(),mainboard_rgb:Default::default(),channel_bindings:Default::default(),custom_sensors:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), curve_drag: None, temperature: 40.0,
             macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
@@ -336,6 +337,7 @@ impl Panels {
                 }
                 4 => {
                     ui.heading("Monitoring");
+                    ui.collapsing("Motherboard RGB", |ui| self.mainboard_rgb.show(ui, snapshot, tx));
                     self.alerts.ui(ui);
                     if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); toasts.success("Diagnostic report exported"); }
                     if ui.add_enabled(snapshot.connected,egui::Button::new("…with fan hardware details")).on_hover_text("Adds board model, BIOS, chip, support tier and channel-test result (no serials or readings).").clicked() { send("gui.export_diagnostics",serde_json::json!({"include_cooling_hardware":true})); toasts.success("Diagnostic report exported (with cooling hardware)"); }

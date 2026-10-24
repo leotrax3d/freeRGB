@@ -23,6 +23,7 @@ mod hotkeys;
 mod keyboard_reactive;
 mod macro_editor;
 mod mainboard_cooling;
+mod mainboard_rgb;
 mod pages;
 mod preview;
 mod sensor_history;
@@ -199,6 +200,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             "cooling_support": get("cooling.support.get").unwrap_or(Value::Null),
             "cooling_profiles": get("cooling.profiles.list").unwrap_or(Value::Null),
             "channel_bindings": get("cooling.bindings.get").unwrap_or(Value::Null),
+            "mainboard_rgb": get("mainboard_rgb.get").unwrap_or(Value::Null),
             "monitoring_sensors": get("monitoring.sensors.list").unwrap_or(Value::Null),
         });
         if !reachable && fetched.is_ok() {
