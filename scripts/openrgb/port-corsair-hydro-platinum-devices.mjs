@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+import fs from "node:fs";
+import path from "node:path";
+const [, , root = "openrgb", commit = "unknown"] = process.argv;
+const d = path.join(root, "Controllers", "CorsairHydroPlatinumController");
+const files = fs.readdirSync(d).filter((x) => /\.(cpp|h)$/.test(x));
+const s = files.map((x) => fs.readFileSync(path.join(d, x), "utf8")).join("\n");
+const v = new Map();
+for (const m of s.matchAll(/^\s*#define\s+([A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)/gm)) v.set(m[1], m[2]);
+const ds = [];
+for (const m of s.matchAll(/REGISTER_HID_DETECTOR\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/g)) {
+  if (v.has(m[3]) && v.has(m[4])) ds.push({ name: m[1], handler: m[2], vid: v.get(m[3]), pid: v.get(m[4]) });
+}
+if (ds.length !== 13) throw new Error(`expected 13 detectors, found ${ds.length}`);
+const out = ["// SPDX-License-Identifier: GPL-2.0-or-later", `// Generated from OpenRGB ${commit}.`, "use super::table::{Detector,Device};", "pub static DETECTORS:&[Detector]= &[", ...ds.map((x) => `Detector{name:${JSON.stringify(x.name)},handler:${JSON.stringify(x.handler)},vid:${x.vid},pid:${x.pid}},`), "];", "pub static DEVICES:&[Device]= &[", ...Array.from(new Map(ds.map((x) => [`${x.vid}:${x.pid}`, x])).values()).map((x) => `Device{vid:${x.vid},pid:${x.pid}},`), "];", ""];
+fs.writeFileSync("modules/corsair-hydro-platinum/src/devices_table.rs", out.join("\n"));
+const bytes = (name) => { const m = s.match(new RegExp(`static const uint8_t ${name}\\[61\\]\\s*=\\s*\\{([\\s\\S]*?)\\}`)); if (!m) throw new Error(`missing ${name}`); return [...m[1].matchAll(/0x[0-9A-Fa-f]+/g)].map((x) => x[0]); };
+const magic = ["MAGIC_1", "MAGIC_2", "MAGIC_3", "HARDWARE_MAGIC_1", "HARDWARE_MAGIC_2", "HARDWARE_MAGIC_3", "HARDWARE_MAGIC_4"].map((n) => `pub static ${n}: &[u8;61] = &[${bytes(n).join(",")}];`);
+fs.writeFileSync("modules/corsair-hydro-platinum/src/magic.rs", ["// SPDX-License-Identifier: GPL-2.0-or-later", ...magic, ""].join("\n"));
+console.log(`generated ${ds.length} Corsair Hydro detectors and magic tables`);

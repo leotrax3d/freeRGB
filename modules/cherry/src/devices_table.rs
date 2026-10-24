@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Generated from OpenRGB bbc77470a7cba56af60989e54ba910d5ac66a3ac.
+use super::table::Detector;
+pub static DETECTORS: &[Detector] = &[
+    Detector {
+        name: "Cherry Keyboard MX BOARD 3.0S FL NBL",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x0077,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 3.0S FL RGB",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x0079,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 3.0S FL RGB KOREAN",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x0083,
+    },
+    Detector {
+        name: "Cherry Keyboard MX 1.0 FL BL",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00AB,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 1.0 TKL RGB",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00AC,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 8.0 TKL RGB",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00B7,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 10.0 FL RGB",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00BB,
+    },
+    Detector {
+        name: "Cherry Keyboard G80-3000 TKL NBL",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00C3,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 2.0S FL RGB (EU)",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x01A6,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 2.0S FL RGB (US)",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00C4,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 2.0S FL NBL",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00CE,
+    },
+    Detector {
+        name: "Cherry Keyboard G80-3000 TKL RGB",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00C5,
+    },
+    Detector {
+        name: "Cherry Keyboard MV BOARD 3.0 FL RGB",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00C7,
+    },
+    Detector {
+        name: "Cherry Keyboard CCF MX 8.0 TKL BL",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00C9,
+    },
+    Detector {
+        name: "Cherry Keyboard CCF MX 1.0 TKL BL",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00CA,
+    },
+    Detector {
+        name: "Cherry Keyboard CCF MX 1.0 TKL NBL",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00CB,
+    },
+    Detector {
+        name: "Cherry Keyboard G80-3000 TKL NBL KOREAN",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00CD,
+    },
+    Detector {
+        name: "Cherry Keyboard MX 1.0 FL NBL",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00D2,
+    },
+    Detector {
+        name: "Cherry Keyboard MX 1.0 FL RGB",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00D3,
+    },
+    Detector {
+        name: "Cherry Keyboard G80-3000N TKL RGB (EU)",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00DD,
+    },
+    Detector {
+        name: "Cherry Keyboard G80-3000N TKL RGB (US)",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00E0,
+    },
+    Detector {
+        name: "Cherry Keyboard G80-3000N FL RGB (EU)",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00DE,
+    },
+    Detector {
+        name: "Cherry Keyboard G80-3000N FL RGB (US)",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00E1,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 10.0N FL RGB (EU)",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00DF,
+    },
+    Detector {
+        name: "Cherry Keyboard MX BOARD 10.0N FL RGB (US)",
+        handler: "DetectCherryKeyboards",
+        vid: 0x046A,
+        pid: 0x00E2,
+    },
+];
