@@ -1,0 +1,46 @@
+name: OpenRGB drift
+
+# Weekly report of OpenRGB devices added/removed upstream since the pinned
+# commit, plus a check that the committed compatibility matrix is current.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "modules/**"
+      - "scripts/openrgb/**"
+      - "docs/OPENRGB_COMPATIBILITY.md"
+      - "docs/openrgb-compatibility.json"
+
+permissions:
+  contents: read
+
+env:
+  OPENRGB_COMMIT: bbc77470a7cba56af60989e54ba910d5ac66a3ac
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+      - name: Fetch pinned OpenRGB
+        run: |
+          git init -q openrgb-pinned && cd openrgb-pinned
+          git remote add origin https://gitlab.com/CalcProgrammer1/OpenRGB.git
+          git fetch -q --depth 1 origin "$OPENRGB_COMMIT" && git checkout -q FETCH_HEAD
+      - name: Committed matrix matches the pinned commit
+        run: |
+          node scripts/openrgb/compat-matrix.mjs openrgb-pinned "$OPENRGB_COMMIT"
+          git diff --exit-code -- docs/OPENRGB_COMPATIBILITY.md docs/openrgb-compatibility.json
+      - name: Upstream drift report
+        if: github.event_name != 'pull_request'
+        run: |
+          cp docs/openrgb-compatibility.json pinned.json
+          git clone -q --depth 1 https://gitlab.com/CalcProgrammer1/OpenRGB.git openrgb-head
+          head=$(git -C openrgb-head rev-parse HEAD)
+          node scripts/openrgb/compat-matrix.mjs openrgb-head "$head"
+          node scripts/openrgb/compat-drift.mjs pinned.json docs/openrgb-compatibility.json >> "$GITHUB_STEP_SUMMARY"

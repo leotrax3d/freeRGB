@@ -1,0 +1,14 @@
+{
+  "devices": {
+    "1b1c:1bfd": { "implementation": "native:bragi", "status": "hardware-verified", "functions": "direct colour, per-key, hardware mode restore", "evidence": "DEVICES.md K70 CORE log" },
+    "1b1c:0c3f": { "implementation": "native:icue-link", "status": "hardware-verified", "functions": "direct colour (fans, pump, LCD ring), RPM telemetry", "evidence": "DEVICES.md iCUE LINK log" },
+    "0b05:19af": { "implementation": "native:asus-aura", "status": "implemented", "functions": "direct colour, header configuration", "evidence": "MAINBOARD_RGB.md, mock tests" },
+    "26ce:01a2": { "implementation": "native:asrock-polychrome", "status": "implemented", "functions": "direct colour", "evidence": "mock tests" },
+    "26ce:01a6": { "implementation": "native:asrock-polychrome", "status": "implemented", "functions": "direct colour", "evidence": "mock tests" }
+  },
+  "families": {
+    "LuxaforController": { "implementation": "module:luxafor", "status": "implemented", "functions": "direct colour", "evidence": "simulated tests" },
+    "CorsairDRAMController": { "status": "blocked:smbus-transport", "evidence": "needs SMBus transport design (PARITY_EXPANSION_PLAN.md)" },
+    "CorsairDominatorPlatinumController": { "status": "blocked:smbus-transport" }
+  }
+}
