@@ -44,10 +44,12 @@ struct Args {
     /// Allow user-triggered macros to send text/keys to the foreground app.
     #[arg(long)]
     enable_input_macros: bool,
-    /// Opt in to experimental ASUS Aura motherboard RGB/ARGB USB control (not fans).
+    /// Test override: open ASUS Aura motherboard RGB even when vendor software
+    /// runs or management is switched off, with the LED counts below instead of
+    /// the saved device settings. Normally motherboard RGB is configured in the GUI.
     #[arg(long)]
     enable_asus_aura: bool,
-    /// Manual LED counts for four ARGB headers; zero disables that header.
+    /// Override LED counts for four ARGB headers; zero disables that header.
     #[arg(long, default_value="0,0,0,0", value_parser=parse_argb_counts, requires="enable_asus_aura")]
     asus_argb_leds: [u16; 4],
     #[arg(

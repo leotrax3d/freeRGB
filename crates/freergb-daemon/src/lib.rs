@@ -19,6 +19,7 @@ pub mod hardware;
 pub mod ipc;
 pub mod keyboard;
 pub mod mainboard;
+pub mod mainboard_rgb;
 pub mod modules;
 pub mod native_bridge;
 pub mod native_session;

@@ -7,4 +7,5 @@
 pub mod asus_aura;
 pub mod corsair_bragi;
 pub mod descriptions;
+pub mod gigabyte_fusion2;
 pub mod registry;

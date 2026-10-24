@@ -1,4 +1,5 @@
-//! Independently implemented experimental ASUS Aura motherboard USB protocol.
+//! Independently implemented ASUS Aura motherboard USB protocol (all mainboard
+//! PIDs listed in docs/MAINBOARD_RGB.md).
 //! Wire facts and limits: docs/MAINBOARD_RGB.md. No fan-power commands or flash commit.
 use freergb_core::{Frame, LedLayout, Rgb};
 use freergb_device_api::{
@@ -84,34 +85,41 @@ pub struct AuraDevice<T: HidTransport> {
     info: DeviceInfo,
     layout: LedLayout,
     argb_leds: [u16; 4],
+    names: [Option<String>; 4],
     zones: Vec<Zone>,
     owned: Vec<u8>,
     status: DeviceStatus,
 }
 
 impl<T: HidTransport> AuraDevice<T> {
-    pub fn new(transport: T, serial: Option<String>, argb_leds: [u16; 4]) -> Self {
+    pub fn new(transport: T, pid: u16, serial: Option<String>, argb_leds: [u16; 4]) -> Self {
         Self {
             transport,
             info: DeviceInfo {
                 id: DeviceId(format!(
-                    "hid:0b05:19af:{}",
+                    "hid:0b05:{pid:04x}:{}",
                     serial.as_deref().unwrap_or("noserial")
                 )),
-                name: "ASUS Aura motherboard RGB/ARGB (experimental)".into(),
+                name: "ASUS Aura motherboard RGB/ARGB".into(),
                 vendor: "ASUS".into(),
                 kind: DeviceKind::LightingController,
                 usb_vid: Some(0x0b05),
-                usb_pid: Some(0x19af),
+                usb_pid: Some(pid),
                 serial,
                 firmware: None,
             },
             layout: LedLayout::strip(0),
             argb_leds,
+            names: Default::default(),
             zones: Vec::new(),
             owned: Vec::new(),
             status: DeviceStatus::Disconnected,
         }
+    }
+    /// User names for the ARGB headers (shown on the layout canvas).
+    pub fn with_names(mut self, names: [Option<String>; 4]) -> Self {
+        self.names = names;
+        self
     }
     fn write(&mut self, packet: &[u8; 65]) -> Result<(), DeviceError> {
         let count = self.transport.write(packet)?;
@@ -186,7 +194,10 @@ impl<T: HidTransport> AuraDevice<T> {
                         format!("12V RGB header {}", led - onboard + 1)
                     }
                 } else {
-                    format!("5V ARGB header {} LED {}", zone.direct + 1, led + 1)
+                    match &self.names[usize::from(zone.direct)] {
+                        Some(name) => format!("{name} LED {}", led + 1),
+                        None => format!("5V ARGB header {} LED {}", zone.direct + 1, led + 1),
+                    }
                 };
                 index += 1;
             }
@@ -317,7 +328,7 @@ mod tests {
             }),
             fail: false,
         };
-        let mut device = AuraDevice::new(transport, None, [0; 4]);
+        let mut device = AuraDevice::new(transport, 0x19af, None, [0; 4]);
         device.connect().unwrap();
         device.transport.fail = true;
         assert!(device.disconnect(None).is_err());
@@ -363,7 +374,7 @@ mod tests {
             assert!(Capabilities::decode(&bytes).is_err());
         }
         let transport = MockTransport::new(65, 65, |_| vec![vec![0xec, 0x30]]);
-        let mut device = AuraDevice::new(transport, None, [0; 4]);
+        let mut device = AuraDevice::new(transport, 0x19af, None, [0; 4]);
         assert!(device.connect().is_err());
         assert_eq!(device.transport.written().len(), 1);
         assert_eq!(&device.transport.written()[0][..2], &[0xec, 0xb0]);
@@ -391,7 +402,7 @@ mod tests {
                 Vec::new()
             }
         });
-        let mut device = AuraDevice::new(transport, None, [21, 0, 0, 0]);
+        let mut device = AuraDevice::new(transport, 0x19af, None, [21, 0, 0, 0]);
         device.connect().unwrap();
         assert_eq!(device.layout.len(), 25);
         assert_eq!(device.layout.leds[3].name, "12V RGB header 1");

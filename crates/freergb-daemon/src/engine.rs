@@ -115,6 +115,7 @@ pub struct Engine {
     pub fan_support: crate::fan_support::FanSupport,
     pub cooling_profiles: crate::cooling_profiles::CoolingProfiles,
     pub onboarding: crate::onboarding::Onboarding,
+    pub mainboard_rgb: crate::mainboard_rgb::MainboardRgb,
     recorded_test_job: Option<u64>,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
@@ -309,6 +310,7 @@ impl Engine {
             fan_support: Default::default(),
             cooling_profiles: Default::default(),
             onboarding: Default::default(),
+            mainboard_rgb: Default::default(),
             recorded_test_job: None,
             sensor_refresh_at: None,
             plugins: Default::default(),
@@ -666,6 +668,8 @@ impl Engine {
                 .with_file(parent.join("cooling-profiles.json"));
             self.onboarding =
                 std::mem::take(&mut self.onboarding).with_file(parent.join("onboarding.json"));
+            self.mainboard_rgb = std::mem::take(&mut self.mainboard_rgb)
+                .with_file(parent.join("mainboard-rgb.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);

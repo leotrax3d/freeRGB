@@ -380,6 +380,17 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 let removed = engine.fan_support.revoke(control_id).map_err(|e| (-32000, e))?;
                 Ok(json!({"revoked": removed, "background_reapplied": removed && engine.reapply_background()}))
             }),
+        "mainboard_rgb.get" => Ok(lock(engine).mainboard_rgb.view()),
+        "mainboard_rgb.save" => serde_json::from_value(params["settings"].clone())
+            .map_err(invalid_params)
+            .and_then(|settings: crate::mainboard_rgb::Settings| {
+                let mut engine = lock(engine);
+                engine.mainboard_rgb.save(settings).map_err(|e| (-32602, e))?;
+                // Reopened by the next periodic scan with the new header table
+                // (or left alone when management was switched off).
+                let released = engine.remove_devices(|id| is_mainboard_device(&id.0));
+                Ok(json!({"saved": true, "released": released}))
+            }),
         "onboarding.get" => Ok(lock(engine).onboarding.view()),
         "onboarding.complete" => lock(engine)
             .onboarding
@@ -1173,5 +1184,34 @@ mod tests {
         );
         assert_eq!(r["error"]["code"], json!(-32602));
         assert!(handle_line(&e, r#"{"id":6,"method":"daemon.shutdown"}"#).shutdown);
+    }
+}
+
+/// Device ids opened by motherboard RGB adapters (`hid:vvvv:pppp:serial`).
+fn is_mainboard_device(id: &str) -> bool {
+    let mut parts = id.split(':');
+    let (Some("hid"), Some(vid), Some(pid)) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    let (Ok(vid), Ok(pid)) = (u16::from_str_radix(vid, 16), u16::from_str_radix(pid, 16)) else {
+        return false;
+    };
+    // Any interface of the controller: the registry knows the adapter family.
+    [(0xFF72, 0x00A1), (0xFF89, 0x00CC), (0x0001, 0x0000)]
+        .iter()
+        .any(|(page, usage)| {
+            freergb_protocols::registry::match_interface(vid, pid, *page, *usage)
+                .is_some_and(|m| freergb_protocols::registry::is_mainboard_rgb(m.adapter))
+        })
+}
+
+#[cfg(test)]
+mod mainboard_rgb_tests {
+    #[test]
+    fn mainboard_device_ids_are_recognised() {
+        assert!(super::is_mainboard_device("hid:0b05:19af:ABC"));
+        assert!(super::is_mainboard_device("hid:048d:5702:noserial"));
+        assert!(!super::is_mainboard_device("hid:1b1c:1bfd:x"));
+        assert!(!super::is_mainboard_device("virtual:0"));
     }
 }
