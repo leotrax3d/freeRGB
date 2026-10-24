@@ -7,8 +7,8 @@
 //! effects play through their full stack.
 
 use eframe::egui;
-use freergb_effects::{Effect, EffectSpec};
 use freergb_core::Canvas;
+use freergb_effects::{Effect, EffectSpec};
 use std::time::{Duration, Instant};
 
 const WIDTH: usize = 128;
@@ -60,12 +60,18 @@ impl Preview {
             pixels,
         };
         let texture = self.texture.get_or_insert_with(|| {
-            ui.ctx()
-                .load_texture("effect-preview", image.clone(), egui::TextureOptions::LINEAR)
+            ui.ctx().load_texture(
+                "effect-preview",
+                image.clone(),
+                egui::TextureOptions::LINEAR,
+            )
         });
         texture.set(image, egui::TextureOptions::LINEAR);
-        let width = ui.available_width().min(460.0).max(120.0);
-        ui.image((texture.id(), egui::vec2(width, width * HEIGHT as f32 / WIDTH as f32)));
+        let width = ui.available_width().clamp(120.0, 460.0);
+        ui.image((
+            texture.id(),
+            egui::vec2(width, width * HEIGHT as f32 / WIDTH as f32),
+        ));
         ui.ctx().request_repaint_after(FRAME);
     }
 }

@@ -329,21 +329,87 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     .map_err(invalid_params)
             }),
         "monitoring.sensors.list" => Ok(json!(lock(engine).monitoring_sensors())),
-        "cooling.providers.list" => Ok(json!([lock(engine).mainboard.summary()])),
-        "cooling.channels.list" => Ok(json!(lock(engine).mainboard.channels())),
+        "cooling.providers.list" => {
+            let engine = lock(engine);
+            let mut providers = vec![engine.mainboard.summary()];
+            if engine.hwmon.started() {
+                providers.push(engine.hwmon.summary());
+            }
+            Ok(json!(providers))
+        }
+        "cooling.channels.list" => {
+            let engine = lock(engine);
+            let mut channels = engine.mainboard.channels();
+            channels.extend(engine.hwmon.channels());
+            Ok(json!(channels))
+        }
+        "cooling.hwmon.get" => Ok(lock(engine).hwmon.view()),
+        "cooling.hwmon.set" => serde_json::from_value::<crate::hwmon::Assignment>(params.clone())
+            .map_err(invalid_params)
+            .and_then(|assignment| {
+                let engine = lock(engine);
+                engine
+                    .onboarding
+                    .require_safety()
+                    .map_err(|e| (-32006, e))?;
+                engine
+                    .hwmon
+                    .assign(assignment)
+                    .map(|()| json!(true))
+                    .map_err(|e| (-32006, e))
+            }),
+        "cooling.hwmon.release" => {
+            let channel = params["channel_id"].as_str();
+            lock(engine)
+                .hwmon
+                .release(channel)
+                .map(|released| json!({"released": released}))
+                .map_err(|e| (-32006, e))
+        }
         "cooling.sessions.status" => Ok(json!(lock(engine).cooling_sessions.status())),
         "cooling.sessions.start" => serde_json::from_value(params.clone())
             .map_err(invalid_params)
             .and_then(|request: crate::cooling_sessions::StartRequest| {
-                let mut engine = lock(engine);
-                let policy = engine
-                    .cooling_policy(&request.control_id)
-                    .map_err(|error| (-32006, error))?;
-                engine
-                    .cooling_sessions
-                    .start(request, &policy)
+                lock(engine)
+                    .start_cooling(request)
                     .map(|job| json!({"job_id":job}))
                     .map_err(|error| (-32006, error))
+            }),
+        // Additive multi-channel API; single-job calls above stay unchanged.
+        "cooling.sessions.list" => {
+            let engine = lock(engine);
+            Ok(json!({
+                "active": engine.cooling_sessions.active(),
+                "max_active": crate::cooling_sessions::MAX_ACTIVE,
+                "assignments": engine.cooling_assignments.view(),
+            }))
+        }
+        "cooling.sessions.stop_all" => {
+            let mut engine = lock(engine);
+            engine.cooling_assignments.forget_all();
+            engine
+                .cooling_sessions
+                .stop_all()
+                .map(|stopped| json!({"stopped": stopped}))
+                .map_err(|error| (-32006, error))
+        }
+        "cooling.sessions.stop_channel" => params["control_id"]
+            .as_str()
+            .ok_or_else(|| invalid_params("control_id required"))
+            .and_then(|control_id| {
+                let mut engine = lock(engine);
+                engine.cooling_assignments.forget(control_id);
+                let jobs: Vec<u64> = engine
+                    .cooling_sessions
+                    .active()
+                    .iter()
+                    .filter(|j| j.control_id.as_deref() == Some(control_id))
+                    .filter_map(|j| j.job_id)
+                    .collect();
+                for job in &jobs {
+                    engine.cooling_sessions.stop(*job).map_err(|e| (-32006, e))?;
+                }
+                Ok(json!({"stopped": jobs.len()}))
             }),
         "cooling.background.get" => Ok(lock(engine).background.view()),
         "cooling.support.settings" => params["unrestricted_enabled"]
@@ -361,6 +427,7 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     .fan_support
                     .set_unrestricted(enabled)
                     .map_err(|e| (-32000, e))?;
+                engine.hwmon.set_unrestricted(enabled);
                 Ok(json!({"background_reapplied": !enabled && engine.reapply_background()}))
             }),
         "cooling.channels.unlock" | "cooling.channels.confirm_pump" => {
@@ -379,6 +446,17 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 let mut engine = lock(engine);
                 let removed = engine.fan_support.revoke(control_id).map_err(|e| (-32000, e))?;
                 Ok(json!({"revoked": removed, "background_reapplied": removed && engine.reapply_background()}))
+            }),
+        "mainboard_rgb.get" => Ok(lock(engine).mainboard_rgb.view()),
+        "mainboard_rgb.save" => serde_json::from_value(params["settings"].clone())
+            .map_err(invalid_params)
+            .and_then(|settings: crate::mainboard_rgb::Settings| {
+                let mut engine = lock(engine);
+                engine.mainboard_rgb.save(settings).map_err(|e| (-32602, e))?;
+                // Reopened by the next periodic scan with the new header table
+                // (or left alone when management was switched off).
+                let released = engine.remove_devices(|id| is_mainboard_device(&id.0));
+                Ok(json!({"saved": true, "released": released}))
             }),
         "onboarding.get" => Ok(lock(engine).onboarding.view()),
         "onboarding.complete" => lock(engine)
@@ -477,7 +555,12 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             .as_u64()
             .ok_or_else(|| invalid_params("job_id required"))
             .and_then(|job| {
-                lock(engine)
+                let mut engine = lock(engine);
+                // An explicit stop also ends the remembered assignment.
+                if let Some(control) = engine.cooling_sessions.active_control(job) {
+                    engine.cooling_assignments.forget(&control);
+                }
+                engine
                     .cooling_sessions
                     .stop(job)
                     .map(|()| json!(true))
@@ -626,6 +709,19 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                     }
                     engine.background.helper()
                 };
+                let hwmon = {
+                    let engine = lock(engine);
+                    engine
+                        .hwmon
+                        .started()
+                        .then(|| engine.hwmon.set_paused(paused))
+                };
+                if let Some(result) = hwmon {
+                    let state = result.map_err(|e| (-32006, e))?;
+                    if helper.is_none() {
+                        return Ok(json!({"paused": state}));
+                    }
+                }
                 let helper = helper.ok_or_else(|| {
                     (-32006, "Fan control requires the optional mainboard service".to_owned())
                 })?;
@@ -1173,5 +1269,34 @@ mod tests {
         );
         assert_eq!(r["error"]["code"], json!(-32602));
         assert!(handle_line(&e, r#"{"id":6,"method":"daemon.shutdown"}"#).shutdown);
+    }
+}
+
+/// Device ids opened by motherboard RGB adapters (`hid:vvvv:pppp:serial`).
+fn is_mainboard_device(id: &str) -> bool {
+    let mut parts = id.split(':');
+    let (Some("hid"), Some(vid), Some(pid)) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    let (Ok(vid), Ok(pid)) = (u16::from_str_radix(vid, 16), u16::from_str_radix(pid, 16)) else {
+        return false;
+    };
+    // Any interface of the controller: the registry knows the adapter family.
+    [(0xFF72, 0x00A1), (0xFF89, 0x00CC), (0x0001, 0x0000)]
+        .iter()
+        .any(|(page, usage)| {
+            freergb_protocols::registry::match_interface(vid, pid, *page, *usage)
+                .is_some_and(|m| freergb_protocols::registry::is_mainboard_rgb(m.adapter))
+        })
+}
+
+#[cfg(test)]
+mod mainboard_rgb_tests {
+    #[test]
+    fn mainboard_device_ids_are_recognised() {
+        assert!(super::is_mainboard_device("hid:0b05:19af:ABC"));
+        assert!(super::is_mainboard_device("hid:048d:5702:noserial"));
+        assert!(!super::is_mainboard_device("hid:1b1c:1bfd:x"));
+        assert!(!super::is_mainboard_device("virtual:0"));
     }
 }

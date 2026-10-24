@@ -12,11 +12,13 @@ mod ffi;
 mod pages;
 #[cfg(windows)]
 mod preview;
+// Platform-neutral so its tests run everywhere; only the Windows app uses it.
+#[cfg_attr(not(windows), allow(dead_code))]
+mod rpc;
 #[cfg(windows)]
 mod theme;
 #[cfg(windows)]
 mod ui;
-mod rpc;
 
 fn main() {
     #[cfg(windows)]
@@ -91,7 +93,8 @@ mod app {
             let instance = GetModuleHandleW(std::ptr::null());
             let class_name = wide("freeRGBClassic");
             let title = wide("freeRGB Classic");
-            let icon = LoadImageW(instance, 1 as *const u16, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE) as HICON;
+            let icon =
+                LoadImageW(instance, 1 as *const u16, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE) as HICON;
             let class = WNDCLASSW {
                 style: CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW,
                 lpfnWndProc: Some(wndproc),
@@ -106,7 +109,12 @@ mod app {
             };
             if RegisterClassW(&class) == 0 {
                 let message = wide("RegisterClassW failed.");
-                MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_ICONERROR | MB_OK);
+                MessageBoxW(
+                    std::ptr::null_mut(),
+                    message.as_ptr(),
+                    title.as_ptr(),
+                    MB_ICONERROR | MB_OK,
+                );
                 return;
             }
             let hwnd = CreateWindowExW(
@@ -125,7 +133,12 @@ mod app {
             );
             if hwnd.is_null() {
                 let message = wide("CreateWindowExW failed.");
-                MessageBoxW(std::ptr::null_mut(), message.as_ptr(), title.as_ptr(), MB_ICONERROR | MB_OK);
+                MessageBoxW(
+                    std::ptr::null_mut(),
+                    message.as_ptr(),
+                    title.as_ptr(),
+                    MB_ICONERROR | MB_OK,
+                );
                 return;
             }
             let (tx, snapshot) = crate::rpc::start(hwnd as isize);
@@ -172,7 +185,11 @@ mod app {
         let width = (ui_width - x0 - MARGIN).max(120.0);
         let headroom = content_headroom(pages);
         let visible = (ui_height - headroom - MARGIN).max(40.0);
-        (Rect::new(x0, HEADER_HEIGHT + ROW, width, visible), headroom, visible)
+        (
+            Rect::new(x0, HEADER_HEIGHT + ROW, width, visible),
+            headroom,
+            visible,
+        )
     }
 
     fn note_open(pages: &Pages) -> bool {
@@ -183,11 +200,23 @@ mod app {
     }
 
     fn content_headroom(pages: &Pages) -> f32 {
-        HEADER_HEIGHT + ROW + if note_open(pages) { NOTE_HEIGHT + ROW } else { 0.0 } + ROW
+        HEADER_HEIGHT
+            + ROW
+            + if note_open(pages) {
+                NOTE_HEIGHT + ROW
+            } else {
+                0.0
+            }
+            + ROW
     }
 
     #[cfg(windows)]
-    unsafe extern "system" fn wndproc(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    unsafe extern "system" fn wndproc(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
         let state = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut App;
         if state.is_null() {
             return DefWindowProcW(hwnd, message, wparam, lparam);
@@ -274,7 +303,10 @@ mod app {
                 let delta = (wparam >> 16) as i16;
                 app.input.wheel += (delta as f32 / 120.0).round() as i32;
                 if app.widgets.popup.is_none() {
-                    let mut pt = POINT { x: point(lparam).0, y: point(lparam).1 };
+                    let mut pt = POINT {
+                        x: point(lparam).0,
+                        y: point(lparam).1,
+                    };
                     ScreenToClient(hwnd, &mut pt);
                     let x = pt.x as f32 / app.scale;
                     if app.input.valid {
@@ -284,13 +316,15 @@ mod app {
                         let height = rect.bottom as f32 / app.scale;
                         if x >= NAV_WIDTH + DEVICES_WIDTH {
                             let (_, headroom, visible) = content_rect(&app.pages, width, height);
-                            let max = (app.pages.content_height + app.pages.scroll - headroom - visible)
-                                .max(0.0);
+                            let max =
+                                (app.pages.content_height + app.pages.scroll - headroom - visible)
+                                    .max(0.0);
                             app.pages.scroll =
                                 (app.pages.scroll - app.input.wheel as f32 * 48.0).clamp(0.0, max);
                         } else if x >= NAV_WIDTH {
                             let visible = (height - HEADER_HEIGHT - ROW - MARGIN).max(40.0);
-                            let max = (app.pages.devices_height + app.pages.devices_scroll - visible)
+                            let max = (app.pages.devices_height + app.pages.devices_scroll
+                                - visible)
                                 .max(0.0);
                             app.pages.devices_scroll = (app.pages.devices_scroll
                                 - app.input.wheel as f32 * 48.0)
@@ -381,9 +415,17 @@ mod app {
         // Clear the backing store first: every widget paints onto the clean
         // frame, nothing of the previous frame survives (labels and sliders
         // fill only their own cells).
-        let client = RECT { left: 0, top: 0, right: w_px, bottom: h_px };
+        let client = RECT {
+            left: 0,
+            top: 0,
+            right: w_px,
+            bottom: h_px,
+        };
         FillRect(app.dc, &client, app.brushes.get(palette.window));
-        let guard = app.snapshot.lock().unwrap_or_else(|error| error.into_inner());
+        let guard = app
+            .snapshot
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         let snapshot: &Snapshot = &guard;
         // Chrome pass: header, navigation and the scroll thumb (absolute
         // input). Device pass and content pass follow below.
@@ -423,7 +465,7 @@ mod app {
             // only while the dropdown or the toast note is open (the list
             // scrolls), otherwise the chrome already scrolled the column.
             let popup_open = app.widgets.popup.is_some();
-        let wheel = if popup_open { app.input.wheel } else { 0 };
+            let wheel = if popup_open { app.input.wheel } else { 0 };
             let shifted = shifted_input(&app.input, app.pages.scroll, wheel);
             let mut ui = ui::Ui::new(
                 app.dc,
@@ -491,7 +533,14 @@ mod app {
         } else {
             ui.fill(&rect, ui.palette.nav);
         }
-        ui.line(0.0, HEADER_HEIGHT - 1.0, ui.width, HEADER_HEIGHT - 1.0, ui.palette.border, 1);
+        ui.line(
+            0.0,
+            HEADER_HEIGHT - 1.0,
+            ui.width,
+            HEADER_HEIGHT - 1.0,
+            ui.palette.border,
+            1,
+        );
         ui.text(
             &Rect::new(MARGIN, 14.0, 260.0, 26.0),
             "freeRGB · Classic",
@@ -501,7 +550,11 @@ mod app {
         );
         let connected = snapshot.connected;
         let color = if connected { theme::GOOD } else { theme::BAD };
-        let status = if connected { "● daemon connected" } else { "● daemon not reachable" };
+        let status = if connected {
+            "● daemon connected"
+        } else {
+            "● daemon not reachable"
+        };
         ui.text(
             &Rect::new(ui.width - 290.0, 14.0, 278.0, 26.0),
             status,
@@ -572,9 +625,21 @@ mod app {
     }
 
     fn nav(ui: &mut Ui, pages: &mut Pages, style: &mut Style) {
-        let rail = Rect::new(0.0, HEADER_HEIGHT - 1.0, NAV_WIDTH, (ui.height - HEADER_HEIGHT).max(0.0));
+        let rail = Rect::new(
+            0.0,
+            HEADER_HEIGHT - 1.0,
+            NAV_WIDTH,
+            (ui.height - HEADER_HEIGHT).max(0.0),
+        );
         ui.fill(&rail, ui.palette.nav);
-        ui.line(NAV_WIDTH, HEADER_HEIGHT, NAV_WIDTH, ui.height, ui.palette.border, 1);
+        ui.line(
+            NAV_WIDTH,
+            HEADER_HEIGHT,
+            NAV_WIDTH,
+            ui.height,
+            ui.palette.border,
+            1,
+        );
         let mut y = HEADER_HEIGHT + MARGIN;
         for (name, index) in PAGES {
             let rect = Rect::new(10.0, y, NAV_WIDTH - 20.0, 30.0);
@@ -588,7 +653,11 @@ mod app {
                     Some(ui.palette.list_selected_border),
                 );
             } else if hovered {
-                ui.box_(&rect, Some((ui.palette.list_hover, ui.palette.list_hover)), None);
+                ui.box_(
+                    &rect,
+                    Some((ui.palette.list_hover, ui.palette.list_hover)),
+                    None,
+                );
             }
             ui.text(
                 &rect,
@@ -605,7 +674,12 @@ mod app {
         }
         // Skin switch at the rail's bottom; the choice is saved next to the
         // Classic GUI's files.
-        let skin = Rect::new(10.0, (ui.height - MARGIN - 30.0).max(y), NAV_WIDTH - 20.0, 30.0);
+        let skin = Rect::new(
+            10.0,
+            (ui.height - MARGIN - 30.0).max(y),
+            NAV_WIDTH - 20.0,
+            30.0,
+        );
         let id = ui::id(&["chrome", "skin"]);
         if ui.button_at(id, &skin, &format!("Skin: {}", style.label()), false) {
             *style = style.other();
@@ -614,11 +688,7 @@ mod app {
     }
 
     /// Vertical scroll thumb of the page column (the wheel also scrolls).
-    fn chrome_scrollbar(
-        ui: &mut Ui,
-        pages: &mut Pages,
-        anchor: &mut Option<(f32, f32)>,
-    ) {
+    fn chrome_scrollbar(ui: &mut Ui, pages: &mut Pages, anchor: &mut Option<(f32, f32)>) {
         let (view, headroom, visible) = content_rect(pages, ui.width, ui.height);
         // `content` stores the final cursor y (= headroom - scroll + height),
         // so the page height is content_height + scroll - headroom.
@@ -680,7 +750,11 @@ mod app {
                 ui.heading("Devices");
                 if snapshot.devices.is_empty() {
                     ui.label_color(
-                        if snapshot.connected { "No devices." } else { "Start freergbd to see devices." },
+                        if snapshot.connected {
+                            "No devices."
+                        } else {
+                            "Start freergbd to see devices."
+                        },
                         Font::Body,
                         ui.palette.text_dim,
                     );
@@ -704,11 +778,19 @@ mod app {
                         ui.advance(16.0 + ROW);
                         if ui.button_enabled(
                             ui::id(&["chrome", "plugin", &id]),
-                            if enabled { "Stop plugin" } else { "Start plugin" },
+                            if enabled {
+                                "Stop plugin"
+                            } else {
+                                "Start plugin"
+                            },
                             false,
                             snapshot.connected && allowed,
                         ) {
-                            let method = if enabled { "plugins.stop" } else { "plugins.start" };
+                            let method = if enabled {
+                                "plugins.stop"
+                            } else {
+                                "plugins.start"
+                            };
                             let _ = tx.send(Command {
                                 method,
                                 params: serde_json::json!({"id": id}),
@@ -724,8 +806,7 @@ mod app {
                 }
                 // Page-space height of the panel content, same trick as the
                 // page column: the cursor runs at `- scroll`.
-                pages.devices_height =
-                    ui.cursor.1 - (HEADER_HEIGHT + ROW) + pages.devices_scroll;
+                pages.devices_height = ui.cursor.1 - (HEADER_HEIGHT + ROW) + pages.devices_scroll;
             });
         }
         let total = pages.devices_height.max(visible);
@@ -747,12 +828,32 @@ mod app {
             Some(Value::Object(map)) => map.keys().next().cloned().unwrap_or_default(),
             _ => "?".into(),
         };
-        let error = device.get("last_error").and_then(Value::as_str).map(str::to_owned);
-        let firmware = info.get("firmware").and_then(Value::as_str).map(str::to_owned);
-        let card_h = 92.0 + if firmware.is_some() || error.is_some() { 16.0 } else { 0.0 };
+        let error = device
+            .get("last_error")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let firmware = info
+            .get("firmware")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let card_h = 92.0
+            + if firmware.is_some() || error.is_some() {
+                16.0
+            } else {
+                0.0
+            };
         let column = (ui.bounds.0, ui.bounds.1);
-        let card = Rect::new(ui.bounds.0 - 4.0, ui.cursor.1, ui.column_width() + 8.0, card_h);
-        ui.box_(&card, Some((ui.palette.card, ui.palette.card)), Some(ui.palette.border));
+        let card = Rect::new(
+            ui.bounds.0 - 4.0,
+            ui.cursor.1,
+            ui.column_width() + 8.0,
+            card_h,
+        );
+        ui.box_(
+            &card,
+            Some((ui.palette.card, ui.palette.card)),
+            Some(ui.palette.border),
+        );
         let mut y = card.y + 8.0;
         ui.text(
             &Rect::new(card.x + 10.0, y, card.w - 24.0, 16.0),
@@ -789,12 +890,19 @@ mod app {
             &Rect::new(card.x + 10.0, y, card.w - 24.0, 14.0),
             &format!("● {status}"),
             Font::Small,
-            if status == "Connected" { theme::GOOD } else { theme::WARN },
+            if status == "Connected" {
+                theme::GOOD
+            } else {
+                theme::WARN
+            },
             DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
         );
         y += 17.0;
         // Per-device brightness, mirroring the Classic device row.
-        let reported = device.get("brightness").and_then(Value::as_f64).unwrap_or(1.0) as f32;
+        let reported = device
+            .get("brightness")
+            .and_then(Value::as_f64)
+            .unwrap_or(1.0) as f32;
         if pages
             .device_brightness
             .get(&id)
@@ -802,7 +910,11 @@ mod app {
         {
             pages.device_brightness.remove(&id);
         }
-        let mut value = pages.device_brightness.get(&id).copied().unwrap_or(reported);
+        let mut value = pages
+            .device_brightness
+            .get(&id)
+            .copied()
+            .unwrap_or(reported);
         let display = format!("{:.0} %", value * 100.0);
         ui.set_bounds(card.x + 10.0, card.right() - 10.0);
         ui.set_cursor(card.x + 10.0, y);
@@ -871,14 +983,23 @@ mod app {
             pages.content_height = 0.0;
             let (view, headroom, visible) = content_rect(&pages, 1000.0, 600.0);
             // Without a toast note the page starts one row below the header.
-            assert!((headroom - (HEADER_HEIGHT + ROW + ROW)).abs() < 0.01, "plain headroom");
+            assert!(
+                (headroom - (HEADER_HEIGHT + ROW + ROW)).abs() < 0.01,
+                "plain headroom"
+            );
             assert!((view.y - (HEADER_HEIGHT + ROW)).abs() < 0.01, "view top");
-            assert!((visible - (600.0 - headroom - MARGIN)).abs() < 0.01, "visible");
+            assert!(
+                (visible - (600.0 - headroom - MARGIN)).abs() < 0.01,
+                "visible"
+            );
             // With a note open the content moves down; the same math drives
             // the scroll clamp in the wheel handler.
             pages.note = Some(("hello".to_owned(), std::time::Instant::now()));
             let (_, headroom_note, _) = content_rect(&pages, 1000.0, 600.0);
-            assert!((headroom_note - headroom - NOTE_HEIGHT - ROW).abs() < 0.01, "note headroom");
+            assert!(
+                (headroom_note - headroom - NOTE_HEIGHT - ROW).abs() < 0.01,
+                "note headroom"
+            );
         }
     }
 }

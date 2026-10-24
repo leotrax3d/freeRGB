@@ -63,7 +63,7 @@ impl MainboardCooling {
         curve: &FanCurve,
     ) {
         let status = &snapshot.control["cooling_session"];
-        ui.label("Experimental motherboard fan control. Selecting a channel does not prove its physical header or PWM/DC mode.");
+        ui.label("Motherboard fan control. Selecting a channel does not prove its physical header or PWM/DC mode.");
         if status["available"] != true {
             ui.label("Install/enable the optional mainboard provider, then restart through the launcher. Live control requires the current protected service.");
             return;

@@ -138,7 +138,6 @@ Same-version active replacement passed on CHA_FAN2. Remaining gates:
 - Interactive public API/Classic UAC and verified-return acceptance.
 - Broader service/boot transitions and driver/native-hang acceptance.
 - Release-to-release upgrade, rollback, actual uninstall and maintenance failures.
-- Multiple native channel reservations and modern-GUI live-session parity.
 - Wider fan/chip and RGB-controller hardware acceptance.
 
 ## Protected diagnostic files
@@ -179,3 +178,33 @@ hardware inside the worker, and any missing or unreadable source stops the
 fresh samples so the independent guard returns the channel. The RPM sensor must
 stay on the control's chip. Validation: `NativeSources` (C#) and
 `cooling_sessions::temperature_sources` (Rust).
+
+## Multiple channels (2026-10-24)
+
+Up to 16 channels run at once (`MAX_ACTIVE`); each is its own task with its own
+native worker, lease, watchdog and firmware return, and the daemon command queue is
+bounded. A sensor, lease or worker fault ends only that channel (100 % / BIOS
+return as before). Because each channel has its own worker process, a worker or
+transport failure returns that worker's channel; the protected journal (v2, up to
+16 reservations, v1 still read and written for one channel) lets recovery return
+every orphaned channel after a crash. Daemon shutdown and `stop_all` return all.
+
+API (additive): `cooling.sessions.list`, `cooling.sessions.stop_channel
+{control_id}`, `cooling.sessions.stop_all`. `start/stop/status` are unchanged.
+
+`cooling-assignments.json` remembers curve and fixed-speed channels with their
+hardware identity (chip device id, native control, saved channel binding). At
+daemon start they resume through the normal policy only if the identity is
+unchanged; otherwise they are listed as `needs_attention` and not started. An
+explicit stop forgets the assignment. Windows still authorizes each resumed
+channel through the protected helper; the GUI asks the user only once per app
+session.
+
+Safety mechanisms are unchanged: watchdog, lease expiry, journal recovery, tier
+floors, pumps only at 100 %, BIOS return.
+
+### Hardware validation
+
+Real hardware: same-version replacement on CHA_FAN2 (single channel, see above).
+Concurrent multi-channel operation is verified against mocks and synthetic C#
+journal tests only. Please report results with the "Hardware report" issue template.

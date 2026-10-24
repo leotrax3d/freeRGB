@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { OctagonX } from "lucide-react";
 import { Section } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -7,6 +8,51 @@ import { useAction } from "@/lib/store/useAction";
 import { Banner } from "@/components/status";
 import { SupportBadge } from "./SupportBadge";
 import { channelTier, controlRefusal, tierLabel } from "./support";
+import { floorFor } from "./fanModel";
+import { activeCount, clampDuty, liveChannels, liveConfirmation, type SessionList } from "./liveModel";
+
+/** Live state of every channel with per-channel and global stop. */
+export function LiveChannels() {
+  useSlices("cooling_session", "cooling_channels");
+  const session = useDaemon((s) => s.cooling_session);
+  const channels = useDaemon((s) => s.cooling_channels);
+  const connected = useDaemon((s) => s.connection?.connected);
+  const [list, setList] = useState<SessionList | null>(null);
+  const { pending, error, run } = useAction();
+  useEffect(() => {
+    let live = true;
+    rpc<SessionList>("cooling.sessions.list").then((l) => { if (live) setList(l); }, () => { if (live) setList(null); });
+    return () => { live = false; };
+  }, [session]);
+  const rows = liveChannels(session, list);
+  const active = activeCount(session);
+  const name = (id: string) => channels?.find((c) => c.kind === "control" && c.reading.id === id)?.name ?? id;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-small">{active} of {list?.max_active ?? 16} channels under live control</span>
+        <Button variant="danger" className="ml-auto" disabled={!connected || active === 0 || pending !== null}
+          onClick={() => run("stop_all", () => rpc("cooling.sessions.stop_all"))}><OctagonX />Stop all and return to BIOS</Button>
+      </div>
+      {rows.length > 0 && (
+        <ul className="flex flex-col divide-y divide-border rounded-control border border-border">
+          {rows.map((r) => (
+            <li key={r.control_id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-small">
+              <span className="font-medium">{name(r.control_id)}</span>
+              <span className={r.state === "fault" || r.state === "needs_attention" ? "text-danger-text" : "text-text-muted"}>{r.label}</span>
+              {r.error && <span className="basis-full text-caption text-text-subtle">{r.error}</span>}
+              {r.job_id !== null && ["starting", "curve", "manual", "test"].includes(r.state) && (
+                <Button size="sm" variant="secondary" className="ml-auto" disabled={pending !== null}
+                  onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: r.control_id }))}>Stop</Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
+    </div>
+  );
+}
 
 export function LiveSession() {
   useSlices("cooling_bindings", "cooling_session", "cooling_channels", "monitoring_sensors", "providers", "cooling_support");
@@ -22,7 +68,9 @@ export function LiveSession() {
   const [curveName, setCurveName] = useState("");
   const [manualDuty, setManualDuty] = useState(60);
   const { pending, error, run } = useAction();
-  const busy = ["authorizing", "executing", "stopping"].includes(status?.state ?? "");
+  const [asking, setAsking] = useState<null | (() => void)>(null);
+  // Several channels can run at once; only the selected channel's own job blocks it.
+  const busy = (status?.jobs ?? []).some((j) => j.control_id === control && ["authorizing", "executing", "stopping"].includes(j.state));
   const curve = curves?.[curveName];
   const selected = channels?.find((c) => c.kind === "control" && c.reading.id === control);
   const tier = channelTier(selected);
@@ -36,13 +84,28 @@ export function LiveSession() {
     && sensors?.some((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C" && s.sensor.id === temperature);
   const ready = connected && status?.available && status.state !== "blocked" && !busy && confirmed && selectionValid && !refusal && pending === null;
   const evidence = support?.channels[control];
-  const start = (mode: "curve" | "calibration" | "channel_test" | "manual") => run("start", () => rpc("cooling.sessions.start", {
+  const floor = floorFor({ role, evidence: evidence ?? null, tier }, support?.unrestricted_enabled ?? false);
+  const duty = clampDuty(manualDuty, floor);
+  const send = (mode: "curve" | "calibration" | "channel_test" | "manual") => run("start", () => rpc("cooling.sessions.start", {
     mode, control_id: control, rpm_id: rpm, temperature_id: temperature, confirmed_fan: confirmed,
-    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: manualDuty } : { critical_c: curve?.critical_c ?? 80 }),
+    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: duty } : { critical_c: curve?.critical_c ?? 80 }),
   }));
+  // One confirmation per app session, not per channel; the service still checks each.
+  const start = (mode: "curve" | "calibration" | "channel_test" | "manual") => {
+    if (liveConfirmation.needed()) setAsking(() => () => send(mode));
+    else send(mode);
+  };
   return (
     <Section title="Live motherboard fan control">
-      <p className="text-small text-text-muted">Experimental. Select the physical fan and its matching RPM and temperature. Starting requests Windows authorization. Closing this window leaves the daemon and fan session running.</p>
+      <p className="text-small text-text-muted">Run curves or fixed speeds on several fans at once. Select the physical fan and its matching RPM and temperature. Windows authorization is requested when a channel starts. Closing this window leaves the daemon and its fan sessions running; remembered channels resume after a restart while their hardware is unchanged.</p>
+      {status?.available && <LiveChannels />}
+      {asking && (
+        <Banner tone="warn">
+          <span className="flex-1">freeRGB will control this fan directly. Safety limits stay active: pumps at 100 %, fans never below their tier floor, any sensor or worker fault returns the fan to the BIOS. You are asked once per session.</span>
+          <Button size="sm" variant="primary" onClick={() => { liveConfirmation.confirm(); const go = asking; setAsking(null); go(); }}>Continue</Button>
+          <Button size="sm" variant="ghost" onClick={() => setAsking(null)}>Cancel</Button>
+        </Banner>
+      )}
       {!status?.available ? <p className="text-small text-text-subtle">Live control is unavailable. Enable the optional motherboard provider through the installer and restart the daemon.</p> : <>
         <div className="grid gap-3 md:grid-cols-2">
           {([ ["Fan output", "control", control, setControl], ["Matching fan RPM", "fan", rpm, setRpm] ] as const).map(([label, kind, value, set]) => (
@@ -62,14 +125,14 @@ export function LiveSession() {
           <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("calibration")}>Calibrate fan (UAC)</Button>
           <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("channel_test")}>Run channel test (UAC)</Button>
           <label className="flex items-center gap-2 text-small">Fixed duty
-            <input type="number" min={0} max={100} value={manualDuty} onChange={(e) => setManualDuty(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} className="w-16 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label="Fixed duty percent" /> %
+            <input type="number" min={floor} max={100} value={manualDuty} onBlur={() => setManualDuty(duty)} onChange={(e) => setManualDuty(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} className="w-16 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label="Fixed duty percent" /> %
           </label>
           <Button variant="secondary" disabled={!ready} onClick={() => start("manual")}>Run fixed duty (UAC)</Button>
         </div>
       </>}
       <div className="flex items-center gap-3 text-small">
         <span>Session: {status?.state ?? "unavailable"}{status?.job_id != null ? ` · ${status.job_id}` : ""}{status?.tier ? ` · ${tierLabel(status.tier)}` : ""}</span>
-        <Button variant="secondary" disabled={!connected || !busy || status?.job_id == null || pending !== null} onClick={() => run("stop", () => rpc("cooling.sessions.stop", { job_id: status?.job_id }))}>Stop and return to firmware</Button>
+        <Button variant="secondary" disabled={!connected || !busy || pending !== null} onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: control }))}>Stop this channel</Button>
       </div>
       {(error || status?.error) && <p role="alert" className="text-small text-danger-text">{error || status?.error}</p>}
       {status?.report != null && <details className="text-small"><summary>Last execution / calibration result</summary><pre className="overflow-auto whitespace-pre-wrap text-caption">{JSON.stringify(status.report, null, 2)}</pre></details>}

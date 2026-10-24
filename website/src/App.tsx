@@ -2,12 +2,13 @@ import { useEffect, useState, type ReactNode } from "react"
 import {
   Activity, ArrowUpRight, AudioLines, Cable, Check, CircleHelp, Cpu, Download, Fan,
   Github, Keyboard, Layers, LayoutDashboard, Monitor, MonitorUp, Package, PlugZap,
-  Search, Settings, ShieldCheck, Sparkles, Terminal, type LucideIcon,
+  Search, ScanSearch, Settings, ShieldCheck, Sparkles, Terminal, type LucideIcon,
 } from "lucide-react"
 import wordmark from "../../assets/brand/wordmark-dark.svg"
 import appIcon from "../../assets/icons/freergb-32.png"
 import bundledWebsiteContent from "../../docs/WEBSITE_CONTENT.md?raw"
 import { LiveDemo } from "./components/LiveDemo"
+import { HardwareCheck } from "./components/HardwareCheck"
 
 const repo = "https://github.com/leotrax3d/FreeRGB"
 
@@ -112,6 +113,7 @@ export default function App() {
     { id: "overview", label: "Overview", icon: Sparkles },
     { id: "demo", label: "Live demo", icon: Monitor },
     ...groups.slice(0, 3).map(({ id, nav: label, icon }) => ({ id, label, icon })),
+    { id: "check", label: "Check your hardware", icon: ScanSearch },
     { id: "compatibility", label: "Compatibility", icon: Search },
     { id: "platform", label: "Open platform", icon: PlugZap },
     { id: "install", label: "Install", icon: Download },
@@ -196,6 +198,7 @@ export default function App() {
         <SideLink href="#demo" icon={Monitor} active={activeSection === "demo"}>Live demo</SideLink>
         {groups.slice(0, 3).map((group) => <SideLink key={group.id} href={`#${group.id}`} icon={group.icon} active={activeSection === group.id}>{group.nav}</SideLink>)}
         <span className="nav-label second">Project</span>
+        <SideLink href="#check" icon={ScanSearch} active={activeSection === "check"}>Check your hardware</SideLink>
         <SideLink href="#compatibility" icon={Search} active={activeSection === "compatibility"}>Compatibility</SideLink>
         <SideLink href="#platform" icon={PlugZap} active={activeSection === "platform"}>Open platform</SideLink>
         <SideLink href="#install" icon={Download} active={activeSection === "install"}>Install</SideLink>
@@ -223,6 +226,11 @@ export default function App() {
         <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2><p>{group.description}</p></div></header>
         <div className="feature-list">{group.features.map((feature) => <FeatureRow key={feature.title} feature={feature} content={websiteData.featureDetails[feature.title]} />)}</div>
       </section>)}
+
+      <section id="check" className="catalog view-section">
+        <header className="view-header"><div className="view-symbol"><ScanSearch size={18} /></div><div><h2>Check your hardware</h2><p>Search for your exact keyboard, mouse, fan controller, AIO or motherboard and see whether freeRGB supports it.</p></div></header>
+        <HardwareCheck />
+      </section>
 
       <section id="compatibility" className="catalog view-section">
         <header className="view-header"><div className="view-symbol"><Search size={18} /></div><div><h2>Hardware support</h2><p>See which hardware classes and capabilities are currently available.</p></div></header>

@@ -232,9 +232,7 @@ impl Ui<'_> {
 
     /// True when the press that `id` owns is released inside `rect`.
     pub fn click(&mut self, id: u64, rect: &Rect) -> bool {
-        self.input.just_up
-            && self.widgets.press == Some(id)
-            && self.contains(rect)
+        self.input.just_up && self.widgets.press == Some(id) && self.contains(rect)
     }
 
     // ---- primitives ----
@@ -408,10 +406,7 @@ impl Ui<'_> {
                 GetTextExtentPoint32W(self.dc, wide.as_ptr(), wide.len() as i32, &mut size);
             }
             SelectObject(self.dc, old);
-            (
-                size.cx as f32 / self.scale,
-                size.cy as f32 / self.scale,
-            )
+            (size.cx as f32 / self.scale, size.cy as f32 / self.scale)
         }
     }
 
@@ -466,7 +461,15 @@ impl Ui<'_> {
     pub fn clip(&mut self, rect: &Rect, draw: impl FnOnce(&mut Self)) {
         let saved = unsafe { SaveDC(self.dc) };
         let rect_px = self.px(rect);
-        unsafe { IntersectClipRect(self.dc, rect_px.left, rect_px.top, rect_px.right, rect_px.bottom) };
+        unsafe {
+            IntersectClipRect(
+                self.dc,
+                rect_px.left,
+                rect_px.top,
+                rect_px.right,
+                rect_px.bottom,
+            )
+        };
         draw(self);
         unsafe { RestoreDC(self.dc, saved) };
     }
@@ -486,7 +489,13 @@ impl Ui<'_> {
         let empty = lines.is_empty();
         for line in lines {
             let rect = Rect::new(self.cursor.0, self.cursor.1, self.column_width(), line_h);
-            self.text(&rect, &line, font, color, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+            self.text(
+                &rect,
+                &line,
+                font,
+                color,
+                DT_LEFT | DT_VCENTER | DT_SINGLELINE,
+            );
             self.cursor.1 += line_h + 3.0;
         }
         if !empty {
@@ -604,7 +613,13 @@ impl Ui<'_> {
                 );
             }
         }
-        self.text(rect, text, Font::Body, color, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        self.text(
+            rect,
+            text,
+            Font::Body,
+            color,
+            DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+        );
         enabled && self.click(id, rect)
     }
 
@@ -639,7 +654,11 @@ impl Ui<'_> {
             self.box_(
                 &box_rect,
                 Some((self.palette.field, self.palette.field)),
-                Some(if hovered { self.palette.accent } else { self.palette.field_border }),
+                Some(if hovered {
+                    self.palette.accent
+                } else {
+                    self.palette.field_border
+                }),
             );
         }
         let text_rect = Rect::new(
@@ -648,7 +667,13 @@ impl Ui<'_> {
             (rect.w - box_rect.w - 6.0).max(0.0),
             rect.h,
         );
-        self.text(&text_rect, text, Font::Body, self.palette.text, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+        self.text(
+            &text_rect,
+            text,
+            Font::Body,
+            self.palette.text,
+            DT_LEFT | DT_VCENTER | DT_SINGLELINE,
+        );
         clicked
     }
 
@@ -693,7 +718,11 @@ impl Ui<'_> {
         );
         let center = track.y + track.h / 2.0;
         let groove = Rect::new(track.x, center - 3.0, track.w, 6.0);
-        self.box_(&groove, Some((self.palette.track, self.palette.track)), Some(self.palette.field_border));
+        self.box_(
+            &groove,
+            Some((self.palette.track, self.palette.track)),
+            Some(self.palette.field_border),
+        );
         let t = ((*value - min) / (max - min).max(f32::EPSILON)).clamp(0.0, 1.0);
         // The thumb travels inside the rail so it never clips at the ends.
         let travel = (track.w - 14.0).max(0.0);
@@ -736,12 +765,23 @@ impl Ui<'_> {
         self.text_input_at(id, &rect, value, true, None)
     }
 
-    fn text_input_at(&mut self, id: u64, rect: &Rect, value: &mut String, multiline: bool, hint: Option<&str>) -> bool {
+    fn text_input_at(
+        &mut self,
+        id: u64,
+        rect: &Rect,
+        value: &mut String,
+        multiline: bool,
+        hint: Option<&str>,
+    ) -> bool {
         if self.input.just_down && self.contains(rect) && self.widgets.press.is_none() {
             self.widgets.press = Some(id);
             if self.widgets.focus != Some(id) {
                 self.widgets.focus = Some(id);
-                self.widgets.caret = if multiline { (0, 0) } else { (0, value.chars().count()) };
+                self.widgets.caret = if multiline {
+                    (0, 0)
+                } else {
+                    (0, value.chars().count())
+                };
             } else {
                 self.widgets.caret = edit::caret_at_point(self, rect, value, multiline);
             }
@@ -754,7 +794,11 @@ impl Ui<'_> {
         self.box_(
             rect,
             Some((self.palette.field, self.palette.field)),
-            Some(if focused { self.palette.focus_border } else { self.palette.field_border }),
+            Some(if focused {
+                self.palette.focus_border
+            } else {
+                self.palette.field_border
+            }),
         );
         if focused {
             // The soft outer glow ring around a focused field.
@@ -849,7 +893,11 @@ impl Ui<'_> {
         self.box_(
             &rect,
             Some((self.palette.field, self.palette.field)),
-            Some(if self.contains(&rect) { self.palette.button.hover_border } else { self.palette.field_border }),
+            Some(if self.contains(&rect) {
+                self.palette.button.hover_border
+            } else {
+                self.palette.field_border
+            }),
         );
         let text = selected
             .and_then(|index| items.get(index))
@@ -859,7 +907,11 @@ impl Ui<'_> {
             &Rect::new(rect.x + 7.0, rect.y, rect.w - 30.0, rect.h),
             text,
             Font::Body,
-            if selected.is_some() { self.palette.text } else { self.palette.text_dim },
+            if selected.is_some() {
+                self.palette.text
+            } else {
+                self.palette.text_dim
+            },
             DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
         );
         // The Win7 dropdown compartment: separator line and its own field.
@@ -912,16 +964,26 @@ impl Ui<'_> {
             .offset
             .clamp(0, (popup.items.len() as i32 - visible).max(0));
         if self.contains(&list) && self.input.wheel != 0 {
-            offset = (offset - self.input.wheel).clamp(0, (popup.items.len() as i32 - visible).max(0));
+            offset =
+                (offset - self.input.wheel).clamp(0, (popup.items.len() as i32 - visible).max(0));
         }
-        self.box_(&list, Some((self.palette.field, self.palette.field)), Some(self.palette.border));
+        self.box_(
+            &list,
+            Some((self.palette.field, self.palette.field)),
+            Some(self.palette.border),
+        );
         let mut choice = None;
         for row in 0..visible {
             let index = offset + row;
             let Some(item) = popup.items.get(index as usize) else {
                 break;
             };
-            let rect = Rect::new(list.x + 1.0, list.y + row as f32 * item_h, list.w - 2.0, item_h);
+            let rect = Rect::new(
+                list.x + 1.0,
+                list.y + row as f32 * item_h,
+                list.w - 2.0,
+                item_h,
+            );
             let hovered = self.contains(&rect);
             if hovered {
                 self.fill(&rect, self.palette.list_hover);
@@ -949,8 +1011,8 @@ impl Ui<'_> {
 pub mod edit {
     use super::Ui;
     use crate::ffi::{
-        CloseClipboard, GetClipboardData, GlobalLock, GlobalUnlock, HGLOBAL, OpenClipboard,
-        CF_UNICODETEXT,
+        CloseClipboard, GetClipboardData, GlobalLock, GlobalUnlock, OpenClipboard, CF_UNICODETEXT,
+        HGLOBAL,
     };
 
     /// Byte offset of a (line, column) char caret.
@@ -996,7 +1058,12 @@ pub mod edit {
     }
 
     /// Caret for a click inside `rect` (single line only in v1).
-    pub fn caret_at_point(ui: &Ui, rect: &crate::ui::Rect, value: &str, multiline: bool) -> (usize, usize) {
+    pub fn caret_at_point(
+        ui: &Ui,
+        rect: &crate::ui::Rect,
+        value: &str,
+        multiline: bool,
+    ) -> (usize, usize) {
         if !multiline {
             let inner = rect.with_margin(6.0);
             let x = (ui.input.mouse.0 - inner.x).max(0.0);
@@ -1069,7 +1136,11 @@ pub mod edit {
                     }
                 }
                 0x25 => offset = offset.saturating_sub(prev_char_len(value, offset)),
-                0x26 if multiline => offset = line_start(value, offset).map(|o| line_start(value, o.saturating_sub(1)).unwrap_or(0)).unwrap_or(0),
+                0x26 if multiline => {
+                    offset = line_start(value, offset)
+                        .map(|o| line_start(value, o.saturating_sub(1)).unwrap_or(0))
+                        .unwrap_or(0)
+                }
                 0x27 => {
                     if offset < value.len() {
                         offset += value[offset..].chars().next().map_or(1, char::len_utf8);
@@ -1077,7 +1148,11 @@ pub mod edit {
                 }
                 0x28 if multiline => {
                     let start = line_start(value, offset).unwrap_or(0);
-                    offset = if start > 0 { line_start(value, start - 1).unwrap_or(0) } else { 0 };
+                    offset = if start > 0 {
+                        line_start(value, start - 1).unwrap_or(0)
+                    } else {
+                        0
+                    };
                 }
                 0x24 => offset = line_start(value, offset).unwrap_or(0),
                 0x23 => {

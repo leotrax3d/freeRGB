@@ -111,15 +111,19 @@ pub struct Engine {
     effect_fault: freergb_effect_host::runtime::Fault,
     activation_error: Option<String>,
     pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
+    pub cooling_assignments: crate::cooling_assignments::Assignments,
     pub background: crate::background::Background,
     pub fan_support: crate::fan_support::FanSupport,
     pub cooling_profiles: crate::cooling_profiles::CoolingProfiles,
     pub onboarding: crate::onboarding::Onboarding,
+    pub mainboard_rgb: crate::mainboard_rgb::MainboardRgb,
     recorded_test_job: Option<u64>,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
     pub controls: crate::control::Controls,
     pub mainboard: crate::mainboard::MainboardProvider,
+    /// Linux kernel hwmon fan headers (not started on other platforms).
+    pub hwmon: crate::hwmon::HwmonProvider,
     sensor_refresh_at: Option<Instant>,
     plugins: std::collections::BTreeMap<String, PluginEntry>,
     /// Hardware module setup service (absent with --no-modules).
@@ -304,11 +308,14 @@ impl Engine {
             keyboard: Default::default(),
             controls: Default::default(),
             mainboard: Default::default(),
+            hwmon: Default::default(),
             cooling_sessions: Default::default(),
             background: Default::default(),
             fan_support: Default::default(),
             cooling_profiles: Default::default(),
             onboarding: Default::default(),
+            mainboard_rgb: Default::default(),
+            cooling_assignments: Default::default(),
             recorded_test_job: None,
             sensor_refresh_at: None,
             plugins: Default::default(),
@@ -666,6 +673,10 @@ impl Engine {
                 .with_file(parent.join("cooling-profiles.json"));
             self.onboarding =
                 std::mem::take(&mut self.onboarding).with_file(parent.join("onboarding.json"));
+            self.cooling_assignments = std::mem::take(&mut self.cooling_assignments)
+                .with_file(parent.join("cooling-assignments.json"));
+            self.mainboard_rgb = std::mem::take(&mut self.mainboard_rgb)
+                .with_file(parent.join("mainboard-rgb.json"));
         }
         let s = state::load(&path);
         self.set_effect(s.effect);
@@ -1037,6 +1048,64 @@ impl Engine {
 
     /// Resolve the support tier and user evidence for a native control id from
     /// the protected inventory and bindings (never from the GUI request).
+    /// Current hardware identity of a native control for assignment checks.
+    pub fn cooling_identity(
+        &self,
+        control_id: &str,
+    ) -> Option<crate::cooling_assignments::Identity> {
+        let channels = self.mainboard.channels();
+        crate::cooling_assignments::identity_of(control_id, &channels, |id| {
+            self.channel_bindings.binding(id)
+        })
+    }
+
+    /// Starts a live cooling job through the normal policy and remembers
+    /// continuous assignments for the next daemon start.
+    pub fn start_cooling(
+        &mut self,
+        request: crate::cooling_sessions::StartRequest,
+    ) -> Result<u64, String> {
+        let policy = self.cooling_policy(&request.control_id)?;
+        let remembered = crate::cooling_assignments::persistable(&request)
+            .then(|| (request.clone(), self.cooling_identity(&request.control_id)));
+        let job = self.cooling_sessions.start(request, &policy)?;
+        if let Some((request, Some(identity))) = remembered {
+            self.cooling_assignments.remember(request, identity);
+        }
+        Ok(job)
+    }
+
+    /// Resumes remembered assignments once the channel inventory is known
+    /// (called periodically; does nothing after the first decision).
+    pub fn resume_cooling(&mut self) {
+        if !self.cooling_sessions.status().available {
+            return;
+        }
+        let ready = !self.mainboard.channels().is_empty();
+        let identities: std::collections::BTreeMap<_, _> = self
+            .cooling_assignments
+            .control_ids()
+            .into_iter()
+            .filter_map(|id| self.cooling_identity(&id).map(|i| (id, i)))
+            .collect();
+        let requests = self
+            .cooling_assignments
+            .take_resumable(|id| identities.get(id).cloned(), ready);
+        for request in requests {
+            let control = request.control_id.clone();
+            let result = self
+                .cooling_policy(&control)
+                .and_then(|policy| self.cooling_sessions.start(request, &policy));
+            match result {
+                Ok(job) => tracing::info!(job, control, "resumed cooling assignment"),
+                Err(error) => {
+                    tracing::warn!(%error, control, "cooling assignment not resumed");
+                    self.cooling_assignments.flag(&control, error);
+                }
+            }
+        }
+    }
+
     pub fn cooling_policy(
         &self,
         control_id: &str,
@@ -1215,6 +1284,7 @@ impl Engine {
     /// All cached sensor providers, without introducing non-RGB devices into devices.list.
     pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
         let mut entries = self.mainboard.sensors();
+        entries.extend(self.hwmon.sensors());
         for device in self.devices() {
             for mut sensor in device.sensors {
                 if device.status != DeviceStatus::Connected {
@@ -1276,6 +1346,7 @@ impl Engine {
     /// Waits until all workers have finished.
     pub fn shutdown(&mut self) {
         self.keyboard.stop();
+        self.hwmon.shutdown();
         for w in &self.workers {
             w.stop.store(true, Ordering::SeqCst);
             w.slot.1.notify_one();
