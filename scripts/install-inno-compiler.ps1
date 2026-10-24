@@ -11,6 +11,25 @@ try {
     $process = Start-Process -FilePath $archive -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',('/DIR="{0}"' -f $Destination)) -PassThru -Wait
     if ($process.ExitCode -ne 0) { throw 'Pinned Inno Setup installation failed.' }
     $compiler = Join-Path $Destination 'ISCC.exe'
-    if (-not (Test-Path -LiteralPath $compiler) -or (Get-Item -LiteralPath $compiler).VersionInfo.FileVersion -notmatch '^6\.7\.3(?:\.|$)') { throw 'Pinned compiler version mismatch.' }
+    if (-not (Test-Path -LiteralPath $compiler)) { throw 'Pinned compiler executable is missing.' }
+    # Official ISCC PE resources can contain 0.0.0.0. Check the running
+    # compiler's own preprocessor version instead of that placeholder resource.
+    $probe = Join-Path ([IO.Path]::GetTempPath()) ('freergb-inno-probe-' + [guid]::NewGuid().ToString('N') + '.iss')
+    try {
+        [IO.File]::WriteAllText($probe, @'
+#if Ver != EncodeVer(6, 7, 3)
+  #error Pinned compiler version mismatch.
+#endif
+[Setup]
+AppName=freeRGB compiler verification
+AppVersion=1
+DefaultDirName={tmp}\freeRGB-compiler-probe
+CreateAppDir=no
+Uninstallable=no
+Output=no
+'@)
+        $output = & $compiler $probe 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "Pinned compiler verification failed: $output" }
+    } finally { if (Test-Path -LiteralPath $probe) { Remove-Item -LiteralPath $probe } }
     Write-Output $compiler
 } finally { if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive } }
