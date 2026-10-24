@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DeviceSummary } from "@/lib/api/types";
-import { controllerKey, mainboardControllers, presetLeds, withHeader, type MainboardRgbSettings } from "./mainboardRgb";
+import { controllerKey, mainboardControllers, presetLeds, withHeader, type MainboardRgbSettings } from "./mainboardRgbModel";
 
 const device = (vid: number, pid: number) => ({ info: { id: `hid:${controllerKey(vid, pid)}:x`, name: "", vendor: "", kind: "LightingController", usb_vid: vid, usb_pid: pid, serial: null, firmware: null } }) as unknown as DeviceSummary;
 

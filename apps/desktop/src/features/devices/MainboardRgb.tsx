@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { rpc, useDaemon } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
-import { mainboardControllers, presetLeds, withHeader, type MainboardRgbSettings, type MainboardRgbView } from "./mainboardRgb";
+import { mainboardControllers, presetLeds, withHeader, type MainboardRgbSettings, type MainboardRgbView } from "./mainboardRgbModel";
 
 /** LED count and name per ARGB header of each motherboard RGB controller. */
 export function MainboardRgb() {
