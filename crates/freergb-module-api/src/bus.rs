@@ -2,6 +2,8 @@
 //! Only flat, 8-bit register maps are supported; no raw I2C or bank selectors.
 use serde::{Deserialize, Serialize};
 
+pub mod sdk;
+
 pub const API: u32 = 2;
 pub const MAX_BLOCK: usize = 32;
 pub const MAX_OPERATIONS: usize = 32;
@@ -198,6 +200,47 @@ pub enum Error {
     Disconnected,
     Cancelled,
     Faulted,
+}
+
+/// Host requests for the separate v2 process protocol. Identify is pure lookup;
+/// bus calls are legal only inside initialize, frame and shutdown.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Request {
+    pub v: u32,
+    pub id: u64,
+    pub method: Method,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(
+    tag = "method",
+    content = "params",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum Method {
+    Hello,
+    Identify { pci: PciId },
+    Initialize { pci: PciId, capability: u64 },
+    Frame { rgb: String },
+    Shutdown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Info {
+    pub module: crate::ModuleInfo,
+    pub hello: Hello,
+}
+
+/// Exactly one result is represented by the tagged Result value.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Response {
+    pub v: u32,
+    pub id: u64,
+    pub result: Result<serde_json::Value, crate::ModuleError>,
 }
 
 #[cfg(test)]

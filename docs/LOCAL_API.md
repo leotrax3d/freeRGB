@@ -38,7 +38,7 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `cooling.curves.save` / `cooling.curves.delete` | `{name,curve}` / `{name}` | Validate/store or delete curve |
 | `cooling.preview` | `{curve,temperature_c?,age_ms?}` | `{duty_percent,simulated:true}`; no hardware write |
 | `cooling.sessions.status` | – | Experimental live session `{available,job_id,state,report,error}`; independent of legacy preview `cooling.status` |
-| `cooling.sessions.start` | `{mode,control_id,temperature_id,rpm_id,confirmed_fan,curve?,critical_c?,duty_percent?,composite_output?}` | `{job_id}`; asynchronous UAC authorization, then protected native acquisition |
+| `cooling.sessions.start` | `{mode,control_id,temperature_id,rpm_id,confirmed_fan,curve?,critical_c?,duty_percent?,composite_output?,target_rpm?}` | `{job_id}`; asynchronous UAC authorization, then protected native acquisition |
 | `cooling.sessions.stop` | `{job_id:u64}` | `true` means stop queued; poll status for verified return |
 | `macros.list` | – | Map of named macro definitions |
 | `macros.save` / `macros.delete` | `{name,definition}` / `{name}` | Validate/store or delete |
@@ -350,6 +350,18 @@ be nonempty; INSTANCE parses as u16. All three IDs must name the same native
 hardware parent. This is syntax validation only: native authorization/binding also
 validates the actual supported chip and existing source identities. It never
 infers a physical header or CPU/coolant identity from a sensor label.
+
+For `mode=rpm`, `target_rpm` (positive integer) is translated by the daemon into a
+fixed duty from this channel's measured duty/RPM pairs: the latest completed
+calibration for the current board/BIOS/channel identity, else its passed channel
+test (never mixed). Interpolation is linear between measured points; targets at or
+above the fastest measurement run at 100%; targets below the slowest measurement
+are refused (no extrapolation towards a stall). The resulting duty then runs
+exactly like `mode=manual` (tier floor, critical override, supervision); a duty
+below the floor is refused. It is open loop: the measured RPM is reported but not
+used to correct the duty. `cooling.support.get` channels carry
+`rpm_range:{min_rpm,max_rpm}` when a usable map exists. RPM assignments are
+remembered and re-resolved from the current measurements on resume.
 
 For `mode=composite`, `composite_output` names a node of the saved composite
 curve set (`cooling.curve_set.*`) and `curve` must be absent; `critical_c`

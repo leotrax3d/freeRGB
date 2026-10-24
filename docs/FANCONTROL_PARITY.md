@@ -38,12 +38,12 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 |---|---|---|---|
 | Setup | Guided discovery | Inventory | Guided channel identification |
 | Pairing | Manual/automatic tachometer pairing | Candidate LINK map | Physical correlation |
-| Calibration | Duty/RPM characterization | Missing | Guarded measurements |
+| Calibration | Duty/RPM characterization | Calibration and channel-test duty/RPM pairs stored per channel identity | Finer duty steps; hardware acceptance |
 | Calibration | Startup/stall thresholds | Missing | Per-channel verified limits |
 | Calibration | Avoid resonance ranges | Missing | Validated avoidance policy |
 | Control | Manual percentage | Missing | Supervised hardware writes |
 | Control | Curve/channel assignment | Preview | Stable identity bindings |
-| Control | RPM targets | Missing | Calibration inversion |
+| Control | RPM targets | Open-loop `mode:rpm` from stored calibration/channel-test map, live panel input | Closed-loop correction; hardware acceptance |
 | Control | Duty floor/offset | Basic curve floor | Per-device constraints |
 | Control | Startup/stop behavior | Missing | Pump-safe policy |
 | Control | Rise/fall limits | Missing | Timed controller |

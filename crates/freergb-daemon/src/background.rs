@@ -49,6 +49,8 @@ pub fn protected_entry(
         duty_percent: None,
         composite_output: None,
         composite_feed: None,
+        target_rpm: None,
+        rpm_duty: None,
     }
     .plan(policy)?;
     let mut entry = json!({

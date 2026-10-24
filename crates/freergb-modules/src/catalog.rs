@@ -7,6 +7,7 @@ use freergb_module_api::{DeviceKind, InterfaceInfo};
 use serde::{Deserialize, Serialize};
 
 pub const CATALOG_SCHEMA: u32 = 1;
+pub const BUS_CATALOG_SCHEMA: u32 = 2;
 pub const MAX_CATALOG: usize = 1024 * 1024;
 pub const MAX_PACKAGE: u64 = 64 * 1024 * 1024;
 
@@ -162,7 +163,7 @@ impl Catalog {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != CATALOG_SCHEMA {
+        if self.schema != CATALOG_SCHEMA && self.schema != BUS_CATALOG_SCHEMA {
             return Err(invalid("unsupported catalog schema"));
         }
         let mut ids = std::collections::BTreeSet::new();
@@ -173,7 +174,14 @@ impl Catalog {
                     m.id
                 )));
             }
-            if !valid_version(&m.version) || m.api.is_empty() || m.devices.is_empty() {
+            let bus = self.schema == BUS_CATALOG_SCHEMA
+                && m.api == [freergb_module_api::bus::API]
+                && m.devices.is_empty();
+            if !valid_version(&m.version)
+                || m.api.is_empty()
+                || (m.devices.is_empty() && !bus)
+                || (m.api.contains(&freergb_module_api::bus::API) && !bus)
+            {
                 return Err(invalid(format!(
                     "module {} has invalid version/api/devices",
                     m.id
@@ -224,6 +232,14 @@ fn valid_sha_like_commit(s: &str) -> bool {
 }
 
 impl ModuleEntry {
+    /// Explicit opt-in installation route; never used by HID setup/discovery.
+    pub fn bus_artifact(&self) -> std::result::Result<&Artifact, String> {
+        if self.api != [freergb_module_api::bus::API] || !self.devices.is_empty() {
+            return Err("not a bus-only API 2 module".into());
+        }
+        self.artifact()
+            .ok_or_else(|| "no bus package for this target".into())
+    }
     pub fn artifact(&self) -> Option<&Artifact> {
         self.artifacts.iter().find(|a| a.target == host_target())
     }

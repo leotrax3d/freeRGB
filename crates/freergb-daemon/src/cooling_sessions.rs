@@ -32,6 +32,12 @@ pub struct StartRequest {
     /// Composite curve output name for `mode:"composite"`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub composite_output: Option<String>,
+    /// RPM target for `mode:"rpm"` (open loop via the channel's measured map).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_rpm: Option<u32>,
+    /// Duty resolved by the engine from the measured RPM map (never from JSON).
+    #[serde(skip)]
+    pub rpm_duty: Option<u8>,
     /// Daemon-owned output feed, attached by the engine (never from JSON).
     #[serde(skip)]
     pub composite_feed: Option<crate::composite_feed::CompositeFeed>,
@@ -82,6 +88,19 @@ impl StartRequest {
     /// Manual percentage is a flat curve: same floors, critical-temperature
     /// override and supervision as any curve.
     fn normalized(mut self) -> Result<Self, String> {
+        if self.mode == "rpm" {
+            // A fixed duty resolved from measurements: same path as manual.
+            if self.target_rpm.is_none() || self.curve.is_some() || self.duty_percent.is_some() {
+                return Err("mode=rpm takes target_rpm only".into());
+            }
+            self.duty_percent = Some(
+                self.rpm_duty
+                    .ok_or("RPM target has no measured speed map for this channel")?,
+            );
+            self.mode = "manual".into();
+        } else if self.target_rpm.is_some() {
+            return Err("target_rpm is only valid with mode=rpm".into());
+        }
         if self.mode == "identify" {
             // Never lowers a duty: a flat 100% curve, any role, bounded time.
             if self.curve.is_some() || self.duty_percent.is_some() {
@@ -718,6 +737,29 @@ mod tests {
             "confirmed_fan":true
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn rpm_requests_need_a_resolved_duty_and_respect_the_floor() {
+        let mut r = request();
+        r.mode = "rpm".into();
+        r.target_rpm = Some(900);
+        assert!(
+            r.clone().plan(&SessionPolicy::legacy()).is_err(),
+            "unresolved target"
+        );
+        r.rpm_duty = Some(55);
+        let plan = r.clone().plan(&SessionPolicy::legacy()).unwrap();
+        assert!(matches!(plan.mode, ControlMode::Curve(_)));
+        assert_eq!(plan.minimum_percent, 55);
+        r.rpm_duty = Some(30);
+        assert!(
+            r.clone().plan(&SessionPolicy::legacy()).is_err(),
+            "below the 40% floor"
+        );
+        let mut stray = request();
+        stray.target_rpm = Some(900);
+        assert!(stray.plan(&SessionPolicy::legacy()).is_err());
     }
 
     #[test]

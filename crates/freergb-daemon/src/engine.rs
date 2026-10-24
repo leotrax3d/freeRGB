@@ -1059,6 +1059,27 @@ impl Engine {
         })
     }
 
+    /// Translates `mode:"rpm"` into a duty from this channel's current
+    /// calibration or channel-test measurements (recomputed on every start).
+    fn resolve_rpm_target(
+        &self,
+        request: &mut crate::cooling_sessions::StartRequest,
+    ) -> Result<(), String> {
+        if request.mode != "rpm" {
+            return Ok(());
+        }
+        let target = request.target_rpm.ok_or("mode=rpm requires target_rpm")?;
+        let identity = self
+            .channel_identity(&request.control_id)
+            .ok_or("Unknown channel identity; RPM targets need a measured channel")?;
+        let duty = self
+            .fan_support
+            .rpm_map(&identity)?
+            .duty_for(target as f32)?;
+        request.rpm_duty = Some(duty.ceil().clamp(0.0, 100.0) as u8);
+        Ok(())
+    }
+
     /// Starts a live cooling job through the normal policy and remembers
     /// continuous assignments for the next daemon start.
     pub fn start_cooling(
@@ -1066,6 +1087,7 @@ impl Engine {
         mut request: crate::cooling_sessions::StartRequest,
     ) -> Result<u64, String> {
         request.composite_feed = Some(self.controls.composite_feed.clone());
+        self.resolve_rpm_target(&mut request)?;
         let policy = self.cooling_policy(&request.control_id)?;
         if request.mode == "composite"
             && !request
@@ -1106,7 +1128,8 @@ impl Engine {
             request.composite_feed = Some(self.controls.composite_feed.clone());
             let control = request.control_id.clone();
             let result = self
-                .cooling_policy(&control)
+                .resolve_rpm_target(&mut request)
+                .and_then(|()| self.cooling_policy(&control))
                 .and_then(|policy| self.cooling_sessions.start(request, &policy));
             match result {
                 Ok(job) => tracing::info!(job, control, "resumed cooling assignment"),
@@ -1273,7 +1296,7 @@ impl Engine {
     fn record_channel_test(&mut self) {
         let status = self.cooling_sessions.status();
         if status.state != "completed"
-            || status.mode.as_deref() != Some("channel_test")
+            || !matches!(status.mode.as_deref(), Some("channel_test" | "calibration"))
             || status.job_id.is_none()
             || status.job_id == self.recorded_test_job
         {
@@ -1287,7 +1310,12 @@ impl Engine {
             return;
         };
         if let Some(identity) = self.channel_identity(control_id) {
-            if let Err(error) = self.fan_support.record_test(identity, result) {
+            let recorded = if status.mode.as_deref() == Some("calibration") {
+                self.fan_support.record_calibration(identity, result)
+            } else {
+                self.fan_support.record_test(identity, result)
+            };
+            if let Err(error) = recorded {
                 tracing::warn!(%error, "channel test result not saved");
             }
         }

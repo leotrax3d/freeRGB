@@ -89,6 +89,35 @@ pub struct SimulatedBus {
 }
 
 impl SimulatedBus {
+    /// Explicit simulation route: verifies installed files before any process
+    /// starts, and derives policy only from that verified package.
+    pub fn start_module(
+        self: &Arc<Self>,
+        store: &freergb_modules::store::Store,
+        id: &str,
+        pci: PciId,
+        consent: bool,
+    ) -> Result<
+        (
+            freergb_modules::bus_host::BusProcess<Session>,
+            freergb_module_api::Capabilities,
+        ),
+        freergb_module_api::ModuleError,
+    > {
+        use freergb_module_api::{ErrorCode, ModuleError};
+        let verified = store.verified_bus(id).map_err(|_| {
+            ModuleError::new(ErrorCode::Permission, "bus package verification failed")
+        })?;
+        let hello = Hello {
+            v: API,
+            api: vec![API],
+            transport: "simulation".into(),
+        };
+        let session = self
+            .session(&hello, verified.policy().clone(), pci, consent)
+            .map_err(|_| ModuleError::new(ErrorCode::Permission, "bus session denied"))?;
+        freergb_modules::bus_host::BusProcess::start(verified, pci, session)
+    }
     pub fn new(registers: RegisterBus) -> Arc<Self> {
         Arc::new(Self {
             admission: Mutex::new(Admission {
@@ -214,10 +243,14 @@ impl Session {
     }
 
     pub fn call(&self, request: &Call, cancelled: &AtomicBool) -> Reply {
+        self.call_until(request, cancelled, Instant::now() + Duration::from_secs(2))
+    }
+
+    fn call_until(&self, request: &Call, cancelled: &AtomicBool, deadline: Instant) -> Reply {
         let reply = Reply {
             v: API,
             call: request.call,
-            result: self.execute(request, cancelled),
+            result: self.execute(request, cancelled, deadline),
         };
         tracing::debug!(call = request.call, operations = request.transfers.len(),
             outcome = ?reply.result.as_ref().map(|_| ()).map_err(|e| *e),
@@ -225,7 +258,12 @@ impl Session {
         reply
     }
 
-    fn execute(&self, request: &Call, cancelled: &AtomicBool) -> Result<Vec<Vec<u8>>, Error> {
+    fn execute(
+        &self,
+        request: &Call,
+        cancelled: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<Vec<Vec<u8>>, Error> {
         if request.v != API {
             return Err(Error::Unsupported);
         }
@@ -239,7 +277,7 @@ impl Session {
         for transfer in &request.transfers {
             self.policy.authorize(transfer)?;
         }
-        let deadline = Instant::now() + Duration::from_secs(2);
+        let deadline = deadline.min(Instant::now() + Duration::from_secs(2));
         let _guard = self.bus.admit(deadline, cancelled, &self.revoked)?;
         let mut registers = self.bus.registers.lock().map_err(|_| Error::Faulted)?;
         let mut replies = Vec::new();
@@ -267,6 +305,18 @@ impl Session {
             }
         }
         Ok(replies)
+    }
+}
+
+impl freergb_modules::bus_host::Transport for Session {
+    fn capability(&self) -> u64 {
+        self.capability()
+    }
+    fn transact(&mut self, request: &Call, deadline: Instant) -> Reply {
+        self.call_until(request, &AtomicBool::new(false), deadline)
+    }
+    fn revoke(&mut self) {
+        Session::revoke(self);
     }
 }
 

@@ -148,11 +148,11 @@ export function mockTransport(): Transport {
     mockJobs.set(job, { available: true, job_id: job, state: "executing", report: null, error: null, tier: "verified", mode, control_id: `/lpc/nct6701d/0/control/${index}` });
   }
   const evidence: Record<string, ChannelEvidenceView> = {
-    "/lpc/nct6701d/0/control/2": { test: "passed", tested: [{ duty_percent: 100, rpm: 1710 }, { duty_percent: 70, rpm: 1330 }, { duty_percent: 50, rpm: 1010 }], unlock: "none" },
+    "/lpc/nct6701d/0/control/2": { test: "passed", tested: [{ duty_percent: 100, rpm: 1710 }, { duty_percent: 70, rpm: 1330 }, { duty_percent: 50, rpm: 1010 }], unlock: "none", rpm_range: { min_rpm: 1010, max_rpm: 1710 } },
     "/lpc/it8689e/0/control/1": { test: "none", tested: null, unlock: "none" },
     "/lpc/it8689e/0/control/3": { test: "none", tested: null, unlock: "none" },
-    "/lpc/nct6701d/0/control/0": { test: "passed", tested: [{ duty_percent: 100, rpm: 1900 }, { duty_percent: 70, rpm: 1400 }, { duty_percent: 50, rpm: 1050 }], unlock: "none" },
-    "/lpc/nct6701d/0/control/1": { test: "passed", tested: [{ duty_percent: 100, rpm: 1500 }, { duty_percent: 70, rpm: 1100 }, { duty_percent: 50, rpm: 820 }], unlock: "none" },
+    "/lpc/nct6701d/0/control/0": { test: "passed", tested: [{ duty_percent: 100, rpm: 1900 }, { duty_percent: 70, rpm: 1400 }, { duty_percent: 50, rpm: 1050 }], unlock: "none", rpm_range: { min_rpm: 1050, max_rpm: 1900 } },
+    "/lpc/nct6701d/0/control/1": { test: "passed", tested: [{ duty_percent: 100, rpm: 1500 }, { duty_percent: 70, rpm: 1100 }, { duty_percent: 50, rpm: 820 }], unlock: "none", rpm_range: { min_rpm: 820, max_rpm: 1500 } },
     "/lpc/nct6701d/0/control/4": { test: "none", tested: null, unlock: "none" },
   };
   let backgroundSaved: BackgroundChannel[] = [];

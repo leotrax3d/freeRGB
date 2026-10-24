@@ -50,6 +50,21 @@ pub struct Verified {
     pub directory: PathBuf,
 }
 
+/// API 2 package reverified by Store. Not constructible by a module/child.
+pub struct VerifiedBus {
+    pub(crate) verified: Verified,
+}
+
+impl VerifiedBus {
+    pub fn policy(&self) -> &freergb_module_api::bus::Policy {
+        self.verified
+            .manifest
+            .bus
+            .as_ref()
+            .expect("validated bus manifest")
+    }
+}
+
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let temporary = path.with_extension(format!("tmp-{}", std::process::id()));
     {
@@ -120,7 +135,16 @@ impl Store {
     /// checked against the signed catalog entry.
     /// Checks a package file against its signed catalog entry.
     pub fn check_package(entry: &ModuleEntry, package_path: &Path) -> Result<()> {
-        let artifact = entry.compatible().map_err(invalid)?;
+        Self::check_package_for(entry, package_path, false)
+    }
+
+    fn check_package_for(entry: &ModuleEntry, package_path: &Path, bus: bool) -> Result<()> {
+        let artifact = if bus {
+            entry.bus_artifact()
+        } else {
+            entry.compatible()
+        }
+        .map_err(invalid)?;
         if std::fs::metadata(package_path)?.len() != artifact.size
             || package::sha256_file(package_path)? != artifact.sha256
         {
@@ -130,8 +154,18 @@ impl Store {
     }
 
     pub fn install(&self, entry: &ModuleEntry, package_path: &Path) -> Result<()> {
+        self.install_for(entry, package_path, false)
+    }
+
+    /// Caller supplies an entry from a signature-verified schema-2 catalog.
+    /// Installation grants no device access and does not run the executable.
+    pub fn install_bus(&self, entry: &ModuleEntry, package_path: &Path) -> Result<()> {
+        self.install_for(entry, package_path, true)
+    }
+
+    fn install_for(&self, entry: &ModuleEntry, package_path: &Path, bus: bool) -> Result<()> {
         // Checked again here: the file could have changed since download.
-        Self::check_package(entry, package_path)?;
+        Self::check_package_for(entry, package_path, bus)?;
         let staging = self.root.join(format!(
             ".staging-{}-{}-{}",
             entry.id,
@@ -230,6 +264,16 @@ impl Store {
 
     /// Re-verifies the active version of `id` before it is executed.
     pub fn verified(&self, id: &str) -> Result<Verified> {
+        self.verified_for(id, false)
+    }
+
+    pub fn verified_bus(&self, id: &str) -> Result<VerifiedBus> {
+        Ok(VerifiedBus {
+            verified: self.verified_for(id, true)?,
+        })
+    }
+
+    fn verified_for(&self, id: &str, bus: bool) -> Result<Verified> {
         let state = self.state();
         let installed = state
             .modules
@@ -241,9 +285,14 @@ impl Store {
             .ok_or_else(|| invalid("installed module has no recorded manifest"))?;
         let directory = self.version_dir(id, &installed.active);
         let manifest = self.verify_dir(&directory, sha)?;
-        if manifest.target != host_target()
-            || !manifest.api.contains(&freergb_module_api::MODULE_API)
-        {
+        let compatible = if bus {
+            manifest.schema == 2
+                && manifest.api == [freergb_module_api::bus::API]
+                && manifest.bus.is_some()
+        } else {
+            manifest.schema == 1 && manifest.api.contains(&freergb_module_api::MODULE_API)
+        };
+        if manifest.target != host_target() || !compatible {
             return Err(invalid(
                 "installed module is not compatible with this freeRGB",
             ));

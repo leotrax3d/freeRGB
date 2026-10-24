@@ -12,7 +12,7 @@ import { floorFor } from "./fanModel";
 import { activeCount, clampDuty, liveChannels, liveConfirmation, type SessionList } from "./liveModel";
 import type { CurveSet } from "@/lib/api/control";
 
-type LiveMode = "curve" | "calibration" | "channel_test" | "manual" | "composite";
+type LiveMode = "curve" | "calibration" | "channel_test" | "manual" | "composite" | "rpm";
 
 /** Live state of every channel with per-channel and global stop. */
 export function LiveChannels() {
@@ -71,6 +71,7 @@ export function LiveSession() {
   const [curveName, setCurveName] = useState("");
   const [manualDuty, setManualDuty] = useState(60);
   const [composite, setComposite] = useState("");
+  const [targetRpm, setTargetRpm] = useState(900);
   const [compositeNames, setCompositeNames] = useState<string[]>([]);
   useEffect(() => {
     let live = true;
@@ -98,7 +99,7 @@ export function LiveSession() {
   const duty = clampDuty(manualDuty, floor);
   const send = (mode: LiveMode) => run("start", () => rpc("cooling.sessions.start", {
     mode, control_id: control, rpm_id: rpm, temperature_id: temperature, confirmed_fan: confirmed,
-    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: duty } : mode === "composite" ? { composite_output: composite, critical_c: 80 } : { critical_c: curve?.critical_c ?? 80 }),
+    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: duty } : mode === "composite" ? { composite_output: composite, critical_c: 80 } : mode === "rpm" ? { target_rpm: targetRpm } : { critical_c: curve?.critical_c ?? 80 }),
   }));
   // One confirmation per app session, not per channel; the service still checks each.
   const start = (mode: LiveMode) => {
@@ -139,6 +140,21 @@ export function LiveSession() {
           </label>
           <Button variant="secondary" disabled={!ready} onClick={() => start("manual")}>Run fixed duty (UAC)</Button>
         </div>
+        {(() => {
+          const range = evidence?.rpm_range;
+          const inRange = !!range && targetRpm >= range.min_rpm;
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-small">Target speed
+                <input type="number" min={range ? Math.ceil(range.min_rpm) : 0} step={10} value={targetRpm} onChange={(e) => setTargetRpm(Math.max(0, Math.round(Number(e.target.value) || 0)))} className="w-20 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label="Target speed in RPM" /> RPM
+              </label>
+              <Button variant="secondary" disabled={!ready || !inRange} onClick={() => start("rpm")}>Run RPM target (UAC)</Button>
+              <span className="basis-full text-caption text-text-subtle">
+                {range ? `Measured ${Math.round(range.min_rpm)}–${Math.round(range.max_rpm)} RPM. The target is translated to a duty from that measurement (open loop); faster targets run at 100 %, slower ones are refused.` : "Run the channel test or calibration on this fan first; RPM targets use its measured speeds."}
+              </span>
+            </div>
+          );
+        })()}
         {compositeNames.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <Select label="Composite curve" placeholder="Composite curve" value={composite} options={compositeNames.map((n) => ({ value: n, label: n }))} onChange={setComposite} />

@@ -88,6 +88,13 @@ capability mismatch and revocation; FIFO batch admission; queued cancellation
 and timeout cleanup; NACK, disconnect, timeout, partial completion and panic.
 Schema tests cover v1/v2 separation and signed-data mutation detection.
 
+Validation on 2026-10-24: `cargo fmt --all -- --check`,
+`cargo clippy --workspace --all-targets -- -D warnings` and
+`cargo test --workspace` completed successfully. Existing ignored fixture tests
+were not enabled. A final targeted run passed all 12 broker tests and the new
+manifest test. No new controller module/source archive was produced, and no
+independent archive rebuild or physical hardware validation is claimed.
+
 No GPU/RAM/mainboard families were ported. Matrix counts before/after are
 unchanged: GPU I2C 0 implemented / 0 verified / 903 open; DRAM 0 / 0 / 7;
 SMBus/I2C 0 / 0 / 8 open plus 1 blocked. Other transport rows are unchanged.
