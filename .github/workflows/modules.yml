@@ -207,6 +207,10 @@ jobs:
             node scripts/openrgb/port-hyperx-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-hyperx-keyboard
             git diff --exit-code -- modules/hyperx-keyboard/src/devices_table.rs modules/hyperx-keyboard/src/layouts.rs
+          elif [ "$MODULE" = "evision-keyboard" ]; then
+            node scripts/openrgb/port-evision-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-evision-keyboard
+            git diff --exit-code -- modules/evision-keyboard/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1

@@ -1925,6 +1925,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-evision-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-fnatic-streak"
 version = "0.1.0"
 dependencies = [

@@ -52,6 +52,7 @@ members = [
     "modules/gaizonggai",
     "modules/lenovo",
     "modules/hyperx-keyboard",
+    "modules/evision-keyboard",
 ]
 
 [workspace.package]
