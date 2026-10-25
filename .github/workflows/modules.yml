@@ -211,6 +211,10 @@ jobs:
             node scripts/openrgb/port-evision-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-evision-keyboard
             git diff --exit-code -- modules/evision-keyboard/src/devices_table.rs
+          elif [ "$MODULE" = "royuan-keyboard" ]; then
+            node scripts/openrgb/port-royuan-keyboard-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-royuan-keyboard
+            git diff --exit-code -- modules/royuan-keyboard/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1
