@@ -38,6 +38,13 @@ impl SamplerFrame {
 }
 pub enum ControlMode {
     Curve(FanCurve),
+    /// Duty from a daemon-evaluated composite curve output
+    /// (`crate::composite_feed`); missing/stale/fail-safe outputs mean 100%.
+    Composite {
+        output: String,
+        critical_c: f32,
+        feed: crate::composite_feed::CompositeFeed,
+    },
     Calibration {
         critical_c: f32,
     },
@@ -216,7 +223,12 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
             }
             curve.critical_c
         }
-        ControlMode::Calibration { critical_c } | ControlMode::ChannelTest { critical_c } => {
+        ControlMode::Calibration { critical_c }
+        | ControlMode::ChannelTest { critical_c }
+        | ControlMode::Composite { critical_c, .. } => {
+            if !(40.0..=100.0).contains(critical_c) {
+                return Err("Critical temperature must be 40..100 C".into());
+            }
             *critical_c
         }
     };
@@ -410,6 +422,21 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
                 )
                 .ceil()
                 .clamp(f32::from(limits.floor_percent), 100.0) as u8
+        } else if let ControlMode::Composite {
+            output,
+            critical_c,
+            feed,
+        } = &mode
+        {
+            // The session's own temperature still forces 100% at critical.
+            let hot = frame.temperature_c >= *critical_c
+                || at.saturating_sub(frame.temperature_at_ms) > 3000;
+            let duty = if hot {
+                100.0
+            } else {
+                feed.duty(output, Instant::now())
+            };
+            duty.ceil().clamp(f32::from(limits.floor_percent), 100.0) as u8
         } else {
             return Err("Missing cooling mode".into());
         };
@@ -638,6 +665,67 @@ mod tests {
         assert!(seen
             .iter()
             .all(|r| r["action"] == "close" || r["duty_percent"].as_u64().unwrap() >= 40));
+        sampler.abort();
+    }
+
+    #[tokio::test]
+    async fn composite_mode_follows_the_feed_and_fails_safe() {
+        let (transport, worker) = tokio::io::duplex(4096);
+        let peer = tiered_peer(worker, "lhm_supported");
+        let client = NativeSessionClient::from_authenticated_transport(transport)
+            .await
+            .unwrap();
+        let epoch = Instant::now();
+        let (samples, rx) = mpsc::channel(4);
+        let (stop, stop_rx) = oneshot::channel();
+        let sampler = feed(samples, epoch, 900.0, false);
+        let output = "runtime_composite_test";
+        let ok = freergb_control::curves::CurveOutput {
+            percent: 55.0,
+            failsafe: false,
+        };
+        let composite = crate::composite_feed::CompositeFeed::default();
+        composite.publish([(output.to_string(), ok)].into(), Instant::now());
+        let runtime = tokio::spawn(run_with_limits(
+            client,
+            ControlMode::Composite {
+                output: output.into(),
+                critical_c: 80.0,
+                feed: composite.clone(),
+            },
+            RuntimeLimits::default(),
+            SamplerFrame {
+                temperature_c: 30.0,
+                temperature_at_ms: 0,
+                rpm: 900.0,
+                rpm_at_ms: 0,
+            },
+            rx,
+            stop_rx,
+            epoch,
+        ));
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        let failed = freergb_control::curves::CurveOutput {
+            percent: 100.0,
+            failsafe: true,
+        };
+        composite.publish([(output.to_string(), failed)].into(), Instant::now());
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        stop.send(()).unwrap();
+        let report = tokio::time::timeout(Duration::from_secs(2), runtime)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(report.fault.is_none(), "{:?}", report.fault);
+        let duties: Vec<u64> = peer
+            .await
+            .unwrap()
+            .iter()
+            .filter_map(|r| r["duty_percent"].as_u64())
+            .collect();
+        let first_full = duties.iter().position(|d| *d == 100).unwrap();
+        assert!(first_full > 0 && duties[..first_full].iter().all(|d| *d == 55));
         sampler.abort();
     }
 

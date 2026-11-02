@@ -1786,6 +1786,7 @@ version = "0.1.0-beta.4"
 dependencies = [
  "anyhow",
  "clap",
+ "ed25519-dalek",
  "enigo",
  "freergb-audio",
  "freergb-control",
@@ -1926,7 +1927,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-asus-aura-core"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-asus-aura-usb"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-asus-legacy-usb"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2007,6 +2026,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-das-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-drgb"
 version = "0.1.0"
 dependencies = [
@@ -2034,7 +2062,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-fnatic-streak"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-gaizonggai"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-gigabyte-aorus-laptop"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2062,6 +2108,15 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-hyperx-mouse"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-instant-mouse"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2098,6 +2153,24 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-luxafor"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-msi-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-msi-laptop"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2171,6 +2244,15 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-sinowealth"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-sony-gamepad"
 version = "0.1.0"
 dependencies = [
  "freergb-core",

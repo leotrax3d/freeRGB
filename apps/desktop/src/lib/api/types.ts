@@ -218,6 +218,8 @@ export interface CoolingBackground {
 export interface ChannelEvidenceView {
   test: "none" | "passed" | "failed" | "stale";
   tested: { duty_percent: number; rpm: number }[] | null;
+  /** Measured speed range for RPM targets (calibration or passed channel test). */
+  rpm_range?: { min_rpm: number; max_rpm: number } | null;
   unlock: "none" | "stale" | "disabled" | "unlocked" | "unlocked_pump";
 }
 export interface CoolingSupportView {

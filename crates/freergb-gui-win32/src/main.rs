@@ -93,8 +93,14 @@ mod app {
             let instance = GetModuleHandleW(std::ptr::null());
             let class_name = wide("freeRGBClassic");
             let title = wide("freeRGB Classic");
-            let icon =
-                LoadImageW(instance, 1 as *const u16, IMAGE_ICON, 0, 0, LR_DEFAULTSIZE) as HICON;
+            let icon = LoadImageW(
+                instance,
+                std::ptr::without_provenance(1), // MAKEINTRESOURCEW: integer icon resource ID.
+                IMAGE_ICON,
+                0,
+                0,
+                LR_DEFAULTSIZE,
+            ) as HICON;
             let class = WNDCLASSW {
                 style: CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW,
                 lpfnWndProc: Some(wndproc),

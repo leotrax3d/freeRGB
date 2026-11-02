@@ -38,22 +38,22 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 |---|---|---|---|
 | Setup | Guided discovery | Inventory | Guided channel identification |
 | Pairing | Manual/automatic tachometer pairing | Candidate LINK map | Physical correlation |
-| Calibration | Duty/RPM characterization | Missing | Guarded measurements |
+| Calibration | Duty/RPM characterization | Calibration and channel-test duty/RPM pairs stored per channel identity | Finer duty steps; hardware acceptance |
 | Calibration | Startup/stall thresholds | Missing | Per-channel verified limits |
 | Calibration | Avoid resonance ranges | Missing | Validated avoidance policy |
 | Control | Manual percentage | Missing | Supervised hardware writes |
 | Control | Curve/channel assignment | Preview | Stable identity bindings |
-| Control | RPM targets | Missing | Calibration inversion |
+| Control | RPM targets | Open-loop `mode:rpm` from stored calibration/channel-test map, live panel input | Closed-loop correction; hardware acceptance |
 | Control | Duty floor/offset | Basic curve floor | Per-device constraints |
 | Control | Startup/stop behavior | Missing | Pump-safe policy |
 | Control | Rise/fall limits | Missing | Timed controller |
 | Control | Hysteresis/delay | Basic hysteresis | Delay/boundary behavior |
 | Curves | Linear | Graph preview supports two points | Native binding |
 | Curves | Graph | Preview/editor | Broader shape support |
-| Curves | Constant | Missing | Editor/evaluator |
-| Curves | Combination | Missing | Typed curve graph |
-| Curves | Two-threshold switching | Missing | Stateful evaluator |
-| Curves | Following another output | Missing | Cycle-safe controller graph |
+| Curves | Constant | Evaluator, daemon storage + live preview API, Tauri editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
+| Curves | Combination | Mix (max/min/avg/sum), fail-safe propagation, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
+| Curves | Two-threshold switching | Trigger with hold time, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
+| Curves | Following another output | Follow, cycle-checked, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
 | Curves | Adaptive equilibrium | Missing | Trend controller/validation |
 | Sensors | Combinations | Daemon evaluation/editor/storage | Hardware source acceptance |
 | Sensors | Correction | Daemon evaluation/editor/storage | Native binding |

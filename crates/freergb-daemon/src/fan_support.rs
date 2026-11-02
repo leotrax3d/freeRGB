@@ -68,6 +68,9 @@ pub struct FanSupportConfig {
     pub unrestricted_enabled: bool,
     pub tests: BTreeMap<String, TestRecord>,
     pub unlocks: BTreeMap<String, UnlockRecord>,
+    /// Latest completed calibration per channel (duty/RPM pairs for RPM targets).
+    #[serde(default)]
+    pub calibrations: BTreeMap<String, TestRecord>,
 }
 
 impl Default for FanSupportConfig {
@@ -77,6 +80,7 @@ impl Default for FanSupportConfig {
             unrestricted_enabled: false,
             tests: BTreeMap::new(),
             unlocks: BTreeMap::new(),
+            calibrations: BTreeMap::new(),
         }
     }
 }
@@ -123,7 +127,10 @@ impl FanSupport {
     }
 
     pub fn save(&mut self) -> Result<(), String> {
-        if self.config.tests.len() > MAX_RECORDS || self.config.unlocks.len() > MAX_RECORDS {
+        if self.config.tests.len() > MAX_RECORDS
+            || self.config.unlocks.len() > MAX_RECORDS
+            || self.config.calibrations.len() > MAX_RECORDS
+        {
             return Err("Too many fan support records".into());
         }
         if let Some(path) = &self.path {
@@ -154,6 +161,43 @@ impl FanSupport {
             },
         );
         self.save()
+    }
+
+    /// Stores a completed calibration with an observed, monotonic response.
+    pub fn record_calibration(
+        &mut self,
+        identity: ChannelIdentity,
+        result: &CalibrationResult,
+    ) -> Result<(), String> {
+        if !(result.response_observed && result.monotonic_response) {
+            return Ok(());
+        }
+        self.config.calibrations.insert(
+            identity.control_id.clone(),
+            TestRecord {
+                passed: true,
+                tested: result.tested.clone(),
+                identity,
+                recorded_unix: now_unix(),
+            },
+        );
+        self.save()
+    }
+
+    /// Duty/RPM map from the current identity's calibration, else its passed
+    /// channel test. Records are not mixed: one measurement run per map.
+    pub fn rpm_map(
+        &self,
+        identity: &ChannelIdentity,
+    ) -> Result<freergb_control::rpm::RpmMap, String> {
+        let record = self
+            .config
+            .calibrations
+            .get(&identity.control_id)
+            .filter(|c| &c.identity == identity)
+            .or_else(|| self.passed_test(identity))
+            .ok_or("Run the channel test or calibration on this fan first (a new BIOS or board needs a new run)")?;
+        freergb_control::rpm::RpmMap::from_tested(&record.tested)
     }
 
     /// Passed test for exactly this identity (stale records are ignored).
@@ -235,6 +279,9 @@ impl FanSupport {
 
     fn state(&self, identity: Option<&ChannelIdentity>, control_id: &str) -> Value {
         let test = self.config.tests.get(control_id);
+        let rpm_range = identity
+            .and_then(|i| self.rpm_map(i).ok())
+            .map(|m| json!({"min_rpm": m.min_rpm(), "max_rpm": m.max_rpm()}));
         let unlock = self.config.unlocks.get(control_id);
         let current = |id: &ChannelIdentity| identity.is_some_and(|i| i == id);
         json!({
@@ -245,6 +292,7 @@ impl FanSupport {
                 Some(_) => "failed",
             },
             "tested": test.filter(|t| current(&t.identity)).map(|t| &t.tested),
+            "rpm_range": rpm_range,
             "unlock": match unlock {
                 None => "none",
                 Some(u) if !current(&u.identity) => "stale",
@@ -326,6 +374,30 @@ mod tests {
             .unwrap();
         assert!(failing.passed_test(&identity("1.0")).is_none());
         std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn rpm_map_prefers_current_calibration_over_channel_test() {
+        let mut store = FanSupport::default();
+        assert!(store.rpm_map(&identity("1.0")).is_err());
+        store
+            .record_test(identity("1.0"), &result([1500.0, 1100.0, 800.0]))
+            .unwrap();
+        let from_test = store.rpm_map(&identity("1.0")).unwrap();
+        assert_eq!(from_test.min_rpm(), 800.0);
+        let mut calibration = result([1500.0, 1100.0, 800.0]);
+        calibration.tested.push(TestedDuty {
+            duty_percent: 40,
+            rpm: 600.0,
+        });
+        store
+            .record_calibration(identity("1.0"), &calibration)
+            .unwrap();
+        assert_eq!(store.rpm_map(&identity("1.0")).unwrap().min_rpm(), 600.0);
+        assert!(
+            store.rpm_map(&identity("2.0")).is_err(),
+            "new BIOS must invalidate"
+        );
     }
 
     #[test]

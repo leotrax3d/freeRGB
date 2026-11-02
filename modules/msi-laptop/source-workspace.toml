@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+source="OpenRGB"
+commit="bbc77470a7cba56af60989e54ba910d5ac66a3ac"
+family="msi-laptopController"

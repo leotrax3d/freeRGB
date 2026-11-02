@@ -17,6 +17,12 @@ path = "src/bin/cooling_pilot.rs"
 
 [features]
 cooling-fixture = []
+bus-fixture = []
+
+[[bin]]
+name = "freergb-bus-fixture"
+path = "tests/fixtures/bus_module.rs"
+required-features = ["bus-fixture"]
 
 [[bin]]
 name = "freergb-cooling-guard-fixture"
@@ -50,6 +56,9 @@ workspace = true
 
 [build-dependencies]
 winresource = "0.1"
+
+[dev-dependencies]
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 
 [target.'cfg(windows)'.dependencies]
 enigo = "0.6.1"

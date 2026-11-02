@@ -27,6 +27,14 @@ members = [
     "modules/luxafor",
     "modules/msi-motherboard",
     "modules/asus-aura-usb",
+    "modules/asus-aura-core",
+    "modules/gigabyte-aorus-laptop",
+    "modules/instant-mouse",
+    "modules/msi-keyboard",
+    "modules/msi-laptop",
+    "modules/asus-legacy-usb",
+    "modules/das-keyboard",
+    "modules/fnatic-streak",
     "modules/steelseries",
     "modules/thermaltake-riing",
     "modules/logitech",
@@ -55,6 +63,7 @@ members = [
     "modules/gigabyte-rgbfusion2",
     "modules/corsair-hydro-platinum",
     "modules/sinowealth",
+    "modules/sony-gamepad",
 ]
 
 [workspace.package]

@@ -3,7 +3,7 @@
 // "Check your hardware" search. Only facts are extracted (names, USB IDs);
 // no OpenRGB code is copied.
 //
-// Usage: node scripts/website/build-hardware-db.mjs [<openrgb-checkout>]
+// Usage: node scripts/website/build-hardware-db.mjs [<openrgb-checkout> [<librehardwaremonitor-checkout>]]
 //   Without a checkout, the OpenRGB "not yet supported" tier is kept from the
 //   existing JSON so the script can run offline.
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -36,7 +36,7 @@ const category = (name) => {
   if (/mouse ?pad|mousemat|mat\b|goliathus|firefly|qck/.test(n)) return "Mousepad";
   if (/\bfan|riing|hub|commander|lighting node|controller|argb|led strip|smart device|hue|nollie|uni ?fan/.test(n)) return "Fans & controllers";
   if (/geforce|radeon|rtx|gtx|\brx ?\d|gpu|graphics/.test(n)) return "Graphics card";
-  if (/dram|ddr|vengeance|trident|fury|dominator|memory|ram\b/.test(n)) return "Memory (RAM)";
+  if (/dram|\bddr|vengeance|trident|fury|dominator|memory|ram\b/.test(n)) return "Memory (RAM)";
   if (/monitor|display|screen/.test(n)) return "Monitor";
   if (/laptop|notebook|legion|aorus .*laptop/.test(n)) return "Laptop";
   return "Other";
@@ -102,16 +102,49 @@ if (openrgb) {
     }
   }
 } else if (existsSync(output)) {
-  known = JSON.parse(readFileSync(output, "utf8")).devices.filter((d) => d.status === "openrgb");
+  known = JSON.parse(readFileSync(output, "utf8")).devices.filter((d) => d.status === "openrgb").flatMap((d) => (d.ids.length ? d.ids : [undefined]).map((id) => ({ ...d, id, ids: undefined })));
 }
 for (const entry of known) add(entry);
 
-const devices = [...entries.values()].sort((a, b) => a.name.localeCompare(b.name));
+// A USB ID covered by a better tier is not listed again under a worse one.
+const best = new Map();
+for (const e of entries.values()) {
+  if (!e.id) continue;
+  const rank = { builtin: 0, module: 1, openrgb: 2 }[e.status];
+  if (!best.has(e.id) || rank < best.get(e.id)) best.set(e.id, rank);
+}
+const kept = [...entries.values()].filter((e) => !e.id || { builtin: 0, module: 1, openrgb: 2 }[e.status] === best.get(e.id));
+// One row per device: identical name + status share their USB IDs.
+const grouped = new Map();
+for (const e of kept) {
+  const key = `${e.status}|${e.name.toLowerCase()}`;
+  const row = grouped.get(key) ?? { name: e.name, ids: [], category: e.category, status: e.status, source: e.source };
+  if (e.id && !row.ids.includes(e.id)) row.ids.push(e.id);
+  grouped.set(key, row);
+}
+const devices = [...grouped.values()].sort((a, b) => a.name.localeCompare(b.name));
+
+// Motherboards LibreHardwareMonitor knows by name (fan header labels).
+const lhm = process.argv[3];
+let boards = [];
+if (lhm) {
+  const model = readFileSync(join(lhm, "LibreHardwareMonitorLib/Hardware/Motherboard/Model.cs"), "utf8");
+  let vendor = "";
+  for (const line of model.slice(model.indexOf("enum Model")).split("\n")) {
+    const comment = line.match(/^\s*\/\/\s*(.+?)\s*$/);
+    if (comment) vendor = comment[1];
+    const m = line.match(/^\s*(\w+),/);
+    if (m && m[1] !== "Unknown") boards.push({ vendor, name: m[1].replace(/^_/, "").replace(/_/g, " ") });
+  }
+} else if (existsSync(output)) {
+  boards = JSON.parse(readFileSync(output, "utf8")).boards ?? [];
+}
 mkdirSync(join(root, "website/src/data"), { recursive: true });
 writeFileSync(output, JSON.stringify({
   generated: "scripts/website/build-hardware-db.mjs",
   openrgb_commit: process.env.OPENRGB_COMMIT ?? previousCommit,
   devices,
+  boards,
 }) + "\n");
 const count = (s) => devices.filter((d) => d.status === s).length;
-console.log(`hardware.json: ${devices.length} entries (builtin ${count("builtin")}, module ${count("module")}, openrgb ${count("openrgb")})`);
+console.log(`hardware.json: ${boards.length} named boards, ${devices.length} entries (builtin ${count("builtin")}, module ${count("module")}, openrgb ${count("openrgb")})`);

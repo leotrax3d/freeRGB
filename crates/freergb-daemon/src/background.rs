@@ -47,6 +47,10 @@ pub fn protected_entry(
         curve: Some(channel.curve.clone()),
         critical_c: None,
         duty_percent: None,
+        composite_output: None,
+        composite_feed: None,
+        target_rpm: None,
+        rpm_duty: None,
     }
     .plan(policy)?;
     let mut entry = json!({

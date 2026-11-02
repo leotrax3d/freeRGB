@@ -13,6 +13,9 @@ struct Library {
     macros: BTreeMap<String, MacroDefinition>,
     #[serde(default)]
     sensors: freergb_control::sensors::SensorGraph,
+    /// Composite curves (graph/constant/trigger/mix/follow). Preview only.
+    #[serde(default)]
+    curve_set: freergb_control::curves::CurveSet,
 }
 
 struct Job {
@@ -26,6 +29,9 @@ struct Job {
 pub struct Controls {
     library: Library,
     sensor_evaluator: freergb_control::sensors::SensorEvaluator,
+    curve_evaluator: freergb_control::curves::CurveEvaluator,
+    /// Outputs read by live `mode:"composite"` sessions.
+    pub composite_feed: crate::composite_feed::CompositeFeed,
     sensor_epoch: Option<Instant>,
     sensor_inputs: BTreeMap<String, freergb_control::sensors::InputSample>,
     sensor_sources: BTreeMap<String, String>,
@@ -76,9 +82,38 @@ impl Controls {
                 }
             }
         }
-        let _ = self
+        let outputs = self.evaluate_curve_set(now);
+        self.composite_feed.publish(outputs, Instant::now());
+    }
+
+    /// Evaluates the composite curve set against live and derived sensors.
+    fn evaluate_curve_set(
+        &mut self,
+        now: u64,
+    ) -> BTreeMap<String, freergb_control::curves::CurveOutput> {
+        let derived = self
             .sensor_evaluator
-            .evaluate(&self.library.sensors, &self.sensor_inputs, now);
+            .evaluate(&self.library.sensors, &self.sensor_inputs, now)
+            .unwrap_or_default();
+        let inputs = &self.sensor_inputs;
+        let lookup = |id: &str| {
+            let (value, at) = match derived.get(id) {
+                Some(reading) => (reading.value, reading.sampled_at_ms),
+                None => inputs
+                    .get(id)
+                    .map_or((None, None), |s| (s.value, Some(s.sampled_at_ms))),
+            };
+            freergb_control::curves::SensorValue {
+                celsius: value.map(|v| v as f32),
+                age_ms: at.map_or(u64::MAX, |at| now.saturating_sub(at)),
+            }
+        };
+        self.curve_evaluator
+            .evaluate(&self.library.curve_set, lookup, now)
+    }
+
+    pub fn has_composite_output(&self, name: &str) -> bool {
+        self.library.curve_set.nodes.contains_key(name)
     }
     fn sensor_now(&mut self) -> u64 {
         self.sensor_epoch
@@ -95,6 +130,7 @@ impl Controls {
                     if library.curves.len() <= 64
                         && library.macros.len() <= 64
                         && library.sensors.validate().is_ok()
+                        && library.curve_set.validate().is_ok()
                         && library.curves.iter().all(|(n, c)| {
                             crate::profiles::validate_name(n).is_ok() && c.validate().is_ok()
                         })
@@ -159,6 +195,29 @@ impl Controls {
             self.save(&library)?;
             self.library = library;
             return Ok(json!(true));
+        }
+        if method == "cooling.curve_set.get" {
+            return Ok(json!(self.library.curve_set));
+        }
+        if method == "cooling.curve_set.save" {
+            let set: freergb_control::curves::CurveSet =
+                serde_json::from_value(params["set"].clone()).map_err(|e| e.to_string())?;
+            set.validate()?;
+            let mut library = self.library.clone();
+            library.curve_set = set;
+            self.save(&library)?;
+            self.library = library;
+            return Ok(json!(true));
+        }
+        if method == "cooling.curve_set.values" {
+            // Preview of the same evaluation that composite sessions read.
+            let now = self.sensor_now();
+            let outputs = self.evaluate_curve_set(now);
+            let outputs: BTreeMap<_, _> = outputs
+                .into_iter()
+                .map(|(name, o)| (name, json!({"percent": o.percent, "failsafe": o.failsafe})))
+                .collect();
+            return Ok(json!({"now_ms": now, "outputs": outputs, "simulated": true}));
         }
         if method == "cooling.status" {
             return Ok(
@@ -344,6 +403,37 @@ pub fn input(step: &MacroStep) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn curve_set_persists_and_previews_with_failsafe() {
+        let directory =
+            std::env::temp_dir().join(format!("freergb-curve-set-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("control.json");
+        std::fs::write(&path, r#"{"curves":{},"macros":{}}"#).unwrap();
+        let mut controls = Controls::default().with_file(path.clone());
+        let set = json!({"nodes":{
+            "cpu":{"type":"graph","sensor":"missing","curve":FanCurve::default()},
+            "floor":{"type":"constant","percent":35.0},
+            "case":{"type":"mix","sources":["floor"],"function":"maximum"}}});
+        controls
+            .call("cooling.curve_set.save", &json!({"set":set}))
+            .unwrap();
+        let cyclic = json!({"nodes":{"a":{"type":"follow","source":"a"}}});
+        assert!(controls
+            .call("cooling.curve_set.save", &json!({"set":cyclic}))
+            .is_err());
+        let values = controls
+            .call("cooling.curve_set.values", &Value::Null)
+            .unwrap();
+        assert_eq!(values["outputs"]["case"]["percent"], 35.0);
+        assert_eq!(values["outputs"]["cpu"]["failsafe"], true);
+        let reloaded = Controls::default()
+            .with_file(path.clone())
+            .call("cooling.curve_set.get", &Value::Null)
+            .unwrap();
+        assert_eq!(reloaded["nodes"]["floor"]["percent"], 35.0);
+        std::fs::remove_file(path).unwrap();
+    }
     #[test]
     fn custom_sensor_graph_persists_and_invalid_updates_leave_saved_state_unchanged() {
         let directory =

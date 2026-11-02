@@ -208,3 +208,15 @@ floors, pumps only at 100 %, BIOS return.
 Real hardware: same-version replacement on CHA_FAN2 (single channel, see above).
 Concurrent multi-channel operation is verified against mocks and synthetic C#
 journal tests only. Please report results with the "Hardware report" issue template.
+
+## Composite curves in live sessions (2026-10-24)
+
+`ControlMode::Composite { output, critical_c, feed }` takes its duty from the
+daemon's `CompositeFeed`, which `Controls::refresh_sensors` republishes every
+second from the saved composite curve set (`freergb_control::curves`). Missing,
+stale (> 3 s) or fail-safe outputs, a stale session temperature or reaching
+`critical_c` on the session's own temperature give 100%; the duty is clamped to
+the tier floor. The native worker sees only duties and keeps its lease
+supervision, so a stopped daemon ends in the same fault path as any other live
+session. Covered by `composite_mode_follows_the_feed_and_fails_safe` (simulated
+worker); no hardware acceptance yet.

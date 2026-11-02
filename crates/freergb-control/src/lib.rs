@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 pub mod calibration;
 pub mod channels;
 pub mod cooling_safety;
+pub mod curves;
 pub mod fan_support;
 pub mod maintenance;
+pub mod rpm;
 pub mod sensors;
 pub mod telemetry_guard;
 

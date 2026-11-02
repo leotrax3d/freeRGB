@@ -115,7 +115,7 @@ impl Process {
         })
     }
 
-    fn send(
+    pub(crate) fn send(
         &mut self,
         value: &impl serde::Serialize,
         deadline: Instant,
@@ -148,7 +148,7 @@ impl Process {
         }
     }
 
-    fn receive(&mut self, deadline: Instant) -> Result<serde_json::Value, ModuleError> {
+    pub(crate) fn receive(&mut self, deadline: Instant) -> Result<serde_json::Value, ModuleError> {
         let wait = deadline.saturating_duration_since(Instant::now());
         match self.lines.recv_timeout(wait) {
             Ok(Ok(line)) if line.last() == Some(&b'\n') && line.len() <= MAX_MESSAGE => {

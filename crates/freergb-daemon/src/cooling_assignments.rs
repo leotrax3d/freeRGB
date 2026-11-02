@@ -48,7 +48,10 @@ pub struct Assignments {
 
 /// Only continuous user modes are remembered (never identify/commissioning).
 pub fn persistable(request: &StartRequest) -> bool {
-    matches!(request.mode.as_str(), "curve" | "manual")
+    matches!(
+        request.mode.as_str(),
+        "curve" | "manual" | "composite" | "rpm"
+    )
 }
 
 /// Current identity of `control_id` from the inventory and saved bindings.

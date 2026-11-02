@@ -144,3 +144,51 @@ export interface CoolingStatus {
   reason: string;
   error: string | null;
 }
+
+/** Composite curve nodes (`freergb_control::curves::CurveNode`). */
+export type CurveMixFunction = "maximum" | "minimum" | "average" | "sum";
+
+export type CurveNode =
+  | { type: "graph"; sensor: string; curve: FanCurve }
+  | { type: "constant"; percent: number }
+  | { type: "trigger"; sensor: string; idle_c: number; load_c: number; idle_percent: number; load_percent: number; critical_c: number; hold_ms: number }
+  | { type: "mix"; sources: string[]; function: CurveMixFunction }
+  | { type: "follow"; source: string; scale: number; offset_percent: number };
+
+export interface CurveSet {
+  nodes: Record<string, CurveNode>;
+}
+
+export interface CurveSetValues {
+  now_ms: number;
+  outputs: Record<string, { percent: number; failsafe: boolean }>;
+  simulated: true;
+}
+
+/** Mirrors `CurveSet::validate` closely enough for inline hints; the daemon decides. */
+export function curveSetProblem(set: CurveSet): string | null {
+  const names = Object.keys(set.nodes);
+  const pct = (v: number) => Number.isFinite(v) && v >= 0 && v <= 100;
+  for (const [name, n] of Object.entries(set.nodes)) {
+    const at = `${name}: `;
+    if (n.type === "constant" && !pct(n.percent)) return at + "duty must be 0–100 %.";
+    if (n.type === "trigger") {
+      if (!pct(n.idle_percent) || !pct(n.load_percent) || n.idle_percent > n.load_percent) return at + "idle duty must not exceed load duty.";
+      if (!(n.idle_c < n.load_c && n.load_c <= n.critical_c)) return at + "needs idle < load ≤ critical temperature.";
+    }
+    if (n.type === "mix" && (n.sources.length === 0 || n.sources.some((s) => !names.includes(s)))) return at + "choose 1–16 existing curves.";
+    if (n.type === "follow" && !names.includes(n.source)) return at + "choose a curve to follow.";
+  }
+  const state: Record<string, 1 | 2> = {};
+  const visit = (name: string): boolean => {
+    if (state[name] === 2) return false;
+    if (state[name] === 1) return true;
+    state[name] = 1;
+    const n = set.nodes[name];
+    const deps = n?.type === "mix" ? n.sources : n?.type === "follow" ? [n.source] : [];
+    if (deps.some(visit)) return true;
+    state[name] = 2;
+    return false;
+  };
+  return names.some(visit) ? "Curves must not refer to each other in a loop." : null;
+}

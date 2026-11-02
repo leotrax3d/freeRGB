@@ -33,10 +33,12 @@ CLI client: `freergb ctl <method> [params-json]`.
 | `cooling.status` | – | Hardware-control availability and reason (currently preview only) |
 | `cooling.sensors.get` / `cooling.sensors.save` | – / `{graph:{version:1,nodes:{...}}}` | Read/validate/save the custom Celsius source graph; evaluation and bounded history run in the daemon. See `CUSTOM_SENSORS.md`. |
 | `cooling.curves.list` | – | Map of curve names to definitions |
+| `cooling.curve_set.get` / `cooling.curve_set.save` | – / `{set:{nodes:{name:{type,...}}}}` | Read/validate/save the composite curve set (`graph`, `constant`, `trigger`, `mix`, `follow`; cycle-checked). Not bound to fan channels. |
+| `cooling.curve_set.values` | – | `{now_ms,outputs:{name:{percent,failsafe}},simulated:true}`: read-only evaluation against live sensor readings and custom sensor nodes; missing/stale/critical inputs give 100 % with `failsafe` and propagate through mix/follow. |
 | `cooling.curves.save` / `cooling.curves.delete` | `{name,curve}` / `{name}` | Validate/store or delete curve |
 | `cooling.preview` | `{curve,temperature_c?,age_ms?}` | `{duty_percent,simulated:true}`; no hardware write |
 | `cooling.sessions.status` | – | Experimental live session `{available,job_id,state,report,error}`; independent of legacy preview `cooling.status` |
-| `cooling.sessions.start` | `{mode,control_id,temperature_id,rpm_id,confirmed_fan,curve?,critical_c?}` | `{job_id}`; asynchronous UAC authorization, then protected native acquisition |
+| `cooling.sessions.start` | `{mode,control_id,temperature_id,rpm_id,confirmed_fan,curve?,critical_c?,duty_percent?,composite_output?,target_rpm?}` | `{job_id}`; asynchronous UAC authorization, then protected native acquisition |
 | `cooling.sessions.stop` | `{job_id:u64}` | `true` means stop queued; poll status for verified return |
 | `macros.list` | – | Map of named macro definitions |
 | `macros.save` / `macros.delete` | `{name,definition}` / `{name}` | Validate/store or delete |
@@ -348,6 +350,29 @@ be nonempty; INSTANCE parses as u16. All three IDs must name the same native
 hardware parent. This is syntax validation only: native authorization/binding also
 validates the actual supported chip and existing source identities. It never
 infers a physical header or CPU/coolant identity from a sensor label.
+
+For `mode=rpm`, `target_rpm` (positive integer) is translated by the daemon into a
+fixed duty from this channel's measured duty/RPM pairs: the latest completed
+calibration for the current board/BIOS/channel identity, else its passed channel
+test (never mixed). Interpolation is linear between measured points; targets at or
+above the fastest measurement run at 100%; targets below the slowest measurement
+are refused (no extrapolation towards a stall). The resulting duty then runs
+exactly like `mode=manual` (tier floor, critical override, supervision); a duty
+below the floor is refused. It is open loop: the measured RPM is reported but not
+used to correct the duty. `cooling.support.get` channels carry
+`rpm_range:{min_rpm,max_rpm}` when a usable map exists. RPM assignments are
+remembered and re-resolved from the current measurements on resume.
+
+For `mode=composite`, `composite_output` names a node of the saved composite
+curve set (`cooling.curve_set.*`) and `curve` must be absent; `critical_c`
+(40..100 C, default 80) applies to the session's own `temperature_id`. The daemon
+evaluates the set every second and feeds that duty to the session; a missing,
+stale (> 3 s) or fail-safe output, a stale session temperature or reaching
+`critical_c` gives 100%. The tier floor still applies, pumps are refused, and the
+protected worker's lease supervision returns the channel to firmware (or holds
+100% on legacy verified workers) if the daemon stops feeding it. Composite
+assignments are remembered and resumed like curve/manual ones. They run only as
+daemon-driven live sessions, never in the boot-time background service.
 
 For `mode=curve`, `curve` is required and `critical_c` must be absent/null. Curve
 fields are `points:[{temperature_c,duty_percent}]`, `minimum_percent`, `critical_c`,

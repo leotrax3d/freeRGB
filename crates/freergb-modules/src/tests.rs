@@ -70,8 +70,62 @@ fn manifest(version: &str) -> PackageManifest {
         executable: "module.exe".into(),
         license: "GPL-2.0-or-later".into(),
         devices: vec![device_match(0x00A3), device_match(0x00AF)],
+        bus: None,
         files: Default::default(),
     }
+}
+
+#[test]
+fn bus_manifest_is_explicit_v2_and_cannot_be_launched_as_hid() {
+    use freergb_module_api::bus::{Operation, PciId, Policy, Rule};
+    let mut manifest = manifest("1.0.0");
+    manifest.files.insert("module.exe".into(), "0".repeat(64));
+    manifest.files.insert("LICENSE".into(), "0".repeat(64));
+    manifest
+        .files
+        .insert("PROVENANCE.md".into(), "0".repeat(64));
+    manifest.schema = 2;
+    manifest.api = vec![2];
+    manifest.devices.clear();
+    manifest.bus = Some(Policy {
+        backend: "simulation".into(),
+        flat_registers: true,
+        pci: vec![PciId {
+            ven: 1,
+            dev: 2,
+            subven: 3,
+            subdev: 4,
+        }],
+        rules: vec![Rule {
+            address: 0x18,
+            first: 0,
+            last: 255,
+            op: Operation::I2cWriteRegister,
+            max_len: 32,
+            write_mask: 255,
+            write_value: 0,
+        }],
+    });
+    manifest.validate().unwrap();
+    let bytes = serde_json::to_vec(&manifest).unwrap();
+    let signature = sign(&key(), &bytes);
+    keys().verify(&bytes, signature.as_bytes()).unwrap();
+    let mut changed = manifest.clone();
+    changed.bus.as_mut().unwrap().rules[0].address = 0x19;
+    assert!(keys()
+        .verify(&serde_json::to_vec(&changed).unwrap(), signature.as_bytes())
+        .is_err());
+    changed.bus.as_mut().unwrap().rules[0].address = 0x50;
+    assert!(changed.validate().is_err());
+    changed = manifest.clone();
+    changed.api = vec![1, 2];
+    assert!(changed.validate().is_err());
+    changed = manifest.clone();
+    changed.schema = 1;
+    assert!(changed.validate().is_err());
+    changed = manifest;
+    changed.devices.push(device_match(3));
+    assert!(changed.validate().is_err());
 }
 
 /// Builds a package plus its catalog entry in `dir`.
@@ -127,6 +181,29 @@ fn write_catalog(dir: &Path, sequence: u64, modules: Vec<ModuleEntry>) {
     let bytes = serde_json::to_vec(&catalog).unwrap();
     std::fs::write(dir.join("catalog.json"), &bytes).unwrap();
     std::fs::write(dir.join("catalog.json.sig"), sign(&key(), &bytes)).unwrap();
+}
+
+#[test]
+fn bus_catalog_schema_is_explicit_and_legacy_api_advertisements_stay_valid() {
+    let root = temp("bus-catalog-schema");
+    let mut entry = publish(&root, "0.0.1", b"synthetic test executable");
+    entry.api = vec![1, 2];
+    let mut catalog = Catalog {
+        schema: 1,
+        sequence: 1,
+        generated: "2026-10-24".into(),
+        modules: vec![entry],
+        relevant_vendors: vec![],
+    };
+    catalog.validate().unwrap();
+    catalog.modules[0].api = vec![2];
+    catalog.modules[0].devices.clear();
+    assert!(catalog.validate().is_err());
+    catalog.schema = 2;
+    catalog.validate().unwrap();
+    catalog.modules[0].devices.push(device_match(3));
+    assert!(catalog.validate().is_err());
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

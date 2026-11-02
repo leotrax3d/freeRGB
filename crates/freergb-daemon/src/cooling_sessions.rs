@@ -29,6 +29,18 @@ pub struct StartRequest {
     /// Fixed duty for `mode:"manual"` (FanControl "manual percentage").
     #[serde(default)]
     pub duty_percent: Option<u8>,
+    /// Composite curve output name for `mode:"composite"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub composite_output: Option<String>,
+    /// RPM target for `mode:"rpm"` (open loop via the channel's measured map).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_rpm: Option<u32>,
+    /// Duty resolved by the engine from the measured RPM map (never from JSON).
+    #[serde(skip)]
+    pub rpm_duty: Option<u8>,
+    /// Daemon-owned output feed, attached by the engine (never from JSON).
+    #[serde(skip)]
+    pub composite_feed: Option<crate::composite_feed::CompositeFeed>,
 }
 
 /// Daemon-side facts about the selected control: the protected inventory's
@@ -76,6 +88,19 @@ impl StartRequest {
     /// Manual percentage is a flat curve: same floors, critical-temperature
     /// override and supervision as any curve.
     fn normalized(mut self) -> Result<Self, String> {
+        if self.mode == "rpm" {
+            // A fixed duty resolved from measurements: same path as manual.
+            if self.target_rpm.is_none() || self.curve.is_some() || self.duty_percent.is_some() {
+                return Err("mode=rpm takes target_rpm only".into());
+            }
+            self.duty_percent = Some(
+                self.rpm_duty
+                    .ok_or("RPM target has no measured speed map for this channel")?,
+            );
+            self.mode = "manual".into();
+        } else if self.target_rpm.is_some() {
+            return Err("target_rpm is only valid with mode=rpm".into());
+        }
         if self.mode == "identify" {
             // Never lowers a duty: a flat 100% curve, any role, bounded time.
             if self.curve.is_some() || self.duty_percent.is_some() {
@@ -237,6 +262,35 @@ impl StartRequest {
                     minimum,
                     limits.tier,
                     runtime,
+                ))
+            }
+            "composite" if self.curve.is_none() => {
+                let output = self
+                    .composite_output
+                    .clone()
+                    .filter(|o| !o.is_empty() && o.len() <= 64)
+                    .ok_or("mode=composite requires composite_output")?;
+                let critical = self.critical_c.unwrap_or(80.0);
+                if !(40.0..=100.0).contains(&critical) {
+                    return Err("Critical temperature must be 40..100 C".into());
+                }
+                if limits.floor_percent == 100 && limits.tier == SupportTier::LhmSupported {
+                    return Err("Pass the guided channel test before running a composite curve on this LHM-supported channel".into());
+                }
+                Ok((
+                    ControlMode::Composite {
+                        output,
+                        critical_c: critical,
+                        // Without the daemon's feed every tick reads as 100%.
+                        feed: self.composite_feed.clone().unwrap_or_default(),
+                    },
+                    critical.floor() as u8,
+                    limits.floor_percent,
+                    limits.tier,
+                    RuntimeLimits {
+                        floor_percent: limits.floor_percent,
+                        allow_stop: limits.allow_stop,
+                    },
                 ))
             }
             mode @ ("calibration" | "channel_test") if self.curve.is_none() => {
@@ -683,6 +737,45 @@ mod tests {
             "confirmed_fan":true
         }))
         .unwrap()
+    }
+
+    #[test]
+    fn rpm_requests_need_a_resolved_duty_and_respect_the_floor() {
+        let mut r = request();
+        r.mode = "rpm".into();
+        r.target_rpm = Some(900);
+        assert!(
+            r.clone().plan(&SessionPolicy::legacy()).is_err(),
+            "unresolved target"
+        );
+        r.rpm_duty = Some(55);
+        let plan = r.clone().plan(&SessionPolicy::legacy()).unwrap();
+        assert!(matches!(plan.mode, ControlMode::Curve(_)));
+        assert_eq!(plan.minimum_percent, 55);
+        r.rpm_duty = Some(30);
+        assert!(
+            r.clone().plan(&SessionPolicy::legacy()).is_err(),
+            "below the 40% floor"
+        );
+        let mut stray = request();
+        stray.target_rpm = Some(900);
+        assert!(stray.plan(&SessionPolicy::legacy()).is_err());
+    }
+
+    #[test]
+    fn composite_requests_need_an_output_and_sane_critical() {
+        let mut r = request();
+        r.mode = "composite".into();
+        assert!(r.validate().is_err());
+        r.composite_output = Some("case".into());
+        let (mode, critical, minimum) = r.validate().unwrap();
+        assert!(matches!(mode, ControlMode::Composite { .. }));
+        assert_eq!((critical, minimum), (80, 40));
+        r.critical_c = Some(120.0);
+        assert!(r.validate().is_err());
+        r.critical_c = None;
+        r.curve = Some(FanCurve::default());
+        assert!(r.validate().is_err());
     }
 
     #[test]

@@ -2,6 +2,7 @@
 //! downloads, atomic installation and the process host that runs modules.
 //! Design and formats: `docs/HARDWARE_MODULES.md`.
 
+pub mod bus_host;
 pub mod catalog;
 pub mod host;
 pub mod package;
