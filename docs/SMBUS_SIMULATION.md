@@ -8,9 +8,11 @@ infrastructure with synthetic tests, not a ported controller family.
 
 `freergb-module-api::bus` defines API 2 independently of the unchanged HID API 1.
 `Hello {v:2, api:[2], transport:"simulation"}` must negotiate successfully before
-a daemon `bus_simulation::SimulatedBus` can create a session. This is currently
-an in-process simulation interface; no stdio v2 process launcher, module SDK bus
-client, GUI device opt-in or production setup routing is enabled.
+a daemon `bus_simulation::SimulatedBus` can create a session. The API now also has
+a stdio v2 process host and module-side SDK. `SimulatedBus::start_module` is the
+explicit host entry point for a verified installed package, exact PCI identity
+and consent. Native transport, GUI device opt-in and automatic setup routing
+remain disabled.
 
 Example JSON call (the capability is assigned by the host):
 
@@ -22,8 +24,54 @@ Example JSON call (the capability is assigned by the host):
 dispatching. This fixture entry point does not provide a process pipe reader.
 The reply uses `{v,call,result}`, where serde encodes `result` as
 `{"Ok":[[170]]}` or `{"Err":"denied"}`. Unknown fields and operation names
-are rejected when deserializing. The existing host's bounded JSON line framing
-is not a v2 process integration. No arbitrary JSON-to-native dispatch exists.
+are rejected when deserializing. No arbitrary JSON-to-native dispatch exists.
+
+## Process protocol
+
+`freergb-modules::bus_host::BusProcess` reuses bounded child pipes (four queued
+messages per direction, 256 KiB per JSON line) and process cleanup from the HID
+host. The daemon closes stdin then kills/reaps a stuck child within the existing
+500 ms grace period. Requests have a two-second shared deadline, or ten seconds
+for initialization; each broker call also honors that same deadline and its own
+two-second limit. No retry or automatic relaunch follows a v2 fault.
+
+Process requests use a deliberately nested typed method object:
+
+```json
+{"v":2,"id":1,"method":{"method":"hello"}}
+{"v":2,"id":2,"method":{"method":"identify","params":{"pci":{"ven":4318,"dev":1,"subven":5208,"subdev":2}}}}
+{"v":2,"id":3,"method":{"method":"initialize","params":{"pci":{"ven":4318,"dev":1,"subven":5208,"subdev":2},"capability":9}}}
+```
+
+`hello` returns `Info {module:ModuleInfo, hello:Hello}`. The host checks exact
+package id, version, family, API and simulation transport. `identify` is pure
+PCI lookup; unsupported identification ends startup. Only `initialize`, `frame`
+and `shutdown` may contain bus calls. A frame contains base64 RGB bytes and must
+match the validated layout. Final responses are `{v:2,id,result:{Ok:value}}` or
+`{v:2,id,result:{Err:{code,message}}}`. The SDK rejects out-of-order host request
+IDs, invalid lifecycle order, malformed/oversized lines and invalid bus replies.
+
+The earlier plain `Call` example above is the in-memory transaction type. On
+process pipes it is wrapped with its parent host request ID:
+
+```json
+{"request":3,"transaction":{"v":2,"call":1,"capability":9,"transfers":[{"op":"smbus_read_byte_data","address":24,"register":0,"data":[],"read_len":1}]}}
+```
+
+Replies to these transactions retain the plain `Reply` format. The host checks
+parent request ID and strictly increasing call IDs, at most 512 calls per host
+request. It refuses early, replayed, unknown-version or malformed calls. A
+rejected transaction fails the host request even if the child hides the error.
+Unclean process termination, missing replies and protocol errors revoke the
+session and quarantine its shared bus because earlier writes may have completed.
+Dropping a live process is also unclean; successful shutdown only revokes that
+session. No restore is inferred from process exit.
+
+Module authors implement `bus::sdk::Module` and call `bus::sdk::run`. They receive
+a `dyn Bus` supporting bounded transaction batches, never native handles or
+paths. EOF ends the SDK immediately; it cannot issue unsolicited restore writes
+after the host has disappeared. Controller-specific restoration must be an
+explicit shutdown recipe under the existing policy.
 
 Six typed operations exist: SMBus byte-data read/write, SMBus block-data
 read/write, I2C register read/write. Addresses and registers are unsigned 8-bit
@@ -55,9 +103,19 @@ Production packages are authenticated through the existing trusted catalog
 signature -> package SHA-256 -> manifest/file hashes chain; parsing a manifest or
 extracting a zip alone does not authenticate it. The in-memory simulation API
 accepts a host-supplied policy to facilitate tests; it is not a verified-package
-constructor. Catalog compatibility and production process startup still require
-HID API 1, so schema-2 packages cannot be selected/launched through normal setup.
-The package tool's existing HID pack command remains schema 1.
+constructor. The process route instead obtains `Store::verified_bus` and derives
+the session policy from its opaque `VerifiedBus` handle before launching a child.
+The file hashes and recorded manifest digest are rechecked on each start.
+
+Catalog schema 1 remains unchanged for existing publishers/clients. An explicit
+schema-2 catalog may describe bus-only API `[2]` entries with no HID device claims;
+policy and PCI matches remain inside the authenticated package manifest.
+`Store::install_bus` is a separate opt-in installation API; its caller must supply
+an entry from a signature-verified schema-2 catalog. Installation grants no bus
+permission. Normal HID `compatible`, `install` and `verified` routes reject these
+packages, and no auto-discovery path selects them. The existing pack command still
+creates schema 1. Do not replace a published v1 catalog with schema 2 without a
+versioned distribution channel: old hosts cannot parse schema 2.
 
 ## Admission and errors
 
@@ -100,8 +158,24 @@ unchanged: GPU I2C 0 implemented / 0 verified / 903 open; DRAM 0 / 0 / 7;
 SMBus/I2C 0 / 0 / 8 open plus 1 blocked. Other transport rows are unchanged.
 The generated matrix must not promote devices because a mock broker exists.
 
-Next implementation work is verified-package v2 process integration, bounded
-wire framing/SDK support, canonical adapter registry, richer error fixtures,
+Five additional end-to-end tests run a real synthetic child from a signed catalog
+and installed schema-2 package against the daemon register model. They cover
+initialize/frame/shutdown traces; consent and policy tampering; hidden denials,
+crash, hang, oversized/invalid JSON and mismatched request/version; early bus I/O,
+wrong identity/API and unsupported identification; and crash after a completed
+write with shared-bus quarantine. SDK tests check reply shape, correlation and
+limits. Run them with no hardware:
+
+```text
+cargo test -p freergb-daemon --features bus-fixture --test bus_process --locked
+```
+
+The fixture binary is gated behind `bus-fixture` and excluded from ordinary
+builds. These are simulation tests, not hardware acceptance.
+
+Next implementation work is canonical adapter registry, richer error fixtures,
 safe controller recipes and reviewed per-family GPL ports. PawnIO/ADL licensing,
 native backend selection, first hardware access/tests and an external SDK
 listener retain their separate approval gates. RAM remains deferred.
+
+GPU source assessment: see [SMBUS_GPU_PORT_REVIEW.md](SMBUS_GPU_PORT_REVIEW.md).

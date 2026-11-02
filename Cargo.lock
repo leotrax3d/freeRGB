@@ -1786,6 +1786,7 @@ version = "0.1.0-beta.4"
 dependencies = [
  "anyhow",
  "clap",
+ "ed25519-dalek",
  "enigo",
  "freergb-audio",
  "freergb-control",

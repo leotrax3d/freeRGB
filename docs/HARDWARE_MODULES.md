@@ -61,7 +61,7 @@ protocol covers 125 products, and the K70/LINK/ASUS work is unaffected.
 
 ## Module protocol, version 1
 
-The separate, simulation-only API 2 bus types and schema-2 policy foundation are
+The separate, simulation-only API 2 bus host/SDK and schema-2 package route are
 documented in [SMBUS_SIMULATION.md](SMBUS_SIMULATION.md). They do not change this
 HID process protocol or enable native bus modules in production setup.
 

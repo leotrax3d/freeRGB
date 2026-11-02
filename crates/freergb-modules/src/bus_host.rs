@@ -1,7 +1,9 @@
 //! Bounded API 2 child process lifecycle. No native bus implementation.
 use crate::host::{Launch, Process, INITIALIZE_TIMEOUT, REQUEST_TIMEOUT};
 use crate::store::VerifiedBus;
-use freergb_module_api::bus::{Call, Info, Method, PciId, Reply, Request, Response, API};
+use freergb_module_api::bus::{
+    Call, Info, Method, PciId, ProcessCall, Reply, Request, Response, API,
+};
 use freergb_module_api::{
     Capabilities, ErrorCode, Identification, ModuleError, MAX_CALLS_PER_REQUEST, MAX_LEDS,
 };
@@ -13,6 +15,10 @@ pub trait Transport {
     fn capability(&self) -> u64;
     fn transact(&mut self, request: &Call, deadline: Instant) -> Reply;
     fn revoke(&mut self);
+    /// Unclean process exit or protocol failure may follow completed writes.
+    fn fault(&mut self) {
+        self.revoke();
+    }
 }
 
 fn protocol(message: &str) -> ModuleError {
@@ -107,7 +113,7 @@ impl<T: Transport> BusProcess<T> {
         match result {
             Ok(caps) => Ok((host, caps)),
             Err(error) => {
-                host.close();
+                host.fault();
                 Err(error)
             }
         }
@@ -121,7 +127,7 @@ impl<T: Transport> BusProcess<T> {
     ) -> Result<serde_json::Value, ModuleError> {
         let result = self.exchange(method, timeout, allow_calls);
         if result.is_err() {
-            self.close();
+            self.fault();
         }
         result
     }
@@ -146,12 +152,16 @@ impl<T: Transport> BusProcess<T> {
         let mut calls = 0;
         loop {
             let value = process.receive(deadline)?;
-            if value.get("call").is_some() {
+            if value.get("transaction").is_some() {
                 if !allow_calls {
                     return Err(protocol("bus I/O outside active device request"));
                 }
-                let call: Call =
+                let envelope: ProcessCall =
                     serde_json::from_value(value).map_err(|_| protocol("invalid bus call"))?;
+                if envelope.request != id {
+                    return Err(protocol("bus call request mismatch"));
+                }
+                let call = envelope.transaction;
                 calls += 1;
                 if call.v != API || call.call <= self.last_call || calls > MAX_CALLS_PER_REQUEST {
                     return Err(protocol("invalid or excessive bus call"));
@@ -204,10 +214,19 @@ impl<T: Transport> BusProcess<T> {
         self.transport.revoke();
         self.process = None;
     }
+
+    fn fault(&mut self) {
+        self.transport.fault();
+        self.close();
+    }
 }
 
 impl<T: Transport> Drop for BusProcess<T> {
     fn drop(&mut self) {
-        self.close();
+        if self.process.is_some() {
+            self.fault();
+        } else {
+            self.close();
+        }
     }
 }

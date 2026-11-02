@@ -243,6 +243,15 @@ pub struct Response {
     pub result: Result<serde_json::Value, crate::ModuleError>,
 }
 
+/// Process calls are bound to the host request currently being served. This
+/// prevents a queued/replayed call from being accepted during the next frame.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProcessCall {
+    pub request: u64,
+    pub transaction: Call,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

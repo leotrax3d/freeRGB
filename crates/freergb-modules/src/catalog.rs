@@ -180,7 +180,9 @@ impl Catalog {
             if !valid_version(&m.version)
                 || m.api.is_empty()
                 || (m.devices.is_empty() && !bus)
-                || (m.api.contains(&freergb_module_api::bus::API) && !bus)
+                || (self.schema == BUS_CATALOG_SCHEMA
+                    && m.api.contains(&freergb_module_api::bus::API)
+                    && !bus)
             {
                 return Err(invalid(format!(
                     "module {} has invalid version/api/devices",

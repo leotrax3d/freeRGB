@@ -1,6 +1,6 @@
 //! Module-side API v2 process support. No native transport or device paths.
 use super::{
-    Call, Error, Hello, Info, Method, PciId, Reply, Request, Response, Transfer, API,
+    Call, Error, Hello, Info, Method, PciId, ProcessCall, Reply, Request, Response, Transfer, API,
     MAX_OPERATIONS,
 };
 use crate::{
@@ -58,6 +58,7 @@ struct Host<'a, R, W> {
     output: &'a mut W,
     capability: u64,
     next_call: &'a mut u64,
+    request: u64,
     calls: u32,
 }
 
@@ -77,7 +78,14 @@ impl<R: BufRead, W: Write> Bus for Host<'_, R, W> {
             capability: self.capability,
             transfers,
         };
-        send(self.output, &call).map_err(|_| Error::Disconnected)?;
+        send(
+            self.output,
+            &ProcessCall {
+                request: self.request,
+                transaction: call.clone(),
+            },
+        )
+        .map_err(|_| Error::Disconnected)?;
         let line = read_line(self.input)
             .map_err(|_| Error::Faulted)?
             .ok_or(Error::Disconnected)?;
@@ -156,6 +164,7 @@ pub fn serve(module: &mut impl Module, mut input: impl BufRead, mut output: impl
                     output: &mut output,
                     capability: assigned,
                     next_call: &mut next_call,
+                    request: request.id,
                     calls: 0,
                 };
                 module.initialize(pci, &mut bus).and_then(|caps| {
@@ -175,6 +184,7 @@ pub fn serve(module: &mut impl Module, mut input: impl BufRead, mut output: impl
                     output: &mut output,
                     capability: capability.unwrap(),
                     next_call: &mut next_call,
+                    request: request.id,
                     calls: 0,
                 };
                 crate::unpack_rgb(&rgb, leds.unwrap())
@@ -188,6 +198,7 @@ pub fn serve(module: &mut impl Module, mut input: impl BufRead, mut output: impl
                         output: &mut output,
                         capability: assigned,
                         next_call: &mut next_call,
+                        request: request.id,
                         calls: 0,
                     };
                     module
@@ -223,4 +234,119 @@ pub fn run(mut module: impl Module) {
         std::io::stdin().lock(),
         std::io::stdout().lock(),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn calls_are_bound_to_parent_request_and_replies_are_strict() {
+        for (reply, expected) in [
+            (
+                Reply {
+                    v: API,
+                    call: 1,
+                    result: Ok(vec![vec![0xab]]),
+                },
+                Ok(vec![vec![0xab]]),
+            ),
+            (
+                Reply {
+                    v: 1,
+                    call: 1,
+                    result: Ok(vec![vec![0xab]]),
+                },
+                Err(Error::Faulted),
+            ),
+            (
+                Reply {
+                    v: API,
+                    call: 2,
+                    result: Ok(vec![vec![0xab]]),
+                },
+                Err(Error::Faulted),
+            ),
+            (
+                Reply {
+                    v: API,
+                    call: 1,
+                    result: Ok(vec![vec![]]),
+                },
+                Err(Error::Faulted),
+            ),
+            (
+                Reply {
+                    v: API,
+                    call: 1,
+                    result: Ok(vec![]),
+                },
+                Err(Error::Faulted),
+            ),
+            (
+                Reply {
+                    v: API,
+                    call: 1,
+                    result: Err(Error::Denied),
+                },
+                Err(Error::Denied),
+            ),
+        ] {
+            let mut bytes = serde_json::to_vec(&reply).unwrap();
+            bytes.push(b'\n');
+            let mut input = Cursor::new(bytes);
+            let mut output = vec![];
+            let mut next = 0;
+            let mut host = Host {
+                input: &mut input,
+                output: &mut output,
+                capability: 9,
+                next_call: &mut next,
+                request: 3,
+                calls: 0,
+            };
+            assert_eq!(
+                host.transaction(vec![Transfer {
+                    op: super::super::Operation::SmbusReadByteData,
+                    address: 0x18,
+                    register: 0,
+                    data: vec![],
+                    read_len: 1
+                }]),
+                expected
+            );
+            let sent: ProcessCall = serde_json::from_slice(&output).unwrap();
+            assert_eq!(sent.request, 3);
+            assert_eq!(sent.transaction.capability, 9);
+            assert_eq!(sent.transaction.call, 1);
+        }
+    }
+
+    #[test]
+    fn sdk_limits_unterminated_input_and_excess_calls() {
+        assert!(read_line(&mut Cursor::new(vec![b' '; MAX_MESSAGE + 1])).is_err());
+        let mut next = 0;
+        let mut input = Cursor::new(Vec::<u8>::new());
+        let mut output = vec![];
+        let mut host = Host {
+            input: &mut input,
+            output: &mut output,
+            capability: 1,
+            next_call: &mut next,
+            request: 1,
+            calls: MAX_CALLS_PER_REQUEST,
+        };
+        assert_eq!(
+            host.transaction(vec![Transfer {
+                op: super::super::Operation::SmbusReadByteData,
+                address: 0x18,
+                register: 0,
+                data: vec![],
+                read_len: 1
+            }]),
+            Err(Error::Denied)
+        );
+        assert!(output.is_empty());
+    }
 }

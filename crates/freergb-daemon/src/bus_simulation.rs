@@ -318,6 +318,15 @@ impl freergb_modules::bus_host::Transport for Session {
     fn revoke(&mut self) {
         Session::revoke(self);
     }
+    fn fault(&mut self) {
+        self.revoke();
+        self.bus
+            .admission
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .faulted = true;
+        self.bus.changed.notify_all();
+    }
 }
 
 #[cfg(test)]

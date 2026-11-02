@@ -1,8 +1,8 @@
 # SMBus and I2C transport proposal
 
-Status: **simulation phase approved by owner; in-memory foundation implemented**
+Status: **simulation phase approved by owner; register-model and process host implemented**
 (2026-10-24). API v2 bus types, schema-2 simulation policy validation and a daemon
-register-model broker exist. No driver, discovery probe or hardware access is
+register-model broker, bounded process lifecycle and module SDK exist. No driver, discovery probe or hardware access is
 enabled. Existing module protocol v1 remains unchanged. Repository source and
 documentation language is English. See `SMBUS_SIMULATION.md` for implemented scope.
 

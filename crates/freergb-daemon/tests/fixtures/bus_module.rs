@@ -27,10 +27,15 @@ fn write(register: u8, data: Vec<u8>) -> Transfer {
 impl Module for Fixture {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
-            id: "bus-fixture".into(),
+            id: if self.mode == "wrong-identity" {
+                "other"
+            } else {
+                "bus-fixture"
+            }
+            .into(),
             version: "0.0.1".into(),
             family: "bus-fixture".into(),
-            api: bus::API,
+            api: if self.mode == "old-api" { 1 } else { bus::API },
         }
     }
     fn identify(&self, _: PciId) -> Identification {
@@ -61,6 +66,21 @@ impl Module for Fixture {
     }
     fn frame(&mut self, colors: &[Rgb], bus: &mut dyn Bus) -> Result<(), ModuleError> {
         match self.mode.as_str() {
+            "wrong-request" | "wrong-version" => {
+                let envelope = bus::ProcessCall {
+                    request: if self.mode == "wrong-request" { 3 } else { 4 },
+                    transaction: bus::Call {
+                        v: if self.mode == "wrong-version" { 1 } else { 2 },
+                        call: 2,
+                        capability: 0,
+                        transfers: vec![write(0x20, vec![1])],
+                    },
+                };
+                println!("{}", serde_json::to_string(&envelope).unwrap());
+                loop {
+                    std::thread::park();
+                }
+            }
             "crash" => std::process::exit(3),
             "hang" => loop {
                 std::thread::park();
@@ -83,10 +103,13 @@ impl Module for Fixture {
             _ => {}
         }
         let mut request = write(0x20, colors.iter().flat_map(|c| [c.r, c.g, c.b]).collect());
-        if self.mode == "forbidden" {
+        if self.mode == "forbidden" || self.mode == "hide-denial" {
             request.address = 0x50;
         }
         let result = bus.transaction(vec![request]);
+        if self.mode == "crash-after-write" {
+            std::process::exit(3);
+        }
         if self.mode == "hide-denial" {
             return Ok(());
         }
@@ -100,5 +123,24 @@ impl Module for Fixture {
 }
 fn main() {
     let mode = std::fs::read_to_string("fixture-mode").unwrap_or_else(|_| "ok".into());
+    if mode == "io-hello" {
+        use std::io::{BufRead, Write};
+        let mut request = String::new();
+        let _ = std::io::stdin().lock().read_line(&mut request);
+        let envelope = bus::ProcessCall {
+            request: 1,
+            transaction: bus::Call {
+                v: 2,
+                call: 1,
+                capability: 0,
+                transfers: vec![write(0x20, vec![1])],
+            },
+        };
+        println!("{}", serde_json::to_string(&envelope).unwrap());
+        let _ = std::io::stdout().flush();
+        loop {
+            std::thread::park();
+        }
+    }
     bus::sdk::run(Fixture { mode });
 }

@@ -184,6 +184,29 @@ fn write_catalog(dir: &Path, sequence: u64, modules: Vec<ModuleEntry>) {
 }
 
 #[test]
+fn bus_catalog_schema_is_explicit_and_legacy_api_advertisements_stay_valid() {
+    let root = temp("bus-catalog-schema");
+    let mut entry = publish(&root, "0.0.1", b"synthetic test executable");
+    entry.api = vec![1, 2];
+    let mut catalog = Catalog {
+        schema: 1,
+        sequence: 1,
+        generated: "2026-10-24".into(),
+        modules: vec![entry],
+        relevant_vendors: vec![],
+    };
+    catalog.validate().unwrap();
+    catalog.modules[0].api = vec![2];
+    catalog.modules[0].devices.clear();
+    assert!(catalog.validate().is_err());
+    catalog.schema = 2;
+    catalog.validate().unwrap();
+    catalog.modules[0].devices.push(device_match(3));
+    assert!(catalog.validate().is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn catalog_requires_a_trusted_signature() {
     let dir = temp("sig");
     write_catalog(&dir, 1, vec![publish(&dir, "0.1.0", b"exe")]);
