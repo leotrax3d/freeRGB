@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/leotrax3d/FreeRGB/ci.yml?style=flat-square&label=CI" alt="CI"></a>
-  <a href="docs/RELEASE_NOTES_0.1.0-beta.2.md"><img src="https://img.shields.io/badge/status-beta-orange?style=flat-square" alt="Beta"></a>
+  <a href="docs/RELEASE_NOTES_0.1.0-beta.4.md"><img src="https://img.shields.io/badge/status-beta-orange?style=flat-square" alt="Beta"></a>
   <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey?style=flat-square" alt="Windows and Linux">
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green?style=flat-square" alt="MIT or Apache-2.0"></a>
 </p>

@@ -1,5 +1,7 @@
 # Product completion plan
 
+> **Historical plan.** Current, deduplicated status: [STATUS.md](STATUS.md); current entry point: [HANDOFF.md](HANDOFF.md).
+
 Current mainboard cooling execution checklist: `COOLING_IMPLEMENTATION_PLAN.md`.
 
 The RGB prototype is not a complete SignalRGB replacement. This plan supersedes

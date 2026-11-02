@@ -1,3 +1,5 @@
+> **Archived.** Historical record, superseded by [STATUS.md](../STATUS.md) and [HANDOFF.md](../HANDOFF.md). Do not use for current status.
+
 # Roadmap
 
 | # | Phase | Status |

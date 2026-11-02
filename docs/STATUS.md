@@ -15,13 +15,13 @@ infer completion from a build, simulator, detected device or old pending CI note
 
 ## Lighting and desktop
 
-- [x] RGB core, shared canvas, device workers and reconnect/hot-plug. Evidence: [architecture](ARCHITECTURE.md), [worklist](WORKLIST.md).
+- [x] RGB core, shared canvas, device workers and reconnect/hot-plug. Evidence: [architecture](ARCHITECTURE.md), [worklist](archive/WORKLIST.md).
 - [x] Eleven effects, layered editor and saved effect library. Evidence: [product plan](PRODUCT_PLAN.md), [API](LOCAL_API.md).
 - [x] Saved profiles and opt-in Windows application rules. Evidence: [application profiles](APPLICATION_PROFILES.md).
 - [x] Windows audio-reactive and screen capture implementation. Evidence: [product plan](PRODUCT_PLAN.md), [testing](TESTING.md).
 - [x] Classic desktop controls and local daemon API. Evidence: [architecture](ARCHITECTURE.md), [API](LOCAL_API.md).
 - [x] Reactive keyboard overlay, K70 mapping and optional Windows helper. Evidence: [keyboard reactions](KEYBOARD_REACTIVE.md).
-- [ ] Real keyboard typing, foreground-profile switching and GUI interaction acceptance. Evidence: [worklist](WORKLIST.md), [testing](TESTING.md).
+- [ ] Real keyboard typing, foreground-profile switching and GUI interaction acceptance. Evidence: [worklist](archive/WORKLIST.md), [testing](TESTING.md).
 - [ ] Modern Tauri/React interface integration, release and feature parity. Integration merged into local `main` with user approval on 22 October 2026; visual/hardware/Linux and installer lifecycle acceptance remain open. Evidence: [integration checklist](INTEGRATION_CHECKLIST.md).
 
 ## Hardware and extensibility
@@ -29,7 +29,7 @@ infer completion from a build, simulator, detected device or old pending CI note
 - [x] K70 CORE per-key lighting hardware validation. Evidence: [devices](DEVICES.md).
 - [x] Experimental iCUE LINK lighting implementation and selected-device acceptance. Evidence: [devices](DEVICES.md), [protocols](PROTOCOLS.md).
 - [x] Declarative device descriptions and process-device plugin foundation. Evidence: [plugins](PLUGIN_SYSTEM.md).
-- [ ] Extended simultaneous-device soak and LINK promotion beyond experimental. Evidence: [worklist](WORKLIST.md).
+- [ ] Extended simultaneous-device soak and LINK promotion beyond experimental. Evidence: [worklist](archive/WORKLIST.md).
 - [ ] Hardware process-plugin acceptance, effect plugins and install/hot reload. Evidence: [plugins](PLUGIN_SYSTEM.md).
 - [ ] ASUS header colour/fallback acceptance and configuration UI. Evidence: [mainboard RGB](MAINBOARD_RGB.md).
 - [x] Downloadable hardware modules: signed catalog, verified atomic install, brokered module processes and setup UI (simulation and process tests; first module ports OpenRGB Razer). Evidence: [hardware modules](HARDWARE_MODULES.md).
@@ -38,7 +38,7 @@ infer completion from a build, simulator, detected device or old pending CI note
 
 ## Automation and monitoring
 
-- [x] Macro editor, run/cancel, repeats and opt-in Windows output/shortcuts. Evidence: [macros](MACROS.md), [worklist](WORKLIST.md).
+- [x] Macro editor, run/cancel, repeats and opt-in Windows output/shortcuts. Evidence: [macros](MACROS.md), [worklist](archive/WORKLIST.md).
 - [x] Sensor histories, warning rules and redacted diagnostics. Evidence: [monitoring](MONITORING.md), [diagnostics](DIAGNOSTICS.md).
 - [x] Daemon-owned custom Celsius source graphs. Evidence: [custom sensors](CUSTOM_SENSORS.md).
 - [ ] Macro recording and device-specific macro key assignment. Evidence: [macros](MACROS.md), [product plan](PRODUCT_PLAN.md).
@@ -55,17 +55,17 @@ infer completion from a build, simulator, detected device or old pending CI note
 - [ ] Independent production fault supervision and service/boot/driver-hang recovery acceptance. Evidence: [runtime](COOLING_RUNTIME.md).
 - [ ] Production maintenance drain and active-control upgrade/uninstall/rollback acceptance. Handshake implemented; same-version active replacement passed, release/fault/uninstall acceptance remains. Evidence: [maintenance](COOLING_MAINTENANCE.md), [acceptance record](COOLING_ACCEPTANCE.md).
 - [ ] Public daemon cooling methods and both GUI integrations after acceptance. Additive session API and Classic dialog implemented; public-path interactive acceptance and modern-GUI live-session parity remain. Evidence: [API](LOCAL_API.md), [acceptance record](COOLING_ACCEPTANCE.md).
-- [ ] Multiple native channels and additional validated motherboard backends. Tiered LHM support (verified/LHM-supported/unrestricted), multi-channel journal, background control, guided channel test, unrestricted unlock, manual duty, step limits and cooling profiles are implemented with synthetic tests on `feature/broad-fan-support`; nothing is hardware-confirmed yet. Evidence: [broad support plan](COOLING_BROAD_SUPPORT_PLAN.md).
+- [ ] Multiple native channels and additional validated motherboard backends. Tiered LHM support (verified/LHM-supported/unrestricted), multi-channel journal, background control, guided channel test, unrestricted unlock, manual duty, step limits and cooling profiles are implemented on `main` with synthetic tests; nothing is hardware-confirmed yet. Evidence: [broad support plan](COOLING_BROAD_SUPPORT_PLAN.md).
 - [ ] Remaining controller types, RPM operation, guided setup and cooling profiles/plugins. Evidence: [FanControl target](FANCONTROL_PARITY.md).
 
 ## Distribution and platforms
 
-- [x] Windows installer, launcher, optional prerequisites and CI lifecycle harness. Evidence: [installation](INSTALL.md), [worklist](WORKLIST.md); cross-version acceptance is separate.
+- [x] Windows installer, launcher, optional prerequisites and CI lifecycle harness. Evidence: [installation](INSTALL.md), [worklist](archive/WORKLIST.md); cross-version acceptance is separate.
 - [x] Release update selection, checksum verification, staging and optional checks. Evidence: [updates](UPDATES.md).
-- [x] Windows/Linux CI plus Linux udev and systemd packaging foundations. Evidence: [worklist](WORKLIST.md), [installation](INSTALL.md).
+- [x] Windows/Linux CI plus Linux udev and systemd packaging foundations. Evidence: [worklist](archive/WORKLIST.md), [installation](INSTALL.md).
 - [ ] Interactive installer/vendor uninstall, prerequisite UAC/reboot and clean-machine acceptance. Evidence: [installation](INSTALL.md), [mainboard installation](MAINBOARD_INSTALLATION.md).
 - [ ] Published signed release and real cross-version update/failure recovery. Evidence: [updates](UPDATES.md), [product plan](PRODUCT_PLAN.md).
-- [ ] Real Linux hardware acceptance, audio/screen/input parity and distribution packages. Evidence: [product plan](PRODUCT_PLAN.md), [worklist](WORKLIST.md).
+- [ ] Real Linux hardware acceptance, audio/screen/input parity and distribution packages. Evidence: [product plan](PRODUCT_PLAN.md), [worklist](archive/WORKLIST.md).
 
 ## Reconciliation notes
 

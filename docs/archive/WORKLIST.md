@@ -1,3 +1,5 @@
+> **Archived.** Historical record, superseded by [STATUS.md](../STATUS.md) and [HANDOFF.md](../HANDOFF.md). Do not use for current status.
+
 # Implementation worklist — 2026-10-19
 
 **Full product plan:** `PRODUCT_PLAN.md`. The milestones below cover implemented
