@@ -27,9 +27,12 @@ struct Harness {
 }
 impl Harness {
     fn new(mode: &str) -> Self {
+        // Windows clocks are coarse: parallel tests need a counter, not only a timestamp.
+        static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let root = std::env::temp_dir().join(format!(
-            "freergb-bus-{}-{}",
+            "freergb-bus-{}-{}-{}",
             std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
