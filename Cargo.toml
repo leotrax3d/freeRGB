@@ -55,6 +55,7 @@ members = [
     "modules/evision-keyboard",
     "modules/royuan-keyboard",
     "modules/corsair-peripheral-v2",
+    "modules/coolermaster",
 ]
 
 [workspace.package]
