@@ -223,6 +223,10 @@ jobs:
             node scripts/openrgb/port-coolermaster-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-coolermaster
             git diff --exit-code -- modules/coolermaster/src/devices_table.rs
+          elif [ "$MODULE" = "roccat" ]; then
+            node scripts/openrgb/port-roccat-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-roccat
+            git diff --exit-code -- modules/roccat/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1

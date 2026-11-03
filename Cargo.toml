@@ -56,6 +56,7 @@ members = [
     "modules/royuan-keyboard",
     "modules/corsair-peripheral-v2",
     "modules/coolermaster",
+    "modules/roccat",
 ]
 
 [workspace.package]
