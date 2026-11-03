@@ -59,6 +59,7 @@ members = [
     "modules/roccat",
     "modules/sinowealth",
     "modules/lianli",
+    "modules/gigabyte-rgbfusion2",
 ]
 
 [workspace.package]
