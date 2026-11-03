@@ -57,6 +57,7 @@ members = [
     "modules/corsair-peripheral-v2",
     "modules/coolermaster",
     "modules/roccat",
+    "modules/sinowealth",
 ]
 
 [workspace.package]
