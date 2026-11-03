@@ -231,6 +231,10 @@ jobs:
             node scripts/openrgb/port-sinowealth-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-sinowealth
             git diff --exit-code -- modules/sinowealth/src/devices_table.rs
+          elif [ "$MODULE" = "lianli" ]; then
+            node scripts/openrgb/port-lianli-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-lianli
+            git diff --exit-code -- modules/lianli/src/devices_table.rs
           else
             echo "unknown module generator: $MODULE" >&2
             exit 1

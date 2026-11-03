@@ -58,6 +58,7 @@ members = [
     "modules/coolermaster",
     "modules/roccat",
     "modules/sinowealth",
+    "modules/lianli",
 ]
 
 [workspace.package]
