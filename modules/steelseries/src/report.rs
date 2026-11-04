@@ -56,6 +56,8 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         // Aerox 3 Direct sends only per-zone SetColor (no effect packets;
         // SetLightEffectAll is a no-op upstream)
         Proto::Aerox3 => Vec::new(),
+        // Aerox 5 same pattern as Aerox 3
+        Proto::Aerox5 => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -88,6 +90,8 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         Proto::ArctisNova3 => Vec::new(),
         // Aerox 3 uses aerox3_set_color(); handled in lib.rs frame()
         Proto::Aerox3 => Vec::new(),
+        // Aerox 5 uses aerox5_set_color(); handled in lib.rs frame()
+        Proto::Aerox5 => Vec::new(),
         Proto::Siberia350 => Vec::new(),
         Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
@@ -402,6 +406,43 @@ pub fn aerox3_set_brightness(brightness: u8) -> Vec<u8> {
 /// upstream: SteelSeriesAerox3Controller.cpp Save()
 /// 65-byte write `[00 11 00]` (not used by the module API; tested builder).
 pub fn aerox3_save() -> Vec<u8> {
+    let mut p = vec![0u8; AEROX3_PACKET_SIZE];
+    p[1] = 0x11;
+    p
+}
+/// upstream: SteelSeriesAerox5Controller.cpp SetColor()
+/// 65-byte write. Zones 0..2 use cmd 0x21 with 1<<zone at byte 2 and RGB at
+/// 3+zone*3; zone 3 ("Reactive") uses cmd 0x26 with RGB at 0x04. Upstream
+/// sleeps 2 ms between packets; the module protocol has no sleeps, so calls
+/// are emitted back to back (noted in PROVENANCE).
+pub fn aerox5_set_color(zone_id: u8, c: freergb_core::Rgb) -> Vec<u8> {
+    let mut p = vec![0u8; AEROX3_PACKET_SIZE];
+    let (cmd, zone_byte, offset): (u8, u8, usize) = match zone_id {
+        0 => (0x21, 0x01, 0x03),
+        1 => (0x21, 0x02, 0x06),
+        2 => (0x21, 0x04, 0x09),
+        3 => (0x26, 0x01, 0x04),
+        _ => return p,
+    };
+    p[1] = cmd;
+    p[2] = zone_byte;
+    p[offset] = c.r;
+    p[offset + 1] = c.g;
+    p[offset + 2] = c.b;
+    p
+}
+/// upstream: SteelSeriesAerox5Controller.cpp SetBrightness()
+/// Upstream writes a 3-byte initialiser to hid_write with the 65-byte packet
+/// size; the intended packet is `[00 23 brightness]` zero-padded to 65 bytes.
+pub fn aerox5_set_brightness(brightness: u8) -> Vec<u8> {
+    let mut p = vec![0u8; AEROX3_PACKET_SIZE];
+    p[1] = 0x23;
+    p[2] = brightness;
+    p
+}
+/// upstream: SteelSeriesAerox5Controller.cpp Save() - same `[00 11 00]`
+/// packet intent as Aerox 3.
+pub fn aerox5_save() -> Vec<u8> {
     let mut p = vec![0u8; AEROX3_PACKET_SIZE];
     p[1] = 0x11;
     p

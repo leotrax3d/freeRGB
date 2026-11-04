@@ -433,6 +433,46 @@ fn arctis_nova3_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn aerox5_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesAerox5 row ("SteelSeries Aerox 5 Wired", 0x1850)
+    let i = iface(rival_pid("DetectSteelSeriesAerox5"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: SteelSeriesAerox5Controller.h aerox_5 led table
+    assert_eq!(caps.layout.leds.len(), 4);
+    assert_eq!(caps.layout.leds[3].name, "Reactive");
+    // upstream: SendInit in constructor
+    assert_eq!(&h.features[0][0..2], &[0x00, 0x2D]);
+    m.frame(&[RGB1, RGB2, RGB1, RGB2], &mut h).unwrap();
+    // brightness once + 4 zone packets
+    assert_eq!(h.writes.len(), 5);
+    assert_eq!(&h.writes[0][0..3], &[0x00, 0x23, 0x64]);
+    // upstream: SetColor zones 0..2 cmd 0x21 masks 01/02/04, RGB at 3/6/9
+    assert_eq!(&h.writes[1][0..6], &[0x00, 0x21, 0x01, 0x11, 0x22, 0x33]);
+    assert_eq!(
+        &h.writes[2][0..9],
+        &[0x00, 0x21, 0x02, 0, 0, 0, 0x44, 0x55, 0x66]
+    );
+    assert_eq!(
+        &h.writes[3][0..12],
+        &[0x00, 0x21, 0x04, 0, 0, 0, 0, 0, 0, 0x11, 0x22, 0x33]
+    );
+    // upstream: zone 3 (Reactive) cmd 0x26, RGB at 0x04..
+    assert_eq!(
+        &h.writes[4][0..7],
+        &[0x00, 0x26, 0x01, 0x00, 0x44, 0x55, 0x66]
+    );
+    // Frame 2: no brightness repeat
+    m.frame(&[RGB2; 4], &mut h).unwrap();
+    assert_eq!(h.writes.len(), 9);
+    assert_eq!(
+        &h.writes[5][0..7],
+        &[0x00, 0x21, 0x01, 0x44, 0x55, 0x66, 0x00]
+    );
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
 fn aerox3_full_sequence_is_byte_exact() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
@@ -505,6 +545,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesArctis5",
         "DetectSteelSeriesArctisNova3",
         "DetectSteelSeriesAerox3",
+        "DetectSteelSeriesAerox5",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()

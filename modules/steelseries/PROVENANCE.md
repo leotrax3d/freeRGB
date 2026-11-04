@@ -44,6 +44,21 @@ Arctis Nova 3: DetectSteelSeriesArctisNova3 PID 0x12EC, interface 4,
 usage page 0xFFC0, usage 1.
 Aerox 3: DetectSteelSeriesAerox3 PID 0x1836, interface 3, usage page 0xFFC0,
 usage 1.
+Aerox 5: DetectSteelSeriesAerox5 PID 0x1850, interface 3, usage page 0xFFC0,
+usage 1.
+
+### Aerox 5 wired (SteelSeriesAerox5Controller) - 1 detector row, ported
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `SteelSeriesAerox5Controller.h` `aerox_5` | `lib.rs led_specs()` / `zones()` | Front/Middle/Rear/Reactive (zone ids 0..3), one zone each |
+| `SteelSeriesAerox5Controller.cpp` `SendInit()` | `report::aerox3_init()` (shared, same `[00 2D]` packet) | 65-byte feature report |
+| `SteelSeriesAerox5Controller.cpp` `SetColor()` | `report::aerox5_set_color()` | Zones 0..2: cmd 0x21, mask 0x01/0x02/0x04, RGB at 3/6/9; zone 3: cmd 0x26, RGB at 0x04 |
+| `SteelSeriesAerox5Controller.cpp` `SetBrightness()` | `report::aerox5_set_brightness()` | `[00 23 level]` zero-padded to 65 bytes (upstream writes a 3-byte buffer with the 65-byte packet size); guarded on change |
+| `SteelSeriesAerox5Controller.cpp` `Save()` | `report::aerox5_save()` | `[00 11 00...]` (tested builder) |
+
+Changes: upstream sleeps 2 ms between SetColor/SetBrightness packets; the
+module protocol has no sleeps, so packets are emitted back to back.
 
 ### Aerox 3 wired (SteelSeriesAerox3Controller) - 1 detector row, ported
 
@@ -131,7 +146,7 @@ unsupported until the AeroxWireless controller port.
 
 | Upstream path | Devices | Status |
 |---|---:|---|
-| Aerox 3 wireless / 5 / 9 (`SteelSeriesAerox3Controller`-wired is ported; `SteelSeriesAeroxWirelessController`, `SteelSeriesAerox5Controller`) | 14 | nicht portiert |
+| Aerox wireless (`SteelSeriesAeroxWirelessController` incl. Aerox 9 and Aerox 3/5 wireless rows, Rival 3 Wireless) | 14 | nicht portiert |
 | Rival 3 Wireless (`SteelSeriesAeroxWirelessController`) | 1 | nicht portiert |
 | QCK (`SteelSeriesQCKMatController`) | 9 | nicht portiert |
 | Apex (`SteelSeriesApex*Controller`, old Apex, Apex M) | 19 | nicht portiert |

@@ -239,6 +239,27 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 },
             ]
         }
+        table::Proto::Aerox5 => {
+            // upstream: SteelSeriesAerox5Controller.h aerox_5 led table
+            vec![
+                LedSpec {
+                    name: "Front",
+                    value: 0,
+                },
+                LedSpec {
+                    name: "Middle",
+                    value: 1,
+                },
+                LedSpec {
+                    name: "Rear",
+                    value: 2,
+                },
+                LedSpec {
+                    name: "Reactive",
+                    value: 3,
+                },
+            ]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -281,6 +302,8 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         // upstream: SteelSeriesAerox3Controller.h aerox_3 (via
         // RGBController_SteelSeriesRival3 SetupZones) - one zone per LED
         table::Proto::Aerox3 => vec![("Front", 1), ("Middle", 1), ("Rear", 1)],
+        // upstream: SteelSeriesAerox5Controller.h aerox_5 - one zone per LED
+        table::Proto::Aerox5 => vec![("Front", 1), ("Middle", 1), ("Rear", 1), ("Reactive", 1)],
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }
@@ -307,6 +330,8 @@ pub struct SteelSeries {
     /// current_brightness member; the first SetColor always sends the
     /// brightness packet, so we track None until the first frame.
     aerox3_brightness: Option<u8>,
+    /// same guard pattern for the Aerox 5 wired path
+    aerox5_brightness: Option<u8>,
 }
 impl Default for SteelSeries {
     fn default() -> Self {
@@ -316,6 +341,7 @@ impl Default for SteelSeries {
             leds: Vec::new(),
             rival5_brightness: 0xFF,
             aerox3_brightness: None,
+            aerox5_brightness: None,
         }
     }
 }
@@ -345,9 +371,9 @@ impl Module for SteelSeries {
         self.proto = Some(proto);
         self.leds = leds;
         self.active = true;
-        if proto == table::Proto::Aerox3 {
-            // upstream: SteelSeriesAerox3Controller.cpp SendInit() is called
-            // in the controller constructor
+        if proto == table::Proto::Aerox3 || proto == table::Proto::Aerox5 {
+            // upstream: SteelSeriesAerox3/5Controller.cpp SendInit() is called
+            // in the controller constructor (same [00 2D] packet)
             h.send_feature(&report::aerox3_init()).map_err(err)?;
         }
         let count = self.leds.len();
@@ -402,6 +428,21 @@ impl Module for SteelSeries {
             }
             for (zone, color) in c.iter().enumerate() {
                 h.write(&report::aerox3_set_color(zone as u8, *color))
+                    .map_err(err)?;
+            }
+            return Ok(());
+        }
+        if proto == table::Proto::Aerox5 {
+            // upstream: RGBController_SteelSeriesRival3.cpp DeviceUpdateLEDs()
+            // -> per-zone SetColor with brightness guard
+            let level = report::MOUSE_BRIGHTNESS_MAX;
+            if self.aerox5_brightness != Some(level) {
+                self.aerox5_brightness = Some(level);
+                h.write(&report::aerox5_set_brightness(level))
+                    .map_err(err)?;
+            }
+            for (zone, color) in c.iter().enumerate() {
+                h.write(&report::aerox5_set_color(zone as u8, *color))
                     .map_err(err)?;
             }
             return Ok(());
