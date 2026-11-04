@@ -51,6 +51,8 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         Proto::Siberia350 => Vec::new(),
         // Arctis 5 Direct sends only per-zone SetColor sequences
         Proto::Arctis5 => Vec::new(),
+        // Arctis Nova 3 Direct sends only per-LED SetDirect sequences
+        Proto::ArctisNova3 => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -75,9 +77,10 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         // Rival 3/5 and Arctis 5 use their own protocol builders; routing
         // happens in lib.rs frame(), never through set_color()
         Proto::Rival3 | Proto::Rival5 => Vec::new(),
-        // Arctis 5 uses set_arctis5_color(); Siberia uses set_siberia_color();
-        // both are handled in lib.rs frame(), never through set_color()
+        // Arctis 5 (set_arctis5_color), Arctis Nova 3 (set_arctis_nova3_direct)
+        // and Siberia (set_siberia_color) are handled in lib.rs frame()
         Proto::Arctis5 => Vec::new(),
+        Proto::ArctisNova3 => Vec::new(),
         Proto::Siberia350 => Vec::new(),
         Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
@@ -313,6 +316,52 @@ pub fn set_arctis5_color(zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>> {
     apply[0x04] = 0x20;
     apply[0x05] = 0x05;
     vec![pre1, pre2, color, apply_zone, apply_to, apply]
+}
+/// upstream: SteelSeriesArctisNova3Controller.h ARCTIS_NOVA3_REPORT_SIZE /
+/// ARCTIS_NOVA3_APPLY_REPORT_SIZE / ARCTIS_NOVA3_REPORT_ID
+const ARCTIS_NOVA3_REPORT_SIZE: usize = 521;
+const ARCTIS_NOVA3_APPLY_REPORT_SIZE: usize = 64;
+const ARCTIS_NOVA3_REPORT_ID: u8 = 0x06;
+/// upstream: SteelSeriesArctisNova3Controller.cpp SelectZone()
+/// 64-byte select/enable packet `[06 A5 (01/02) state]` (zone 0 uses 0x02).
+fn arctis_nova3_select(zone_id: u8, state: u8) -> Vec<u8> {
+    let mut p = vec![0u8; ARCTIS_NOVA3_APPLY_REPORT_SIZE];
+    p[0] = ARCTIS_NOVA3_REPORT_ID;
+    p[1] = 0xA5;
+    p[2] = if zone_id == 0 { 0x02 } else { 0x01 };
+    p[3] = state;
+    p
+}
+/// upstream: SteelSeriesArctisNova3Controller.cpp ApplyZone()
+/// 64-byte apply packet: zone 0 -> [06 09], zone 1 -> [06 A3].
+fn arctis_nova3_apply(zone_id: u8) -> Vec<u8> {
+    let mut p = vec![0u8; ARCTIS_NOVA3_APPLY_REPORT_SIZE];
+    p[0] = ARCTIS_NOVA3_REPORT_ID;
+    p[1] = if zone_id == 0 { 0x09 } else { 0xA3 };
+    p
+}
+/// upstream: SteelSeriesArctisNova3Controller.cpp SetDirect()
+/// 521-byte effect packet plus select (0x0A) and apply packets.
+pub fn set_arctis_nova3_direct(zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>> {
+    let mut p = vec![0u8; ARCTIS_NOVA3_REPORT_SIZE];
+    p[0] = ARCTIS_NOVA3_REPORT_ID;
+    p[1] = 0xAA;
+    p[2] = if zone_id == 0 { 0x01 } else { 0x00 };
+    p[0x0D] = 0x98;
+    p[0x0E] = 0x3A;
+    p[0x15] = 0x55;
+    p[0x17] = 0x96;
+    p[0x1D] = 0x01;
+    p[0x25] = 0x02;
+    p[0x2D] = c.r;
+    p[0x2E] = c.g;
+    p[0x2F] = c.b;
+    p[0x30] = 0xFF;
+    vec![
+        p,
+        arctis_nova3_select(zone_id, 0x0A),
+        arctis_nova3_apply(zone_id),
+    ]
 }
 #[cfg(test)]
 mod tests {

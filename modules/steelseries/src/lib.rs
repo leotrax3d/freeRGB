@@ -207,6 +207,20 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 },
             ]
         }
+        table::Proto::ArctisNova3 => {
+            // upstream: RGBController_SteelSeriesArctisNova3.cpp SetupZones()
+            // (led order Right, Left; zone_id = led index)
+            vec![
+                LedSpec {
+                    name: "Right",
+                    value: 0,
+                },
+                LedSpec {
+                    name: "Left",
+                    value: 1,
+                },
+            ]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -244,6 +258,8 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         table::Proto::Siberia350 => vec![("Headset", 1)],
         // upstream: RGBController_SteelSeriesArctis5.cpp SetupZones()
         table::Proto::Arctis5 => vec![("Left", 1), ("Right", 1)],
+        // upstream: RGBController_SteelSeriesArctisNova3.cpp SetupZones()
+        table::Proto::ArctisNova3 => vec![("Nova 3", 2)],
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }
@@ -252,7 +268,9 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
 fn kind(proto: table::Proto) -> DeviceKind {
     match proto {
         // upstream: RGBController_SteelSeriesSiberia.cpp type = DEVICE_TYPE_HEADSET
-        table::Proto::Siberia350 | table::Proto::Arctis5 => DeviceKind::Headset,
+        table::Proto::Siberia350 | table::Proto::Arctis5 | table::Proto::ArctisNova3 => {
+            DeviceKind::Headset
+        }
         // upstream: RGBController_SteelSeriesRival*.cpp type = DEVICE_TYPE_MOUSE
         _ => DeviceKind::Mouse,
     }
@@ -342,6 +360,17 @@ impl Module for SteelSeries {
             return Err(err("invalid SteelSeries frame"));
         }
         let proto = self.proto.expect("active implies proto");
+        if proto == table::Proto::ArctisNova3 {
+            // upstream: RGBController_SteelSeriesArctisNova3.cpp
+            // DeviceUpdateSingleLED -> SetDirect per LED (zone_id = led index):
+            // 521-byte effect packet, select 0x0A, apply
+            for (zone, color) in c.iter().enumerate() {
+                for pkt in report::set_arctis_nova3_direct(zone as u8, *color) {
+                    h.write(&pkt).map_err(err)?;
+                }
+            }
+            return Ok(());
+        }
         if proto == table::Proto::Arctis5 {
             // upstream: RGBController_SteelSeriesArctis5.cpp
             // DeviceUpdateLEDs -> per zone SetColor (5x 37-byte packets)

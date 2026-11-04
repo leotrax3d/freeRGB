@@ -390,6 +390,49 @@ fn sensei_save_is_byte_exact() {
     );
 }
 #[test]
+fn arctis_nova3_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesArctisNova3 row (0x12EC, interface 4)
+    let i = iface(rival_pid("DetectSteelSeriesArctisNova3"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert_eq!(caps.layout.leds[0].name, "Right");
+    assert_eq!(caps.layout.leds[1].name, "Left");
+    assert_eq!(caps.zones.len(), 1);
+    assert_eq!(caps.zones[0].name, "Nova 3");
+    assert_eq!(caps.kind, freergb_module_api::DeviceKind::Headset);
+    m.frame(&[RGB1, RGB2], &mut h).unwrap();
+    // 2 LEDs x 3 packets (effect 521 bytes, select 64, apply 64)
+    assert_eq!(h.writes.len(), 6);
+    let z = &h.writes[0..3];
+    assert_eq!(z[0].len(), 521);
+    // upstream: SetDirect effect packet
+    assert_eq!(z[0][0], 0x06);
+    assert_eq!(z[0][1], 0xAA);
+    assert_eq!(z[0][2], 0x01); // zone 0 -> 0x01
+    assert_eq!(&z[0][0x0D..0x0F], &[0x98, 0x3A]);
+    assert_eq!(z[0][0x15], 0x55);
+    assert_eq!(z[0][0x17], 0x96);
+    assert_eq!(z[0][0x1D], 0x01);
+    assert_eq!(z[0][0x25], 0x02);
+    assert_eq!(&z[0][0x2D..0x31], &[0x11, 0x22, 0x33, 0xFF]);
+    assert_eq!(z[1][0], 0x06);
+    assert_eq!(z[1][1], 0xA5);
+    assert_eq!(z[1][2], 0x02); // SelectZone zone 0 -> 0x02
+    assert_eq!(z[1][3], 0x0A);
+    assert_eq!(z[2][0], 0x06);
+    assert_eq!(z[2][1], 0x09); // ApplyZone zone 0
+                               // Second LED (zone 1)
+    let z = &h.writes[3..6];
+    assert_eq!(z[0][2], 0x00);
+    assert_eq!(&z[0][0x2D..0x31], &[0x44, 0x55, 0x66, 0xFF]);
+    assert_eq!(z[1][2], 0x01);
+    assert_eq!(z[2][1], 0xA3);
+    assert!(z[1].iter().skip(4).all(|b| *b == 0));
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
 fn unported_steelseries_devices_stay_unsupported() {
     // DetectSteelSeriesAerox3 / Sensei / Arctis / QCK / Apex handlers are not
     // ported yet and must never report supported.
@@ -397,7 +440,6 @@ fn unported_steelseries_devices_stay_unsupported() {
         "DetectSteelSeriesAerox3",
         "DetectSteelSeriesAerox3Wireless",
         "DetectSteelSeriesRival3Wireless",
-        "DetectSteelSeriesArctisNova3",
         "DetectSteelSeriesQCKPrism",
         "DetectSteelSeriesApex",
     ] {
@@ -424,6 +466,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesSensei",
         "DetectSteelSeriesHeadset",
         "DetectSteelSeriesArctis5",
+        "DetectSteelSeriesArctisNova3",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()

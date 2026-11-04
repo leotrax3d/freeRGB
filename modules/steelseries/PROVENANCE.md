@@ -40,6 +40,20 @@ Sensei: DetectSteelSeriesSensei PIDs 0x1832, 0x1834, 0x1722, 0x1720, 0x171E,
 0x1736, interface 0.
 Siberia: DetectSteelSeriesHeadset PID 0x1229, interface 3.
 Arctis 5: DetectSteelSeriesArctis5 PIDs 0x1250 and 0x12AA, interface 5.
+Arctis Nova 3: DetectSteelSeriesArctisNova3 PID 0x12EC, interface 4,
+usage page 0xFFC0, usage 1.
+
+### Arctis Nova 3 (SteelSeriesArctisNova3Controller) - 1 detector row, ported
+
+Direct mode only (upstream Breathe/ColorShift/Off effects omitted).
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `SteelSeriesArctisNova3Controller.h` report defines | `report::set_arctis_nova3_direct()` | 521-byte effect packets (0x06) + 64-byte select/apply packets |
+| `SteelSeriesArctisNova3Controller.cpp` `SelectZone()` | `report::arctis_nova3_select()` (private helper) | `[06 A5 01/02 state]`, zone 0 -> 0x02 |
+| `SteelSeriesArctisNova3Controller.cpp` `ApplyZone()` | `report::arctis_nova3_apply()` (private helper) | zone 0 -> `[06 09]`, zone 1 -> `[06 A3]` |
+| `SteelSeriesArctisNova3Controller.cpp` `SetDirect()` | `report::set_arctis_nova3_direct()` | `[06 AA sel .. 98/3A 55 96 .. 01 .. 02 .. rgb FF]` + SelectZone(0x0A) + ApplyZone |
+| `RGBController_SteelSeriesArctisNova3.cpp` `SetupZones()` | `lib.rs led_specs()` / `zones()` | One linear zone "Nova 3" with Right (index 0) and Left (index 1); zone_id = led index |
 
 ### Arctis 5 (SteelSeriesArctis5Controller) - 2 detector rows, ported
 
@@ -107,7 +121,6 @@ unsupported until the AeroxWireless controller port.
 |---|---:|---|
 | Aerox 3/5/9 (`SteelSeriesAerox*Controller`) | 15 | nicht portiert |
 | Rival 3 Wireless (`SteelSeriesAeroxWirelessController`) | 1 | nicht portiert |
-| Siberia / Arctis (`SteelSeriesSiberiaController`, `SteelSeriesArctis*Controller`) | 4 | nicht portiert |
 | QCK (`SteelSeriesQCKMatController`) | 9 | nicht portiert |
 | Apex (`SteelSeriesApex*Controller`, old Apex, Apex M) | 19 | nicht portiert |
 
