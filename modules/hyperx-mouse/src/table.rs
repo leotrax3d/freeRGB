@@ -19,6 +19,14 @@ pub struct Device {
     pub protocol: &'static str,
     pub leds: usize,
 }
+pub fn detector(i: &InterfaceInfo) -> Option<&'static Detector> {
+    DETECTORS.iter().find(|d| {
+        d.vid == i.vid
+            && d.pid == i.pid
+            && (d.interface == 255 || i32::from(d.interface) == i.interface)
+            && d.usage_page == i.usage_page
+    })
+}
 pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = DETECTORS.iter().find(|d| {
         d.vid == i.vid
@@ -26,11 +34,26 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
             && (d.interface == 255 || i32::from(d.interface) == i.interface)
             && d.usage_page == i.usage_page
     });
+    // Only the Pulsefire Surge controller path is ported so far; the FPS /
+    // Dart / Raid / Haste feature report layouts stay unsupported.
+    let ported = d.and_then(|d| {
+        crate::devices_table::DEVICES
+            .iter()
+            .find(|dev| dev.pid == d.pid && dev.protocol == "surge")
+            .map(|dev| dev.leds)
+    });
+    if let (Some(d), Some(_)) = (d, ported) {
+        return Identification {
+            supported: true,
+            model: Some(d.name.into()),
+            kind: Some(DeviceKind::Mouse),
+            reason: None,
+        };
+    }
     Identification {
-        // Detector inventory is not a protocol implementation: every upstream
-        // controller sends 264/65-byte feature reports with different layouts
-        // (Surge RGB planes at 0x08/0x28/0x48, FPS/Dart/Haste/Raid direct frames,
-        // Haste setup packet) that the audited branch version did not reproduce.
+        // Detector inventory is not a protocol implementation: the unused
+        // upstream controllers send 264/65-byte feature reports with different
+        // layouts (FPS/Dart/Haste/Raid direct frames, Haste setup packet).
         supported: false,
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::Mouse),
@@ -43,12 +66,7 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
     }
 }
 pub fn device(i: &InterfaceInfo) -> Option<&'static Device> {
-    let d = DETECTORS.iter().find(|d| {
-        d.vid == i.vid
-            && d.pid == i.pid
-            && (d.interface == 255 || i32::from(d.interface) == i.interface)
-            && d.usage_page == i.usage_page
-    })?;
+    let d = detector(i)?;
     crate::devices_table::DEVICES
         .iter()
         .find(|dev| dev.pid == d.pid)

@@ -12,22 +12,29 @@ Dart 2, Raid 2, Haste 1).
 
 ## Audit result
 
-All 14 detector rows are inventoried, but `identify()` claims no device because none
-of the audited packet paths was byte-exact:
+All 14 detector rows are inventoried. The Pulsefire Surge path has since been
+fully ported; the remaining rows stay unsupported:
 
 | Upstream file/function | Audit finding |
 |---|---|
-| `HyperXPulsefireSurgeController.cpp :: SendDirect` | 264-byte feature report, report id 0x07, 0x14, byte 3 = 0xA0; RGB planes at 0x08 (32 R), 0x28 (32 G), 0x48 (32 B) and LED 33 at 0x6C. Branch sent sequential RGB triplets without report id. |
-| `HyperXPulsefireFPSProController.cpp :: SendDirect` | 264-byte feature report `07 0A`, RGB at 0x02, 0xA0 at 0x08; both PIDs (0x16D7 Core / 0x16DE) share the same path plus HP VID 0x03F0 rows. Branch offset was wrong. |
-| `HyperXPulsefireHasteController.cpp :: SendSetup/SendColors` | setup packet `00 04 F2 ... 02` and color packet `00 81 RGB ... 02`, 65-byte feature reports; setup packet was not ported. |
+| `HyperXPulsefireFPSProController.cpp :: SendDirect` | 264-byte feature report `07 0A`, RGB at 0x02, 0xA0 at 0x08; both PIDs (0x16D7 Core / 0x16DE) share the same path plus HP VID 0x03F0 rows. |
+| `HyperXPulsefireHasteController.cpp :: SendSetup/SendColors` | setup packet `00 04 F2 ... 02` and color packet `00 81 RGB ... 02`, 65-byte feature reports. |
 | `HyperXPulsefireRaidController.cpp :: SendColors` | feature report with `0A` start byte, 2 LEDs at bytes 2..7, `A0` end byte at 8, 10 ms delay. |
 | `HyperXPulsefireDartController.cpp :: SendDirect` | 65-byte write `00 D2 <led> <mode> 08 <rgb> <rgb> <brightness> <speed>` per LED, mode 8. |
+
+## Ported: Pulsefire Surge (DetectHyperXPulsefireSurgeControllers) - 2 rows, ported
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `HyperXPulsefireSurgeController.cpp` `SendDirect()` | `report::surge_direct()` | 264-byte feature report `[07 14 00 A0]`, RGB planes R@0x08/0x08+32, G@0x28, B@0x48 for the 32-LED strip, logo LED at 0x6C |
+| `RGBController_HyperXPulsefireSurge.cpp` `SetupZones()` | `lib.rs initialize_with_zones()` | "LED Strip" linear zone (32 LEDs) + "Logo" single zone; LED names `<zone> LED n` (single zones without index); constructor sends nothing |
+| `RGBController_HyperXPulsefireSurge.cpp` `DeviceUpdateLEDs()` (Direct) | `lib.rs frame()` | one 264-byte feature report per frame |
 
 ## Sub-controllers
 
 | Sub-controller | Status | Devices |
 |---|---|---|
-| DetectHyperXPulsefireSurgeControllers | nicht portiert (audit) | 2 |
+| DetectHyperXPulsefireSurgeControllers | portiert | 2 |
 | DetectHyperXPulsefireFPSProControllers | nicht portiert (audit) | 3 |
 | DetectHyperXPulsefireDartControllers | nicht portiert (audit) | 4 |
 | DetectHyperXPulsefireRaidControllers | nicht portiert (audit) | 1 |
