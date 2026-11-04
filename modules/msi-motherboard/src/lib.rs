@@ -12,15 +12,20 @@ use freergb_module_api::{
 
 pub const MODULE_ID: &str = "msi-motherboard";
 
-#[derive(Default)]
-pub struct MsiMotherboard {
-    variant: usize,
-    active: bool,
-    zones: Vec<usize>,
+/// One LED with its upstream name.
+struct LedSpec {
+    name: String,
 }
 
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
+}
+
+#[derive(Default)]
+pub struct MsiMotherboard {
+    active: bool,
+    leds: Vec<LedSpec>,
+    fw: Option<String>,
 }
 
 impl Module for MsiMotherboard {
@@ -38,126 +43,110 @@ impl Module for MsiMotherboard {
     fn initialize_with_zones(
         &mut self,
         i: &InterfaceInfo,
-        configured: Option<&[Zone]>,
+        _z: Option<&[Zone]>,
         hid: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         let id = table::identify(i);
         if !id.supported {
             return Err(err(id.reason.unwrap_or_else(|| "unsupported".into())));
         }
-        let probe = hid.get_feature(&[0x52], report::REPORT_185).map_err(err)?;
-        self.variant = match probe.len() {
-            112..=113 => 112,
-            162..=163 => 162,
-            185..=186 => 185,
-            _ => 761,
-        };
-        let defaults = match self.variant {
-            112 => vec![1, 1, 1, 7],
-            162 => vec![1, 1, 1, 1, 10, 1],
-            185 => vec![1, 1, 1, 30, 30, 30, 1],
-            _ => vec![30, 30, 30, 30],
-        };
-        self.zones = configured
-            .map(|z| z.iter().map(|x| x.leds).collect())
-            .unwrap_or(defaults);
-        if self.variant == 761 {
-            hid.get_feature(&[0x50], report::REPORT_CONFIG)
-                .map_err(err)?;
-            hid.send_feature(&report::config_761(
-                &self
-                    .zones
-                    .iter()
-                    .map(|x| (*x).min(255) as u8)
-                    .collect::<Vec<_>>(),
-            ))
-            .map_err(err)?;
+        // upstream: MSIMotherboardControllerDetect.cpp probes with report id
+        // 0x52; only boards answering with the 112-byte packet use the
+        // controller path ported here.
+        let probe = hid.get_feature(&[0x52], report::PROBE_LEN).map_err(err)?;
+        if probe.len() < report::PACKET_112 || probe.len() > report::PACKET_112 + 1 {
+            return Err(err(format!(
+                "MSI board answers with a {}-byte 0x52 report; only the 112-byte controller path is ported",
+                probe.len()
+            )));
         }
+        // upstream: MSIMotherboard112Controller.cpp constructor calls
+        // ReadFwVersion() (APROM 0xB0, LDROM 0xB6) and ReadSettings()
+        // (112-byte 0x52 get report)
+        let mut versions = Vec::new();
+        for (label, report_id) in [("APROM", 0xB0u8), ("LDROM", 0xB6u8)] {
+            hid.write(&report::fw_request(report_id)).map_err(err)?;
+            let response = hid.read(64, 0).map_err(err)?;
+            versions.push(format!("{}: {}", label, report::fw_string(&response)));
+        }
+        self.fw = Some(versions.join(", "));
+        hid.get_feature(&[0x52], report::PACKET_112).map_err(err)?;
+        // upstream: RGBController_MSIMotherboard112.cpp SetupZones() /
+        // led_zones table: JRGB1, JRAINBOW1, JCORSAIR, Onboard LEDs (7 LEDs)
+        let mut leds: Vec<LedSpec> = Vec::new();
+        for (zone_name, led_count) in [
+            ("JRGB1", 1usize),
+            ("JRAINBOW1", 1usize),
+            ("JCORSAIR", 1usize),
+            ("Onboard LEDs", report::ONBOARD_ZONE_LEDS),
+        ] {
+            for led_idx in 0..led_count {
+                // upstream: single-LED zones get "<zone> LED", multi-LED zones
+                // append the 1-based index
+                let name = if led_count == 1 {
+                    format!("{} LED", zone_name)
+                } else {
+                    format!("{} LED {}", zone_name, led_idx + 1)
+                };
+                leds.push(LedSpec { name });
+            }
+        }
+        self.leds = leds;
         self.active = true;
-        let names = match self.variant {
-            112 => vec!["JRGB1", "JRAINBOW1", "JCORSAIR", "Onboard LEDs"],
-            162 => vec![
-                "JRGB1",
-                "JRAINBOW1",
-                "JCORSAIR",
-                "JCORSAIR outer",
-                "Onboard LEDs",
-                "JRGB2",
-            ],
-            185 => vec![
-                "JRGB1",
-                "JPIPE1",
-                "JPIPE2",
-                "JRAINBOW1",
-                "JRAINBOW2",
-                "JCORSAIR",
-                "Onboard LEDs",
-            ],
-            _ => vec!["JAF", "JARGB1", "JARGB2", "JARGB3"],
-        };
-        let leds: Vec<Led> = self
-            .zones
-            .iter()
-            .enumerate()
-            .flat_map(|(z, n)| {
-                let zone_name = names.get(z).copied().unwrap_or("Zone");
-                (0..*n).map(move |l| Led {
-                    name: format!("{} LED {}", zone_name, l + 1),
-                    pos: (l as u16, z as u16),
-                })
-            })
-            .collect();
-        let zones = self
-            .zones
-            .iter()
-            .enumerate()
-            .map(|(n, leds)| Zone {
-                name: names.get(n).copied().unwrap_or("Zone").into(),
-                leds: *leds,
-            })
-            .collect();
+        let count = self.leds.len();
         Ok(Capabilities {
             name: id.model.unwrap_or_else(|| "MSI Mystic Light".into()),
             kind: DeviceKind::LightingController,
+            // upstream: DEVICE_TYPE_MOTHERBOARD mapped to LightingController
             layout: LedLayout {
-                width: self.zones.iter().copied().max().unwrap_or(1) as u16,
-                height: self.zones.len() as u16,
-                leds,
+                width: count as u16,
+                height: 1,
+                leds: (0..count)
+                    .map(|n| Led {
+                        name: self.leds[n].name.clone(),
+                        pos: (n as u16, 0),
+                    })
+                    .collect(),
             },
-            firmware: None,
+            firmware: self.fw.clone(),
             restore: Restore::LastFrame,
-            zones,
+            zones: vec![
+                Zone {
+                    name: "JRGB1".into(),
+                    leds: 1,
+                },
+                Zone {
+                    name: "JRAINBOW1".into(),
+                    leds: 1,
+                },
+                Zone {
+                    name: "JCORSAIR".into(),
+                    leds: 1,
+                },
+                Zone {
+                    name: "Onboard LEDs".into(),
+                    leds: report::ONBOARD_ZONE_LEDS,
+                },
+            ],
         })
     }
     fn initialize(
         &mut self,
         i: &InterfaceInfo,
-        hid: &mut dyn Hid,
+        h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        self.initialize_with_zones(i, None, hid)
+        self.initialize_with_zones(i, None, h)
     }
-    fn frame(&mut self, colors: &[Rgb], hid: &mut dyn Hid) -> Result<(), ModuleError> {
+    fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
         if !self.active {
             return Err(err("MSI module is not initialized"));
         }
-        if self.variant == 761 {
-            let mut start = 0;
-            for (idx, count) in self.zones.iter().enumerate() {
-                let end = (start + *count).min(colors.len());
-                let header = if idx == 0 { 0x08 } else { 0x04 };
-                hid.send_feature(&report::per_led_761(
-                    header,
-                    idx as u8,
-                    &colors[start..end],
-                    *count,
-                ))
-                .map_err(err)?;
-                start += *count;
-            }
-        } else {
-            hid.send_feature(&report::zone_packet(self.variant, colors, &self.zones))
-                .map_err(err)?;
+        if c.len() != self.leds.len() {
+            return Err(err("invalid MSI frame"));
         }
+        // upstream: DeviceUpdateLEDs() fills every zone/LED via SetLedColor,
+        // then Update() sends exactly one 112-byte feature report.
+        h.send_feature(&report::direct_packet_112(c)).map_err(err)?;
         Ok(())
     }
     fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
