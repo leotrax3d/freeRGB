@@ -221,6 +221,14 @@ export interface ChannelEvidenceView {
   /** Measured speed range for RPM targets (calibration or passed channel test). */
   rpm_range?: { min_rpm: number; max_rpm: number } | null;
   unlock: "none" | "stale" | "disabled" | "unlocked" | "unlocked_pump";
+  /** Chip row of docs/FAN_COVERAGE.md; display only. */
+  coverage?: ChannelCoverage | null;
+}
+export interface ChannelCoverage {
+  chip: string;
+  family: string | null;
+  tier: "verified" | "lhm-supported" | "read-only";
+  status: "hardware-verified" | "simulated" | "unsupported";
 }
 export interface CoolingSupportView {
   unrestricted_enabled: boolean;

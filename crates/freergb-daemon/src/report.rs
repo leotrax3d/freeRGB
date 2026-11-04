@@ -41,8 +41,10 @@ pub fn create(engine: &Engine) -> Value {
         "redaction":"Device IDs/names/serials, raw errors, capture names, paths and macro/profile contents omitted. Review before sharing."})
 }
 
-/// Opt-in fan-support evidence: board model, BIOS, chip, tier and channel-test
-/// outcome per anonymous control. No serials, names, readings or paths.
+/// Opt-in fan-support evidence: board model, BIOS, chip, tier, coverage and
+/// channel-test outcome per anonymous control. No serials, names, readings or
+/// paths. This is the payload of the "Fan control hardware report" issue
+/// template; `scripts/cooling/import-report.mjs` turns it into matrix evidence.
 pub fn cooling_hardware(engine: &Engine) -> Value {
     let summary = engine.mainboard.summary();
     let channels = engine.mainboard.channels();
@@ -52,19 +54,30 @@ pub fn cooling_hardware(engine: &Engine) -> Value {
         .filter(|c| c.kind == "control" && c.control_available)
         .enumerate()
         .map(|(index, c)| {
-            let chip = c.sensor_id.split('/').nth(2).unwrap_or("unknown");
+            let chip = crate::fan_coverage::chip_of(&c.sensor_id).unwrap_or("unknown");
+            let backend = if c.provider == crate::hwmon::PROVIDER {
+                "hwmon"
+            } else {
+                "lhm"
+            };
             let evidence = &support["channels"][c.sensor_id.as_str()];
             json!({
                 "channel": index + 1,
                 "chip": chip,
+                "backend": backend,
+                "coverage": crate::fan_coverage::lookup(&c.sensor_id).map(|v| v["status"].clone()),
                 "tier": c.support.as_ref().map_or("unknown", |s| s.tier.as_str()),
                 "register_readback": c.support.as_ref().is_some_and(|s| s.register_readback),
                 "test": evidence["test"],
+                "tested": evidence["tested"],
                 "unlocked": evidence["unlock"].as_str().is_some_and(|u| u.starts_with("unlocked")),
             })
         })
         .collect();
     json!({
+        "report_format": "freergb-fan-report/1",
+        "application_version": env!("CARGO_PKG_VERSION"),
+        "os": std::env::consts::OS,
         "board": summary.board.map(|b| json!({"manufacturer": b.manufacturer, "product": b.product, "bios_version": b.bios_version})),
         "lhm_version": freergb_core::lhm::VERSION,
         "controls": controls,

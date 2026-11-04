@@ -80,6 +80,15 @@ pub struct CalibrationResult {
     /// Every lower duty produced at least 5% lower RPM (monotonic, plausible).
     pub monotonic_response: bool,
 }
+impl CalibrationResult {
+    /// Guided channel test verdict: plausible, monotonic response at 100/70/50%.
+    pub fn channel_test_passed(&self) -> bool {
+        self.response_observed
+            && self.monotonic_response
+            && self.tested.len() == CHANNEL_TEST_DUTIES.len()
+            && self.tested.iter().all(|t| t.rpm >= 100.0)
+    }
+}
 #[derive(Clone, Debug, Serialize)]
 pub struct CalibrationOutput {
     pub phase: CalibrationPhase,

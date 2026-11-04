@@ -1,0 +1,1975 @@
+{
+  "generated_by": "scripts/cooling/fan-coverage.mjs",
+  "lhm_version": "v0.9.6",
+  "summary": {
+    "chips": 64,
+    "controllable": 56,
+    "tiers": {
+      "verified": 17,
+      "lhm-supported": 39,
+      "read-only": 8
+    },
+    "status": {
+      "hardware-verified": 1,
+      "simulated": 55,
+      "unsupported": 8
+    },
+    "ec_boards": 42
+  },
+  "families": [
+    {
+      "id": "nct67xx_separate",
+      "name": "Nuvoton NCT67xx/NCT5585D/NCT610xD, separate per-channel mode registers",
+      "capability": "verified",
+      "hwmon_driver": "nct6775",
+      "source": "LHM Nct677X: per-channel FAN_CONTROL_MODE_REG and FAN_PWM_COMMAND_REG; audited readback in NativeNctEvidence."
+    },
+    {
+      "id": "nct6701d",
+      "name": "Nuvoton NCT6701D (owner board, ASUS PRIME X870-P WIFI)",
+      "capability": "verified",
+      "hwmon_driver": "nct6775",
+      "source": "LHM Nct677X 7-control layout; slower RPM settling as seen in the CHA_FAN2 calibration (COOLING_ACCEPTANCE.md)."
+    },
+    {
+      "id": "nct668x",
+      "name": "Nuvoton NCT6683D/NCT6686D/NCT6687D(-R), EC-style shared mode register",
+      "capability": "lhm_supported",
+      "hwmon_driver": "nct6683",
+      "source": "LHM Nct677X: one manual-mode bitmask register for all controls; comment notes only fans 0, 1 and 3 respond on newer X870/Z890 boards."
+    },
+    {
+      "id": "ite_it87_ext",
+      "name": "ITE IT86xx/IT87xx with 8-bit extended PWM registers",
+      "capability": "lhm_supported",
+      "hwmon_driver": "it87",
+      "source": "LHM IT87XX: FAN_MAIN_CTRL_REG holds the output-mode bits of controls 0..2; the Gigabyte EC controller is disabled while writing."
+    },
+    {
+      "id": "ite_it87_legacy",
+      "name": "ITE IT87xx with 7-bit PWM (no extended registers)",
+      "capability": "lhm_supported",
+      "hwmon_driver": "it87",
+      "source": "LHM IT87XX without _hasExtReg writes value >> 1 into a 7-bit PWM field."
+    },
+    {
+      "id": "fintek_f718xx",
+      "name": "Fintek F71878AD/F71889AD/F71882",
+      "capability": "lhm_supported",
+      "hwmon_driver": "f71882fg",
+      "source": "LHM F718XX writes FAN_PWM_REG only; other Fintek chips report fans without controls. The chip's minimum-duty clamp is modelled as a limited duty range."
+    },
+    {
+      "id": "winbond_w836xx",
+      "name": "Winbond W83627/W83667",
+      "capability": "lhm_supported",
+      "hwmon_driver": "w83627ehf",
+      "source": "LHM W836XX: controls 0 and 1 share primary control-mode register 0x04 (per-channel bit masks)."
+    },
+    {
+      "id": "asus_ec",
+      "name": "ASUS embedded-controller sensors",
+      "capability": "read_only",
+      "hwmon_driver": "asus-ec-sensors",
+      "source": "LHM EmbeddedController and Linux asus-ec-sensors expose temperatures and fan RPM only."
+    }
+  ],
+  "chips": [
+    {
+      "chip": "F71808E",
+      "name": "Fintek F71808E",
+      "chip_id": "0x0901",
+      "vendor": "Fintek",
+      "typical_boards": [],
+      "lhm_class": "F718XX",
+      "controls": 0,
+      "fans": 3,
+      "family": null,
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "read-only",
+      "unrestricted_unlock": false,
+      "register_readback": false,
+      "status": "unsupported",
+      "evidence": null,
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71858",
+      "name": "Fintek F71858",
+      "chip_id": "0x0507",
+      "vendor": "Fintek",
+      "typical_boards": [],
+      "lhm_class": "F718XX",
+      "controls": 0,
+      "fans": 4,
+      "family": null,
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "read-only",
+      "unrestricted_unlock": false,
+      "register_readback": false,
+      "status": "unsupported",
+      "evidence": null,
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71862",
+      "name": "Fintek F71862",
+      "chip_id": "0x0601",
+      "vendor": "Fintek",
+      "typical_boards": [],
+      "lhm_class": "F718XX",
+      "controls": 0,
+      "fans": 3,
+      "family": null,
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "read-only",
+      "unrestricted_unlock": false,
+      "register_readback": false,
+      "status": "unsupported",
+      "evidence": null,
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71869",
+      "name": "Fintek F71869",
+      "chip_id": "0x0814",
+      "vendor": "Fintek",
+      "typical_boards": [],
+      "lhm_class": "F718XX",
+      "controls": 0,
+      "fans": 3,
+      "family": null,
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "read-only",
+      "unrestricted_unlock": false,
+      "register_readback": false,
+      "status": "unsupported",
+      "evidence": null,
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71869A",
+      "name": "Fintek F71869A/F71811",
+      "chip_id": "0x1007",
+      "vendor": "Fintek",
+      "typical_boards": [],
+      "lhm_class": "F718XX",
+      "controls": 0,
+      "fans": 3,
+      "family": null,
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "read-only",
+      "unrestricted_unlock": false,
+      "register_readback": false,
+      "status": "unsupported",
+      "evidence": null,
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71878AD",
+      "name": "Fintek F71878AD",
+      "chip_id": "0x1106",
+      "vendor": "Fintek",
+      "typical_boards": [
+        "ECS",
+        "older Gigabyte/MSI",
+        "industrial boards"
+      ],
+      "lhm_class": "F718XX",
+      "controls": 3,
+      "fans": 3,
+      "family": "fintek_f718xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon f71882fg"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71882",
+      "name": "Fintek F71882",
+      "chip_id": "0x0541",
+      "vendor": "Fintek",
+      "typical_boards": [
+        "ECS",
+        "older Gigabyte/MSI",
+        "industrial boards"
+      ],
+      "lhm_class": "F718XX",
+      "controls": 4,
+      "fans": 4,
+      "family": "fintek_f718xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon f71882fg"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71889AD",
+      "name": "Fintek F71889AD",
+      "chip_id": "0x1005",
+      "vendor": "Fintek",
+      "typical_boards": [
+        "ECS",
+        "older Gigabyte/MSI",
+        "industrial boards"
+      ],
+      "lhm_class": "F718XX",
+      "controls": 3,
+      "fans": 3,
+      "family": "fintek_f718xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon f71882fg"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71889ED",
+      "name": "Fintek F71889ED",
+      "chip_id": "0x0909",
+      "vendor": "Fintek",
+      "typical_boards": [],
+      "lhm_class": "F718XX",
+      "controls": 0,
+      "fans": 3,
+      "family": null,
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "read-only",
+      "unrestricted_unlock": false,
+      "register_readback": false,
+      "status": "unsupported",
+      "evidence": null,
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "F71889F",
+      "name": "Fintek F71889F",
+      "chip_id": "0x0723",
+      "vendor": "Fintek",
+      "typical_boards": [],
+      "lhm_class": "F718XX",
+      "controls": 0,
+      "fans": 3,
+      "family": null,
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "read-only",
+      "unrestricted_unlock": false,
+      "register_readback": false,
+      "status": "unsupported",
+      "evidence": null,
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8613E",
+      "name": "ITE IT8613E",
+      "chip_id": "0x8613",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 4,
+      "fans": 5,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8620E",
+      "name": "ITE IT8620E",
+      "chip_id": "0x8620",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 5,
+      "fans": 5,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8625E",
+      "name": "ITE IT8625E",
+      "chip_id": "0x8625",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 6,
+      "fans": 6,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8628E",
+      "name": "ITE IT8628E",
+      "chip_id": "0x8628",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 6,
+      "fans": 6,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8631E",
+      "name": "ITE IT8631E",
+      "chip_id": "0x8631",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 2,
+      "fans": 2,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8638E",
+      "name": "ITE IT8638E",
+      "chip_id": "0x8638",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 2,
+      "fans": 2,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8655E",
+      "name": "ITE IT8655E",
+      "chip_id": "0x8655",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 3,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8665E",
+      "name": "ITE IT8665E",
+      "chip_id": "0x8665",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 6,
+      "fans": 6,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8686E",
+      "name": "ITE IT8686E",
+      "chip_id": "0x8686",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 5,
+      "fans": 6,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8688E",
+      "name": "ITE IT8688E",
+      "chip_id": "0x8688",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 5,
+      "fans": 6,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8689E",
+      "name": "ITE IT8689E",
+      "chip_id": "0x8689",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 6,
+      "fans": 6,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8696E",
+      "name": "ITE IT8696E",
+      "chip_id": "0x8696",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 6,
+      "fans": 6,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8705F",
+      "name": "ITE IT8705F",
+      "chip_id": "0x8705",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 3,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8712F",
+      "name": "ITE IT8712F",
+      "chip_id": "0x8712",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8716F",
+      "name": "ITE IT8716F",
+      "chip_id": "0x8716",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8718F",
+      "name": "ITE IT8718F",
+      "chip_id": "0x8718",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8720F",
+      "name": "ITE IT8720F",
+      "chip_id": "0x8720",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8721F",
+      "name": "ITE IT8721F",
+      "chip_id": "0x8721",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8726F",
+      "name": "ITE IT8726F",
+      "chip_id": "0x8726",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8728F",
+      "name": "ITE IT8728F",
+      "chip_id": "0x8728",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8771E",
+      "name": "ITE IT8771E",
+      "chip_id": "0x8771",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8772E",
+      "name": "ITE IT8772E",
+      "chip_id": "0x8772",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8790E",
+      "name": "ITE IT8790E",
+      "chip_id": "0x8790",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte (older)",
+        "ASRock (older)"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "ite_it87_legacy",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT8792E",
+      "name": "ITE IT8791E/IT8792E/IT8795E",
+      "chip_id": "0x8733",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 3,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "IT87952E",
+      "name": "ITE IT87952E",
+      "chip_id": "0x8695",
+      "vendor": "ITE",
+      "typical_boards": [
+        "Gigabyte",
+        "ASRock"
+      ],
+      "lhm_class": "IT87XX",
+      "controls": 3,
+      "fans": 3,
+      "family": "ite_it87_ext",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon it87"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT5585D",
+      "name": "Nuvoton NCT5585D",
+      "chip_id": "0xFFF0",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 7,
+      "fans": 7,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT610XD",
+      "name": "Nuvoton NCT6102D/NCT6104D/NCT6106D",
+      "chip_id": "0xC452",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 3,
+      "fans": 3,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6771F",
+      "name": "Nuvoton NCT6771F",
+      "chip_id": "0xB470",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 3,
+      "fans": 5,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6776F",
+      "name": "Nuvoton NCT6776F",
+      "chip_id": "0xC330",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 3,
+      "fans": 5,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6779D",
+      "name": "Nuvoton NCT6779D",
+      "chip_id": "0xC560",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 5,
+      "fans": 5,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6791D",
+      "name": "Nuvoton NCT6791D",
+      "chip_id": "0xC803",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 6,
+      "fans": 6,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6792D",
+      "name": "Nuvoton NCT6792D",
+      "chip_id": "0xC911",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 6,
+      "fans": 6,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6792DA",
+      "name": "Nuvoton NCT6792D-A",
+      "chip_id": "0xC913",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 6,
+      "fans": 6,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6793D",
+      "name": "Nuvoton NCT6793D",
+      "chip_id": "0xD121",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 6,
+      "fans": 6,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6795D",
+      "name": "Nuvoton NCT6795D",
+      "chip_id": "0xD352",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 6,
+      "fans": 6,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6796D",
+      "name": "Nuvoton NCT6796D",
+      "chip_id": "0xD423",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 6,
+      "fans": 6,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6796DR",
+      "name": "Nuvoton NCT6796D-R",
+      "chip_id": "0xD42A",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 7,
+      "fans": 7,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6796DS",
+      "name": "Nuvoton NCT6796D-S",
+      "chip_id": "0xFFF1",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 7,
+      "fans": 7,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6797D",
+      "name": "Nuvoton NCT6797D",
+      "chip_id": "0xD451",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 7,
+      "fans": 7,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6798D",
+      "name": "Nuvoton NCT6798D",
+      "chip_id": "0xD42B",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 7,
+      "fans": 7,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6686D",
+      "name": "Nuvoton NCT6686D",
+      "chip_id": "0xD440",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "MSI",
+        "Intel NUC/server"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 8,
+      "fans": 17,
+      "family": "nct668x",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6683 (read-only)"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6687D",
+      "name": "Nuvoton NCT6687D",
+      "chip_id": "0xD592",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "MSI",
+        "Intel NUC/server"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 8,
+      "fans": 17,
+      "family": "nct668x",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6683 (read-only)"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6687DR",
+      "name": "Nuvoton NCT6687D-R",
+      "chip_id": "0xFFFF",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "MSI",
+        "Intel NUC/server"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 16,
+      "fans": 16,
+      "family": "nct668x",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6683 (read-only)"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6683D",
+      "name": "Nuvoton NCT6683D",
+      "chip_id": "0xC732",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "MSI",
+        "Intel NUC/server"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 8,
+      "fans": 17,
+      "family": "nct668x",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6683 (read-only)"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6799D",
+      "name": "Nuvoton NCT6799D",
+      "chip_id": "0xD802",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS",
+        "ASRock",
+        "Biostar",
+        "MSI (older)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 7,
+      "fans": 7,
+      "family": "nct67xx_separate",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon nct6775"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "NCT6701D",
+      "name": "Nuvoton NCT6701D",
+      "chip_id": "0xD806",
+      "vendor": "Nuvoton",
+      "typical_boards": [
+        "ASUS (AM5 800-series)"
+      ],
+      "lhm_class": "Nct677X",
+      "controls": 7,
+      "fans": 7,
+      "family": "nct6701d",
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "verified",
+      "unrestricted_unlock": true,
+      "register_readback": true,
+      "status": "hardware-verified",
+      "evidence": "docs/COOLING_ACCEPTANCE.md",
+      "hardware_scope": "CHA_FAN2 only: verified-tier 80% curve and 100/80/60/40% calibration with register-checked firmware return; no channel test, plausibility, unlock or multi-channel run on hardware yet",
+      "community_reports": []
+    },
+    {
+      "chip": "W83627DHG",
+      "name": "Winbond W83627DHG",
+      "chip_id": "0xA020",
+      "vendor": "Winbond",
+      "typical_boards": [
+        "older ASUS/ASRock/Gigabyte"
+      ],
+      "lhm_class": "W836XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "winbond_w836xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon w83627ehf"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "W83627DHGP",
+      "name": "Winbond W83627DHG-P",
+      "chip_id": "0xB070",
+      "vendor": "Winbond",
+      "typical_boards": [
+        "older ASUS/ASRock/Gigabyte"
+      ],
+      "lhm_class": "W836XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "winbond_w836xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon w83627ehf"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "W83627EHF",
+      "name": "Winbond W83627EHF",
+      "chip_id": "0x8800",
+      "vendor": "Winbond",
+      "typical_boards": [
+        "older ASUS/ASRock/Gigabyte"
+      ],
+      "lhm_class": "W836XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "winbond_w836xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon w83627ehf"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "W83627HF",
+      "name": "Winbond W83627HF",
+      "chip_id": "0x5200",
+      "vendor": "Winbond",
+      "typical_boards": [
+        "older ASUS/ASRock/Gigabyte"
+      ],
+      "lhm_class": "W836XX",
+      "controls": 2,
+      "fans": 3,
+      "family": "winbond_w836xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon w83627ehf"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "W83627THF",
+      "name": "Winbond W83627THF",
+      "chip_id": "0x8280",
+      "vendor": "Winbond",
+      "typical_boards": [
+        "older ASUS/ASRock/Gigabyte"
+      ],
+      "lhm_class": "W836XX",
+      "controls": 3,
+      "fans": 3,
+      "family": "winbond_w836xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon w83627ehf"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "W83667HG",
+      "name": "Winbond W83667HG",
+      "chip_id": "0xA510",
+      "vendor": "Winbond",
+      "typical_boards": [
+        "older ASUS/ASRock/Gigabyte"
+      ],
+      "lhm_class": "W836XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "winbond_w836xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon w83627ehf"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "W83667HGB",
+      "name": "Winbond W83667HG-B",
+      "chip_id": "0xB350",
+      "vendor": "Winbond",
+      "typical_boards": [
+        "older ASUS/ASRock/Gigabyte"
+      ],
+      "lhm_class": "W836XX",
+      "controls": 3,
+      "fans": 5,
+      "family": "winbond_w836xx",
+      "backends": [
+        "lhm v0.9.6",
+        "hwmon w83627ehf"
+      ],
+      "tier": "lhm-supported",
+      "unrestricted_unlock": true,
+      "register_readback": false,
+      "status": "simulated",
+      "evidence": "crates/freergb-control/tests/chip_families.rs",
+      "hardware_scope": null,
+      "community_reports": []
+    },
+    {
+      "chip": "W83687THF",
+      "name": "Winbond W83687THF",
+      "chip_id": "0x8541",
+      "vendor": "Winbond",
+      "typical_boards": [],
+      "lhm_class": "W836XX",
+      "controls": 0,
+      "fans": 3,
+      "family": null,
+      "backends": [
+        "lhm v0.9.6"
+      ],
+      "tier": "read-only",
+      "unrestricted_unlock": false,
+      "register_readback": false,
+      "status": "unsupported",
+      "evidence": null,
+      "hardware_scope": null,
+      "community_reports": []
+    }
+  ],
+  "hwmon_drivers": [
+    {
+      "driver": "nct6683",
+      "family": "nct668x",
+      "names": [
+        "nct6683",
+        "nct6686",
+        "nct6687"
+      ],
+      "control": false,
+      "full_speed_enable": null,
+      "automatic_enable": []
+    },
+    {
+      "driver": "nct6775",
+      "family": "nct67xx_separate",
+      "names": [
+        "nct6106",
+        "nct6116",
+        "nct6775",
+        "nct6776",
+        "nct6779",
+        "nct6791",
+        "nct6792",
+        "nct6793",
+        "nct6795",
+        "nct6796",
+        "nct6797",
+        "nct6798",
+        "nct6799"
+      ],
+      "control": true,
+      "full_speed_enable": 0,
+      "automatic_enable": [
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "driver": "it87",
+      "family": "ite_it87_ext",
+      "names": [
+        "it8"
+      ],
+      "control": true,
+      "full_speed_enable": 0,
+      "automatic_enable": [
+        2
+      ]
+    },
+    {
+      "driver": "f71882fg",
+      "family": "fintek_f718xx",
+      "names": [
+        "f718",
+        "f8"
+      ],
+      "control": true,
+      "full_speed_enable": null,
+      "automatic_enable": [
+        2,
+        3
+      ]
+    },
+    {
+      "driver": "w83627ehf",
+      "family": "winbond_w836xx",
+      "names": [
+        "w83627",
+        "w83667"
+      ],
+      "control": true,
+      "full_speed_enable": null,
+      "automatic_enable": [
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "driver": "asus-ec-sensors",
+      "family": "asus_ec",
+      "names": [
+        "asusec"
+      ],
+      "control": false,
+      "full_speed_enable": null,
+      "automatic_enable": []
+    }
+  ],
+  "ec_boards": [
+    {
+      "model": "PRIME_X470_PRO",
+      "family": "Amd400",
+      "fan_sensors": 1
+    },
+    {
+      "model": "PRIME_X570_PRO",
+      "family": "Amd500",
+      "fan_sensors": 1
+    },
+    {
+      "model": "PRIME_Z690_A",
+      "family": "Intel600",
+      "fan_sensors": 0
+    },
+    {
+      "model": "PROART_X570_CREATOR_WIFI",
+      "family": "Amd500",
+      "fan_sensors": 1
+    },
+    {
+      "model": "PRO_WS_X570_ACE",
+      "family": "Amd500",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_CROSSHAIR_VIII_DARK_HERO",
+      "family": "Amd500",
+      "fan_sensors": 2
+    },
+    {
+      "model": "ROG_CROSSHAIR_VIII_FORMULA",
+      "family": "Amd500",
+      "fan_sensors": 3
+    },
+    {
+      "model": "ROG_CROSSHAIR_VIII_HERO",
+      "family": "Amd500",
+      "fan_sensors": 3
+    },
+    {
+      "model": "ROG_CROSSHAIR_VIII_HERO_WIFI",
+      "family": "Amd500",
+      "fan_sensors": 3
+    },
+    {
+      "model": "ROG_CROSSHAIR_VIII_IMPACT",
+      "family": "Amd500",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_CROSSHAIR_X670E_EXTREME",
+      "family": "Amd600",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_CROSSHAIR_X670E_GENE",
+      "family": "Amd600",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_CROSSHAIR_X670E_HERO",
+      "family": "Amd600",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_MAXIMUS_XII_HERO_WIFI",
+      "family": "Intel400",
+      "fan_sensors": 2
+    },
+    {
+      "model": "ROG_MAXIMUS_XII_Z490_FORMULA",
+      "family": "Intel400",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_MAXIMUS_XI_FORMULA",
+      "family": "Intel300",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_MAXIMUS_Z690_EXTREME_GLACIAL",
+      "family": "Intel600",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_MAXIMUS_Z690_FORMULA",
+      "family": "Intel600",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_MAXIMUS_Z690_HERO",
+      "family": "Intel600",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_MAXIMUS_Z790_DARK_HERO",
+      "family": "Intel700",
+      "fan_sensors": 2
+    },
+    {
+      "model": "ROG_MAXIMUS_Z790_FORMULA",
+      "family": "Intel700",
+      "fan_sensors": 0
+    },
+    {
+      "model": "ROG_MAXIMUS_Z790_HERO",
+      "family": "Intel700",
+      "fan_sensors": 2
+    },
+    {
+      "model": "ROG_STRIX_B550_E_GAMING",
+      "family": "Amd500",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_B550_I_GAMING",
+      "family": "Amd500",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_X570_E_GAMING",
+      "family": "Amd500",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_X570_E_GAMING_WIFI_II",
+      "family": "Amd500",
+      "fan_sensors": 0
+    },
+    {
+      "model": "ROG_STRIX_X570_F_GAMING",
+      "family": "Amd500",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_X570_I_GAMING",
+      "family": "Amd500",
+      "fan_sensors": 2
+    },
+    {
+      "model": "ROG_STRIX_X670E_E_GAMING_WIFI",
+      "family": "Amd600",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_X670E_F_GAMING_WIFI",
+      "family": "Amd600",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_X870_I_GAMING_WIFI",
+      "family": "Amd800",
+      "fan_sensors": 0
+    },
+    {
+      "model": "ROG_STRIX_Z390_E_GAMING",
+      "family": "Intel300",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_Z390_F_GAMING",
+      "family": "Intel300",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_Z390_I_GAMING",
+      "family": "Intel300",
+      "fan_sensors": 0
+    },
+    {
+      "model": "ROG_STRIX_Z690_A_GAMING_WIFI_D4",
+      "family": "Intel600",
+      "fan_sensors": 0
+    },
+    {
+      "model": "ROG_STRIX_Z690_G_GAMING_WIFI",
+      "family": "Intel600",
+      "fan_sensors": 0
+    },
+    {
+      "model": "ROG_STRIX_Z790_E_GAMING_WIFI",
+      "family": "Intel700",
+      "fan_sensors": 0
+    },
+    {
+      "model": "ROG_STRIX_Z790_E_GAMING_WIFI_II",
+      "family": "Intel700",
+      "fan_sensors": 1
+    },
+    {
+      "model": "ROG_STRIX_Z790_I_GAMING_WIFI",
+      "family": "Intel700",
+      "fan_sensors": 0
+    },
+    {
+      "model": "TUF_GAMING_X870_PLUS_WIFI",
+      "family": "Amd800",
+      "fan_sensors": 1
+    },
+    {
+      "model": "Z170_A",
+      "family": "Intel100",
+      "fan_sensors": 1
+    },
+    {
+      "model": "Z170_PRO_GAMING",
+      "family": "Intel100",
+      "fan_sensors": 0
+    }
+  ]
+}

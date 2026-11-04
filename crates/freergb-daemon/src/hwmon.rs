@@ -47,6 +47,43 @@ const READ_ONLY_HINT: &[&str] = &[
     "drivetemp",
 ];
 
+/// `pwmN_enable` semantics of the kernel drivers freeRGB supports. Values are
+/// only captured and restored, never interpreted beyond `1` (manual); the
+/// table drives display, the coverage matrix (scripts/cooling/fan-coverage.mjs
+/// parses one entry per line) and the per-driver simulated tests below.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct HwmonDriver {
+    pub driver: &'static str,
+    /// Chip family id in crates/freergb-control/tests/fixtures/chip_families.json.
+    pub family: &'static str,
+    /// `name` attribute prefixes reported by the driver.
+    pub names: &'static [&'static str],
+    /// The driver exposes writable `pwmN_enable` (manual = 1).
+    pub control: bool,
+    /// `pwmN_enable` value meaning "full speed, no control", if any.
+    pub full_speed: Option<i64>,
+    /// `pwmN_enable` values for chip-automatic modes.
+    pub automatic: &'static [i64],
+}
+
+/// More specific prefixes first (nct6683 before the generic nct6775 family).
+#[rustfmt::skip]
+pub const DRIVERS: &[HwmonDriver] = &[
+    HwmonDriver { driver: "nct6683", family: "nct668x", names: &["nct6683", "nct6686", "nct6687"], control: false, full_speed: None, automatic: &[] },
+    HwmonDriver { driver: "nct6775", family: "nct67xx_separate", names: &["nct6106", "nct6116", "nct6775", "nct6776", "nct6779", "nct6791", "nct6792", "nct6793", "nct6795", "nct6796", "nct6797", "nct6798", "nct6799"], control: true, full_speed: Some(0), automatic: &[2, 3, 4, 5] },
+    HwmonDriver { driver: "it87", family: "ite_it87_ext", names: &["it8"], control: true, full_speed: Some(0), automatic: &[2] },
+    HwmonDriver { driver: "f71882fg", family: "fintek_f718xx", names: &["f718", "f8"], control: true, full_speed: None, automatic: &[2, 3] },
+    HwmonDriver { driver: "w83627ehf", family: "winbond_w836xx", names: &["w83627", "w83667"], control: true, full_speed: None, automatic: &[2, 3, 4, 5] },
+    HwmonDriver { driver: "asus-ec-sensors", family: "asus_ec", names: &["asusec"], control: false, full_speed: None, automatic: &[] },
+];
+
+/// Driver entry for a hwmon `name`, if freeRGB knows its semantics.
+pub fn driver(name: &str) -> Option<&'static HwmonDriver> {
+    DRIVERS
+        .iter()
+        .find(|d| d.names.iter().any(|prefix| name.starts_with(prefix)))
+}
+
 fn read_trim(path: &Path) -> Option<String> {
     let text = std::fs::read_to_string(path).ok()?;
     let text = text.trim();
@@ -769,6 +806,7 @@ impl HwmonProvider {
                 "id": c.id,
                 "name": c.name,
                 "read_only_hint": READ_ONLY_HINT.contains(&c.name.as_str()),
+                "driver": driver(&c.name),
                 "temps": c.temps,
                 "fans": c.fans,
                 "pwms": c.pwms.iter().map(|p| json!({
@@ -1076,26 +1114,31 @@ mod tests {
     }
     impl Fixture {
         fn new(tag: &str) -> Self {
+            Self::with_chip(
+                tag,
+                &[
+                    ("name", "nct6798"),
+                    ("temp1_input", "45000"),
+                    ("temp1_label", "SYSTIN"),
+                    ("temp2_input", "61000"),
+                    ("fan1_input", "900"),
+                    ("fan2_input", "0"),
+                    ("pwm1", "128"),
+                    ("pwm1_enable", "5"),
+                    ("pwm1_mode", "1"),
+                    ("pwm2", "77"),
+                    ("pwm2_enable", "2"),
+                    ("pwm3", "255"),
+                    ("pwm3_enable", "1"),
+                ],
+            )
+        }
+        fn with_chip(tag: &str, files: &[(&str, &str)]) -> Self {
             let root =
                 std::env::temp_dir().join(format!("freergb-hwmon-{tag}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&root);
             let chip = root.join("class/hwmon0");
             std::fs::create_dir_all(&chip).unwrap();
-            let files = [
-                ("name", "nct6798"),
-                ("temp1_input", "45000"),
-                ("temp1_label", "SYSTIN"),
-                ("temp2_input", "61000"),
-                ("fan1_input", "900"),
-                ("fan2_input", "0"),
-                ("pwm1", "128"),
-                ("pwm1_enable", "5"),
-                ("pwm1_mode", "1"),
-                ("pwm2", "77"),
-                ("pwm2_enable", "2"),
-                ("pwm3", "255"),
-                ("pwm3_enable", "1"),
-            ];
             for (name, value) in files {
                 std::fs::write(chip.join(name), format!("{value}\n")).unwrap();
             }
@@ -1331,6 +1374,110 @@ mod tests {
         assert_eq!(f.read("pwm1_enable"), "5");
         p.set_paused(false).unwrap();
         assert_eq!(f.read("pwm1_enable"), "1");
+    }
+
+    /// Simulated sysfs per supported driver: manual takeover, restore of every
+    /// firmware `pwmN_enable` value (incl. full speed), takeback fault and
+    /// read-only drivers. Writes go to temporary files only.
+    #[test]
+    fn every_driver_restores_its_own_enable_semantics() {
+        for (n, d) in DRIVERS.iter().enumerate() {
+            let name = if d.names[0].len() < 5 {
+                format!("{}686", d.names[0])
+            } else {
+                d.names[0].to_owned()
+            };
+            assert_eq!(driver(&name), Some(d), "{name}");
+            let mut originals: Vec<i64> = d.automatic.to_vec();
+            originals.extend(d.full_speed);
+            let mut files = vec![
+                ("name".to_owned(), name.clone()),
+                ("temp1_input".to_owned(), "40000".to_owned()),
+            ];
+            for (i, enable) in originals.iter().enumerate() {
+                let i = i + 1;
+                files.push((format!("fan{i}_input"), "1200".into()));
+                files.push((format!("pwm{i}"), "153".into()));
+                files.push((format!("pwm{i}_enable"), enable.to_string()));
+            }
+            if d.driver == "nct6683" {
+                // nct6683 reports duty but exposes no pwm_enable.
+                files.push(("fan1_input".into(), "1200".into()));
+                files.push(("pwm1".into(), "153".into()));
+            }
+            let refs: Vec<(&str, &str)> = files
+                .iter()
+                .map(|(a, b)| (a.as_str(), b.as_str()))
+                .collect();
+            let f = Fixture::with_chip(&format!("drv{n}"), &refs);
+            let mut p = f.provider();
+            p.start(true).unwrap();
+            assert_eq!(p.view()["chips"][0]["driver"]["family"], d.family);
+            let chip = chip_id(&p);
+            let controls = p
+                .channels()
+                .into_iter()
+                .filter(|c| c.control_available)
+                .count();
+            if !d.control {
+                assert_eq!(controls, 0, "{}", d.driver);
+                assert!(!p.summary().control_enabled, "{}", d.driver);
+                if d.driver == "nct6683" {
+                    assert!(p
+                        .assign(Assignment {
+                            channel_id: channel_id(&chip, 1),
+                            mode: Mode::Manual { percent: 50.0 },
+                            pump: false,
+                            allow_stop: false,
+                        })
+                        .is_err());
+                }
+                continue;
+            }
+            assert_eq!(controls, originals.len(), "{}", d.driver);
+            for (i, original) in originals.iter().enumerate() {
+                let index = i as u32 + 1;
+                let id = channel_id(&chip, index);
+                p.assign(Assignment {
+                    channel_id: id.clone(),
+                    mode: Mode::Manual { percent: 50.0 },
+                    pump: false,
+                    allow_stop: false,
+                })
+                .unwrap();
+                assert_eq!(f.read(&format!("pwm{index}_enable")), "1", "{}", d.driver);
+                assert_eq!(f.read(&format!("pwm{index}")), "128");
+                p.release(Some(&id)).unwrap();
+                assert_eq!(
+                    (
+                        f.read(&format!("pwm{index}_enable")),
+                        f.read(&format!("pwm{index}"))
+                    ),
+                    (original.to_string(), "153".to_owned()),
+                    "{} enable {original}",
+                    d.driver
+                );
+            }
+            // The BIOS/driver takes the header back into an automatic mode.
+            let chips = scan(&p.root);
+            lock(&p.shared).chips = chips;
+            p.assign(Assignment {
+                channel_id: channel_id(&chip, 1),
+                mode: Mode::Manual { percent: 70.0 },
+                pump: false,
+                allow_stop: false,
+            })
+            .unwrap();
+            for _ in 0..2 {
+                f.set("pwm1_enable", &originals[0].to_string());
+                let chips = scan(&p.root);
+                let mut shared = lock(&p.shared);
+                shared.chips = chips;
+                tick(&mut shared);
+            }
+            assert!(lock(&p.shared).active.is_empty(), "{}", d.driver);
+            assert_eq!(f.read("pwm1"), "153", "{}", d.driver);
+        }
     }
 
     #[test]
