@@ -206,6 +206,39 @@ fn rival700_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn rival3_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesRival3 row (interface 3; 0x184C new firmware)
+    let i = iface(rival_pid("DetectSteelSeriesRival3"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: SteelSeriesRival3Controller.h rival_3 led table
+    assert_eq!(caps.layout.leds.len(), 4);
+    assert_eq!(caps.layout.leds[0].name, "Front");
+    assert_eq!(caps.layout.leds[3].name, "Logo");
+    assert_eq!(caps.zones.len(), 4);
+    m.frame(&[RGB1, RGB2, RGB1, RGB2], &mut h).unwrap();
+    assert_eq!(h.writes.len(), 5);
+    // upstream: SteelSeriesRival3Controller.cpp SetColor with brightness 0x64
+    assert_eq!(
+        h.writes[0],
+        vec![0x00, 0x05, 0x00, 0x01, 0x11, 0x22, 0x33, 0x64]
+    );
+    assert_eq!(
+        h.writes[1],
+        vec![0x00, 0x05, 0x00, 0x02, 0x44, 0x55, 0x66, 0x64]
+    );
+    assert_eq!(
+        h.writes[3],
+        vec![0x00, 0x05, 0x00, 0x04, 0x44, 0x55, 0x66, 0x64]
+    );
+    // upstream: RGBController_SteelSeriesRival3.cpp DeviceUpdateMode() with
+    // DIRECT (0x04) minus speed (0) via SetLightEffectAll [00 06 00 04]
+    assert_eq!(h.writes[4], vec![0x00, 0x06, 0x00, 0x04]);
+    assert!(h.features.is_empty());
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
 fn unported_steelseries_devices_stay_unsupported() {
     // DetectSteelSeriesAerox3 / Sensei / Arctis / QCK / Apex handlers are not
     // ported yet and must never report supported.
@@ -213,7 +246,6 @@ fn unported_steelseries_devices_stay_unsupported() {
         "DetectSteelSeriesAerox3",
         "DetectSteelSeriesAerox3Wireless",
         "DetectSteelSeriesSensei",
-        "DetectSteelSeriesRival3",
         "DetectSteelSeriesRival5",
         "DetectSteelSeriesSiberia350",
         "DetectSteelSeriesArctis5",
@@ -238,6 +270,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesRival600",
         "DetectSteelSeriesRival650",
         "DetectSteelSeriesRival700",
+        "DetectSteelSeriesRival3",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()
@@ -259,6 +292,7 @@ fn all_rival_layouts_are_valid() {
         let ok: Vec<Rgb> = vec![RGB1; caps.layout.leds.len()];
         m.frame(&ok, &mut h).unwrap();
         assert!(m.frame(&ok[..ok.len() - 1], &mut h).is_err());
+        m.shutdown(None, &mut h).unwrap();
     }
 }
 #[test]
@@ -276,4 +310,8 @@ fn unsupported_handler_cannot_initialize_even_if_row_exists() {
     let i = iface(pid_of("Aerox 3 Wired"));
     assert!(m.initialize(&i, &mut h).is_err());
     assert!(h.writes.is_empty() && h.features.is_empty());
+    // Rival 3 Wireless uses SteelSeriesAeroxWirelessController upstream and is
+    // covered by a later port step; not supported by the Rival3 path yet
+    let i = iface(pid_of("Rival 3 Wireless"));
+    assert!(m.initialize(&i, &mut h).is_err());
 }

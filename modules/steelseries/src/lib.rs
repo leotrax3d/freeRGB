@@ -106,6 +106,27 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
             ]
             .concat()
         }
+        table::Proto::Rival3 => {
+            // upstream: SteelSeriesRival3Controller.h rival_3 led table
+            vec![
+                LedSpec {
+                    name: "Front",
+                    value: 0x01,
+                },
+                LedSpec {
+                    name: "Middle",
+                    value: 0x02,
+                },
+                LedSpec {
+                    name: "Rear",
+                    value: 0x03,
+                },
+                LedSpec {
+                    name: "Logo",
+                    value: 0x04,
+                },
+            ]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -131,6 +152,9 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         table::Proto::Rival300 | table::Proto::Rival700 => {
             vec![("Logo", 1), ("Scroll Wheel", 1)]
         }
+        // upstream: RGBController_SteelSeriesRival3.cpp SetupZones() - one
+        // single-LED zone per led_info entry
+        table::Proto::Rival3 => vec![("Front", 1), ("Middle", 1), ("Rear", 1), ("Logo", 1)],
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }
@@ -214,6 +238,24 @@ impl Module for SteelSeries {
             return Err(err("invalid SteelSeries frame"));
         }
         let proto = self.proto.expect("active implies proto");
+        if proto == table::Proto::Rival3 {
+            // upstream: RGBController_SteelSeriesRival3.cpp DeviceUpdateLEDs()
+            // SetColor per zone (brightness max) first, then DeviceUpdateMode()
+            // -> SetLightEffectAll(DIRECT - speed):
+            for (led, color) in self.leds.iter().zip(c) {
+                h.write(&report::set_mouse_color(
+                    led.value,
+                    *color,
+                    report::MOUSE_BRIGHTNESS_MAX,
+                ))
+                .map_err(err)?;
+            }
+            h.write(&report::set_mouse_light_effect_all(
+                report::MOUSE_DIRECT_VALUE,
+            ))
+            .map_err(err)?;
+            return Ok(());
+        }
         // upstream: RGBController_SteelSeriesRival.cpp DeviceUpdateMode()
         // Direct mode first applies the effect, then updates every LED.
         for pkt in report::set_light_effect_all(proto, report::EFFECT_DIRECT) {

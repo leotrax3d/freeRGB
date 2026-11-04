@@ -44,6 +44,8 @@ pub fn save_mode() -> Vec<u8> {
 /// upstream: SteelSeriesRivalController.cpp SetLightEffectAll()
 pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
     match proto {
+        // Rival 3 uses the separate mouse protocol (set_mouse_light_effect_all)
+        Proto::Rival3 => Vec::new(),
         Proto::Rival100 => vec![set_light_effect(proto, 0, effect)],
         Proto::Rival300 => vec![
             set_light_effect(proto, 0, effect),
@@ -62,6 +64,9 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
     match proto {
         Proto::Rival650 => set_rival650_color(zone_id, c),
         Proto::Rival600 => set_rival600_color(zone_id, c),
+        // Rival 3 uses set_mouse_color() (per-zone color + brightness); its
+        // routing happens in lib.rs frame(), never through set_color()
+        Proto::Rival3 => Vec::new(),
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
         Proto::Rival100 | Proto::Rival300 => {
             let cmd: u8;
@@ -146,6 +151,21 @@ pub fn set_rival700_color(zone_id: u8, c: freergb_core::Rgb) -> Vec<u8> {
         b[0x0b] = zone_id;
         b[0x0c] = 0x01;
     })
+}
+/// upstream: SteelSeriesMouseController.h STEELSERIES_MOUSE_BRIGHTNESS_MAX
+pub const MOUSE_BRIGHTNESS_MAX: u8 = 0x64;
+/// upstream: SteelSeriesMouseController.h STEELSERIES_MOUSE_EFFECT_DIRECT
+pub const MOUSE_DIRECT_VALUE: u8 = 0x04;
+/// upstream: RGBController_SteelSeriesRival3.cpp DeviceUpdateMode() driven by
+/// SteelSeriesRival3Controller.cpp SetLightEffectAll()
+/// 4-byte write packet `[00 06 00 effect]` (report id 0x00 already inline).
+pub fn set_mouse_light_effect_all(effect: u8) -> Vec<u8> {
+    vec![0x00, 0x06, 0x00, effect]
+}
+/// upstream: SteelSeriesRival3Controller.cpp SetColor()
+/// 8-byte write packet `[00 05 00 zone r g b brightness]`.
+pub fn set_mouse_color(zone_id: u8, c: freergb_core::Rgb, brightness: u8) -> Vec<u8> {
+    vec![0x00, 0x05, 0x00, zone_id, c.r, c.g, c.b, brightness]
 }
 #[cfg(test)]
 mod tests {

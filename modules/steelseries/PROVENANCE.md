@@ -33,13 +33,32 @@ Device rows: DetectSteelSeriesRival100 PIDs 0x1702, 0x170C, 0x1814, 0x1816,
 0x1392, 0x1718 (0x1710 Black Ops row is a duplicate PID/name); DetectSteelSeriesRival600
 PIDs 0x1724, 0x172E; DetectSteelSeriesRival650 PIDs 0x172B, 0x1726;
 DetectSteelSeriesRival700 PIDs 0x1700, 0x1730. All on VID 0x1038, interface 0.
+Rival 3: DetectSteelSeriesRival3 PIDs 0x1824 and 0x184C, interface 3.
+
+### Rival 3 (SteelSeriesRival3Controller over SteelSeriesMouseController base) - 2 detector rows, ported
+
+Direct mode only. Upstream shares `RGBController_SteelSeriesRival3` between
+Rival 3, Aerox 3/5/9 and the Rival 3 Wireless (AeroxWireless) controller
+classes; only the `SteelSeriesRival3Controller` rows
+(`DetectSteelSeriesRival3`, PIDs 0x1824 and 0x184C, interface 3) are claimed by
+this port. The wireless detector row (0x1830, usage page 0xFFC0) stays
+unsupported until the AeroxWireless controller port.
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `SteelSeriesRival3Controller.h` `rival_3` | `lib.rs led_specs()` / `zones()` | Front 0x01, Middle 0x02, Rear 0x03, Logo 0x04; one single-LED zone each |
+| `SteelSeriesRival3Controller.cpp` `SetLightEffectAll()` | `report::set_mouse_light_effect_all()` | 4-byte write `[00 06 00 effect]` |
+| `SteelSeriesRival3Controller.cpp` `SetColor()` | `report::set_mouse_color()` | 8-byte write `[00 05 00 zone r g b brightness]` |
+| `SteelSeriesMouseController.h` `STEELSERIES_MOUSE_BRIGHTNESS_MAX` / `STEELSERIES_MOUSE_EFFECT_DIRECT` | `report::MOUSE_BRIGHTNESS_MAX` / `MOUSE_DIRECT_VALUE` | 0x64 / 0x04 |
+| `RGBController_SteelSeriesRival3.cpp` `DeviceUpdateLEDs()` | `lib.rs frame()` (Rival3 branch) | SetColor per zone first, then effect packet `[00 06 00 04]` |
+| `GetFirmwareVersion()` | - | Not used (module protocol has no firmware path) |
 
 ### Remaining sub-controllers (not ported)
 
 | Upstream path | Devices | Status |
 |---|---:|---|
 | Aerox 3/5/9 (`SteelSeriesAerox*Controller`) | 15 | nicht portiert |
-| Rival 3 / Rival 3 Wireless / Rival 5 (`SteelSeriesRival3Controller`, `SteelSeriesRival5Controller`) | 4 | nicht portiert |
+| Rival 3 Wireless / Rival 5 (`SteelSeriesAeroxWirelessController`, `SteelSeriesRival5Controller`) | 2 | nicht portiert |
 | Sensei (`SteelSeriesSenseiController`, incl. Rival 310 rows) | 6 | nicht portiert |
 | Siberia / Arctis (`SteelSeriesSiberiaController`, `SteelSeriesArctis*Controller`) | 4 | nicht portiert |
 | QCK (`SteelSeriesQCKMatController`) | 9 | nicht portiert |
