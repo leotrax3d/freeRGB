@@ -1,0 +1,49 @@
+name: Fan coverage drift
+
+# The committed motherboard fan coverage matrix must match the pinned
+# LibreHardwareMonitor sources and freeRGB's family/driver/evidence tables.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/cooling/**"
+      - "docs/FAN_COVERAGE.md"
+      - "docs/fan-coverage.json"
+      - "crates/freergb-control/tests/fixtures/chip_families.json"
+      - "crates/freergb-daemon/src/hwmon.rs"
+      - "providers/mainboard/NativeNctEvidence.cs"
+      - "packaging/windows/mainboard-packages.json"
+      - ".github/workflows/fan-coverage-drift.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/cooling/**"
+      - "docs/fan-coverage.json"
+      - "crates/freergb-control/tests/fixtures/chip_families.json"
+      - "crates/freergb-daemon/src/hwmon.rs"
+      - "packaging/windows/mainboard-packages.json"
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+      - name: Fetch pinned LibreHardwareMonitor sources
+        run: |
+          tag="v$(node -p 'require("./packaging/windows/mainboard-packages.json").packages.lhm.version')"
+          echo "LHM_TAG=$tag" >> "$GITHUB_ENV"
+          git init -q lhm-pinned && cd lhm-pinned
+          git remote add origin https://github.com/LibreHardwareMonitor/LibreHardwareMonitor.git
+          git fetch -q --depth 1 origin "refs/tags/$tag" && git checkout -q FETCH_HEAD
+      - name: Committed matrix matches the pinned sources
+        run: |
+          node scripts/cooling/fan-coverage.mjs lhm-pinned "$LHM_TAG"
+          git diff --exit-code -- docs/FAN_COVERAGE.md docs/fan-coverage.json
+      - name: Report importer self-test
+        run: node scripts/cooling/import-report.mjs --self-test

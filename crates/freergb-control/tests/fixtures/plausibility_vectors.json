@@ -1,0 +1,21 @@
+{
+  "comment": "RPM plausibility vectors shared by freergb_control::plausibility and (follow-up) RpmPlausibility in providers/mainboard/BackgroundCooling.cs.",
+  "tested": [{"duty_percent": 50, "rpm": 800}, {"duty_percent": 70, "rpm": 1100}, {"duty_percent": 100, "rpm": 1500}],
+  "steps": [
+    {"now_ms": 0, "duty_percent": 60, "rpm": 950, "implausible": false},
+    {"now_ms": 4000, "duty_percent": 60, "rpm": 300, "implausible": false},
+    {"now_ms": 8000, "duty_percent": 60, "rpm": 300, "implausible": false},
+    {"now_ms": 9000, "duty_percent": 60, "rpm": 300, "implausible": true},
+    {"now_ms": 9500, "duty_percent": 60, "rpm": 950, "implausible": false},
+    {"now_ms": 10000, "duty_percent": 62, "rpm": 200, "implausible": false},
+    {"now_ms": 15000, "duty_percent": 62, "rpm": 200, "implausible": true},
+    {"now_ms": 15500, "duty_percent": 80, "rpm": 300, "implausible": false},
+    {"now_ms": 19500, "duty_percent": 80, "rpm": 300, "implausible": false},
+    {"now_ms": 24500, "duty_percent": 80, "rpm": 300, "implausible": true},
+    {"now_ms": 30000, "duty_percent": 45, "rpm": 0, "implausible": false},
+    {"now_ms": 40000, "duty_percent": 45, "rpm": 0, "implausible": false},
+    {"now_ms": 41000, "duty_percent": 100, "rpm": 2400, "implausible": false},
+    {"now_ms": 45000, "duty_percent": 100, "rpm": 2400, "implausible": false},
+    {"now_ms": 50000, "duty_percent": 100, "rpm": 2400, "implausible": true}
+  ]
+}

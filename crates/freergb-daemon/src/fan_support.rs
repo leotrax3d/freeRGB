@@ -87,10 +87,7 @@ impl Default for FanSupportConfig {
 
 /// A test passes with a plausible, monotonic RPM response at 100/70/50%.
 pub fn passed(result: &CalibrationResult) -> bool {
-    result.response_observed
-        && result.monotonic_response
-        && result.tested.len() == 3
-        && result.tested.iter().all(|t| t.rpm >= 100.0)
+    result.channel_test_passed()
 }
 
 fn now_unix() -> u64 {
@@ -309,10 +306,9 @@ impl FanSupport {
             .filter(|c| c.kind == "control" && c.control_available)
             .map(|c| {
                 let identity = ChannelIdentity::of(board, c);
-                (
-                    c.sensor_id.clone(),
-                    self.state(identity.as_ref(), &c.sensor_id),
-                )
+                let mut state = self.state(identity.as_ref(), &c.sensor_id);
+                state["coverage"] = crate::fan_coverage::lookup(&c.sensor_id).into();
+                (c.sensor_id.clone(), state)
             })
             .collect();
         json!({

@@ -1,5 +1,12 @@
-import type { CoolingChannel, CoolingSupport, SupportTier } from "@/lib/api/types";
+import type { ChannelCoverage, CoolingChannel, CoolingSupport, SupportTier } from "@/lib/api/types";
 import type { Tone } from "@/components/status";
+
+/** Chip and coverage status (docs/FAN_COVERAGE.md) for a channel, or null. */
+export function coverageLabel(coverage: ChannelCoverage | null | undefined): string | null {
+  if (!coverage) return null;
+  const status = coverage.status === "hardware-verified" ? "hardware-verified" : coverage.status === "simulated" ? "simulated only" : "not covered";
+  return `${coverage.chip} · ${status}`;
+}
 
 /** Short, user-facing names for the support tiers (DECISIONS.md #14). */
 export function tierLabel(tier: SupportTier | null | undefined): string {
