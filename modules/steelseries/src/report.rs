@@ -44,8 +44,9 @@ pub fn save_mode() -> Vec<u8> {
 /// upstream: SteelSeriesRivalController.cpp SetLightEffectAll()
 pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
     match proto {
-        // Rival 3 uses the separate mouse protocol (set_mouse_light_effect_all)
-        Proto::Rival3 => Vec::new(),
+        // Rival 3/5 use the separate mouse protocols (set_mouse_light_effect_all /
+        // set_rival5_* builders)
+        Proto::Rival3 | Proto::Rival5 => Vec::new(),
         Proto::Rival100 => vec![set_light_effect(proto, 0, effect)],
         Proto::Rival300 => vec![
             set_light_effect(proto, 0, effect),
@@ -64,9 +65,9 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
     match proto {
         Proto::Rival650 => set_rival650_color(zone_id, c),
         Proto::Rival600 => set_rival600_color(zone_id, c),
-        // Rival 3 uses set_mouse_color() (per-zone color + brightness); its
-        // routing happens in lib.rs frame(), never through set_color()
-        Proto::Rival3 => Vec::new(),
+        // Rival 3/5 use the mouse protocols handled in lib.rs frame(); their
+        // routing happens there, never through set_color()
+        Proto::Rival3 | Proto::Rival5 => Vec::new(),
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
         Proto::Rival100 | Proto::Rival300 => {
             let cmd: u8;
@@ -166,6 +167,41 @@ pub fn set_mouse_light_effect_all(effect: u8) -> Vec<u8> {
 /// 8-byte write packet `[00 05 00 zone r g b brightness]`.
 pub fn set_mouse_color(zone_id: u8, c: freergb_core::Rgb, brightness: u8) -> Vec<u8> {
     vec![0x00, 0x05, 0x00, zone_id, c.r, c.g, c.b, brightness]
+}
+/// upstream: SteelSeriesRival5Controller.cpp SetBrightness()
+/// 64-byte feature report `[00 23 tier 00...]`; brightness quantized to the
+/// tiers 0x64 / 0x32 / 0x19 / 0x0C / 0x00.
+pub fn set_rival5_brightness(level: u8) -> Vec<u8> {
+    let tier = if level >= 88 {
+        0x64
+    } else if level >= 63 {
+        0x32
+    } else if level >= 38 {
+        0x19
+    } else if level >= 13 {
+        0x0C
+    } else {
+        0x00
+    };
+    let mut p = vec![0u8; 64];
+    p[1] = 0x23;
+    p[2] = tier;
+    p
+}
+/// upstream: SteelSeriesRival5Controller.cpp UpdateLEDs()
+/// 64-byte feature report `[00 21 FF 03 r g b ...]` with RGB for up to 10
+/// zones starting at byte 4.
+pub fn set_rival5_direct(colors: &[freergb_core::Rgb]) -> Vec<u8> {
+    let mut p = vec![0u8; 64];
+    p[1] = 0x21;
+    p[2] = 0xFF;
+    p[3] = 0x03;
+    for (i, c) in colors.iter().take(10).enumerate() {
+        p[4 + (i * 3)] = c.r;
+        p[5 + (i * 3)] = c.g;
+        p[6 + (i * 3)] = c.b;
+    }
+    p
 }
 #[cfg(test)]
 mod tests {

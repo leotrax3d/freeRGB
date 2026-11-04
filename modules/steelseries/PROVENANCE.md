@@ -34,6 +34,18 @@ Device rows: DetectSteelSeriesRival100 PIDs 0x1702, 0x170C, 0x1814, 0x1816,
 PIDs 0x1724, 0x172E; DetectSteelSeriesRival650 PIDs 0x172B, 0x1726;
 DetectSteelSeriesRival700 PIDs 0x1700, 0x1730. All on VID 0x1038, interface 0.
 Rival 3: DetectSteelSeriesRival3 PIDs 0x1824 and 0x184C, interface 3.
+Rival 5: DetectSteelSeriesRival5 PID 0x183C, interface 0, usage page 0xFFC0,
+usage 1.
+
+### Rival 5 (SteelSeriesRival5Controller) - 1 detector row, ported
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `SteelSeriesRival5Controller.h` `rival_5` | `lib.rs led_specs()` / `zones()` | Scroll Wheel 0, Body Left/Right 1-4 (0x01-0x08), Logo 9; single "Whole Mouse" linear zone |
+| `SteelSeriesRival5Controller.cpp` `UpdateLEDs()` | `report::set_rival5_direct()` | 64-byte feature report `[00 21 FF 03 rgb x10]` |
+| `SteelSeriesRival5Controller.cpp` `SetBrightness()` | `report::set_rival5_brightness()` | `[00 23 tier]`, tiers 0x64/0x32/0x19/0x0C/0x00; only on change (initial 0xFF) |
+| `RGBController_SteelSeriesRival5.cpp` `DeviceUpdateLEDs()` | `lib.rs frame()` (Rival5 branch) | Brightness (guarded) then Direct colors feature report |
+| `SetLightEffectAll()` / `Save()` / `GetFirmwareVersion()` | - | Upstream no-ops; Reactive/Rainbow modes omitted (Direct only) |
 
 ### Rival 3 (SteelSeriesRival3Controller over SteelSeriesMouseController base) - 2 detector rows, ported
 

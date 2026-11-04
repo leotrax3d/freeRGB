@@ -239,6 +239,50 @@ fn rival3_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn rival5_direct_and_brightness_are_byte_exact() {
+    // upstream: SteelSeriesRival5Controller.cpp UpdateLEDs (10 zones)
+    let p = crate::report::set_rival5_direct(&[
+        RGB1, RGB2, RGB1, RGB2, RGB1, RGB2, RGB1, RGB2, RGB1, RGB2,
+    ]);
+    assert_eq!(p.len(), 64);
+    assert_eq!(&p[0..7], &[0x00, 0x21, 0xFF, 0x03, 0x11, 0x22, 0x33]);
+    assert_eq!(&p[7..10], &[0x44, 0x55, 0x66]);
+    assert_eq!(&p[4 + 27..4 + 30], &[0x44, 0x55, 0x66]); // zone index 9 = Logo
+    assert!(p[4 + 30..].iter().all(|b| *b == 0));
+    // upstream: SetBrightness tier quantization
+    assert_eq!(crate::report::set_rival5_brightness(0x64)[2], 0x64);
+    assert_eq!(crate::report::set_rival5_brightness(88)[2], 0x64);
+    assert_eq!(crate::report::set_rival5_brightness(63)[2], 0x32);
+    assert_eq!(crate::report::set_rival5_brightness(38)[2], 0x19);
+    assert_eq!(crate::report::set_rival5_brightness(13)[2], 0x0C);
+    assert_eq!(crate::report::set_rival5_brightness(0)[2], 0x00);
+}
+#[test]
+fn rival5_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    let i = iface(rival_pid("DetectSteelSeriesRival5"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 10);
+    assert_eq!(caps.layout.leds[0].name, "Scroll Wheel");
+    assert_eq!(caps.layout.leds[9].name, "Logo");
+    assert_eq!(caps.zones.len(), 1);
+    assert_eq!(caps.zones[0].name, "Whole Mouse");
+    assert!(h.features.is_empty());
+    // Frame 1: brightness (0xFF -> 0x64 change) + direct colors
+    m.frame(&[RGB1; 10], &mut h).unwrap();
+    assert_eq!(h.features.len(), 2);
+    assert_eq!(&h.features[0][0..3], &[0x00, 0x23, 0x64]);
+    assert_eq!(&h.features[1][0..4], &[0x00, 0x21, 0xFF, 0x03]);
+    // Frame 2: brightness unchanged -> only the direct colors report
+    m.frame(&[RGB2; 10], &mut h).unwrap();
+    assert_eq!(h.features.len(), 3);
+    assert_eq!(&h.features[2][0..4], &[0x00, 0x21, 0xFF, 0x03]);
+    assert_eq!(&h.features[2][4..7], &[0x44, 0x55, 0x66]);
+    assert!(h.writes.is_empty());
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
 fn unported_steelseries_devices_stay_unsupported() {
     // DetectSteelSeriesAerox3 / Sensei / Arctis / QCK / Apex handlers are not
     // ported yet and must never report supported.
@@ -246,8 +290,7 @@ fn unported_steelseries_devices_stay_unsupported() {
         "DetectSteelSeriesAerox3",
         "DetectSteelSeriesAerox3Wireless",
         "DetectSteelSeriesSensei",
-        "DetectSteelSeriesRival5",
-        "DetectSteelSeriesSiberia350",
+        "DetectSteelSeriesRival3Wireless",
         "DetectSteelSeriesArctis5",
         "DetectSteelSeriesQCKPrism",
         "DetectSteelSeriesApex",
@@ -271,6 +314,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesRival650",
         "DetectSteelSeriesRival700",
         "DetectSteelSeriesRival3",
+        "DetectSteelSeriesRival5",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()

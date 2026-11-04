@@ -127,6 +127,51 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 },
             ]
         }
+        table::Proto::Rival5 => {
+            // upstream: SteelSeriesRival5Controller.h rival_5 led table
+            vec![
+                LedSpec {
+                    name: "Scroll Wheel",
+                    value: 0,
+                },
+                LedSpec {
+                    name: "Body Left 1",
+                    value: 1,
+                },
+                LedSpec {
+                    name: "Body Right 1",
+                    value: 2,
+                },
+                LedSpec {
+                    name: "Body Left 2",
+                    value: 3,
+                },
+                LedSpec {
+                    name: "Body Right 2",
+                    value: 4,
+                },
+                LedSpec {
+                    name: "Body Left 3",
+                    value: 5,
+                },
+                LedSpec {
+                    name: "Body Right 3",
+                    value: 6,
+                },
+                LedSpec {
+                    name: "Body Left 4",
+                    value: 7,
+                },
+                LedSpec {
+                    name: "Body Right 4",
+                    value: 8,
+                },
+                LedSpec {
+                    name: "Logo",
+                    value: 9,
+                },
+            ]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -155,6 +200,9 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         // upstream: RGBController_SteelSeriesRival3.cpp SetupZones() - one
         // single-LED zone per led_info entry
         table::Proto::Rival3 => vec![("Front", 1), ("Middle", 1), ("Rear", 1), ("Logo", 1)],
+        // upstream: RGBController_SteelSeriesRival5.cpp SetupZones() - one
+        // linear "Whole Mouse" zone with all 10 LEDs
+        table::Proto::Rival5 => vec![("Whole Mouse", 10)],
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }
@@ -165,11 +213,23 @@ fn kind(proto: table::Proto) -> DeviceKind {
     let _ = proto;
     DeviceKind::Mouse
 }
-#[derive(Default)]
 pub struct SteelSeries {
     active: bool,
     proto: Option<table::Proto>,
     leds: Vec<LedSpec>,
+    /// upstream: SteelSeriesRival5Controller.cpp sets member initialization
+    /// `current_brightness = 0xFF` so the first SetBrightness call sends.
+    rival5_brightness: u8,
+}
+impl Default for SteelSeries {
+    fn default() -> Self {
+        SteelSeries {
+            active: false,
+            proto: None,
+            leds: Vec::new(),
+            rival5_brightness: 0xFF,
+        }
+    }
 }
 impl Module for SteelSeries {
     fn info(&self) -> ModuleInfo {
@@ -238,6 +298,19 @@ impl Module for SteelSeries {
             return Err(err("invalid SteelSeries frame"));
         }
         let proto = self.proto.expect("active implies proto");
+        if proto == table::Proto::Rival5 {
+            // upstream: RGBController_SteelSeriesRival5.cpp DeviceUpdateLEDs()
+            // SetBrightness first (only on change; Direct brightness max 0x64),
+            // then UpdateLEDs as one 64-byte feature report
+            let level = report::MOUSE_BRIGHTNESS_MAX;
+            if self.rival5_brightness != level {
+                self.rival5_brightness = level;
+                h.send_feature(&report::set_rival5_brightness(level))
+                    .map_err(err)?;
+            }
+            h.send_feature(&report::set_rival5_direct(c)).map_err(err)?;
+            return Ok(());
+        }
         if proto == table::Proto::Rival3 {
             // upstream: RGBController_SteelSeriesRival3.cpp DeviceUpdateLEDs()
             // SetColor per zone (brightness max) first, then DeviceUpdateMode()
