@@ -1,0 +1,69 @@
+name: Fan control hardware report
+description: Report how freeRGB fan control works on your motherboard (feeds docs/FAN_COVERAGE.md)
+title: "Fan report: <board model> (<chip>)"
+labels: ["hardware-report", "fan-coverage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you! Reports are evidence for **your board only**; they never mark a chip as hardware-verified.
+        Export the report in freeRGB: Settings → Diagnostics → *Export with fan hardware details*. It contains
+        board model, BIOS version, chip, tier and channel-test results, but no serial numbers, paths or user names.
+        Please read the file before pasting it.
+
+        Never test pumps with reduced speed, and keep other fan tools (FanControl, vendor software) closed.
+  - type: input
+    id: board
+    attributes:
+      label: Motherboard (exact model)
+      placeholder: ASUS PRIME X870-P WIFI
+    validations:
+      required: true
+  - type: input
+    id: bios
+    attributes:
+      label: BIOS version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system / backend
+      options:
+        - Windows (LibreHardwareMonitor)
+        - Linux (hwmon)
+    validations:
+      required: true
+  - type: checkboxes
+    id: tested
+    attributes:
+      label: What did you run?
+      options:
+        - label: Guided channel test (100 → 70 → 50 %)
+        - label: Curve or fixed duty on at least one fan
+        - label: Stop / fault return (fan went back to BIOS control)
+        - label: Unrestricted unlock (fan stop)
+        - label: Several fans at once / background control
+  - type: dropdown
+    id: result
+    attributes:
+      label: Overall result
+      options:
+        - works
+        - partly
+        - does not work
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Which headers, what you observed, anything that did not return to BIOS control.
+  - type: textarea
+    id: report
+    attributes:
+      label: Fan hardware report (JSON)
+      description: Paste the `cooling_hardware` section of the exported diagnostics file.
+      render: json
+    validations:
+      required: true

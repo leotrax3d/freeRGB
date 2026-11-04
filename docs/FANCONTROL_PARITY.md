@@ -59,6 +59,7 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 | Sensors | Correction | Daemon evaluation/editor/storage | Native binding |
 | Sensors | Rolling average | Daemon evaluation/editor/storage | Live acceptance |
 | Sensors | Text-file import | Bounded shell-free reader (4 KiB, bounds, scale, mtime timeout, no network paths by default), API + Tauri editor, missing → 100 % ([details](COOLING_SOURCES_GPU.md)) | Real-world file producer acceptance |
+| Hardware | Board coverage per fan-controller chip | Generated [FAN_COVERAGE.md](FAN_COVERAGE.md) (LHM v0.9.6 + hwmon drivers, CI drift check); 56 controllable chips simulated per family (channel test, plausibility, fault return, unlock); NCT6701D hardware-verified for the CHA_FAN2 scope only; community report template/importer | Owner-board acceptance of channel test/plausibility/unlock; community reports for other chips |
 | Providers | CPU/GPU/board/storage | LHM CPU/GPU/board/storage (Windows, optional), hwmon k10temp/coretemp/amdgpu/nvme/drivetemp (Linux), LINK liquid; categorized `cooling.sensors.catalog`, all selectable in curves | Owner-hardware source acceptance; multi-board |
 | GPU | Vendor control/release | NVML backend (NVIDIA), amdgpu via hwmon (Linux); journal + release on stop/pause/crash/fault; simulated tests; Tauri panel | NVML hardware acceptance; elevated GPU worker; AMD ADLX (Windows) missing; Intel Arc read-only |
 | Plugins | External sensors/controls | RGB process plugins only | Cooling plugin contract/host |

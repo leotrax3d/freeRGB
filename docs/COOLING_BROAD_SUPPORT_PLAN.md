@@ -190,3 +190,18 @@ option, note the current BIOS version, keep LHM/FanControl/vendor tools closed.
 12. **Pump:** bind the AIO pump header as pump; unlock without pump confirmation -> stays 100%; after `PUMP <name>` a reduced curve is accepted (only test briefly, watch coolant temperature).
 13. **Identity binding:** after a BIOS update the test and unlock show `stale`.
 14. **Maintenance:** run Setup upgrade while background control runs -> channels return to firmware, upgrade succeeds, background restarts.
+
+### Coverage matrix and chip-family simulation (2026-11-04)
+
+Support is measured per fan-controller chip in the generated
+[FAN_COVERAGE.md](FAN_COVERAGE.md) (`scripts/cooling/fan-coverage.mjs`, CI
+`fan-coverage-drift.yml`). Every LHM chip with controls belongs to a simulator
+family in `crates/freergb-control/tests/fixtures/chip_families.json`;
+`tests/chip_families.rs` runs the guided channel test, RPM plausibility
+(`freergb_control::plausibility`, mirror of the C# `RpmPlausibility` with shared
+vectors), fault return and unrestricted unlock against register-level fakes
+with the family quirks (shared mode registers, 7-bit PWM, clamped duty range,
+ignored writes, delayed RPM, missing readback). Linux `pwmN_enable` semantics
+per driver are a table in `hwmon.rs` with simulated sysfs tests. Simulation is
+not hardware evidence: only NCT6701D is hardware-verified, and only for the
+CHA_FAN2 scope in COOLING_ACCEPTANCE.md.

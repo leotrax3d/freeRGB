@@ -1,0 +1,15 @@
+{
+  "comment": "Hardware evidence for docs/FAN_COVERAGE.md. hardware-verified is reserved for the owner board and only for what COOLING_ACCEPTANCE.md proves; community-reported entries are added by scripts/cooling/import-report.mjs from accepted GitHub reports.",
+  "hardware_verified_allowed": ["NCT6701D"],
+  "entries": [
+    {
+      "chip": "NCT6701D",
+      "board": "ASUS PRIME X870-P WIFI",
+      "bios": null,
+      "status": "hardware-verified",
+      "scope": "CHA_FAN2 only: verified-tier 80% curve and 100/80/60/40% calibration with register-checked firmware return; no channel test, plausibility, unlock or multi-channel run on hardware yet",
+      "result": "passed",
+      "link": "docs/COOLING_ACCEPTANCE.md"
+    }
+  ]
+}

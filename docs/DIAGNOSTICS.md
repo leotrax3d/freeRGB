@@ -22,8 +22,13 @@ lists the same as `cooling_support` with channel names.
 Opt-in (`diagnostics.export {include_cooling_hardware:true}`, the second button in
 both GUIs): `cooling_hardware` adds the public SMBIOS board manufacturer/product,
 BIOS version, the pinned LHM version and per anonymous control its chip name,
-tier, register readback, channel-test state and whether it is unlocked. Purpose:
-promote LHM-supported chips with evidence. Still no serials, names, readings or
+tier, register readback, channel-test state and measured duty/RPM pairs,
+backend (`lhm`/`hwmon`), coverage status from [FAN_COVERAGE.md](FAN_COVERAGE.md) and
+whether it is unlocked (`report_format: freergb-fan-report/1`; hwmon chip names
+are cut before the device path). Purpose: community evidence per board through
+the "Fan control hardware report" issue template; maintainers import accepted
+reports with `scripts/cooling/import-report.mjs` (community-reported only, never
+hardware-verified). Still no serials, names, readings or
 paths; nothing is uploaded. Device IDs, names/serials, capture names,
 paths, raw errors and macro/profile contents are omitted. Review before sharing.
 Full local `diagnostics.get` and `devices.list` are unchanged; this is a separate
