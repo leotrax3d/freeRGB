@@ -290,6 +290,23 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 },
             ]
         }
+        table::Proto::Apex3 { tzone } => {
+            // upstream: RGBController_SteelSeriesApex3.cpp SetupZones() -
+            // "LED n" names, 10 LEDs (Apex 3) or 8 LEDs (Apex 3 TKL)
+            let names: &[&'static str] = if tzone {
+                &crate::report::APEX3_LED_NAMES[..10]
+            } else {
+                &crate::report::APEX3_LED_NAMES[..8]
+            };
+            names
+                .iter()
+                .enumerate()
+                .map(|(n, name)| LedSpec {
+                    name,
+                    value: n as u8,
+                })
+                .collect()
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -329,6 +346,15 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         table::Proto::Arctis5 => vec![("Left", 1), ("Right", 1)],
         // upstream: RGBController_SteelSeriesQCKMat.cpp SetupZones()
         table::Proto::Qck => vec![("Mousemat", 2)],
+        // upstream: RGBController_SteelSeriesApex3.cpp SetupZones() - one
+        // linear "Keyboard" zone with GetLedCount() LEDs
+        table::Proto::Apex3 { tzone } => {
+            if tzone {
+                vec![("Keyboard", 10)]
+            } else {
+                vec![("Keyboard", 8)]
+            }
+        }
         // upstream: RGBController_SteelSeriesArctisNova3.cpp SetupZones()
         table::Proto::ArctisNova3 => vec![("Nova 3", 2)],
         // upstream: SteelSeriesAerox3Controller.h aerox_3 (via
@@ -361,6 +387,8 @@ fn kind(proto: table::Proto) -> DeviceKind {
         }
         // upstream: RGBController_SteelSeriesQCKMat.cpp type = DEVICE_TYPE_MOUSEMAT
         table::Proto::Qck => DeviceKind::Mousemat,
+        // upstream: RGBController_SteelSeriesApex3.cpp type = DEVICE_TYPE_KEYBOARD
+        table::Proto::Apex3 { .. } => DeviceKind::Keyboard,
         // upstream: RGBController_SteelSeriesRival*.cpp type = DEVICE_TYPE_MOUSE
         _ => DeviceKind::Mouse,
     }
@@ -381,6 +409,8 @@ pub struct SteelSeries {
     /// upstream: SteelSeriesAeroxWirelessController.cpp brightness guard
     /// (only 10 steps; Direct brightness 0x64 -> level 10)
     aerox_w_brightness: Option<u8>,
+    /// upstream: SteelSeriesApex8ZoneController.cpp brightness guard (max 0x10)
+    apex3_8zone_brightness: Option<u8>,
 }
 impl Default for SteelSeries {
     fn default() -> Self {
@@ -392,6 +422,7 @@ impl Default for SteelSeries {
             aerox3_brightness: None,
             aerox5_brightness: None,
             aerox_w_brightness: None,
+            apex3_8zone_brightness: None,
         }
     }
 }
@@ -473,6 +504,27 @@ impl Module for SteelSeries {
             return Err(err("invalid SteelSeries frame"));
         }
         let proto = self.proto.expect("active implies proto");
+        if let table::Proto::Apex3 { tzone } = proto {
+            if tzone {
+                // upstream: RGBController_SteelSeriesApex3.cpp DeviceUpdateLEDs()
+                // -> SteelSeriesApexTZoneController SetColor with Direct
+                // brightness max 0x64
+                for pkt in report::apex3_tzone_set_color(c, report::MOUSE_BRIGHTNESS_MAX) {
+                    h.write(&pkt).map_err(err)?;
+                }
+            } else {
+                // upstream: SteelSeriesApex8ZoneController.cpp SetColor with
+                // brightness guard (Apex 3 TKL max brightness 0x10)
+                let level = 0x10;
+                h.write(&report::apex3_8zone_set_color(c)).map_err(err)?;
+                if self.apex3_8zone_brightness != Some(level) {
+                    self.apex3_8zone_brightness = Some(level);
+                    h.write(&report::apex3_8zone_set_brightness(level))
+                        .map_err(err)?;
+                }
+            }
+            return Ok(());
+        }
         if proto == table::Proto::Qck {
             // upstream: RGBController_SteelSeriesQCKMat.cpp DeviceUpdateLEDs()
             // -> SetColors expects both LEDs in one packet

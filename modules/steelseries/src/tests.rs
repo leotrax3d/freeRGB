@@ -477,6 +477,72 @@ fn aerox5_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn apex3_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesApex3Full row (Apex 3, 0x161A, interface 3)
+    let i = iface(rival_pid("DetectSteelSeriesApex3Full"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: RGBController_SteelSeriesApex3.cpp SetupZones (10 LEDs)
+    assert_eq!(caps.layout.leds.len(), 10);
+    assert_eq!(caps.zones.len(), 1);
+    assert_eq!(caps.zones[0].name, "Keyboard");
+    assert_eq!(caps.kind, freergb_module_api::DeviceKind::Keyboard);
+    let colors: Vec<Rgb> = (0..10)
+        .map(|i| Rgb {
+            r: i as u8,
+            g: i as u8,
+            b: i as u8,
+        })
+        .collect();
+    m.frame(&colors, &mut h).unwrap();
+    // 2 x 33-byte writes: [00 0A 00 64] then [00 0B 00 rgb x10]
+    assert_eq!(h.writes.len(), 2);
+    assert_eq!(&h.writes[0][0..4], &[0x00, 0x0A, 0x00, 0x64]);
+    assert!(h.writes[1][1] == 0x0B);
+    assert_eq!(&h.writes[1][3..9], &[0x00, 0x00, 0x00, 0x01, 0x01, 0x01]);
+    // LED 8 and LED 9 colors at bytes 27..33 (r=g=b=index)
+    assert_eq!(&h.writes[1][27..33], &[0x08, 0x08, 0x08, 0x09, 0x09, 0x09]);
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
+fn apex3_tkl_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesApex3TKL row (Apex 3 TKL, 0x1622, interface 1)
+    let i = iface(rival_pid("DetectSteelSeriesApex3TKL"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: 8Zone LED count
+    assert_eq!(caps.layout.leds.len(), 8);
+    let colors: Vec<Rgb> = (0..8)
+        .map(|i| Rgb {
+            r: i as u8,
+            g: (i * 2) as u8,
+            b: 0,
+        })
+        .collect();
+    m.frame(&colors, &mut h).unwrap();
+    // color packet 65 bytes then brightness packet (first frame)
+    assert_eq!(h.writes.len(), 2);
+    assert_eq!(&h.writes[0][0..3], &[0x00, 0x21, 0xFF]);
+    assert_eq!(&h.writes[0][3..6], &[0x00, 0x00, 0x00]);
+    // LED 3 (r=3, g=6, b=0) at bytes 12..15
+    assert_eq!(&h.writes[0][12..18], &[0x03, 0x06, 0x00, 0x04, 0x08, 0x00]);
+    assert_eq!(&h.writes[1][0..3], &[0x00, 0x23, 0x10]);
+    // second frame: brightness unchanged -> only the color packet
+    m.frame(&colors, &mut h).unwrap();
+    assert_eq!(h.writes.len(), 3);
+    assert_eq!(&h.writes[2][0..3], &[0x00, 0x21, 0xFF]);
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
+fn apex3_tzone_save_is_byte_exact() {
+    // upstream: SteelSeriesApexTZoneController.cpp Save()
+    let p = crate::report::apex3_tzone_save();
+    assert_eq!(&p[0][0..4], &[0x00, 0x06, 0x00, 0x08]);
+    assert_eq!(&p[1][0..4], &[0x00, 0x09, 0x00, 0x00]);
+}
+#[test]
 fn qck_full_sequence_is_byte_exact() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
@@ -672,6 +738,8 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesRival3Wireless",
         "DetectSteelSeriesArctisNova3",
         "DetectSteelSeriesMousemat",
+        "DetectSteelSeriesApex3Full",
+        "DetectSteelSeriesApex3TKL",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()
@@ -707,8 +775,8 @@ fn unsupported_pid_is_rejected() {
 fn unsupported_handler_cannot_initialize_even_if_row_exists() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
-    // Apex is inventoried but its protocol is not ported
-    let i = iface(pid_of("Apex"));
+    // Apex Pro is inventoried but its protocol is not ported
+    let i = iface(pid_of("Apex Pro"));
     assert!(m.initialize(&i, &mut h).is_err());
     assert!(h.writes.is_empty() && h.features.is_empty());
 }

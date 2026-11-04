@@ -50,6 +50,14 @@ pub enum Proto {
     },
     /// QCK mousemat driver: upstream SteelSeriesQCKMatController
     Qck,
+    /// Apex 3 family: upstream SteelSeriesApexTZoneController (Apex 3) and
+    /// SteelSeriesApex8ZoneController (Apex 3 TKL), rendered by
+    /// RGBController_SteelSeriesApex3
+    Apex3 {
+        /// Apex 3 uses the "Tri Zone" 33-byte protocol, the TKL the 8-zone
+        /// 65-byte protocol
+        tzone: bool,
+    },
 }
 /// Maps an upstream detector callback (REGISTER_HID_DETECTOR_* entry in
 /// SteelSeriesControllerDetect.cpp) to its ported protocol.
@@ -131,6 +139,10 @@ pub fn proto_of_handler(handler: &str) -> Option<Proto> {
         // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesMousemat
         // rows (QCK Prism Cloth mats, interface 3)
         "DetectSteelSeriesMousemat" => Some(Proto::Qck),
+        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesApex3Full
+        // (Apex 3, interface 3) and Apex3TKL (interface 1, usage 0xFFC0)
+        "DetectSteelSeriesApex3Full" => Some(Proto::Apex3 { tzone: true }),
+        "DetectSteelSeriesApex3TKL" => Some(Proto::Apex3 { tzone: false }),
         _ => None,
     }
 }

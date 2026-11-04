@@ -63,6 +63,8 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         Proto::AeroxWireless { .. } => Vec::new(),
         // QCK Direct sends no effect packets
         Proto::Qck => Vec::new(),
+        // Apex 3 family Direct sends no separate effect packets
+        Proto::Apex3 { .. } => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -102,6 +104,9 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         Proto::AeroxWireless { .. } => Vec::new(),
         // QCK uses qck_set_colors(); handled in lib.rs frame()
         Proto::Qck => Vec::new(),
+        // Apex 3 family uses the dedicated apex3 builders; handled in lib.rs
+        // frame()
+        Proto::Apex3 { .. } => Vec::new(),
         Proto::Siberia350 => Vec::new(),
         Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
@@ -553,6 +558,59 @@ pub fn qck_set_colors(c0: freergb_core::Rgb, c1: freergb_core::Rgb) -> Vec<Vec<u
     apply[1] = 0x0D;
     vec![buf, apply]
 }
+/// upstream: SteelSeriesApexTZoneController.cpp SetColor()
+/// Two 33-byte writes: brightness `[00 0A 00 brightness]` then colors
+/// `[00 0B 00 r g b ...]` for 10 LEDs starting at byte 3.
+pub fn apex3_tzone_set_color(colors: &[freergb_core::Rgb], brightness: u8) -> Vec<Vec<u8>> {
+    let mut set_brightness = vec![0u8; 33];
+    set_brightness[1] = 0x0A;
+    set_brightness[3] = brightness;
+    let mut set_colors = vec![0u8; 33];
+    set_colors[1] = 0x0B;
+    for (i, c) in colors.iter().take(10).enumerate() {
+        set_colors[i * 3 + 3] = c.r;
+        set_colors[i * 3 + 4] = c.g;
+        set_colors[i * 3 + 5] = c.b;
+    }
+    vec![set_brightness, set_colors]
+}
+/// upstream: SteelSeriesApexTZoneController.cpp Save()
+/// Two 33-byte writes `[00 06 00 08]` and `[00 09 00 00]` (not used by the
+/// module API; tested builder).
+pub fn apex3_tzone_save() -> Vec<Vec<u8>> {
+    let mut a = vec![0u8; 33];
+    a[1] = 0x06;
+    a[3] = 0x08;
+    let mut b = vec![0u8; 33];
+    b[1] = 0x09;
+    vec![a, b]
+}
+/// upstream: SteelSeriesApex8ZoneController.cpp SetColor()
+/// 65-byte write `[00 (0x21 + mode) FF rgb@3..]` for 8 LEDs. Only the Direct
+/// mode (mode byte 0 -> 0x21) is exposed.
+pub fn apex3_8zone_set_color(colors: &[freergb_core::Rgb]) -> Vec<u8> {
+    let mut p = vec![0u8; 65];
+    p[1] = 0x21;
+    p[2] = 0xFF;
+    for (i, c) in colors.iter().take(8).enumerate() {
+        p[i * 3 + 3] = c.r;
+        p[i * 3 + 4] = c.g;
+        p[i * 3 + 5] = c.b;
+    }
+    p
+}
+/// upstream: SteelSeriesApex8ZoneController.cpp SetBrightness()
+/// 65-byte write `[00 23 brightness]`.
+pub fn apex3_8zone_set_brightness(brightness: u8) -> Vec<u8> {
+    let mut p = vec![0u8; 65];
+    p[1] = 0x23;
+    p[2] = brightness;
+    p
+}
+// upstream: RGBController_SteelSeriesApex3.cpp SetupZones() led names
+pub const APEX3_LED_NAMES: [&str; 10] = [
+    "LED 0", "LED 1", "LED 2", "LED 3", "LED 4", "LED 5", "LED 6", "LED 7", "LED 8", "LED 9",
+];
 #[cfg(test)]
 mod tests {
     use super::*;

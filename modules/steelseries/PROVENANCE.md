@@ -88,6 +88,20 @@ Rows: DetectSteelSeriesMousemat PIDs 0x150A, 0x150D, 0x151E, 0x1514, 0x151C,
 | `RGBController_SteelSeriesQCKMat.cpp` `SetupZones()` | `lib.rs led_specs()` / `zones()` | Mat Bottom / Mat Top LEDs in one "Mousemat" zone (2 LEDs) |
 | `SteelSeriesQCKMatController.cpp` `SetColors()` | `report::qck_set_colors()` | 525-byte feature report `[00 0E .. 02 .. rgb@5/11 .. FF 32 C8 @8, FF 32 C8 @14 01@19 01@1A .. 01@1C]` + 65-byte apply write `[00 0D]` |
 
+### Apex 3 family (SteelSeriesApexTZoneController / SteelSeriesApex8ZoneController via RGBController_SteelSeriesApex3) - 2 detector rows, ported
+
+Rows: DetectSteelSeriesApex3Full (Apex 3, PID 0x161A, interface 3) and
+DetectSteelSeriesApex3TKL (Apex 3 TKL, PID 0x1622, interface 1, usage page
+0xFFC0, usage 1).
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `RGBController_SteelSeriesApex3.cpp` `SetupZones()` | `lib.rs led_specs()` / `zones()` / `APEX3_LED_NAMES` | One linear "Keyboard" zone with 10 (Apex 3) or 8 (Apex 3 TKL) LEDs named "LED n" |
+| `SteelSeriesApexTZoneController.cpp` `SetColor()` | `report::apex3_tzone_set_color()` | Two 33-byte writes: `[00 0A 00 brightness]` then `[00 0B 00 rgb@3..]` |
+| `SteelSeriesApexTZoneController.cpp` `Save()` | `report::apex3_tzone_save()` | `[00 06 00 08]` + `[00 09 00 00]` (tested builder, not used by module API) |
+| `SteelSeriesApex8ZoneController.cpp` `SetColor()` | `report::apex3_8zone_set_color()` | 65-byte write `[00 21 FF rgb@3..]` (Direct mode byte) |
+| `SteelSeriesApex8ZoneController.cpp` `SetBrightness()` | `report::apex3_8zone_set_brightness()` | 65-byte write `[00 23 level]`, max 0x10, guarded on change |
+
 ### Aerox 3 wired (SteelSeriesAerox3Controller) - 1 detector row, ported
 
 | Upstream file/function | Rust mapping | Behaviour |
