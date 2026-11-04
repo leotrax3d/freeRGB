@@ -61,6 +61,8 @@ protocol covers 125 products, and the K70/LINK/ASUS work is unaffected.
 
 ## Module protocol, version 1
 
+API 3 cooling plugins (schema-3 packages with a signed sensor/channel/HID policy) are documented in [COOLING_PLUGINS.md](COOLING_PLUGINS.md).
+
 The separate, simulation-only API 2 bus host/SDK and schema-2 package route are
 documented in [SMBUS_SIMULATION.md](SMBUS_SIMULATION.md). They do not change this
 HID process protocol or enable native bus modules in production setup.

@@ -36,6 +36,7 @@ const TICK: Duration = Duration::from_millis(250);
 /// Renewal period; well inside the host lease.
 const CONTROL_EVERY: Duration = Duration::from_millis(500);
 const MAX_ASSIGNMENTS: usize = 32;
+const NO_DEVICE: &str = "plugin device not found (or driven by a built-in adapter)";
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
@@ -515,7 +516,6 @@ fn step(shared: &Mutex<Inner>, id: &str, now: Instant) {
     };
     // Phase 2 (unlocked): blocking plugin I/O.
     let mut started_error = None;
-    let launch_failed;
     let starting = start.is_some();
     if let Some(device) = start {
         match launch(id, store, device) {
@@ -523,7 +523,10 @@ fn step(shared: &Mutex<Inner>, id: &str, now: Instant) {
             Err(e) => started_error = Some(e),
         }
     }
-    launch_failed = started_error.is_some();
+    // A HID plugin whose device is absent waits for the next scan; that is
+    // not a plugin failure and does not count towards the restart limit.
+    let no_device = started_error.as_deref() == Some(NO_DEVICE);
+    let launch_failed = started_error.is_some() && !no_device;
     let (due_sample, due_control) = {
         let inner = lock(shared);
         let slot = &inner.slots[id];
@@ -596,6 +599,9 @@ fn step(shared: &Mutex<Inner>, id: &str, now: Instant) {
     if let Some(error) = started_error {
         slot.error = Some(error);
     }
+    if no_device {
+        slot.retry_at = Some(now + Duration::from_secs(5));
+    }
     if running {
         if starting {
             slot.error = None;
@@ -623,7 +629,7 @@ fn launch(
     let io: Option<Box<dyn HidTransport>> = if verified.policy().is_virtual() {
         None
     } else {
-        let device = device.ok_or("plugin device not found (or driven by a built-in adapter)")?;
+        let device = device.ok_or(NO_DEVICE)?;
         // The daemon owns the handle; the plugin only receives allowed reports.
         Some(Box::new(
             HidapiTransport::open(&device).map_err(|e| format!("cannot open the device: {e}"))?,

@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/select";
 import { rpc } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { num } from "@/lib/format";
+import { pluginOf } from "./pluginModel";
 import { CATEGORY_LABELS, fileSensorProblem, groupSources, type CatalogEntry, type FileSensorSet, type GpuView } from "./sourceModel";
 
 const field =
@@ -42,7 +43,7 @@ export function SourcesSection() {
             {group.entries.map((e) => (
               <li key={e.id} className="flex items-center gap-4 px-4 py-2" title={e.id}>
                 <span className="min-w-0 flex-1 truncate text-small">{e.label}</span>
-                <span className="text-caption text-text-subtle">{e.provider}</span>
+                <span className="text-caption text-text-subtle">{e.provider === "plugin" ? `Plugin · ${pluginOf(e.id) ?? e.label}` : e.provider}</span>
                 <span className="w-24 text-right text-small tabular" title={e.error ?? undefined}>
                   {e.value != null ? `${num(e.value, 1)} °C` : <span className="text-[#fbbf24]">unavailable</span>}
                 </span>

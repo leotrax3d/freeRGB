@@ -8,6 +8,7 @@ import { useDaemon } from "@/lib/store/daemon";
 import { num } from "@/lib/format";
 import { useDaemonValue } from "@/lib/store/useDaemonValue";
 import { NewDevicesPanel, SetupExtras } from "@/features/setup/NewDevicesPanel";
+import { CoolingPluginsManager } from "@/features/cooling/PluginsSection";
 import { MainboardRgb } from "./MainboardRgb";
 
 const KINDS: Record<DeviceKind, { label: string; icon: LucideIcon }> = {
@@ -131,6 +132,7 @@ export default function DevicesView() {
       )}
       <MainboardRgb />
       <SetupExtras />
+      <CoolingPluginsManager />
     </>
   );
 }
