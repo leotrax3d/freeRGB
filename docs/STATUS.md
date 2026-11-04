@@ -43,7 +43,7 @@ infer completion from a build, simulator, detected device or old pending CI note
 - [x] Daemon-owned custom Celsius source graphs. Evidence: [custom sensors](CUSTOM_SENSORS.md).
 - [ ] Macro recording and device-specific macro key assignment. Evidence: [macros](MACROS.md), [product plan](PRODUCT_PLAN.md).
 - [ ] Real native macro output/hotkey acceptance. Evidence: [testing](TESTING.md).
-- [ ] Broader verified CPU/GPU/coolant sources and sensor warning acceptance. Evidence: [monitoring](MONITORING.md), [product plan](PRODUCT_PLAN.md).
+- [ ] Broader verified CPU/GPU/coolant sources and sensor warning acceptance. CPU/GPU/board/storage/liquid/text-file sources and NVML GPU fan control are implemented with simulated tests only; no hardware acceptance yet. Evidence: [sources and GPU fans](COOLING_SOURCES_GPU.md), [monitoring](MONITORING.md), [product plan](PRODUCT_PLAN.md).
 
 ## Motherboard cooling
 

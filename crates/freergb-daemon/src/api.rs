@@ -366,6 +366,31 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 .map(|released| json!({"released": released}))
                 .map_err(|e| (-32006, e))
         }
+        "cooling.gpu.list" => Ok(lock(engine).gpu.view()),
+        "cooling.gpu.set" => {
+            serde_json::from_value::<crate::gpu_cooling::GpuAssignment>(params.clone())
+                .map_err(invalid_params)
+                .and_then(|assignment| {
+                    let mut engine = lock(engine);
+                    engine
+                        .onboarding
+                        .require_safety()
+                        .map_err(|e| (-32006, e))?;
+                    engine
+                        .gpu
+                        .assign(assignment)
+                        .map(|()| json!(true))
+                        .map_err(|e| (-32006, e))
+                })
+        }
+        "cooling.gpu.release" => {
+            let fan = params["fan_id"].as_str();
+            lock(engine)
+                .gpu
+                .release(fan)
+                .map(|released| json!({"released": released}))
+                .map_err(|e| (-32006, e))
+        }
         "cooling.sessions.status" => Ok(json!(lock(engine).cooling_sessions.status())),
         "cooling.sessions.start" => serde_json::from_value(params.clone())
             .map_err(invalid_params)
@@ -591,6 +616,9 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         | "cooling.sensors.values"
         | "cooling.sensors.get"
         | "cooling.sensors.save"
+        | "cooling.sensors.catalog"
+        | "cooling.file_sensors.get"
+        | "cooling.file_sensors.save"
         | "cooling.curve_set.get"
         | "cooling.curve_set.save"
         | "cooling.curve_set.values"
@@ -703,12 +731,16 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 // Interactive session first (explicit firmware return), then the
                 // background channels in the protected service.
                 let helper = {
-                    let engine = lock(engine);
+                    let mut engine = lock(engine);
                     if paused {
                         let status = engine.cooling_sessions.status();
                         if let Some(job) = status.job_id {
                             let _ = engine.cooling_sessions.stop(job);
                         }
+                    }
+                    // GPU fans return to driver auto (or resume) alongside.
+                    if let Err(error) = engine.gpu.set_paused(paused) {
+                        tracing::warn!(%error, "GPU fan pause incomplete");
                     }
                     engine.background.helper()
                 };

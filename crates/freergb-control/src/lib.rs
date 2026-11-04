@@ -9,6 +9,7 @@ pub mod curves;
 pub mod fan_support;
 pub mod maintenance;
 pub mod rpm;
+pub mod sensor_sources;
 pub mod sensors;
 pub mod telemetry_guard;
 
