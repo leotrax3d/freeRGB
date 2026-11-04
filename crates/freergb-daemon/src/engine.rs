@@ -126,6 +126,7 @@ pub struct Engine {
     pub hwmon: crate::hwmon::HwmonProvider,
     /// GPU fans (NVML); started only with hardware access.
     pub gpu: crate::gpu_cooling::GpuCooling,
+    pub cooling_plugins: crate::cooling_plugins::CoolingPlugins,
     sensor_refresh_at: Option<Instant>,
     plugins: std::collections::BTreeMap<String, PluginEntry>,
     /// Hardware module setup service (absent with --no-modules).
@@ -312,6 +313,7 @@ impl Engine {
             mainboard: Default::default(),
             hwmon: Default::default(),
             gpu: Default::default(),
+            cooling_plugins: Default::default(),
             cooling_sessions: Default::default(),
             background: Default::default(),
             fan_support: Default::default(),
@@ -929,6 +931,7 @@ impl Engine {
                 .sensors()
                 .into_iter()
                 .chain(self.hwmon.sensors())
+                .chain(self.cooling_plugins.sensors())
             {
                 devices.as_array_mut().unwrap().push(serde_json::json!({
                     "status":"Connected", "provider":entry.provider, "info":{"id":entry.device_id,"name":entry.device_name}, "sensors":[entry.sensor]
@@ -936,6 +939,8 @@ impl Engine {
             }
             self.controls.refresh_sensors(&devices);
             self.gpu.tick(&self.controls.composite_feed, now);
+            self.cooling_plugins
+                .feed(&self.controls.composite_feed, now);
         }
         if let Some(step) = self.controls.tick(now) {
             use freergb_control::MacroStep;
@@ -1336,6 +1341,7 @@ impl Engine {
     pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
         let mut entries = self.mainboard.sensors();
         entries.extend(self.hwmon.sensors());
+        entries.extend(self.cooling_plugins.sensors());
         for device in self.devices() {
             for mut sensor in device.sensors {
                 if device.status != DeviceStatus::Connected {

@@ -1,0 +1,15 @@
+{
+  "capability": "both",
+  "sensors": [
+    { "id": "liquid", "name": "Virtual liquid", "unit": "celsius", "min": 0.0, "max": 100.0 },
+    { "id": "fan1_rpm", "name": "Virtual fan 1", "unit": "rpm", "min": 0.0, "max": 3000.0 },
+    { "id": "pump_rpm", "name": "Virtual pump", "unit": "rpm", "min": 0.0, "max": 4000.0 }
+  ],
+  "channels": [
+    { "id": "fan1", "name": "Virtual fan 1", "role": "fan", "floor_percent": 40, "tachometer": "fan1_rpm" },
+    { "id": "pump", "name": "Virtual pump", "role": "pump", "floor_percent": 100, "tachometer": "pump_rpm" }
+  ],
+  "io": { "transport": "none" },
+  "sample_interval_ms": 1000,
+  "max_age_ms": 3000
+}

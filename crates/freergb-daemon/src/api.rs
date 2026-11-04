@@ -341,6 +341,7 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             let engine = lock(engine);
             let mut channels = engine.mainboard.channels();
             channels.extend(engine.hwmon.channels());
+            channels.extend(engine.cooling_plugins.channels());
             Ok(json!(channels))
         }
         "cooling.hwmon.get" => Ok(lock(engine).hwmon.view()),
@@ -366,6 +367,59 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 .map(|released| json!({"released": released}))
                 .map_err(|e| (-32006, e))
         }
+        "cooling.plugins.list" => {
+            let engine = lock(engine);
+            let catalog = engine
+                .modules
+                .as_ref()
+                .map(|m| m.cooling_catalog())
+                .unwrap_or_default();
+            Ok(engine.cooling_plugins.view(&catalog))
+        }
+        "cooling.plugins.install" => params["id"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| invalid_params("id required"))
+            .and_then(|id| {
+                let engine = lock(engine);
+                let manager = engine
+                    .modules
+                    .clone()
+                    .ok_or((-32006, "hardware modules are disabled".to_string()))?;
+                let report = engine.cooling_plugins.reporter();
+                std::thread::Builder::new()
+                    .name("cooling-plugin-install".into())
+                    .spawn(move || report(&id, manager.install_cooling(&id).map_err(|e| e.to_string())))
+                    .map(|_| json!(true))
+                    .map_err(|e| (-32005, e.to_string()))
+            }),
+        "cooling.plugins.enable" => match (params["id"].as_str(), params["enabled"].as_bool()) {
+            (Some(id), Some(enabled)) => lock(engine)
+                .cooling_plugins
+                .set_enabled(id, enabled)
+                .map(|e| json!({"enabled": e}))
+                .map_err(|e| (-32006, e)),
+            _ => Err(invalid_params("id and enabled required")),
+        },
+        "cooling.plugins.set" => {
+            serde_json::from_value::<crate::cooling_plugins::PluginAssignment>(params.clone())
+                .map_err(invalid_params)
+                .and_then(|assignment| {
+                    let engine = lock(engine);
+                    engine
+                        .onboarding
+                        .require_safety()
+                        .map_err(|e| (-32006, e))?;
+                    engine
+                        .cooling_plugins
+                        .assign(assignment)
+                        .map(|()| json!(true))
+                        .map_err(|e| (-32006, e))
+                })
+        }
+        "cooling.plugins.release" => Ok(json!({"released": lock(engine)
+            .cooling_plugins
+            .release(params["plugin"].as_str(), params["channel"].as_str())})),
         "cooling.gpu.list" => Ok(lock(engine).gpu.view()),
         "cooling.gpu.set" => {
             serde_json::from_value::<crate::gpu_cooling::GpuAssignment>(params.clone())

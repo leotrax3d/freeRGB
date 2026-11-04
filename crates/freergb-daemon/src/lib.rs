@@ -12,6 +12,7 @@ pub mod conflicts;
 pub mod control;
 pub mod cooling_assignments;
 pub mod cooling_host;
+pub mod cooling_plugins;
 pub mod cooling_profiles;
 pub mod cooling_runtime;
 pub mod cooling_sessions;
