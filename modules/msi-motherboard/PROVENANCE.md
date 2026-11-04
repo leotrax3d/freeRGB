@@ -46,7 +46,7 @@ layouts, so `identify()` reports `supported=true` for the rows while only the
 | Upstream path | Status | Grund |
 |---|---|---|
 | `MSIMotherboard162Controller` | portiert | 162-byte 0x52 variant; stateful SetMode/SetZoneColor (STATIC effect, 100% brightness flags, custom color, onboard +1 remap) and Update(save=0) byte-exakt |
-| `MSIMotherboard185Controller` | nicht portiert | 185-byte layout incl. RainbowZoneData/CorsairZoneData and firmware check not ported |
+| `MSIMotherboard185Controller` | blockiert | (1) die beiden `MSI Mystic Light Common`/`X870` Zeilen auf VID 0x0DB0 extrahieren die echte PID aus der Seriennummer (freeRGB liest nie Seriennummern), (2) der `DIRECT_MODE_PER_LED`-Pfad versendet JRAINBOW/JCORSAIR-Reports mit 13 ms Sleeps (Modulprotokoll hat kein Timing), (3) ~90 Board-Konfig-Einträge mit Mixed-Mode-Remap; Aufwand/Nutzen und Regel-9-Gründe sprechen gegen einen Partial-Port, der nicht byte-exakt wäre |
 | `MSIMotherboard761Controller` | blockiert | needs the per-zone 0x51/0x50 protocol and the DMI mainboard name (`dmi.getMainboard()`), which is outside the brokered HID the freeRGB module provides |
 
 ## Changes
