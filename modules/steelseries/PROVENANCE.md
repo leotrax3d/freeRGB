@@ -39,6 +39,18 @@ usage 1.
 Sensei: DetectSteelSeriesSensei PIDs 0x1832, 0x1834, 0x1722, 0x1720, 0x171E,
 0x1736, interface 0.
 Siberia: DetectSteelSeriesHeadset PID 0x1229, interface 3.
+Arctis 5: DetectSteelSeriesArctis5 PIDs 0x1250 and 0x12AA, interface 5.
+
+### Arctis 5 (SteelSeriesArctis5Controller) - 2 detector rows, ported
+
+Direct mode only (upstream has Direct as the only mode).
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `SteelSeriesArctis5Controller.h` `ARCTIS_5_REPORT_SIZE`/`ARCTIS_5_REPORT_ID` | `report::set_arctis5_color()` | 37-byte packets, report id 0x06 |
+| `SteelSeriesArctis5Controller.cpp` `SetColor()` | `report::set_arctis5_color()` | 6 packets: pre 0x81 0x43 0x01 0x22/0x23, color [06 8A 42 00 20 41 00 rgb FF 32 C8 C8], apply [.. 20 41 08 zone 01], apply [.. 20 60 zone], apply [.. 20 05] |
+| `RGBController_SteelSeriesArctis5.cpp` `SetupZones()` | `lib.rs led_specs()` / `zones()` | Left/Right single-LED zones (zone ids 0/1), kind Headset |
+| `RGBController_SteelSeriesArctis5.cpp` `DeviceUpdateLEDs()` | `lib.rs frame()` (Arctis5 branch) | Per-zone SetColor sequence (6 writes each) |
 
 ### Siberia 350 (SteelSeriesSiberiaController) - 1 detector row, ported
 

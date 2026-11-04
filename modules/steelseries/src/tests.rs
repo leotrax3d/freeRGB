@@ -314,6 +314,41 @@ fn sensei_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn arctis5_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesArctis5 row (0x1250 first)
+    let i = iface(rival_pid("DetectSteelSeriesArctis5"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert_eq!(caps.layout.leds[0].name, "Left");
+    assert_eq!(caps.layout.leds[1].name, "Right");
+    assert_eq!(caps.kind, freergb_module_api::DeviceKind::Headset);
+    m.frame(&[RGB1, RGB2], &mut h).unwrap();
+    // 2 zones x 6 packets of 37 bytes
+    assert_eq!(h.writes.len(), 12);
+    assert!(h.writes.iter().all(|p| p.len() == 37));
+    // Zone 0 (Left): pre1, pre2, color, apply-zone, apply-to, apply
+    let z = &h.writes[0..6];
+    assert_eq!(&z[0][0..5], &[0x06, 0x81, 0x43, 0x01, 0x22]);
+    assert_eq!(&z[1][0..5], &[0x06, 0x81, 0x43, 0x01, 0x23]);
+    assert_eq!(&z[2][0..3], &[0x06, 0x8A, 0x42]);
+    assert_eq!(
+        &z[2][4..14],
+        &[0x20, 0x41, 0x00, 0x11, 0x22, 0x33, 0xFF, 0x32, 0xC8, 0xC8]
+    );
+    assert_eq!(&z[3][4..9], &[0x20, 0x41, 0x08, 0x00, 0x01]);
+    assert_eq!(&z[4][4..7], &[0x20, 0x60, 0x00]);
+    assert_eq!(&z[5][4..6], &[0x20, 0x05]);
+    // Zone 1 (Right): color bytes and zone id differ
+    let z = &h.writes[6..12];
+    assert_eq!(&z[2][7..10], &[0x44, 0x55, 0x66]);
+    assert_eq!(z[3][7], 0x01);
+    assert_eq!(z[4][6], 0x01);
+    assert!(h.features.is_empty());
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
 fn siberia350_full_sequence_is_byte_exact() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
@@ -362,7 +397,7 @@ fn unported_steelseries_devices_stay_unsupported() {
         "DetectSteelSeriesAerox3",
         "DetectSteelSeriesAerox3Wireless",
         "DetectSteelSeriesRival3Wireless",
-        "DetectSteelSeriesArctis5",
+        "DetectSteelSeriesArctisNova3",
         "DetectSteelSeriesQCKPrism",
         "DetectSteelSeriesApex",
     ] {
@@ -388,6 +423,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesRival5",
         "DetectSteelSeriesSensei",
         "DetectSteelSeriesHeadset",
+        "DetectSteelSeriesArctis5",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()

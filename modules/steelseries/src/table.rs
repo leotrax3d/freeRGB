@@ -29,6 +29,9 @@ pub enum Proto {
     Sensei,
     /// upstream: SteelSeriesRivalController.h steelseries_type SIBERIA_350
     Siberia350,
+    /// Arctis 5 driver (own controller class, not in the old steelseries_type
+    /// enum): upstream SteelSeriesArctis5Controller
+    Arctis5,
 }
 /// Maps an upstream detector callback (REGISTER_HID_DETECTOR_* entry in
 /// SteelSeriesControllerDetect.cpp) to its ported protocol.
@@ -52,6 +55,9 @@ pub fn proto_of_handler(handler: &str) -> Option<Proto> {
         // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesHeadset
         // (Siberia 350, interface 3)
         "DetectSteelSeriesHeadset" => Some(Proto::Siberia350),
+        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesArctis5
+        // (interface 5, PIDs 0x1250/0x12AA)
+        "DetectSteelSeriesArctis5" => Some(Proto::Arctis5),
         _ => None,
     }
 }

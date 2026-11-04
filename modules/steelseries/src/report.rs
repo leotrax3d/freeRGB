@@ -49,6 +49,8 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         Proto::Rival3 | Proto::Rival5 => Vec::new(),
         // Siberia Direct sends only the SetColor command sequence
         Proto::Siberia350 => Vec::new(),
+        // Arctis 5 Direct sends only per-zone SetColor sequences
+        Proto::Arctis5 => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -70,10 +72,12 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
     match proto {
         Proto::Rival650 => set_rival650_color(zone_id, c),
         Proto::Rival600 => set_rival600_color(zone_id, c),
-        // Rival 3/5 use the mouse protocols handled in lib.rs frame(); their
-        // routing happens there, never through set_color()
+        // Rival 3/5 and Arctis 5 use their own protocol builders; routing
+        // happens in lib.rs frame(), never through set_color()
         Proto::Rival3 | Proto::Rival5 => Vec::new(),
-        // Siberia uses set_siberia_color() handled in lib.rs frame()
+        // Arctis 5 uses set_arctis5_color(); Siberia uses set_siberia_color();
+        // both are handled in lib.rs frame(), never through set_color()
+        Proto::Arctis5 => Vec::new(),
         Proto::Siberia350 => Vec::new(),
         Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
@@ -255,6 +259,60 @@ pub fn set_siberia_color(c: freergb_core::Rgb) -> Vec<Vec<u8>> {
         siberia_packet(0x83, &[c.r, c.g, c.b]), // Command 3 (Set color)
         siberia_packet(0x93, &[0x03, 0x80]),    // Command 4
     ]
+}
+/// upstream: SteelSeriesArctis5Controller.cpp SetColor()
+/// Five 37-byte write packets (report id 0x06): two pre-change packets, the
+/// color packet, and two apply-to-zone/apply packets.
+pub fn set_arctis5_color(zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>> {
+    const SIZE: usize = 37;
+    let mut pre1 = vec![0u8; SIZE];
+    pre1[0x00] = 0x06;
+    pre1[0x01] = 0x81;
+    pre1[0x02] = 0x43;
+    pre1[0x03] = 0x01;
+    pre1[0x04] = 0x22;
+    let mut pre2 = vec![0u8; SIZE];
+    pre2[0x00] = 0x06;
+    pre2[0x01] = 0x81;
+    pre2[0x02] = 0x43;
+    pre2[0x03] = 0x01;
+    pre2[0x04] = 0x23;
+    let mut color = vec![0u8; SIZE];
+    color[0x00] = 0x06;
+    color[0x01] = 0x8A;
+    color[0x02] = 0x42;
+    color[0x04] = 0x20;
+    color[0x05] = 0x41;
+    color[0x07] = c.r;
+    color[0x08] = c.g;
+    color[0x09] = c.b;
+    color[0x0A] = 0xFF;
+    color[0x0B] = 0x32;
+    color[0x0C] = 0xC8;
+    color[0x0D] = 0xC8;
+    let mut apply_zone = vec![0u8; SIZE];
+    apply_zone[0x00] = 0x06;
+    apply_zone[0x01] = 0x8A;
+    apply_zone[0x02] = 0x42;
+    apply_zone[0x04] = 0x20;
+    apply_zone[0x05] = 0x41;
+    apply_zone[0x06] = 0x08;
+    apply_zone[0x07] = zone_id;
+    apply_zone[0x08] = 0x01;
+    let mut apply_to = vec![0u8; SIZE];
+    apply_to[0x00] = 0x06;
+    apply_to[0x01] = 0x8A;
+    apply_to[0x02] = 0x42;
+    apply_to[0x04] = 0x20;
+    apply_to[0x05] = 0x60;
+    apply_to[0x06] = zone_id;
+    let mut apply = vec![0u8; SIZE];
+    apply[0x00] = 0x06;
+    apply[0x01] = 0x8A;
+    apply[0x02] = 0x42;
+    apply[0x04] = 0x20;
+    apply[0x05] = 0x05;
+    vec![pre1, pre2, color, apply_zone, apply_to, apply]
 }
 #[cfg(test)]
 mod tests {
