@@ -277,6 +277,19 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 })
                 .collect()
         }
+        table::Proto::Qck => {
+            // upstream: RGBController_SteelSeriesQCKMat.cpp SetupZones()
+            vec![
+                LedSpec {
+                    name: "Mat Bottom LED",
+                    value: 0,
+                },
+                LedSpec {
+                    name: "Mat Top LED",
+                    value: 1,
+                },
+            ]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -314,6 +327,8 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         table::Proto::Siberia350 => vec![("Headset", 1)],
         // upstream: RGBController_SteelSeriesArctis5.cpp SetupZones()
         table::Proto::Arctis5 => vec![("Left", 1), ("Right", 1)],
+        // upstream: RGBController_SteelSeriesQCKMat.cpp SetupZones()
+        table::Proto::Qck => vec![("Mousemat", 2)],
         // upstream: RGBController_SteelSeriesArctisNova3.cpp SetupZones()
         table::Proto::ArctisNova3 => vec![("Nova 3", 2)],
         // upstream: SteelSeriesAerox3Controller.h aerox_3 (via
@@ -344,6 +359,8 @@ fn kind(proto: table::Proto) -> DeviceKind {
         table::Proto::Siberia350 | table::Proto::Arctis5 | table::Proto::ArctisNova3 => {
             DeviceKind::Headset
         }
+        // upstream: RGBController_SteelSeriesQCKMat.cpp type = DEVICE_TYPE_MOUSEMAT
+        table::Proto::Qck => DeviceKind::Mousemat,
         // upstream: RGBController_SteelSeriesRival*.cpp type = DEVICE_TYPE_MOUSE
         _ => DeviceKind::Mouse,
     }
@@ -456,6 +473,20 @@ impl Module for SteelSeries {
             return Err(err("invalid SteelSeries frame"));
         }
         let proto = self.proto.expect("active implies proto");
+        if proto == table::Proto::Qck {
+            // upstream: RGBController_SteelSeriesQCKMat.cpp DeviceUpdateLEDs()
+            // -> SetColors expects both LEDs in one packet
+            for pkt in report::qck_set_colors(c[0], c[1]) {
+                if pkt.len() == 525 {
+                    // upstream: SetColors uses hid_send_feature_report for
+                    // the 525-byte buffer
+                    h.send_feature(&pkt).map_err(err)?;
+                } else {
+                    h.write(&pkt).map_err(err)?;
+                }
+            }
+            return Ok(());
+        }
         if proto == table::Proto::Aerox3 {
             // upstream: RGBController_SteelSeriesRival3.cpp DeviceUpdateLEDs()
             // -> per-zone SetColor with brightness guard

@@ -80,10 +80,10 @@ fn inventory_is_complete() {
 }
 #[test]
 fn inventoried_devices_are_not_claimed_before_protocol_port() {
-    // QCK mousemat rows are inventoried but not ported
+    // Apex rows are inventoried but not ported
     let d = crate::devices_table::DETECTORS
         .iter()
-        .find(|d| d.handler == "DetectSteelSeriesMousemat")
+        .find(|d| d.handler == "DetectSteelSeriesApex")
         .unwrap();
     let result = crate::table::identify(&iface(d.pid));
     assert!(!result.supported);
@@ -477,6 +477,38 @@ fn aerox5_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn qck_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesMousemat row (QCK Prism Cloth Medium, 0x150A)
+    let i = iface(rival_pid("DetectSteelSeriesMousemat"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert_eq!(caps.layout.leds[0].name, "Mat Bottom LED");
+    assert_eq!(caps.layout.leds[1].name, "Mat Top LED");
+    assert_eq!(caps.zones.len(), 1);
+    assert_eq!(caps.zones[0].name, "Mousemat");
+    assert_eq!(caps.kind, freergb_module_api::DeviceKind::Mousemat);
+    m.frame(&[RGB1, RGB2], &mut h).unwrap();
+    // 525-byte feature + 65-byte apply write
+    assert_eq!(h.features.len(), 1);
+    assert_eq!(h.features[0].len(), 525);
+    // upstream: SteelSeriesQCKMatController.cpp SetColors magic bytes
+    assert_eq!(&h.features[0][0x00..0x04], &[0x00, 0x0E, 0x00, 0x02]);
+    assert_eq!(&h.features[0][0x05..0x08], &[0x11, 0x22, 0x33]);
+    assert_eq!(&h.features[0][0x08..0x0B], &[0xFF, 0x32, 0xC8]);
+    assert_eq!(h.features[0][0x0E], 0x01);
+    assert_eq!(&h.features[0][0x11..0x14], &[0x44, 0x55, 0x66]);
+    assert_eq!(&h.features[0][0x14..0x17], &[0xFF, 0x32, 0xC8]);
+    assert_eq!(h.features[0][0x19], 0x01);
+    assert_eq!(&h.features[0][0x1A..0x1D], &[0x01, 0x00, 0x01]);
+    assert!(h.features[0][0x1D..].iter().all(|b| *b == 0));
+    assert_eq!(h.writes.len(), 1);
+    assert_eq!(&h.writes[0][0..2], &[0x00, 0x0D]);
+    assert_eq!(h.writes[0].len(), 65);
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
 fn aerox_wireless_wired_full_sequence_is_byte_exact() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
@@ -607,15 +639,12 @@ fn aerox3_save_is_byte_exact() {
 fn unported_steelseries_devices_stay_unsupported() {
     // DetectSteelSeriesAerox3 / Sensei / Arctis / QCK / Apex handlers are not
     // ported yet and must never report supported.
-    for handler in ["DetectSteelSeriesQCKPrism", "DetectSteelSeriesApex"] {
-        if let Some(d) = crate::devices_table::DETECTORS
-            .iter()
-            .find(|d| d.handler == handler)
-        {
-            let r = crate::table::identify(&iface(d.pid));
-            assert!(!r.supported, "{} must stay unsupported", handler);
-        }
-    }
+    // Apex rows are inventoried but not ported and must never report
+    // supported. Every other handler is ported, so the ledger is complete.
+    assert!(crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler == "DetectSteelSeriesApex")
+        .is_some());
 }
 #[test]
 fn all_rival_layouts_are_valid() {
@@ -641,6 +670,8 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesAerox9Wireless",
         "DetectSteelSeriesAerox9WirelessWired",
         "DetectSteelSeriesRival3Wireless",
+        "DetectSteelSeriesArctisNova3",
+        "DetectSteelSeriesMousemat",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()
@@ -676,8 +707,8 @@ fn unsupported_pid_is_rejected() {
 fn unsupported_handler_cannot_initialize_even_if_row_exists() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
-    // QCK mousemat is inventoried but its protocol is not ported
-    let i = iface(pid_of("QCK"));
+    // Apex is inventoried but its protocol is not ported
+    let i = iface(pid_of("Apex"));
     assert!(m.initialize(&i, &mut h).is_err());
     assert!(h.writes.is_empty() && h.features.is_empty());
 }

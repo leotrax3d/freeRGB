@@ -61,6 +61,8 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         // upstream: SetLightEffectAll only reacts to effect 0x05, which is
         // never emitted by the Direct mode; Rival 3 Wireless ignores it
         Proto::AeroxWireless { .. } => Vec::new(),
+        // QCK Direct sends no effect packets
+        Proto::Qck => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -98,6 +100,8 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         // Aerox wireless rows use aerox_wireless_set_color(); handled in
         // lib.rs frame()
         Proto::AeroxWireless { .. } => Vec::new(),
+        // QCK uses qck_set_colors(); handled in lib.rs frame()
+        Proto::Qck => Vec::new(),
         Proto::Siberia350 => Vec::new(),
         Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
@@ -521,6 +525,33 @@ pub fn aerox_wireless_set_brightness(wireless: bool, level: u8) -> Vec<u8> {
         p[1] |= AEROX_WIRELESS_FLAG;
     }
     p
+}
+/// upstream: SteelSeriesQCKMatController.cpp SetColors()
+/// 525-byte feature report with both LED colors plus a 65-byte apply write.
+pub fn qck_set_colors(c0: freergb_core::Rgb, c1: freergb_core::Rgb) -> Vec<Vec<u8>> {
+    let mut buf = vec![0u8; 525];
+    buf[0x00] = 0x00;
+    buf[0x01] = 0x0E;
+    buf[0x03] = 0x02;
+    buf[0x08] = 0xFF;
+    buf[0x09] = 0x32;
+    buf[0x0A] = 0xC8;
+    buf[0x0E] = 0x01;
+    buf[0x14] = 0xFF;
+    buf[0x15] = 0x32;
+    buf[0x16] = 0xC8;
+    buf[0x19] = 0x01;
+    buf[0x1A] = 0x01;
+    buf[0x1C] = 0x01;
+    buf[0x05] = c0.r;
+    buf[0x06] = c0.g;
+    buf[0x07] = c0.b;
+    buf[0x11] = c1.r;
+    buf[0x12] = c1.g;
+    buf[0x13] = c1.b;
+    let mut apply = vec![0u8; 65];
+    apply[1] = 0x0D;
+    vec![buf, apply]
 }
 #[cfg(test)]
 mod tests {

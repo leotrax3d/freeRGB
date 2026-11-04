@@ -78,6 +78,16 @@ Rival 3 Wireless (0x1830). All interface 3, usage page 0xFFC0, usage 1.
 | `SteelSeriesAeroxWirelessController.cpp` `SetBrightness()` | `report::aerox_wireless_set_brightness()` | `[00 23 level]`, level = 0x64/10 = 10, only on change |
 | `SetLightEffectAll()` / `Save()` | - | Direct-only module: effect 0x05 (Rainbow) never emitted; Rival 3 Wireless ignores EEPROM save |
 
+### QCK Prism mousemats (SteelSeriesQCKMatController) - 9 detector rows, ported
+
+Rows: DetectSteelSeriesMousemat PIDs 0x150A, 0x150D, 0x151E, 0x1514, 0x151C,
+0x1516, 0x1518, 0x151A, 0x1520 (interface 3).
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `RGBController_SteelSeriesQCKMat.cpp` `SetupZones()` | `lib.rs led_specs()` / `zones()` | Mat Bottom / Mat Top LEDs in one "Mousemat" zone (2 LEDs) |
+| `SteelSeriesQCKMatController.cpp` `SetColors()` | `report::qck_set_colors()` | 525-byte feature report `[00 0E .. 02 .. rgb@5/11 .. FF 32 C8 @8, FF 32 C8 @14 01@19 01@1A .. 01@1C]` + 65-byte apply write `[00 0D]` |
+
 ### Aerox 3 wired (SteelSeriesAerox3Controller) - 1 detector row, ported
 
 | Upstream file/function | Rust mapping | Behaviour |
@@ -165,7 +175,7 @@ unsupported until the AeroxWireless controller port.
 | Upstream path | Devices | Status |
 |---|---:|---|
 | Aerox wireless / Rival 3 Wireless (`SteelSeriesAeroxWirelessController`) | 13 | portiert |
-| QCK (`SteelSeriesQCKMatController`) | 9 | nicht portiert |
+| QCK (`SteelSeriesQCKMatController`) | 9 | portiert |
 | Apex (`SteelSeriesApex*Controller`, old Apex, Apex M) | 19 | nicht portiert |
 
 ## Changes

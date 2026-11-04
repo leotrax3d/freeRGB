@@ -48,6 +48,8 @@ pub enum Proto {
         /// upstream: GetMouse() rival_3_wireless table (single LED, own cmd)
         rival3: bool,
     },
+    /// QCK mousemat driver: upstream SteelSeriesQCKMatController
+    Qck,
 }
 /// Maps an upstream detector callback (REGISTER_HID_DETECTOR_* entry in
 /// SteelSeriesControllerDetect.cpp) to its ported protocol.
@@ -126,6 +128,9 @@ pub fn proto_of_handler(handler: &str) -> Option<Proto> {
             aerox9: false,
             rival3: true,
         }),
+        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesMousemat
+        // rows (QCK Prism Cloth mats, interface 3)
+        "DetectSteelSeriesMousemat" => Some(Proto::Qck),
         _ => None,
     }
 }
