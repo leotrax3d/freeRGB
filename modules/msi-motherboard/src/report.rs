@@ -24,8 +24,10 @@ pub const ZONE_OFFSETS_112: [usize; 11] = [1, 11, 21, 31, 41, 51, 61, 71, 81, 91
 //   MSI_BRIGHTNESS_LEVEL_100 = 10, brightness shift 2  -> 0x28
 //   MSI_COLOR_FLAG_USE_CUSTOM_COLOR = 1 << 7           -> 0x80
 const BRIGHTNESS_100_FLAGS: u8 = 10 << 2; // MSI_BRIGHTNESS_LEVEL_100 << SHIFT
-const USE_CUSTOM_COLOR: u8 = 1 << 7;
-const MSI_MODE_STATIC: u8 = 1;
+pub const USE_CUSTOM_COLOR: u8 = 1 << 7;
+pub const MSI_MODE_STATIC: u8 = 1;
+/// upstream: MSIMotherboardCommon.h MSI_COLOR_FLAG_SYNC_SETTING_ONBOARD
+pub const SYNC_ONBOARD: u8 = 1 << 0;
 /// upstream: MSIMotherboard112Controller.cpp SetLedColor() + GetZoneData()
 /// LED value (MSI_ZONE) -> zone slot index in the 112-byte packet. Upstream
 /// adds +1 to every onboard zone value before the lookup, so the master
@@ -105,6 +107,87 @@ pub fn fw_string(response: &[u8]) -> String {
     let high = response[2] >> 4;
     let low = response[2] & 0x0F;
     format!("{}.{}", high, low)
+}
+/// upstream: MSIMotherboardCommon.h FeaturePacket_162
+pub const PACKET_162: usize = 162;
+/// ZoneData offsets inside FeaturePacket_162:
+/// j_rgb_1, j_rainbow_1, j_corsair_1, j_corsair_outer, on_board, led_1..10,
+/// j_rgb_2 (see MSIMotherboardCommon.h)
+pub const ZONE_OFFSETS_162: [usize; 16] = [
+    1, 11, 21, 31, 41, 51, 61, 71, 81, 91, 101, 111, 121, 131, 141, 151,
+];
+/// upstream: MSIMotherboard162Controller.cpp GetZoneData()
+/// MSI_ZONE value -> zone slot index in the 162-byte packet.
+pub fn zone_slot_162(value: u8) -> Option<usize> {
+    match value {
+        1 => Some(0),  // j_rgb_1
+        2 => Some(15), // j_rgb_2
+        8 => Some(1),  // j_rainbow_1
+        9 => Some(14), // upstream maps J_RAINBOW_2 to on_board_led_10
+        13 => Some(4), // on_board_led
+        14..=23 => Some(4 + (value as usize - 13)),
+        11 => Some(2), // j_corsair_1
+        _ => None,
+    }
+}
+/// upstream: MSIMotherboard162Controller.cpp board_configs table
+/// (PID, onboard LED count, supported zone values in RGBController order).
+pub fn board_config_162(pid: u16) -> (usize, &'static [u8]) {
+    match pid {
+        0x1720 | 0x7B12 | 0x7B17 | 0x7B85 | 0x7B92 => (10, &[1, 2, 8, 11]),
+        0x7B18 => (6, &[1, 2, 8]),
+        0x7B50 => (6, &[1, 2, 8, 9]),
+        0xB926 => (3, &[8]),
+        _ => (10, &[1, 2, 8, 11]),
+    }
+}
+/// Flags/macros mirrored from MSIMotherboardCommon.h (shared with 162).
+const SYNC_ONBOARD_FLAG: u8 = 1 << 0;
+const SYNC_JRGB_FLAG: u8 = 1 << 7;
+/// upstream: MSIMotherboard162Controller.cpp SetMode() with
+/// mode = MSI_MODE_STATIC (the "Direct" mode value), no speed, brightness 100.
+/// The base part (zone <= 13) writes effect/flags and clears the sync bits
+/// (mode <= MSI_MODE_DOUBLE_FLASHING); the second part (zone >= 13) writes
+/// zone+1 for the multi-LED onboard chain.
+pub fn set_mode_162(data: &mut [u8], value: u8) {
+    let static_effect = MSI_MODE_STATIC;
+    if (value as u16) <= 13 {
+        if let Some(slot) = zone_slot_162(value) {
+            let off = ZONE_OFFSETS_162[slot];
+            data[off] = static_effect;
+            data[off + 4] = ((data[off + 4] & !SYNC_JRGB_FLAG) & 0xFC) | BRIGHTNESS_100_FLAGS;
+            data[off + 8] |= USE_CUSTOM_COLOR;
+            data[off + 8] &= !SYNC_ONBOARD_FLAG;
+            data[off + 9] = 0;
+        }
+    }
+    if value >= 13 {
+        if let Some(slot) = zone_slot_162(value + 1) {
+            let off = ZONE_OFFSETS_162[slot];
+            data[off] = static_effect;
+            data[off + 4] = ((data[off + 4] & !SYNC_JRGB_FLAG) & 0xFC) | BRIGHTNESS_100_FLAGS;
+            data[off + 8] |= USE_CUSTOM_COLOR;
+            data[off + 9] = 0;
+        }
+    }
+}
+/// upstream: MSIMotherboard162Controller.cpp SetZoneColor() with
+/// color2 == color1 (RGBController_UpdateLed passes rgb twice).
+pub fn set_zone_color_162(data: &mut [u8], value: u8, c: freergb_core::Rgb) {
+    if (value as u16) <= 13 {
+        if let Some(slot) = zone_slot_162(value) {
+            let off = ZONE_OFFSETS_162[slot];
+            data[off + 1..off + 4].copy_from_slice(&[c.r, c.g, c.b]);
+            data[off + 5..off + 8].copy_from_slice(&[c.r, c.g, c.b]);
+        }
+    }
+    if value >= 13 {
+        if let Some(slot) = zone_slot_162(value + 1) {
+            let off = ZONE_OFFSETS_162[slot];
+            data[off + 1..off + 4].copy_from_slice(&[c.r, c.g, c.b]);
+            data[off + 5..off + 8].copy_from_slice(&[c.r, c.g, c.b]);
+        }
+    }
 }
 #[cfg(test)]
 mod tests {

@@ -74,6 +74,62 @@ fn unsupported_interface_is_not_identified() {
 }
 
 #[test]
+fn probe_selects_the_162_byte_variant() {
+    let mut m = crate::MsiMotherboard::default();
+    let mut h = Fake::new(162);
+    let caps = m.initialize(&first_detector(), &mut h).unwrap();
+    // upstream: default board config (zones_set0, 10 onboard LEDs)
+    assert_eq!(caps.layout.leds.len(), 14);
+    assert_eq!(caps.zones.len(), 5);
+    assert_eq!(caps.zones[0].name, "JRGB1");
+    assert_eq!(caps.zones[1].name, "JRGB2");
+    assert_eq!(caps.zones[2].name, "JRAINBOW1");
+    assert_eq!(caps.zones[3].name, "JCORSAIR");
+    assert_eq!(caps.zones[4].name, "Onboard LEDs");
+    assert_eq!(caps.zones[4].leds, 10);
+    let colors: Vec<Rgb> = (0..14)
+        .map(|i| Rgb {
+            r: i as u8,
+            g: 0,
+            b: 0,
+        })
+        .collect();
+    m.frame(&colors, &mut h).unwrap();
+    // one 162-byte feature report per frame
+    assert_eq!(h.features.len(), 1);
+    assert_eq!(h.features[0].len(), 162);
+    let p = &h.features[0];
+    assert_eq!(p[0], 0x52);
+    assert_eq!(p[161], 0);
+    // j_rgb_1 (zone value 1): STATIC effect, 0x28 flags, custom color
+    assert_eq!(&p[1..11], &[1, 0, 0, 0, 0x28, 0, 0, 0, 0x80, 0]);
+    // j_rgb_2 (zone value 2) at offset 151
+    assert_eq!(&p[151..161], &[1, 1, 0, 0, 0x28, 1, 0, 0, 0x80, 0]);
+    // j_rainbow_1 (8) at 11 and j_corsair_1 (11) at 21
+    assert_eq!(&p[11..14], &[1, 2, 0]);
+    assert_eq!(&p[21..24], &[1, 3, 0]);
+    assert_eq!(p[29], 0x80);
+    // onboard master (41) keeps the first onboard LED color (value 13 writes
+    // both the master block and on_board_led_1)
+    assert_eq!(&p[41..44], &[1, 4, 0]);
+    assert_eq!(&p[51..54], &[1, 4, 0]);
+    // on_board_led_10 at 141 gets the last onboard LED color (value 22)
+    assert_eq!(&p[141..144], &[1, 13, 0]);
+    // stateful buffer: second frame colors follow
+    let colors2: Vec<Rgb> = (0..14)
+        .map(|i| Rgb {
+            r: (20 + i) as u8,
+            g: 0,
+            b: 0,
+        })
+        .collect();
+    m.frame(&colors2, &mut h).unwrap();
+    assert_eq!(h.features.len(), 2);
+    assert_eq!(&h.features[1][2..5], &[20, 0, 0]);
+    m.shutdown(None, &mut h).unwrap();
+}
+
+#[test]
 fn probe_selects_only_the_112_byte_variant() {
     let mut m = crate::MsiMotherboard::default();
     let mut h = Fake::new(112);
@@ -116,7 +172,7 @@ fn frame_sends_single_112_byte_packet() {
 
 #[test]
 fn non_112_variants_fail_closed() {
-    for probe in [162usize, 185, 300] {
+    for probe in [185usize, 300] {
         let mut m = crate::MsiMotherboard::default();
         let mut h = Fake::new(probe);
         assert!(

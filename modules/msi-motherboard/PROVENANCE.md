@@ -10,6 +10,17 @@ number or a device path.
 
 ## Ported sub-controllers
 
+### 162-byte controller (MSIMotherboard162Controller) - fully ported
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `MSIMotherboardControllerDetect.cpp` 0x52 probe (162/163 bytes) | `lib.rs initialize_162()` | same probe as 112; variant switch by answer length |
+| `MSIMotherboard162Controller.cpp` constructor | `lib.rs initialize_162()` | save flag 0, onboard master colorFlags = custom color + sync onboard; board_configs table (PIDs 0x1720/0x7B12/0x7B17/0x7B85/0x7B92 10 LEDs, 0x7B18 6, 0x7B50 6, 0xB926 3, default zones_set0/10) |
+| `MSIMotherboard162Controller.cpp` `GetZoneData()` | `report::zone_slot_162()` / `ZONE_OFFSETS_162` | j_rgb_2 at offset 151, J_RAINBOW_2 remapped to on_board_led_10 (141) |
+| `MSIMotherboard162Controller.cpp` `SetMode()` (Direct = MSI_MODE_STATIC) | `report::set_mode_162()` | base part for zone<=13 (effect 1, 0x28 flags, custom color, clears sync bits), second part writes zone+1 for the onboard chain |
+| `MSIMotherboard162Controller.cpp` `SetZoneColor()` | `report::set_zone_color_162()` | color = color2 = LED color; onboard master block additionally receives the first onboard LED color |
+| `MSIMotherboard162Controller.cpp` `Update()` | `lib.rs frame_162()` | stateful 162-byte packet, LEDs per zone in reverse order like DeviceUpdateLEDs, save flag 0 |
+
 ### 112-byte controller (MSIMotherboard112Controller) - fully ported
 
 Upstream routes all 124 detector rows through one runtime probe
@@ -34,7 +45,7 @@ layouts, so `identify()` reports `supported=true` for the rows while only the
 
 | Upstream path | Status | Grund |
 |---|---|---|
-| `MSIMotherboard162Controller` | nicht portiert | answers with a 162-byte 0x52 report; own packet layout and zone set not yet ported |
+| `MSIMotherboard162Controller` | portiert | 162-byte 0x52 variant; stateful SetMode/SetZoneColor (STATIC effect, 100% brightness flags, custom color, onboard +1 remap) and Update(save=0) byte-exakt |
 | `MSIMotherboard185Controller` | nicht portiert | 185-byte layout incl. RainbowZoneData/CorsairZoneData and firmware check not ported |
 | `MSIMotherboard761Controller` | blockiert | needs the per-zone 0x51/0x50 protocol and the DMI mainboard name (`dmi.getMainboard()`), which is outside the brokered HID the freeRGB module provides |
 
