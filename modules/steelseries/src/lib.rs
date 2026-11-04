@@ -9,13 +9,143 @@ use freergb_module_api::{
     Restore, Zone, MODULE_API,
 };
 pub const MODULE_ID: &str = "steelseries";
+fn err(e: impl std::fmt::Display) -> ModuleError {
+    ModuleError::new(ErrorCode::Protocol, e.to_string())
+}
+/// One LED with its upstream zone/value mapping.
+#[derive(Clone)]
+struct LedSpec {
+    name: &'static str,
+    value: u8,
+}
+// upstream: RGBController_SteelSeriesRival.cpp rival_650_leds / rival_600_leds
+const RIVAL_650_MOUSE_LEDS: [LedSpec; 6] = [
+    LedSpec {
+        name: "Left 1",
+        value: 0x12,
+    },
+    LedSpec {
+        name: "Left 2",
+        value: 0x14,
+    },
+    LedSpec {
+        name: "Left 3",
+        value: 0x16,
+    },
+    LedSpec {
+        name: "Right 1",
+        value: 0x13,
+    },
+    LedSpec {
+        name: "Right 2",
+        value: 0x15,
+    },
+    LedSpec {
+        name: "Right 3",
+        value: 0x17,
+    },
+];
+const RIVAL_600_MOUSE_LEDS: [LedSpec; 6] = [
+    LedSpec {
+        name: "Left top",
+        value: 0x02,
+    },
+    LedSpec {
+        name: "Left mid",
+        value: 0x04,
+    },
+    LedSpec {
+        name: "Left bottom",
+        value: 0x06,
+    },
+    LedSpec {
+        name: "Right top",
+        value: 0x03,
+    },
+    LedSpec {
+        name: "Right mid",
+        value: 0x05,
+    },
+    LedSpec {
+        name: "Right bottom",
+        value: 0x07,
+    },
+];
+/// upstream: RGBController_SteelSeriesRival.cpp SetupZones()
+/// LED list per device type (values are the C++ led->value zone ids).
+fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
+    match proto {
+        // upstream: SetupZones base case ("Rival 100 Series only has one Zone")
+        // and the "Rival 300 and 700 extend this" branch
+        table::Proto::Rival100 => vec![LedSpec {
+            name: "Logo",
+            value: 0,
+        }],
+        table::Proto::Rival300 | table::Proto::Rival700 => vec![
+            LedSpec {
+                name: "Logo",
+                value: 0,
+            },
+            LedSpec {
+                name: "Scroll Wheel",
+                value: 1,
+            },
+        ],
+        table::Proto::Rival650 => {
+            // upstream: leds[0].value = 0x11; wheel led value = 0x10
+            [
+                vec![LedSpec {
+                    name: "Logo",
+                    value: 0x11,
+                }],
+                vec![LedSpec {
+                    name: "Scroll Wheel",
+                    value: 0x10,
+                }],
+                RIVAL_650_MOUSE_LEDS.to_vec(),
+            ]
+            .concat()
+        }
+        table::Proto::Rival600 => {
+            // upstream: leds[0].value = 0x01; wheel led value = 0x00
+            [
+                vec![LedSpec {
+                    name: "Logo",
+                    value: 0x01,
+                }],
+                vec![LedSpec {
+                    name: "Scroll Wheel",
+                    value: 0x00,
+                }],
+                RIVAL_600_MOUSE_LEDS.to_vec(),
+            ]
+            .concat()
+        }
+    }
+}
+/// upstream: RGBController_SteelSeriesRival.cpp SetupZones()
+/// Zone structure (name, led count) per device type.
+fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
+    match proto {
+        table::Proto::Rival100 => vec![("Logo", 1)],
+        table::Proto::Rival300 | table::Proto::Rival700 => {
+            vec![("Logo", 1), ("Scroll Wheel", 1)]
+        }
+        table::Proto::Rival650 | table::Proto::Rival600 => {
+            vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
+        }
+    }
+}
+fn kind(proto: table::Proto) -> DeviceKind {
+    // upstream: RGBController_SteelSeriesRival.cpp type = DEVICE_TYPE_MOUSE
+    let _ = proto;
+    DeviceKind::Mouse
+}
 #[derive(Default)]
 pub struct SteelSeries {
     active: bool,
-    leds: usize,
-}
-fn err(e: impl std::fmt::Display) -> ModuleError {
-    ModuleError::new(ErrorCode::Protocol, e.to_string())
+    proto: Option<table::Proto>,
+    leds: Vec<LedSpec>,
 }
 impl Module for SteelSeries {
     fn info(&self) -> ModuleInfo {
@@ -32,38 +162,41 @@ impl Module for SteelSeries {
     fn initialize_with_zones(
         &mut self,
         i: &InterfaceInfo,
-        z: Option<&[Zone]>,
+        _z: Option<&[Zone]>,
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        let id = table::identify(i);
-        if !id.supported {
-            return Err(err(id.reason.unwrap_or_else(|| "unsupported".into())));
-        }
-        self.leds = z
-            .map(|x| x.iter().map(|q| q.leds).sum())
-            .unwrap_or(8)
-            .clamp(1, 240);
+        let d = table::detector(i).ok_or_else(|| err("no SteelSeries HID detector"))?;
+        let proto = table::proto_of_handler(d.handler)
+            .ok_or_else(|| err("SteelSeries controller protocol not ported"))?;
+        let leds = led_specs(proto);
+        let zone_list = zones(proto);
+        self.proto = Some(proto);
+        self.leds = leds;
         self.active = true;
-        let leds = (0..self.leds)
-            .map(|n| Led {
-                name: format!("LED {}", n + 1),
-                pos: (n as u16, 0),
-            })
-            .collect();
+        let count = self.leds.len();
         Ok(Capabilities {
-            name: id.model.unwrap_or_else(|| "SteelSeries".into()),
-            kind: DeviceKind::Accessory,
+            name: d.name.into(),
+            kind: kind(proto),
+            // Only Direct mode is exposed; upstream effect modes are out of scope.
             layout: LedLayout {
-                width: self.leds as u16,
+                width: count as u16,
                 height: 1,
-                leds,
+                leds: (0..count)
+                    .map(|n| Led {
+                        name: self.leds[n].name.into(),
+                        pos: (n as u16, 0),
+                    })
+                    .collect(),
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![Zone {
-                name: "SteelSeries".into(),
-                leds: self.leds,
-            }],
+            zones: zone_list
+                .into_iter()
+                .map(|(name, leds)| Zone {
+                    name: name.into(),
+                    leds,
+                })
+                .collect(),
         })
     }
     fn initialize(
@@ -74,11 +207,28 @@ impl Module for SteelSeries {
         self.initialize_with_zones(i, None, h)
     }
     fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
-        if !self.active || c.len() != self.leds {
+        if !self.active {
+            return Err(err("SteelSeries module not initialized"));
+        }
+        if c.len() != self.leds.len() {
             return Err(err("invalid SteelSeries frame"));
         }
-        for x in c.chunks(20) {
-            h.write(&report::direct(x)).map_err(err)?;
+        let proto = self.proto.expect("active implies proto");
+        // upstream: RGBController_SteelSeriesRival.cpp DeviceUpdateMode()
+        // Direct mode first applies the effect, then updates every LED.
+        for pkt in report::set_light_effect_all(proto, report::EFFECT_DIRECT) {
+            h.write(&pkt).map_err(err)?;
+        }
+        // upstream: RGBController_SteelSeriesRival.cpp DeviceUpdateLEDs()
+        for (led, color) in self.leds.iter().zip(c) {
+            for pkt in report::set_color(proto, led.value, *color) {
+                if proto == table::Proto::Rival700 {
+                    // upstream: SetRival700Color uses hid_send_feature_report
+                    h.send_feature(&pkt).map_err(err)?;
+                } else {
+                    h.write(&pkt).map_err(err)?;
+                }
+            }
         }
         Ok(())
     }
