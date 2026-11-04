@@ -22,31 +22,17 @@ fn iface(pid: u16) -> InterfaceInfo {
         product: None,
     }
 }
-fn first_detector() -> InterfaceInfo {
-    let d = &crate::devices_table::DETECTORS[0];
-    iface(d.pid)
-}
-#[test]
-fn inventory_is_complete() {
-    // upstream: SteelSeriesControllerDetect.cpp registers 76 detector rows
-    // on VID 0x1038 across 17 sub-controller callbacks.
-    assert_eq!(crate::devices_table::DETECTORS.len(), 76)
-}
-#[test]
-fn inventoried_devices_are_not_claimed_before_protocol_port() {
-    let result = crate::table::identify(&first_detector());
-    assert!(!result.supported);
-    assert!(result.reason.unwrap().contains("protocol is not ported"));
-}
 struct Fake {
     writes: Vec<Vec<u8>>,
     features: Vec<Vec<u8>>,
+    reads: usize,
 }
 impl Fake {
     fn new() -> Self {
         Fake {
             writes: Vec::new(),
             features: Vec::new(),
+            reads: 0,
         }
     }
 }
@@ -56,7 +42,8 @@ impl Hid for Fake {
         Ok(b.len())
     }
     fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
-        unreachable!()
+        self.reads += 1;
+        Ok(vec![0u8; 64])
     }
     fn send_feature(&mut self, b: &[u8]) -> Result<usize, ModuleError> {
         self.features.push(b.to_vec());
@@ -84,6 +71,23 @@ fn pid_of(name_suffix: &str) -> u16 {
 fn module_for(handler: &str) -> crate::SteelSeries {
     let _ = handler;
     crate::SteelSeries::default()
+}
+#[test]
+fn inventory_is_complete() {
+    // upstream: SteelSeriesControllerDetect.cpp registers 76 detector rows
+    // on VID 0x1038 across 17 sub-controller callbacks.
+    assert_eq!(crate::devices_table::DETECTORS.len(), 76)
+}
+#[test]
+fn inventoried_devices_are_not_claimed_before_protocol_port() {
+    // QCK mousemat rows are inventoried but not ported
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler == "DetectSteelSeriesMousemat")
+        .unwrap();
+    let result = crate::table::identify(&iface(d.pid));
+    assert!(!result.supported);
+    assert!(result.reason.unwrap().contains("protocol is not ported"));
 }
 #[test]
 fn rival100_full_sequence_is_byte_exact() {
@@ -473,6 +477,95 @@ fn aerox5_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn aerox_wireless_wired_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesAerox3WirelessWired row (0x183A, interface 3)
+    let i = iface(rival_pid("DetectSteelSeriesAerox3WirelessWired"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: aerox_3_wireless table
+    assert_eq!(caps.layout.leds.len(), 3);
+    assert_eq!(caps.layout.leds[0].name, "Front");
+    // upstream: SendInit in constructor (64-byte feature)
+    assert_eq!(&h.features[0][0..2], &[0x00, 0x2D]);
+    assert_eq!(h.features[0].len(), 64);
+    m.frame(&[RGB1, RGB2, RGB1], &mut h).unwrap();
+    // wired: no 0x40 flag, no readback; brightness (10) after first color
+    assert_eq!(h.reads, 0);
+    assert_eq!(h.writes.len(), 4);
+    // upstream: SetColor [00 21 01 zone rgb@4..]
+    assert_eq!(
+        &h.writes[0][0..7],
+        &[0x00, 0x21, 0x01, 0x00, 0x11, 0x22, 0x33]
+    );
+    // brightness packet [00 23 10]
+    assert_eq!(&h.writes[1][0..3], &[0x00, 0x23, 0x0A]);
+    assert_eq!(
+        &h.writes[2][0..7],
+        &[0x00, 0x21, 0x01, 0x01, 0x44, 0x55, 0x66]
+    );
+    assert_eq!(h.writes[3][3], 0x02);
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
+fn aerox_wireless_wireless_flag_and_readback() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesAerox3Wireless row (0x1838): 0x40 flag + readback
+    let i = iface(rival_pid("DetectSteelSeriesAerox3Wireless"));
+    m.initialize(&i, &mut h).unwrap();
+    m.frame(&[RGB1; 3], &mut h).unwrap();
+    // 3 color writes + 1 brightness write = 4 writes; 4 readbacks (wireless)
+    assert_eq!(h.writes.len(), 4);
+    assert_eq!(h.reads, 4);
+    assert_eq!(h.writes[0][1], 0x21 | 0x40);
+    assert_eq!(h.writes[1][1], 0x23 | 0x40);
+    assert_eq!(h.writes[1][2], 0x0A);
+    // Second frame: brightness unchanged -> 3 writes + 3 readbacks
+    m.frame(&[RGB1; 3], &mut h).unwrap();
+    assert_eq!(h.writes.len(), 7);
+    assert_eq!(h.reads, 7);
+}
+#[test]
+fn aerox9_wireless_reactive_zone_uses_0x26() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesAerox9Wireless row (0x1858)
+    let i = iface(rival_pid("DetectSteelSeriesAerox9Wireless"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: aerox_9 table
+    assert_eq!(caps.layout.leds.len(), 4);
+    m.frame(&[RGB1; 4], &mut h).unwrap();
+    // brightness + 4 colors (+ readbacks)
+    assert_eq!(h.writes.len(), 5);
+    // upstream: zone 3 "Reactive" -> cmd 0x26, byte 3 = 0
+    assert_eq!(h.writes[4][0], 0x00);
+    assert_eq!(h.writes[4][1], 0x26 | 0x40);
+    assert_eq!(h.writes[4][2], 0x01);
+    assert_eq!(h.writes[4][3], 0x00);
+    assert_eq!(&h.writes[4][4..7], &[0x11, 0x22, 0x33]);
+}
+#[test]
+fn rival3_wireless_uses_0x13_packets() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesRival3Wireless row (0x1830)
+    let i = iface(rival_pid("DetectSteelSeriesRival3Wireless"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: rival_3_wireless table - single "Scroll Wheel" LED value 1
+    assert_eq!(caps.layout.leds.len(), 1);
+    assert_eq!(caps.layout.leds[0].name, "Scroll Wheel");
+    m.frame(&[RGB1], &mut h).unwrap();
+    // upstream: RIVAL_3_WIRELESS color packet [00 13 1 rgb@3..6] plus the
+    // common brightness write [00 23 10] (IsWireless() == false: no 0x40
+    // flag, no readback)
+    assert_eq!(h.writes.len(), 2);
+    assert_eq!(h.reads, 0);
+    assert_eq!(&h.writes[0][0..6], &[0x00, 0x13, 0x01, 0x11, 0x22, 0x33]);
+    assert_eq!(&h.writes[1][0..3], &[0x00, 0x23, 0x0A]);
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
 fn aerox3_full_sequence_is_byte_exact() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
@@ -514,12 +607,7 @@ fn aerox3_save_is_byte_exact() {
 fn unported_steelseries_devices_stay_unsupported() {
     // DetectSteelSeriesAerox3 / Sensei / Arctis / QCK / Apex handlers are not
     // ported yet and must never report supported.
-    for handler in [
-        "DetectSteelSeriesAerox3Wireless",
-        "DetectSteelSeriesRival3Wireless",
-        "DetectSteelSeriesQCKPrism",
-        "DetectSteelSeriesApex",
-    ] {
+    for handler in ["DetectSteelSeriesQCKPrism", "DetectSteelSeriesApex"] {
         if let Some(d) = crate::devices_table::DETECTORS
             .iter()
             .find(|d| d.handler == handler)
@@ -543,9 +631,16 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesSensei",
         "DetectSteelSeriesHeadset",
         "DetectSteelSeriesArctis5",
-        "DetectSteelSeriesArctisNova3",
         "DetectSteelSeriesAerox3",
         "DetectSteelSeriesAerox5",
+        "DetectSteelSeriesAerox3Wireless",
+        "DetectSteelSeriesAerox3WirelessWired",
+        "DetectSteelSeriesAerox3Gen2Wireless",
+        "DetectSteelSeriesAerox5Wireless",
+        "DetectSteelSeriesAerox5WirelessWired",
+        "DetectSteelSeriesAerox9Wireless",
+        "DetectSteelSeriesAerox9WirelessWired",
+        "DetectSteelSeriesRival3Wireless",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()
@@ -581,13 +676,8 @@ fn unsupported_pid_is_rejected() {
 fn unsupported_handler_cannot_initialize_even_if_row_exists() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
-    // Aerox 3 Wireless (SteelSeriesAeroxWirelessController) is inventoried but
-    // its protocol is not ported
-    let i = iface(pid_of("Aerox 3 Wireless"));
+    // QCK mousemat is inventoried but its protocol is not ported
+    let i = iface(pid_of("QCK"));
     assert!(m.initialize(&i, &mut h).is_err());
     assert!(h.writes.is_empty() && h.features.is_empty());
-    // Rival 3 Wireless uses SteelSeriesAeroxWirelessController upstream and is
-    // covered by a later port step; not supported by the Rival3 path yet
-    let i = iface(pid_of("Rival 3 Wireless"));
-    assert!(m.initialize(&i, &mut h).is_err());
 }

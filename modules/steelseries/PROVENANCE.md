@@ -60,6 +60,24 @@ usage 1.
 Changes: upstream sleeps 2 ms between SetColor/SetBrightness packets; the
 module protocol has no sleeps, so packets are emitted back to back.
 
+### Aerox 3/5/9 Wireless + Rival 3 Wireless (SteelSeriesAeroxWirelessController)
+- 13 detector rows, ported
+
+Rows: Aerox 3 Wireless (0x1838), Aerox 3 Wireless Wired (0x183A), Aerox 3
+Wireless Gen 2 (0x1890), Aerox 5 Wireless/Wired/Destiny/Diablo (0x1852, 0x1854,
+0x185C, 0x185E, 0x1860, 0x1862), Aerox 9 Wireless/Wired (0x1858, 0x185A),
+Rival 3 Wireless (0x1830). All interface 3, usage page 0xFFC0, usage 1.
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `SteelSeriesAeroxWirelessController.h` tables `aerox_3_wireless`, `aerox_9`, `rival_3_wireless` | `report::AEROX_WIRELESS_*_LEDS` / `lib.rs` | 3 / 4 (incl. Reactive) / 1 (Scroll Wheel value 1) LEDs, one zone each |
+| `SteelSeriesAeroxWirelessController.cpp` `SendInit()` | `report::aerox_wireless_init()` | 64-byte feature report `[00 2D]` |
+| `SteelSeriesAeroxWirelessController.cpp` `SetColor()` | `report::aerox_wireless_set_color()` | `[00 21 01 zone rgb@4..7]`; Aerox 9 zone 3 -> cmd 0x26 byte 3=0; Rival 3 Wireless -> `[00 13 zone rgb@3..6]` |
+| `STEELSERIES_AEROX_WIRELESS_FLAG = 0b01000000` | byte 1 |= 0x40 | Applied only when `IsWireless()` (Rival 3 Wireless and *_Wired rows: no flag) |
+| `SteelSeriesAeroxWirelessController.cpp` `WriteBuffer()` | `lib.rs frame()` | hid_read_timeout(250 ms) readback after every write in wireless mode |
+| `SteelSeriesAeroxWirelessController.cpp` `SetBrightness()` | `report::aerox_wireless_set_brightness()` | `[00 23 level]`, level = 0x64/10 = 10, only on change |
+| `SetLightEffectAll()` / `Save()` | - | Direct-only module: effect 0x05 (Rainbow) never emitted; Rival 3 Wireless ignores EEPROM save |
+
 ### Aerox 3 wired (SteelSeriesAerox3Controller) - 1 detector row, ported
 
 | Upstream file/function | Rust mapping | Behaviour |
@@ -146,8 +164,7 @@ unsupported until the AeroxWireless controller port.
 
 | Upstream path | Devices | Status |
 |---|---:|---|
-| Aerox wireless (`SteelSeriesAeroxWirelessController` incl. Aerox 9 and Aerox 3/5 wireless rows, Rival 3 Wireless) | 14 | nicht portiert |
-| Rival 3 Wireless (`SteelSeriesAeroxWirelessController`) | 1 | nicht portiert |
+| Aerox wireless / Rival 3 Wireless (`SteelSeriesAeroxWirelessController`) | 13 | portiert |
 | QCK (`SteelSeriesQCKMatController`) | 9 | nicht portiert |
 | Apex (`SteelSeriesApex*Controller`, old Apex, Apex M) | 19 | nicht portiert |
 

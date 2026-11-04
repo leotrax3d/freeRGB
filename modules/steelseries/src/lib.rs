@@ -260,6 +260,23 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 },
             ]
         }
+        table::Proto::AeroxWireless { aerox9, rival3, .. } => {
+            // upstream: SteelSeriesAeroxWirelessController.h GetMouse tables
+            let table: &[(&str, u8)] = if rival3 {
+                &crate::report::AEROX_WIRELESS_RIVAL3_LEDS
+            } else if aerox9 {
+                &crate::report::AEROX_WIRELESS_A9_LEDS
+            } else {
+                &crate::report::AEROX_WIRELESS_A3_LEDS
+            };
+            table
+                .iter()
+                .map(|(name, value)| LedSpec {
+                    name,
+                    value: *value,
+                })
+                .collect()
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -304,6 +321,18 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         table::Proto::Aerox3 => vec![("Front", 1), ("Middle", 1), ("Rear", 1)],
         // upstream: SteelSeriesAerox5Controller.h aerox_5 - one zone per LED
         table::Proto::Aerox5 => vec![("Front", 1), ("Middle", 1), ("Rear", 1), ("Reactive", 1)],
+        // upstream: RGBController_SteelSeriesRival3.cpp SetupZones() - one
+        // single-LED zone per led_info entry, named like the LED
+        table::Proto::AeroxWireless { aerox9, rival3, .. } => {
+            let table: &[(&str, u8)] = if rival3 {
+                &crate::report::AEROX_WIRELESS_RIVAL3_LEDS
+            } else if aerox9 {
+                &crate::report::AEROX_WIRELESS_A9_LEDS
+            } else {
+                &crate::report::AEROX_WIRELESS_A3_LEDS
+            };
+            table.iter().map(|(name, _)| (*name, 1_usize)).collect()
+        }
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }
@@ -332,6 +361,9 @@ pub struct SteelSeries {
     aerox3_brightness: Option<u8>,
     /// same guard pattern for the Aerox 5 wired path
     aerox5_brightness: Option<u8>,
+    /// upstream: SteelSeriesAeroxWirelessController.cpp brightness guard
+    /// (only 10 steps; Direct brightness 0x64 -> level 10)
+    aerox_w_brightness: Option<u8>,
 }
 impl Default for SteelSeries {
     fn default() -> Self {
@@ -342,6 +374,7 @@ impl Default for SteelSeries {
             rival5_brightness: 0xFF,
             aerox3_brightness: None,
             aerox5_brightness: None,
+            aerox_w_brightness: None,
         }
     }
 }
@@ -375,6 +408,12 @@ impl Module for SteelSeries {
             // upstream: SteelSeriesAerox3/5Controller.cpp SendInit() is called
             // in the controller constructor (same [00 2D] packet)
             h.send_feature(&report::aerox3_init()).map_err(err)?;
+        }
+        if let table::Proto::AeroxWireless { .. } = proto {
+            // upstream: SteelSeriesAeroxWirelessController.cpp SendInit() in
+            // the controller constructor (64-byte [00 2D] feature report)
+            h.send_feature(&report::aerox_wireless_init())
+                .map_err(err)?;
         }
         let count = self.leds.len();
         Ok(Capabilities {
@@ -429,6 +468,40 @@ impl Module for SteelSeries {
             for (zone, color) in c.iter().enumerate() {
                 h.write(&report::aerox3_set_color(zone as u8, *color))
                     .map_err(err)?;
+            }
+            return Ok(());
+        }
+        if let table::Proto::AeroxWireless {
+            wireless,
+            aerox9,
+            rival3,
+        } = proto
+        {
+            // upstream: RGBController_SteelSeriesRival3.cpp DeviceUpdateLEDs()
+            // -> per-zone SetColor; brightness is applied right after the
+            // first color packet when it changed (level = 0x64 / 10 = 10)
+            let level = report::MOUSE_BRIGHTNESS_MAX / 10;
+            for (zone, color) in c.iter().enumerate() {
+                // upstream: SetColor receives leds[led].value as the zone id
+                // (equal to the index for Aerox tables, 1 for the Rival 3
+                // Wireless single "Scroll Wheel" LED)
+                let zone_id = self.leds[zone].value;
+                let pkt =
+                    report::aerox_wireless_set_color(wireless, aerox9, rival3, zone_id, *color);
+                h.write(&pkt).map_err(err)?;
+                // upstream: WriteBuffer() does a hid_read_timeout readback
+                // after every write in wireless mode
+                if wireless {
+                    h.read(64, 250).map_err(err)?;
+                }
+                if self.aerox_w_brightness != Some(level) {
+                    self.aerox_w_brightness = Some(level);
+                    let b = report::aerox_wireless_set_brightness(wireless, level);
+                    h.write(&b).map_err(err)?;
+                    if wireless {
+                        h.read(64, 250).map_err(err)?;
+                    }
+                }
             }
             return Ok(());
         }

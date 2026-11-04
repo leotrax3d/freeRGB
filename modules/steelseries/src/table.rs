@@ -38,6 +38,16 @@ pub enum Proto {
     Aerox3,
     /// upstream: SteelSeriesRivalController.h steelseries_type AEROX_5
     Aerox5,
+    /// upstream: SteelSeriesAeroxWirelessController - one controller class
+    /// for the Aerox 3/5/9 wireless+wired rows and Rival 3 Wireless
+    AeroxWireless {
+        /// upstream: IsWireless() - flag byte addition and readback
+        wireless: bool,
+        /// upstream: GetMouse() aerox_9 table (4th "Reactive" LED)
+        aerox9: bool,
+        /// upstream: GetMouse() rival_3_wireless table (single LED, own cmd)
+        rival3: bool,
+    },
 }
 /// Maps an upstream detector callback (REGISTER_HID_DETECTOR_* entry in
 /// SteelSeriesControllerDetect.cpp) to its ported protocol.
@@ -67,12 +77,55 @@ pub fn proto_of_handler(handler: &str) -> Option<Proto> {
         // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesArctisNova3
         // (interface 4, usage page 0xFFC0, usage 1)
         "DetectSteelSeriesArctisNova3" => Some(Proto::ArctisNova3),
-        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesAerox3
-        // (wired only, interface 3, usage page 0xFFC0, usage 1)
+        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesAerox3 /
+        // DetectSteelSeriesAerox5 (wired, interface 3, usage page 0xFFC0, usage 1)
         "DetectSteelSeriesAerox3" => Some(Proto::Aerox3),
-        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesAerox5
-        // (wired only, interface 3, usage page 0xFFC0, usage 1)
         "DetectSteelSeriesAerox5" => Some(Proto::Aerox5),
+        // upstream: DetectSteelSeriesAeroxWireless family, all interface 3,
+        // usage page 0xFFC0, usage 1; wireless rows set the 0x40 flag and do
+        // the hid_read_timeout readback after each write
+        "DetectSteelSeriesAerox3Wireless" => Some(Proto::AeroxWireless {
+            wireless: true,
+            aerox9: false,
+            rival3: false,
+        }),
+        "DetectSteelSeriesAerox3WirelessWired" => Some(Proto::AeroxWireless {
+            wireless: false,
+            aerox9: false,
+            rival3: false,
+        }),
+        "DetectSteelSeriesAerox3Gen2Wireless" => Some(Proto::AeroxWireless {
+            wireless: true,
+            aerox9: false,
+            rival3: false,
+        }),
+        "DetectSteelSeriesAerox5Wireless"
+        | "DetectSteelSeriesAerox5WirelessWired"
+        | "DetectSteelSeriesAerox5DestinyWireless"
+        | "DetectSteelSeriesAerox5DestinyWirelessWired"
+        | "DetectSteelSeriesAerox5DiabloWireless"
+        | "DetectSteelSeriesAerox5DiabloWirelessWired" => Some(Proto::AeroxWireless {
+            wireless: !handler.ends_with("Wired"),
+            aerox9: false,
+            rival3: false,
+        }),
+        "DetectSteelSeriesAerox9Wireless" => Some(Proto::AeroxWireless {
+            wireless: true,
+            aerox9: true,
+            rival3: false,
+        }),
+        "DetectSteelSeriesAerox9WirelessWired" => Some(Proto::AeroxWireless {
+            wireless: false,
+            aerox9: true,
+            rival3: false,
+        }),
+        // upstream: IsWireless() returns false for RIVAL_3_WIRELESS; it uses
+        // its own 0x13 command instead of the 0x40-flagged 0x21 packets
+        "DetectSteelSeriesRival3Wireless" => Some(Proto::AeroxWireless {
+            wireless: false,
+            aerox9: false,
+            rival3: true,
+        }),
         _ => None,
     }
 }

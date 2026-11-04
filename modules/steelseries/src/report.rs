@@ -58,6 +58,9 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         Proto::Aerox3 => Vec::new(),
         // Aerox 5 same pattern as Aerox 3
         Proto::Aerox5 => Vec::new(),
+        // upstream: SetLightEffectAll only reacts to effect 0x05, which is
+        // never emitted by the Direct mode; Rival 3 Wireless ignores it
+        Proto::AeroxWireless { .. } => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -92,6 +95,9 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         Proto::Aerox3 => Vec::new(),
         // Aerox 5 uses aerox5_set_color(); handled in lib.rs frame()
         Proto::Aerox5 => Vec::new(),
+        // Aerox wireless rows use aerox_wireless_set_color(); handled in
+        // lib.rs frame()
+        Proto::AeroxWireless { .. } => Vec::new(),
         Proto::Siberia350 => Vec::new(),
         Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
@@ -445,6 +451,75 @@ pub fn aerox5_set_brightness(brightness: u8) -> Vec<u8> {
 pub fn aerox5_save() -> Vec<u8> {
     let mut p = vec![0u8; AEROX3_PACKET_SIZE];
     p[1] = 0x11;
+    p
+}
+/// upstream: SteelSeriesAeroxWirelessController.h
+/// STEELSERIES_AEROX_WIRELESS_PACKET_SIZE / STEELSERIES_AEROX_WIRELESS_FLAG
+const AEROX_WIRELESS_PACKET_SIZE: usize = 64;
+const AEROX_WIRELESS_FLAG: u8 = 0b01000000;
+/// upstream: SteelSeriesAeroxWirelessController.h aerox_3_wireless table
+/// (also used by every Aerox 5 wireless/wired row)
+pub const AEROX_WIRELESS_A3_LEDS: [(&str, u8); 3] = [("Front", 0), ("Middle", 1), ("Rear", 2)];
+/// upstream: SteelSeriesAeroxWirelessController.h aerox_9 table
+pub const AEROX_WIRELESS_A9_LEDS: [(&str, u8); 4] =
+    [("Front", 0), ("Middle", 1), ("Rear", 2), ("Reactive", 3)];
+/// upstream: SteelSeriesAeroxWirelessController.h rival_3_wireless table
+pub const AEROX_WIRELESS_RIVAL3_LEDS: [(&str, u8); 1] = [("Scroll Wheel", 1)];
+/// upstream: SteelSeriesAeroxWirelessController.cpp SendInit()
+/// 64-byte feature report `[00 2D 00...]`.
+pub fn aerox_wireless_init() -> Vec<u8> {
+    let mut p = vec![0u8; AEROX_WIRELESS_PACKET_SIZE];
+    p[1] = 0x2D;
+    p
+}
+/// upstream: SteelSeriesAeroxWirelessController.cpp SetColor()
+/// 64-byte write: direct rows `[00 21 01 zone rgb@4..7]`; Aerox 9 zone 3
+/// uses cmd 0x26 with byte 3 = 0; Rival 3 Wireless uses its own
+/// `[00 13 zone rgb@3..6]` packet. The 0x40 flag is ORed into byte 1 for
+/// wireless rows.
+pub fn aerox_wireless_set_color(
+    wireless: bool,
+    aerox9: bool,
+    rival3: bool,
+    zone_id: u8,
+    c: freergb_core::Rgb,
+) -> Vec<u8> {
+    let mut p = vec![0u8; AEROX_WIRELESS_PACKET_SIZE];
+    if rival3 {
+        // upstream: SetColor case RIVAL_3_WIRELESS
+        p[1] = 0x13;
+        p[2] = zone_id;
+        p[3] = c.r;
+        p[4] = c.g;
+        p[5] = c.b;
+        return p;
+    }
+    p[1] = 0x21;
+    p[2] = 0x01;
+    if zone_id == 3 && aerox9 {
+        // upstream: 9 Wireless "Reactive" zone uses the 0x26 command
+        p[3] = 0x00;
+        p[1] = 0x26;
+    } else {
+        p[3] = zone_id;
+    }
+    p[4] = c.r;
+    p[5] = c.g;
+    p[6] = c.b;
+    if wireless {
+        p[1] |= AEROX_WIRELESS_FLAG;
+    }
+    p
+}
+/// upstream: SteelSeriesAeroxWirelessController.cpp SetBrightness()
+/// `[00 23 level]` with the 0x40 flag for wireless rows.
+pub fn aerox_wireless_set_brightness(wireless: bool, level: u8) -> Vec<u8> {
+    let mut p = vec![0u8; AEROX_WIRELESS_PACKET_SIZE];
+    p[1] = 0x23;
+    p[2] = level;
+    if wireless {
+        p[1] |= AEROX_WIRELESS_FLAG;
+    }
     p
 }
 #[cfg(test)]
