@@ -207,6 +207,7 @@ fn main() -> Result<()> {
                 license,
                 devices,
                 bus: None,
+                cooling: None,
                 files: Default::default(),
             };
             package::build(manifest, &contents, &out)?;

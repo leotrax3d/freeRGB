@@ -2307,6 +2307,7 @@ name = "freergb-modules"
 version = "0.1.0-beta.4"
 dependencies = [
  "ed25519-dalek",
+ "freergb-control",
  "freergb-core",
  "freergb-device-api",
  "freergb-module-api",

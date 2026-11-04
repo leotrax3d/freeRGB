@@ -4,6 +4,7 @@
 
 pub mod bus_host;
 pub mod catalog;
+pub mod cooling_host;
 pub mod host;
 pub mod package;
 pub mod setup;

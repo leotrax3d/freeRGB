@@ -48,7 +48,9 @@ pub struct Host<R, W> {
     input: R,
     output: W,
     next_call: u64,
-    calls: u32,
+    pub(crate) calls: u32,
+    /// Version stamped on transport calls: 1, or 3 for cooling plugins.
+    version: u32,
 }
 
 fn protocol(message: impl Into<String>) -> ModuleError {
@@ -57,15 +59,20 @@ fn protocol(message: impl Into<String>) -> ModuleError {
 
 impl<R: BufRead, W: Write> Host<R, W> {
     pub fn new(input: R, output: W) -> Self {
+        Self::with_version(input, output, MODULE_API)
+    }
+
+    pub(crate) fn with_version(input: R, output: W, version: u32) -> Self {
         Self {
             input,
             output,
             next_call: 0,
             calls: 0,
+            version,
         }
     }
 
-    fn send_line(&mut self, value: &impl Serialize) -> Result<(), ModuleError> {
+    pub(crate) fn send_line(&mut self, value: &impl Serialize) -> Result<(), ModuleError> {
         let mut line = serde_json::to_vec(value).map_err(|e| protocol(e.to_string()))?;
         if line.len() >= MAX_MESSAGE {
             return Err(protocol("message too large"));
@@ -78,7 +85,7 @@ impl<R: BufRead, W: Write> Host<R, W> {
     }
 
     /// Reads one line; `Ok(None)` on EOF.
-    fn read_line(&mut self) -> Result<Option<Vec<u8>>, ModuleError> {
+    pub(crate) fn read_line(&mut self) -> Result<Option<Vec<u8>>, ModuleError> {
         let mut line = Vec::new();
         let n = (&mut self.input)
             .take((MAX_MESSAGE + 1) as u64)
@@ -109,7 +116,7 @@ impl<R: BufRead, W: Write> Host<R, W> {
         }
         self.next_call += 1;
         let call = Call {
-            v: MODULE_API,
+            v: self.version,
             call: self.next_call,
             op,
             data: encode(data),
@@ -122,7 +129,7 @@ impl<R: BufRead, W: Write> Host<R, W> {
             .ok_or_else(|| ModuleError::new(ErrorCode::Disconnected, "host closed the pipe"))?;
         let reply: CallReply =
             serde_json::from_slice(&line).map_err(|e| protocol(e.to_string()))?;
-        if reply.v != MODULE_API || reply.call != call.call {
+        if reply.v != self.version || reply.call != call.call {
             return Err(protocol("host reply version/call mismatch"));
         }
         if let Some(error) = reply.error {

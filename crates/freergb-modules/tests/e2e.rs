@@ -104,6 +104,7 @@ fn signed_catalog_to_installed_module_driving_a_simulated_cobra() {
         license: "GPL-2.0-or-later".into(),
         devices: vec![cobra],
         bus: None,
+        cooling: None,
         files: Default::default(),
     };
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../modules/razer-chroma");

@@ -65,6 +65,42 @@ impl VerifiedBus {
     }
 }
 
+/// API 3 cooling plugin reverified by Store. Not constructible by a plugin.
+pub struct VerifiedCooling {
+    pub(crate) verified: Verified,
+}
+
+impl VerifiedCooling {
+    pub fn policy(&self) -> &freergb_module_api::cooling::Policy {
+        self.verified
+            .manifest
+            .cooling
+            .as_ref()
+            .expect("validated cooling manifest")
+    }
+
+    pub fn manifest(&self) -> &PackageManifest {
+        &self.verified.manifest
+    }
+
+    /// Test and fixture route: a launch description without a store. The
+    /// policy is still validated.
+    pub fn unpackaged(verified: Verified) -> Result<Self> {
+        verified.manifest.validate()?;
+        if verified.manifest.cooling.is_none() {
+            return Err(invalid("not a cooling plugin manifest"));
+        }
+        Ok(Self { verified })
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Kind {
+    Hid,
+    Bus,
+    Cooling,
+}
+
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
     let temporary = path.with_extension(format!("tmp-{}", std::process::id()));
     {
@@ -135,14 +171,14 @@ impl Store {
     /// checked against the signed catalog entry.
     /// Checks a package file against its signed catalog entry.
     pub fn check_package(entry: &ModuleEntry, package_path: &Path) -> Result<()> {
-        Self::check_package_for(entry, package_path, false)
+        Self::check_package_for(entry, package_path, Kind::Hid)
     }
 
-    fn check_package_for(entry: &ModuleEntry, package_path: &Path, bus: bool) -> Result<()> {
-        let artifact = if bus {
-            entry.bus_artifact()
-        } else {
-            entry.compatible()
+    fn check_package_for(entry: &ModuleEntry, package_path: &Path, kind: Kind) -> Result<()> {
+        let artifact = match kind {
+            Kind::Hid => entry.compatible(),
+            Kind::Bus => entry.bus_artifact(),
+            Kind::Cooling => entry.cooling_artifact(),
         }
         .map_err(invalid)?;
         if std::fs::metadata(package_path)?.len() != artifact.size
@@ -154,18 +190,24 @@ impl Store {
     }
 
     pub fn install(&self, entry: &ModuleEntry, package_path: &Path) -> Result<()> {
-        self.install_for(entry, package_path, false)
+        self.install_for(entry, package_path, Kind::Hid)
     }
 
     /// Caller supplies an entry from a signature-verified schema-2 catalog.
     /// Installation grants no device access and does not run the executable.
     pub fn install_bus(&self, entry: &ModuleEntry, package_path: &Path) -> Result<()> {
-        self.install_for(entry, package_path, true)
+        self.install_for(entry, package_path, Kind::Bus)
     }
 
-    fn install_for(&self, entry: &ModuleEntry, package_path: &Path, bus: bool) -> Result<()> {
+    /// Caller supplies an entry from a signature-verified schema-3 catalog.
+    /// Installing does not enable or start the plugin.
+    pub fn install_cooling(&self, entry: &ModuleEntry, package_path: &Path) -> Result<()> {
+        self.install_for(entry, package_path, Kind::Cooling)
+    }
+
+    fn install_for(&self, entry: &ModuleEntry, package_path: &Path, kind: Kind) -> Result<()> {
         // Checked again here: the file could have changed since download.
-        Self::check_package_for(entry, package_path, bus)?;
+        Self::check_package_for(entry, package_path, kind)?;
         let staging = self.root.join(format!(
             ".staging-{}-{}-{}",
             entry.id,
@@ -264,16 +306,22 @@ impl Store {
 
     /// Re-verifies the active version of `id` before it is executed.
     pub fn verified(&self, id: &str) -> Result<Verified> {
-        self.verified_for(id, false)
+        self.verified_for(id, Kind::Hid)
     }
 
     pub fn verified_bus(&self, id: &str) -> Result<VerifiedBus> {
         Ok(VerifiedBus {
-            verified: self.verified_for(id, true)?,
+            verified: self.verified_for(id, Kind::Bus)?,
         })
     }
 
-    fn verified_for(&self, id: &str, bus: bool) -> Result<Verified> {
+    pub fn verified_cooling(&self, id: &str) -> Result<VerifiedCooling> {
+        Ok(VerifiedCooling {
+            verified: self.verified_for(id, Kind::Cooling)?,
+        })
+    }
+
+    fn verified_for(&self, id: &str, kind: Kind) -> Result<Verified> {
         let state = self.state();
         let installed = state
             .modules
@@ -285,12 +333,20 @@ impl Store {
             .ok_or_else(|| invalid("installed module has no recorded manifest"))?;
         let directory = self.version_dir(id, &installed.active);
         let manifest = self.verify_dir(&directory, sha)?;
-        let compatible = if bus {
-            manifest.schema == 2
-                && manifest.api == [freergb_module_api::bus::API]
-                && manifest.bus.is_some()
-        } else {
-            manifest.schema == 1 && manifest.api.contains(&freergb_module_api::MODULE_API)
+        let compatible = match kind {
+            Kind::Bus => {
+                manifest.schema == 2
+                    && manifest.api == [freergb_module_api::bus::API]
+                    && manifest.bus.is_some()
+            }
+            Kind::Hid => {
+                manifest.schema == 1 && manifest.api.contains(&freergb_module_api::MODULE_API)
+            }
+            Kind::Cooling => {
+                manifest.schema == 3
+                    && manifest.api == [freergb_module_api::cooling::API]
+                    && manifest.cooling.is_some()
+            }
         };
         if manifest.target != host_target() || !compatible {
             return Err(invalid(

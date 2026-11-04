@@ -17,6 +17,7 @@
 //!   `{"v":1,"call":3,"error":"..."}`. Nothing else is sent unsolicited.
 
 pub mod bus;
+pub mod cooling;
 pub mod sdk;
 
 use base64::Engine as _;
