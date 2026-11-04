@@ -433,11 +433,48 @@ fn arctis_nova3_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn aerox3_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesAerox3 row ("SteelSeries Aerox 3 Wired", 0x1836)
+    let i = iface(rival_pid("DetectSteelSeriesAerox3"));
+    // upstream: SteelSeriesAerox3Controller.cpp SendInit() in constructor
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 3);
+    assert!(h.features.len() == 1 && h.writes.is_empty());
+    assert_eq!(&h.features[0][0..2], &[0x00, 0x2D]);
+    assert_eq!(h.features[0].len(), 65);
+    // Frame 1: upstream RGBController_SteelSeriesRival3 DeviceUpdateLEDs ->
+    // SetColor per zone, brightness packet first (Direct brightness 0x64)
+    m.frame(&[RGB1, RGB2, RGB1], &mut h).unwrap();
+    assert_eq!(h.writes.len(), 4);
+    assert_eq!(&h.writes[0][0..3], &[0x00, 0x23, 0x64]);
+    // upstream: SetColor [00 21 (1<<zone) rgb at 3 + zone*3]
+    assert_eq!(&h.writes[1][0..6], &[0x00, 0x21, 0x01, 0x11, 0x22, 0x33]);
+    assert_eq!(h.writes[2][2], 0x02);
+    assert_eq!(&h.writes[2][6..9], &[0x44, 0x55, 0x66]);
+    assert_eq!(h.writes[3][2], 0x04);
+    assert_eq!(&h.writes[3][9..12], &[0x11, 0x22, 0x33]);
+    // Frame 2: brightness already set -> only the color packets
+    m.frame(&[RGB2; 3], &mut h).unwrap();
+    assert_eq!(h.writes.len(), 7);
+    assert!(h.features.len() == 1);
+    assert_eq!(&h.writes[4][3..6], &[0x44, 0x55, 0x66]);
+    assert_eq!(&h.writes[5][6..9], &[0x44, 0x55, 0x66]);
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
+fn aerox3_save_is_byte_exact() {
+    // upstream: SteelSeriesAerox3Controller.cpp Save() [00 11 00 ...]
+    let p = crate::report::aerox3_save();
+    assert_eq!(p.len(), 65);
+    assert_eq!(&p[0..3], &[0x00, 0x11, 0x00]);
+}
+#[test]
 fn unported_steelseries_devices_stay_unsupported() {
     // DetectSteelSeriesAerox3 / Sensei / Arctis / QCK / Apex handlers are not
     // ported yet and must never report supported.
     for handler in [
-        "DetectSteelSeriesAerox3",
         "DetectSteelSeriesAerox3Wireless",
         "DetectSteelSeriesRival3Wireless",
         "DetectSteelSeriesQCKPrism",
@@ -467,6 +504,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesHeadset",
         "DetectSteelSeriesArctis5",
         "DetectSteelSeriesArctisNova3",
+        "DetectSteelSeriesAerox3",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()
@@ -502,8 +540,9 @@ fn unsupported_pid_is_rejected() {
 fn unsupported_handler_cannot_initialize_even_if_row_exists() {
     let mut m = crate::SteelSeries::default();
     let mut h = Fake::new();
-    // Aerox 3 wired is inventoried but its protocol is not ported
-    let i = iface(pid_of("Aerox 3 Wired"));
+    // Aerox 3 Wireless (SteelSeriesAeroxWirelessController) is inventoried but
+    // its protocol is not ported
+    let i = iface(pid_of("Aerox 3 Wireless"));
     assert!(m.initialize(&i, &mut h).is_err());
     assert!(h.writes.is_empty() && h.features.is_empty());
     // Rival 3 Wireless uses SteelSeriesAeroxWirelessController upstream and is

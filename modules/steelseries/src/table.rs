@@ -34,6 +34,8 @@ pub enum Proto {
     Arctis5,
     /// Arctis Nova 3 driver: upstream SteelSeriesArctisNova3Controller
     ArctisNova3,
+    /// upstream: SteelSeriesRivalController.h steelseries_type AEROX_3
+    Aerox3,
 }
 /// Maps an upstream detector callback (REGISTER_HID_DETECTOR_* entry in
 /// SteelSeriesControllerDetect.cpp) to its ported protocol.
@@ -63,6 +65,9 @@ pub fn proto_of_handler(handler: &str) -> Option<Proto> {
         // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesArctisNova3
         // (interface 4, usage page 0xFFC0, usage 1)
         "DetectSteelSeriesArctisNova3" => Some(Proto::ArctisNova3),
+        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesAerox3
+        // (wired only, interface 3, usage page 0xFFC0, usage 1)
+        "DetectSteelSeriesAerox3" => Some(Proto::Aerox3),
         _ => None,
     }
 }

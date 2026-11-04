@@ -221,6 +221,24 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 },
             ]
         }
+        table::Proto::Aerox3 => {
+            // upstream: SteelSeriesAerox3Controller.h aerox_3 led table
+            // (zone_id = led index, packet bit mask 1 << zone_id)
+            vec![
+                LedSpec {
+                    name: "Front",
+                    value: 0,
+                },
+                LedSpec {
+                    name: "Middle",
+                    value: 1,
+                },
+                LedSpec {
+                    name: "Rear",
+                    value: 2,
+                },
+            ]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -260,6 +278,9 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         table::Proto::Arctis5 => vec![("Left", 1), ("Right", 1)],
         // upstream: RGBController_SteelSeriesArctisNova3.cpp SetupZones()
         table::Proto::ArctisNova3 => vec![("Nova 3", 2)],
+        // upstream: SteelSeriesAerox3Controller.h aerox_3 (via
+        // RGBController_SteelSeriesRival3 SetupZones) - one zone per LED
+        table::Proto::Aerox3 => vec![("Front", 1), ("Middle", 1), ("Rear", 1)],
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }
@@ -282,6 +303,10 @@ pub struct SteelSeries {
     /// upstream: SteelSeriesRival5Controller.cpp sets member initialization
     /// `current_brightness = 0xFF` so the first SetBrightness call sends.
     rival5_brightness: u8,
+    /// upstream: SteelSeriesAerox3Controller.cpp has an uninitialized
+    /// current_brightness member; the first SetColor always sends the
+    /// brightness packet, so we track None until the first frame.
+    aerox3_brightness: Option<u8>,
 }
 impl Default for SteelSeries {
     fn default() -> Self {
@@ -290,6 +315,7 @@ impl Default for SteelSeries {
             proto: None,
             leds: Vec::new(),
             rival5_brightness: 0xFF,
+            aerox3_brightness: None,
         }
     }
 }
@@ -309,7 +335,7 @@ impl Module for SteelSeries {
         &mut self,
         i: &InterfaceInfo,
         _z: Option<&[Zone]>,
-        _: &mut dyn Hid,
+        h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         let d = table::detector(i).ok_or_else(|| err("no SteelSeries HID detector"))?;
         let proto = table::proto_of_handler(d.handler)
@@ -319,6 +345,11 @@ impl Module for SteelSeries {
         self.proto = Some(proto);
         self.leds = leds;
         self.active = true;
+        if proto == table::Proto::Aerox3 {
+            // upstream: SteelSeriesAerox3Controller.cpp SendInit() is called
+            // in the controller constructor
+            h.send_feature(&report::aerox3_init()).map_err(err)?;
+        }
         let count = self.leds.len();
         Ok(Capabilities {
             name: d.name.into(),
@@ -360,6 +391,21 @@ impl Module for SteelSeries {
             return Err(err("invalid SteelSeries frame"));
         }
         let proto = self.proto.expect("active implies proto");
+        if proto == table::Proto::Aerox3 {
+            // upstream: RGBController_SteelSeriesRival3.cpp DeviceUpdateLEDs()
+            // -> per-zone SetColor with brightness guard
+            let level = report::MOUSE_BRIGHTNESS_MAX;
+            if self.aerox3_brightness != Some(level) {
+                self.aerox3_brightness = Some(level);
+                h.write(&report::aerox3_set_brightness(level))
+                    .map_err(err)?;
+            }
+            for (zone, color) in c.iter().enumerate() {
+                h.write(&report::aerox3_set_color(zone as u8, *color))
+                    .map_err(err)?;
+            }
+            return Ok(());
+        }
         if proto == table::Proto::ArctisNova3 {
             // upstream: RGBController_SteelSeriesArctisNova3.cpp
             // DeviceUpdateSingleLED -> SetDirect per LED (zone_id = led index):

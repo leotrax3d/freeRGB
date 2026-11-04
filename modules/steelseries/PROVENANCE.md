@@ -42,6 +42,18 @@ Siberia: DetectSteelSeriesHeadset PID 0x1229, interface 3.
 Arctis 5: DetectSteelSeriesArctis5 PIDs 0x1250 and 0x12AA, interface 5.
 Arctis Nova 3: DetectSteelSeriesArctisNova3 PID 0x12EC, interface 4,
 usage page 0xFFC0, usage 1.
+Aerox 3: DetectSteelSeriesAerox3 PID 0x1836, interface 3, usage page 0xFFC0,
+usage 1.
+
+### Aerox 3 wired (SteelSeriesAerox3Controller) - 1 detector row, ported
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `SteelSeriesAerox3Controller.h` `aerox_3` | `lib.rs led_specs()` / `zones()` | Front/Middle/Rear (zone ids 0/1/2), one zone each |
+| `SteelSeriesAerox3Controller.cpp` `SendInit()` | `report::aerox3_init()` | 65-byte feature report `[00 2D 00...]`, sent at construction |
+| `SteelSeriesAerox3Controller.cpp` `SetColor()` | `report::aerox3_set_color()` | 65-byte write `[00 21 (1<<zone) rgb at 3+zone*3]` |
+| `SteelSeriesAerox3Controller.cpp` `SetBrightness()` | `report::aerox3_set_brightness()` | 65-byte write `[00 23 level]`, guarded on change (upstream member is uninitialized; we send on the first frame) |
+| `SteelSeriesAerox3Controller.cpp` `Save()` | `report::aerox3_save()` | `[00 11 00...]` (not used by module API; tested builder) |
 
 ### Arctis Nova 3 (SteelSeriesArctisNova3Controller) - 1 detector row, ported
 
@@ -119,7 +131,7 @@ unsupported until the AeroxWireless controller port.
 
 | Upstream path | Devices | Status |
 |---|---:|---|
-| Aerox 3/5/9 (`SteelSeriesAerox*Controller`) | 15 | nicht portiert |
+| Aerox 3 wireless / 5 / 9 (`SteelSeriesAerox3Controller`-wired is ported; `SteelSeriesAeroxWirelessController`, `SteelSeriesAerox5Controller`) | 14 | nicht portiert |
 | Rival 3 Wireless (`SteelSeriesAeroxWirelessController`) | 1 | nicht portiert |
 | QCK (`SteelSeriesQCKMatController`) | 9 | nicht portiert |
 | Apex (`SteelSeriesApex*Controller`, old Apex, Apex M) | 19 | nicht portiert |

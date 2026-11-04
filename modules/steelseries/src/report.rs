@@ -53,6 +53,9 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         Proto::Arctis5 => Vec::new(),
         // Arctis Nova 3 Direct sends only per-LED SetDirect sequences
         Proto::ArctisNova3 => Vec::new(),
+        // Aerox 3 Direct sends only per-zone SetColor (no effect packets;
+        // SetLightEffectAll is a no-op upstream)
+        Proto::Aerox3 => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -79,8 +82,12 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         Proto::Rival3 | Proto::Rival5 => Vec::new(),
         // Arctis 5 (set_arctis5_color), Arctis Nova 3 (set_arctis_nova3_direct)
         // and Siberia (set_siberia_color) are handled in lib.rs frame()
+        // Arctis 5 (set_arctis5_color), Arctis Nova 3 (set_arctis_nova3_direct)
+        // and Siberia (set_siberia_color) are handled in lib.rs frame()
         Proto::Arctis5 => Vec::new(),
         Proto::ArctisNova3 => Vec::new(),
+        // Aerox 3 uses aerox3_set_color(); handled in lib.rs frame()
+        Proto::Aerox3 => Vec::new(),
         Proto::Siberia350 => Vec::new(),
         Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
@@ -362,6 +369,42 @@ pub fn set_arctis_nova3_direct(zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         arctis_nova3_select(zone_id, 0x0A),
         arctis_nova3_apply(zone_id),
     ]
+}
+/// upstream: SteelSeriesAerox3Controller.h STEELSERIES_AEORX3_PACKET_SIZE
+const AEROX3_PACKET_SIZE: usize = 65;
+/// upstream: SteelSeriesAerox3Controller.cpp SendInit()
+/// 65-byte feature report `[00 2D 00...]` sent once at construction time.
+pub fn aerox3_init() -> Vec<u8> {
+    let mut p = vec![0u8; AEROX3_PACKET_SIZE];
+    p[1] = 0x2D;
+    p
+}
+/// upstream: SteelSeriesAerox3Controller.cpp SetColor()
+/// 65-byte write `[00 21 (1 << zone) rgb at 3 + zone*3]`.
+pub fn aerox3_set_color(zone_id: u8, c: freergb_core::Rgb) -> Vec<u8> {
+    let mut p = vec![0u8; AEROX3_PACKET_SIZE];
+    p[1] = 0x21;
+    p[2] = 1u8 << zone_id;
+    let offset = 3 + zone_id as usize * 3;
+    p[offset] = c.r;
+    p[offset + 1] = c.g;
+    p[offset + 2] = c.b;
+    p
+}
+/// upstream: SteelSeriesAerox3Controller.cpp SetBrightness()
+/// 65-byte write `[00 23 brightness]`.
+pub fn aerox3_set_brightness(brightness: u8) -> Vec<u8> {
+    let mut p = vec![0u8; AEROX3_PACKET_SIZE];
+    p[1] = 0x23;
+    p[2] = brightness;
+    p
+}
+/// upstream: SteelSeriesAerox3Controller.cpp Save()
+/// 65-byte write `[00 11 00]` (not used by the module API; tested builder).
+pub fn aerox3_save() -> Vec<u8> {
+    let mut p = vec![0u8; AEROX3_PACKET_SIZE];
+    p[1] = 0x11;
+    p
 }
 #[cfg(test)]
 mod tests {
