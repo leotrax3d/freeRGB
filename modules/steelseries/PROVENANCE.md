@@ -36,6 +36,20 @@ DetectSteelSeriesRival700 PIDs 0x1700, 0x1730. All on VID 0x1038, interface 0.
 Rival 3: DetectSteelSeriesRival3 PIDs 0x1824 and 0x184C, interface 3.
 Rival 5: DetectSteelSeriesRival5 PID 0x183C, interface 0, usage page 0xFFC0,
 usage 1.
+Sensei: DetectSteelSeriesSensei PIDs 0x1832, 0x1834, 0x1722, 0x1720, 0x171E,
+0x1736, interface 0.
+
+### Sensei (SteelSeriesSenseiController) - 6 detector rows, ported
+
+Direct mode only.
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `RGBController_SteelSeriesSensei.cpp` `SetupZones()` | `lib.rs led_specs()` / `zones()` | Logo (zone 0) and Scroll Wheel (zone 1), one LED each |
+| `SteelSeriesSenseiController.cpp` `SetColor()` | `report::set_sensei_color()` | 65-byte packet + 0x00 report id; cmd 0x5B, static flag 0x13=01, colors 0x1C..0x21 |
+| `SteelSeriesSenseiController.cpp` `Save()` | `report::sensei_save()` | `[00 59 00...]` (not used by module API; tested builder) |
+| `RGBController_SteelSeriesSensei.cpp` `DeviceUpdateLEDs()` | `lib.rs frame()` | Direct: SetColor per zone, no effect packets |
+| `SetLightEffect()` Breathing/Rainbow | - | Omitted (hardware effects out of scope) |
 
 ### Rival 5 (SteelSeriesRival5Controller) - 1 detector row, ported
 
@@ -70,8 +84,7 @@ unsupported until the AeroxWireless controller port.
 | Upstream path | Devices | Status |
 |---|---:|---|
 | Aerox 3/5/9 (`SteelSeriesAerox*Controller`) | 15 | nicht portiert |
-| Rival 3 Wireless / Rival 5 (`SteelSeriesAeroxWirelessController`, `SteelSeriesRival5Controller`) | 2 | nicht portiert |
-| Sensei (`SteelSeriesSenseiController`, incl. Rival 310 rows) | 6 | nicht portiert |
+| Rival 3 Wireless (`SteelSeriesAeroxWirelessController`) | 1 | nicht portiert |
 | Siberia / Arctis (`SteelSeriesSiberiaController`, `SteelSeriesArctis*Controller`) | 4 | nicht portiert |
 | QCK (`SteelSeriesQCKMatController`) | 9 | nicht portiert |
 | Apex (`SteelSeriesApex*Controller`, old Apex, Apex M) | 19 | nicht portiert |

@@ -47,6 +47,9 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         // Rival 3/5 use the separate mouse protocols (set_mouse_light_effect_all /
         // set_rival5_* builders)
         Proto::Rival3 | Proto::Rival5 => Vec::new(),
+        // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
+        // effect packets, only per-zone SetColor
+        Proto::Sensei => Vec::new(),
         Proto::Rival100 => vec![set_light_effect(proto, 0, effect)],
         Proto::Rival300 => vec![
             set_light_effect(proto, 0, effect),
@@ -68,6 +71,7 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         // Rival 3/5 use the mouse protocols handled in lib.rs frame(); their
         // routing happens there, never through set_color()
         Proto::Rival3 | Proto::Rival5 => Vec::new(),
+        Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
         Proto::Rival100 | Proto::Rival300 => {
             let cmd: u8;
@@ -202,6 +206,28 @@ pub fn set_rival5_direct(colors: &[freergb_core::Rgb]) -> Vec<u8> {
         p[6 + (i * 3)] = c.b;
     }
     p
+}
+/// upstream: SteelSeriesSenseiController.cpp SetColor()
+/// 65-byte packet `[5B 00 zone ... 13=01 1B=01 rgb rgb]` plus 0x00 report id
+/// prefix (66 bytes total).
+pub fn set_sensei_color(zone_id: u8, c: freergb_core::Rgb) -> Vec<u8> {
+    write(66, |b| {
+        b[0x00] = 0x5B;
+        b[0x02] = zone_id;
+        b[0x13] = 0x01; // Static color flag
+        b[0x1B] = 0x01; // Number of colors
+        b[0x1C] = c.r;
+        b[0x1D] = c.g;
+        b[0x1E] = c.b;
+        b[0x1F] = c.r;
+        b[0x20] = c.g;
+        b[0x21] = c.b;
+    })
+}
+/// upstream: SteelSeriesSenseiController.cpp Save()
+/// 9-byte packet with only the leading 0x59 plus 0x00 report id.
+pub fn sensei_save() -> Vec<u8> {
+    write(10, |b| b[0] = 0x59)
 }
 #[cfg(test)]
 mod tests {

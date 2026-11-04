@@ -172,6 +172,20 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 },
             ]
         }
+        table::Proto::Sensei => {
+            // upstream: RGBController_SteelSeriesSensei.cpp SetupZones()
+            // (led->value defaults to 0/1 = the zone ids used by SetColor)
+            vec![
+                LedSpec {
+                    name: "Logo",
+                    value: 0,
+                },
+                LedSpec {
+                    name: "Scroll Wheel",
+                    value: 1,
+                },
+            ]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -203,6 +217,8 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         // upstream: RGBController_SteelSeriesRival5.cpp SetupZones() - one
         // linear "Whole Mouse" zone with all 10 LEDs
         table::Proto::Rival5 => vec![("Whole Mouse", 10)],
+        // upstream: RGBController_SteelSeriesSensei.cpp SetupZones()
+        table::Proto::Sensei => vec![("Logo", 1), ("Scroll Wheel", 1)],
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }

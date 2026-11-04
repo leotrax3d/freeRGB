@@ -283,13 +283,51 @@ fn rival5_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn sensei_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesSensei row (Sensei TEN 0x1832 first)
+    let i = iface(rival_pid("DetectSteelSeriesSensei"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert_eq!(caps.layout.leds[0].name, "Logo");
+    assert_eq!(caps.layout.leds[1].name, "Scroll Wheel");
+    m.frame(&[RGB1, RGB2], &mut h).unwrap();
+    // upstream: DeviceUpdateLEDs -> SetColor for both zones, no effect packets
+    assert_eq!(h.writes.len(), 2);
+    assert_eq!(h.writes[0].len(), 66);
+    assert_eq!(h.writes[0][0], 0x00); // report id
+    assert_eq!(h.writes[0][1], 0x5B); // command
+    assert_eq!(h.writes[0][3], 0x00); // zone 0
+    assert_eq!(h.writes[0][0x14], 0x01); // static color flag (usb_buf[0x13])
+    assert_eq!(h.writes[0][0x1C], 0x01); // number of colors (usb_buf[0x1B])
+    assert_eq!(
+        &h.writes[0][0x1D..0x23],
+        &[0x11, 0x22, 0x33, 0x11, 0x22, 0x33]
+    );
+    assert_eq!(
+        &h.writes[1][0x1D..0x23],
+        &[0x44, 0x55, 0x66, 0x44, 0x55, 0x66]
+    );
+    assert_eq!(h.writes[1][3], 0x01); // zone 1
+    assert!(h.features.is_empty());
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
+fn sensei_save_is_byte_exact() {
+    // upstream: SteelSeriesSenseiController.cpp Save() [00 59 00...]
+    assert_eq!(
+        crate::report::sensei_save(),
+        vec![0x00, 0x59, 0, 0, 0, 0, 0, 0, 0, 0]
+    );
+}
+#[test]
 fn unported_steelseries_devices_stay_unsupported() {
     // DetectSteelSeriesAerox3 / Sensei / Arctis / QCK / Apex handlers are not
     // ported yet and must never report supported.
     for handler in [
         "DetectSteelSeriesAerox3",
         "DetectSteelSeriesAerox3Wireless",
-        "DetectSteelSeriesSensei",
         "DetectSteelSeriesRival3Wireless",
         "DetectSteelSeriesArctis5",
         "DetectSteelSeriesQCKPrism",
@@ -315,6 +353,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesRival700",
         "DetectSteelSeriesRival3",
         "DetectSteelSeriesRival5",
+        "DetectSteelSeriesSensei",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()
