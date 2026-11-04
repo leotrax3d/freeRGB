@@ -35,6 +35,24 @@ pub struct StartRequest {
     /// RPM target for `mode:"rpm"` (open loop via the channel's measured map).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_rpm: Option<u32>,
+    /// `mode:"rpm"`: PI correction on top of the measured map (default open loop).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub closed_loop: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pi: Option<freergb_control::rpm::PiGains>,
+    /// `mode:"linear"`: FanControl linear curve, run as a two-point graph.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub linear: Option<freergb_control::LinearCurve>,
+    /// `mode:"calibration"`: fine sweep instead of 100/80/60/40.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sweep: Option<freergb_control::calibration::SweepOptions>,
+    /// Offset, min/max, delay, hysteresis, fan stop, resonance and spin-up
+    /// on top of curve, manual, linear, composite and RPM modes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shaping: Option<freergb_control::shaping::OutputShaping>,
+    /// Measured map for closed-loop RPM targets (engine-owned, never JSON).
+    #[serde(skip)]
+    pub rpm_map: Option<freergb_control::rpm::RpmMap>,
     /// Duty resolved by the engine from the measured RPM map (never from JSON).
     #[serde(skip)]
     pub rpm_duty: Option<u8>,
@@ -88,6 +106,28 @@ impl StartRequest {
     /// Manual percentage is a flat curve: same floors, critical-temperature
     /// override and supervision as any curve.
     fn normalized(mut self) -> Result<Self, String> {
+        if (self.closed_loop || self.pi.is_some()) && self.mode != "rpm" {
+            return Err("closed_loop and pi are only valid with mode=rpm".into());
+        }
+        if self.sweep.is_some() && self.mode != "calibration" {
+            return Err("sweep is only valid with mode=calibration".into());
+        }
+        if self.mode == "linear" {
+            let linear = self.linear.take().ok_or("mode=linear requires linear")?;
+            if self.curve.is_some() || self.duty_percent.is_some() {
+                return Err("mode=linear takes linear only".into());
+            }
+            self.curve = Some(linear.to_curve()?);
+            self.mode = "curve".into();
+        } else if self.linear.is_some() {
+            return Err("linear is only valid with mode=linear".into());
+        }
+        if self.mode == "rpm" && self.closed_loop {
+            if self.target_rpm.is_none() || self.curve.is_some() || self.duty_percent.is_some() {
+                return Err("mode=rpm takes target_rpm only".into());
+            }
+            return Ok(self);
+        }
         if self.mode == "rpm" {
             // A fixed duty resolved from measurements: same path as manual.
             if self.target_rpm.is_none() || self.curve.is_some() || self.duty_percent.is_some() {
@@ -103,7 +143,7 @@ impl StartRequest {
         }
         if self.mode == "identify" {
             // Never lowers a duty: a flat 100% curve, any role, bounded time.
-            if self.curve.is_some() || self.duty_percent.is_some() {
+            if self.curve.is_some() || self.duty_percent.is_some() || self.shaping.is_some() {
                 return Err("mode=identify takes no curve or duty".into());
             }
             self.mode = "manual".into();
@@ -155,7 +195,23 @@ impl StartRequest {
             evidence: ChannelEvidence::default(),
         };
         let policy = if identify { &identify_policy } else { policy };
-        let (mode, critical_c, minimum_percent, tier, limits) = request.check(policy)?;
+        let (mut mode, critical_c, minimum_percent, tier, limits) = request.check(policy)?;
+        let pump = policy.evidence.role == Some(ChannelRole::Pump);
+        if let Some(shaping) = request.shaping.clone() {
+            if matches!(
+                mode,
+                ControlMode::Calibration { .. }
+                    | ControlMode::ChannelTest { .. }
+                    | ControlMode::Sweep { .. }
+            ) {
+                return Err("Output shaping is not available for measurements".into());
+            }
+            shaping.validate_for(limits.allow_stop, pump)?;
+            mode = ControlMode::Shaped {
+                inner: Box::new(mode),
+                shaping,
+            };
+        }
         let this = request;
         Ok(Plan {
             request: this,
@@ -291,6 +347,74 @@ impl StartRequest {
                         floor_percent: limits.floor_percent,
                         allow_stop: limits.allow_stop,
                     },
+                ))
+            }
+            "rpm" if self.curve.is_none() => {
+                let map = self
+                    .rpm_map
+                    .clone()
+                    .ok_or("RPM target has no measured speed map for this channel")?;
+                let target = self.target_rpm.ok_or("mode=rpm requires target_rpm")? as f32;
+                if target < map.min_rpm() {
+                    return Err(format!(
+                        "Lowest measured speed is {:.0} RPM; lower targets are not extrapolated",
+                        map.min_rpm()
+                    ));
+                }
+                let critical = self.critical_c.unwrap_or(80.0);
+                if !(40.0..=100.0).contains(&critical) {
+                    return Err("Critical temperature must be 40..100 C".into());
+                }
+                let gains = self.pi.unwrap_or_default();
+                gains.validate()?;
+                Ok((
+                    ControlMode::Rpm {
+                        map,
+                        target_rpm: target,
+                        gains,
+                        critical_c: critical,
+                    },
+                    critical.floor() as u8,
+                    limits.floor_percent,
+                    limits.tier,
+                    RuntimeLimits {
+                        floor_percent: limits.floor_percent,
+                        allow_stop: limits.allow_stop,
+                    },
+                ))
+            }
+            "calibration" if self.curve.is_none() && self.sweep.is_some() => {
+                let options = self.sweep.expect("checked");
+                options.validate()?;
+                let critical = self.critical_c.unwrap_or(80.0);
+                if !(40.0..=100.0).contains(&critical) {
+                    return Err("Calibration critical temperature must be 40..100 C".into());
+                }
+                // Below 40% only as a stall sweep on an unrestricted fan channel.
+                let runtime = if options.probe_stall {
+                    if !limits.allow_stop {
+                        return Err("Stall sweeps need an unrestricted channel".into());
+                    }
+                    RuntimeLimits {
+                        floor_percent: 0,
+                        allow_stop: true,
+                    }
+                } else {
+                    RuntimeLimits::default()
+                };
+                Ok((
+                    ControlMode::Sweep {
+                        critical_c: critical,
+                        options,
+                    },
+                    critical.floor() as u8,
+                    if options.probe_stall {
+                        0
+                    } else {
+                        options.lowest_percent
+                    },
+                    limits.tier,
+                    runtime,
                 ))
             }
             mode @ ("calibration" | "channel_test") if self.curve.is_none() => {
@@ -760,6 +884,145 @@ mod tests {
         let mut stray = request();
         stray.target_rpm = Some(900);
         assert!(stray.plan(&SessionPolicy::legacy()).is_err());
+    }
+
+    fn map() -> freergb_control::rpm::RpmMap {
+        freergb_control::rpm::RpmMap::from_tested(&[
+            freergb_control::calibration::TestedDuty {
+                duty_percent: 100,
+                rpm: 1800.0,
+            },
+            freergb_control::calibration::TestedDuty {
+                duty_percent: 40,
+                rpm: 900.0,
+            },
+        ])
+        .unwrap()
+    }
+
+    #[test]
+    fn closed_loop_rpm_needs_the_map_and_keeps_the_floor() {
+        let mut r = request();
+        r.mode = "rpm".into();
+        r.target_rpm = Some(1200);
+        r.closed_loop = true;
+        assert!(r.clone().plan(&SessionPolicy::legacy()).is_err(), "no map");
+        r.rpm_map = Some(map());
+        let plan = r.clone().plan(&SessionPolicy::legacy()).unwrap();
+        assert!(matches!(plan.mode, ControlMode::Rpm { .. }));
+        assert_eq!((plan.minimum_percent, plan.limits.floor_percent), (40, 40));
+        r.target_rpm = Some(800);
+        assert!(
+            r.clone().plan(&SessionPolicy::legacy()).is_err(),
+            "below map"
+        );
+        let mut stray = request();
+        stray.mode = "curve".into();
+        stray.closed_loop = true;
+        stray.curve = Some(curve(40.0));
+        assert!(stray.plan(&SessionPolicy::legacy()).is_err());
+    }
+
+    #[test]
+    fn linear_mode_runs_as_a_validated_two_point_curve() {
+        let mut r = request();
+        r.mode = "linear".into();
+        r.linear = Some(freergb_control::LinearCurve {
+            min_c: 30.0,
+            max_c: 70.0,
+            min_percent: 40.0,
+            max_percent: 100.0,
+            critical_c: 85.0,
+            hysteresis_c: 0.0,
+        });
+        let plan = r.clone().plan(&SessionPolicy::legacy()).unwrap();
+        let ControlMode::Curve(c) = plan.mode else {
+            panic!("linear is a curve")
+        };
+        assert_eq!(c.points.len(), 2);
+        r.linear.as_mut().unwrap().min_percent = 20.0;
+        assert!(r.plan(&SessionPolicy::legacy()).is_err(), "below the floor");
+    }
+
+    #[test]
+    fn sweeps_go_below_forty_only_as_unrestricted_stall_probes() {
+        use freergb_control::calibration::SweepOptions;
+        let mut r = request();
+        r.sweep = Some(SweepOptions {
+            step_percent: 5,
+            lowest_percent: 40,
+            probe_stall: false,
+        });
+        let plan = r.clone().plan(&SessionPolicy::legacy()).unwrap();
+        assert!(matches!(plan.mode, ControlMode::Sweep { .. }));
+        assert_eq!(plan.minimum_percent, 40);
+        r.sweep = Some(SweepOptions {
+            step_percent: 5,
+            lowest_percent: 0,
+            probe_stall: true,
+        });
+        assert!(r.clone().plan(&SessionPolicy::legacy()).is_err());
+        let free = policy(
+            SupportTier::LhmSupported,
+            Some(ChannelRole::Fan),
+            true,
+            true,
+        );
+        let plan = r.clone().plan(&free).unwrap();
+        assert_eq!((plan.minimum_percent, plan.limits.allow_stop), (0, true));
+        let pump = policy(
+            SupportTier::LhmSupported,
+            Some(ChannelRole::Pump),
+            true,
+            true,
+        );
+        assert!(r.clone().plan(&pump).is_err(), "pumps are never swept");
+        let mut stray = request();
+        stray.mode = "channel_test".into();
+        stray.sweep = r.sweep;
+        assert!(stray.plan(&free).is_err());
+    }
+
+    #[test]
+    fn shaping_wraps_duty_modes_and_respects_tier_and_role() {
+        use freergb_control::shaping::OutputShaping;
+        let mut r = request();
+        r.mode = "manual".into();
+        r.duty_percent = Some(60);
+        r.shaping = Some(OutputShaping {
+            offset_percent: 5.0,
+            ..OutputShaping::default()
+        });
+        let plan = r.clone().plan(&SessionPolicy::legacy()).unwrap();
+        assert!(matches!(plan.mode, ControlMode::Shaped { .. }));
+        r.shaping.as_mut().unwrap().stop_below_percent = Some(20.0);
+        assert!(
+            r.clone().plan(&SessionPolicy::legacy()).is_err(),
+            "stop needs unlock"
+        );
+        let free = policy(
+            SupportTier::LhmSupported,
+            Some(ChannelRole::Fan),
+            true,
+            true,
+        );
+        assert!(r.clone().plan(&free).is_ok());
+        let mut calibration = request();
+        calibration.shaping = Some(OutputShaping::default());
+        assert!(calibration.plan(&SessionPolicy::legacy()).is_err());
+        let mut identify = request();
+        identify.mode = "identify".into();
+        identify.shaping = Some(OutputShaping::default());
+        assert!(identify.plan(&SessionPolicy::legacy()).is_err());
+        let json = json!({"mode":"manual","control_id":"/lpc/nct6701d/0/control/2",
+            "rpm_id":"/lpc/nct6701d/0/fan/2","temperature_id":"/lpc/nct6701d/0/temperature/1",
+            "confirmed_fan":true,"duty_percent":50,
+            "shaping":{"avoid":[{"from":900,"to":1000,"unit":"rpm"}]}});
+        let unresolved: StartRequest = serde_json::from_value(json).unwrap();
+        assert!(
+            unresolved.plan(&SessionPolicy::legacy()).is_err(),
+            "RPM ranges need the map"
+        );
     }
 
     #[test]

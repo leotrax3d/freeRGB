@@ -11,6 +11,7 @@ import { channelTier, controlRefusal, tierLabel } from "./support";
 import { floorFor } from "./fanModel";
 import { activeCount, clampDuty, liveChannels, liveConfirmation, type SessionList } from "./liveModel";
 import type { CurveSet } from "@/lib/api/control";
+import { EMPTY_SHAPING, shapingPayload, type ShapingDraft } from "./shapingModel";
 
 type LiveMode = "curve" | "calibration" | "channel_test" | "manual" | "composite" | "rpm";
 
@@ -72,6 +73,10 @@ export function LiveSession() {
   const [manualDuty, setManualDuty] = useState(60);
   const [composite, setComposite] = useState("");
   const [targetRpm, setTargetRpm] = useState(900);
+  const [closedLoop, setClosedLoop] = useState(true);
+  const [sweepStep, setSweepStep] = useState(0);
+  const [stallProbe, setStallProbe] = useState(false);
+  const [shaping, setShaping] = useState<ShapingDraft>(EMPTY_SHAPING);
   const [compositeNames, setCompositeNames] = useState<string[]>([]);
   useEffect(() => {
     let live = true;
@@ -97,12 +102,18 @@ export function LiveSession() {
   const evidence = support?.channels[control];
   const floor = floorFor({ role, evidence: evidence ?? null, tier }, support?.unrestricted_enabled ?? false);
   const duty = clampDuty(manualDuty, floor);
+  const unlocked = evidence?.unlock === "unlocked";
+  const shaped = shapingPayload(shaping, unlocked && role === "fan");
+  const shapingError = typeof shaped === "string" ? shaped : null;
   const send = (mode: LiveMode) => run("start", () => rpc("cooling.sessions.start", {
     mode, control_id: control, rpm_id: rpm, temperature_id: temperature, confirmed_fan: confirmed,
-    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: duty } : mode === "composite" ? { composite_output: composite, critical_c: 80 } : mode === "rpm" ? { target_rpm: targetRpm } : { critical_c: curve?.critical_c ?? 80 }),
+    ...(mode === "curve" ? { curve } : mode === "manual" ? { duty_percent: duty } : mode === "composite" ? { composite_output: composite, critical_c: 80 } : mode === "rpm" ? { target_rpm: targetRpm, closed_loop: closedLoop } : { critical_c: curve?.critical_c ?? 80 }),
+    ...(mode === "calibration" && sweepStep > 0 ? { sweep: { step_percent: sweepStep, lowest_percent: stallProbe && unlocked ? 0 : 40, probe_stall: stallProbe && unlocked } } : {}),
+    ...(["curve", "manual", "composite", "rpm"].includes(mode) && shaped && typeof shaped !== "string" ? { shaping: shaped } : {}),
   }));
   // One confirmation per app session, not per channel; the service still checks each.
   const start = (mode: LiveMode) => {
+    if (shapingError && mode !== "calibration" && mode !== "channel_test") return;
     if (liveConfirmation.needed()) setAsking(() => () => send(mode));
     else send(mode);
   };
@@ -140,6 +151,37 @@ export function LiveSession() {
           </label>
           <Button variant="secondary" disabled={!ready} onClick={() => start("manual")}>Run fixed duty (UAC)</Button>
         </div>
+        <div className="flex flex-wrap items-center gap-3 text-small">
+          <label className="flex items-center gap-2">Calibration steps
+            <select aria-label="Calibration steps" value={sweepStep} onChange={(e) => setSweepStep(Number(e.target.value))} className="rounded-control border border-border bg-surface-sunken px-2 py-1">
+              <option value={0}>100 / 80 / 60 / 40 %</option>
+              <option value={10}>every 10 %</option>
+              <option value={5}>every 5 %</option>
+              <option value={2}>every 2 %</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2"><input type="checkbox" disabled={!unlocked || sweepStep === 0} checked={stallProbe && unlocked} onChange={(e) => setStallProbe(e.target.checked)} />Find stall and start speed (unrestricted fans only; the fan stops briefly)</label>
+          {(evidence?.stall_percent != null || evidence?.start_percent != null) && <span className="text-caption text-text-subtle">Stored: stops at {evidence?.stall_percent ?? "?"} %, starts at {evidence?.start_percent ?? "?"} %.</span>}
+        </div>
+        <details className="text-small">
+          <summary>Output shaping (curve, fixed duty, composite and RPM modes)</summary>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            {([
+              ["Offset", "offset", "%"], ["Min", "min", "%"], ["Max", "max", "%"], ["Delay", "delayS", "s"],
+              ["Hysteresis up", "upPercent", "%"], ["Hysteresis down", "downPercent", "%"],
+              ["Stop below", "stopBelow", "%"], ["Spin-up", "spinUpPercent", "%"], ["for", "spinUpMs", "ms"],
+            ] as const).map(([label, key, unit]) => (
+              <label key={key} className="flex items-center gap-1">{label}
+                <input type="number" aria-label={label} value={shaping[key]} onChange={(e) => setShaping({ ...shaping, [key]: Number(e.target.value) || 0 })} className="w-16 rounded-control border border-border bg-surface-sunken px-2 py-1" />{unit}
+              </label>
+            ))}
+            <label className="flex items-center gap-1">Avoid
+              <input type="text" aria-label="Avoided ranges" placeholder="50-60, 1200-1300 rpm" value={shaping.avoid} onChange={(e) => setShaping({ ...shaping, avoid: e.target.value })} className="w-48 rounded-control border border-border bg-surface-sunken px-2 py-1" />
+            </label>
+          </div>
+          <p className="mt-1 text-caption text-text-subtle">Applied after the curve, before the safety floor. Sensor faults and critical temperatures still go straight to 100 %. Fan stop only on unrestricted fans, never on pumps; RPM ranges use this fan's measured speeds.</p>
+          {shapingError && <p role="alert" className="text-caption text-danger-text">{shapingError}</p>}
+        </details>
         {(() => {
           const range = evidence?.rpm_range;
           const inRange = !!range && targetRpm >= range.min_rpm;
@@ -148,9 +190,10 @@ export function LiveSession() {
               <label className="flex items-center gap-2 text-small">Target speed
                 <input type="number" min={range ? Math.ceil(range.min_rpm) : 0} step={10} value={targetRpm} onChange={(e) => setTargetRpm(Math.max(0, Math.round(Number(e.target.value) || 0)))} className="w-20 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label="Target speed in RPM" /> RPM
               </label>
+              <label className="flex items-center gap-2 text-small"><input type="checkbox" checked={closedLoop} onChange={(e) => setClosedLoop(e.target.checked)} />Closed loop</label>
               <Button variant="secondary" disabled={!ready || !inRange} onClick={() => start("rpm")}>Run RPM target (UAC)</Button>
               <span className="basis-full text-caption text-text-subtle">
-                {range ? `Measured ${Math.round(range.min_rpm)}–${Math.round(range.max_rpm)} RPM. The target is translated to a duty from that measurement (open loop); faster targets run at 100 %, slower ones are refused.` : "Run the channel test or calibration on this fan first; RPM targets use its measured speeds."}
+                {range ? `Measured ${Math.round(range.min_rpm)}–${Math.round(range.max_rpm)} RPM. The target starts from the duty of that measurement; closed loop then corrects it from the live RPM (open loop again while the RPM reading is missing). Faster targets run at 100 %, slower ones are refused.` : "Run the channel test or calibration on this fan first; RPM targets use its measured speeds."}
               </span>
             </div>
           );

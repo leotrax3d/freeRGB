@@ -40,7 +40,7 @@ checklist for what is done. Older handoff, roadmap and worklist logs are in
    ([PARITY_EXPANSION_PLAN.md](PARITY_EXPANSION_PLAN.md)): ~79 HID families
    plus all non-HID transports (SMBus RAM, GPU I2C, serial, network, SDK
    protocol) remain.
-3. **FanControl parity** — adaptive equilibrium, text-file sensors, GPU fans,
+3. **FanControl parity** — controller/curve/calibration features are simulated only (hardware acceptance open); text-file sensors, GPU fans,
    Classic composite-curve editor ([FANCONTROL_PARITY.md](FANCONTROL_PARITY.md)).
 4. **Release** — signed module release, cross-version update and clean-machine
    installer acceptance ([STATUS.md](STATUS.md#distribution-and-platforms)).

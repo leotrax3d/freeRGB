@@ -11,6 +11,7 @@ pub mod maintenance;
 pub mod plausibility;
 pub mod rpm;
 pub mod sensors;
+pub mod shaping;
 pub mod telemetry_guard;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,6 +35,62 @@ pub struct FanCurve {
     /// Optional step-down limit (percent per second).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_fall_percent_per_s: Option<f32>,
+    /// Between points: `linear` (default) or `step` (hold the lower point).
+    #[serde(default, skip_serializing_if = "CurveInterpolation::is_linear")]
+    pub interpolation: CurveInterpolation,
+}
+
+pub const MAX_CURVE_POINTS: usize = 64;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CurveInterpolation {
+    #[default]
+    Linear,
+    Step,
+}
+impl CurveInterpolation {
+    fn is_linear(&self) -> bool {
+        *self == Self::Linear
+    }
+}
+
+/// FanControl "linear" curve: `min_percent` at or below `min_c`, `max_percent`
+/// at or above `max_c`, linear in between. Runs as a two-point [`FanCurve`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LinearCurve {
+    pub min_c: f32,
+    pub max_c: f32,
+    pub min_percent: f32,
+    pub max_percent: f32,
+    pub critical_c: f32,
+    #[serde(default)]
+    pub hysteresis_c: f32,
+}
+impl LinearCurve {
+    pub fn to_curve(&self) -> Result<FanCurve, String> {
+        let curve = FanCurve {
+            points: vec![
+                CurvePoint {
+                    temperature_c: self.min_c,
+                    duty_percent: self.min_percent,
+                },
+                CurvePoint {
+                    temperature_c: self.max_c,
+                    duty_percent: self.max_percent,
+                },
+            ],
+            minimum_percent: self.min_percent,
+            critical_c: self.critical_c,
+            hysteresis_c: self.hysteresis_c,
+            max_rise_percent_per_s: None,
+            max_fall_percent_per_s: None,
+            interpolation: CurveInterpolation::Linear,
+        };
+        curve.validate()?;
+        Ok(curve)
+    }
 }
 
 impl Default for FanCurve {
@@ -58,6 +115,7 @@ impl Default for FanCurve {
             hysteresis_c: 2.0,
             max_rise_percent_per_s: None,
             max_fall_percent_per_s: None,
+            interpolation: CurveInterpolation::Linear,
         }
     }
 }
@@ -111,9 +169,9 @@ impl FanCurve {
 
     /// Inserts a curve point at the temperature-sorted position and clamps it
     /// into the curve. Returns the insert index, or `None` when the curve is
-    /// full (16 points) or already has a point at this temperature slot.
+    /// full (64 points) or already has a point at this temperature slot.
     pub fn insert_curve_point(&mut self, temperature_c: f32, duty_percent: f32) -> Option<usize> {
-        if self.points.len() >= 16 {
+        if self.points.len() >= MAX_CURVE_POINTS {
             return None;
         }
         let index = self
@@ -133,8 +191,8 @@ impl FanCurve {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        if !(2..=16).contains(&self.points.len()) {
-            return Err("curve needs 2..16 points".into());
+        if !(2..=MAX_CURVE_POINTS).contains(&self.points.len()) {
+            return Err("curve needs 2..64 points".into());
         }
         // Curves may reach 0% (fan stop); native execution enforces each
         // channel's tier floor (40% unless unrestricted) before any write.
@@ -185,6 +243,9 @@ impl FanCurve {
             return self.points[0].duty_percent;
         }
         for pair in self.points.windows(2) {
+            if self.interpolation == CurveInterpolation::Step && t < pair[1].temperature_c {
+                return pair[0].duty_percent;
+            }
             if t <= pair[1].temperature_c {
                 let fraction =
                     (t - pair[0].temperature_c) / (pair[1].temperature_c - pair[0].temperature_c);
@@ -488,6 +549,56 @@ mod tests {
         invalid.points[1].temperature_c = 25.0;
         assert!(invalid.validate().is_err());
         assert_eq!(invalid.duty(Some(25.0), 0), 100.0);
+    }
+    #[test]
+    fn step_graphs_hold_the_lower_point_and_linear_curves_bind_as_graphs() {
+        let mut curve = FanCurve {
+            interpolation: CurveInterpolation::Step,
+            ..FanCurve::default()
+        };
+        assert_eq!(curve.duty(Some(37.5), 0), 30.0);
+        assert_eq!(curve.duty(Some(50.0), 0), 55.0); // exactly on a point
+        assert_eq!(curve.duty(Some(74.9), 0), 55.0);
+        assert_eq!(curve.duty(Some(80.0), 0), 100.0);
+        assert_eq!(curve.duty(Some(90.0), 0), 100.0); // critical still wins
+                                                      // Arbitrary point counts up to 64.
+        curve.points = (0..64)
+            .map(|i| CurvePoint {
+                temperature_c: 10.0 + i as f32,
+                duty_percent: 30.0 + i as f32,
+            })
+            .collect();
+        assert!(curve.validate().is_ok());
+        curve.points.push(CurvePoint {
+            temperature_c: 80.0,
+            duty_percent: 100.0,
+        });
+        assert!(curve.validate().is_err());
+        let json = serde_json::to_string(&FanCurve::default()).unwrap();
+        assert!(!json.contains("interpolation"));
+        let linear = LinearCurve {
+            min_c: 30.0,
+            max_c: 70.0,
+            min_percent: 40.0,
+            max_percent: 100.0,
+            critical_c: 85.0,
+            hysteresis_c: 0.0,
+        }
+        .to_curve()
+        .unwrap();
+        assert_eq!(linear.duty(Some(20.0), 0), 40.0);
+        assert_eq!(linear.duty(Some(50.0), 0), 70.0);
+        assert_eq!(linear.duty(Some(75.0), 0), 100.0);
+        assert!(LinearCurve {
+            min_c: 70.0,
+            max_c: 30.0,
+            min_percent: 40.0,
+            max_percent: 100.0,
+            critical_c: 85.0,
+            hysteresis_c: 0.0,
+        }
+        .to_curve()
+        .is_err());
     }
     #[test]
     fn hysteresis_does_not_delay_emergency_or_recovery() {

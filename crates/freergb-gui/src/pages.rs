@@ -612,10 +612,10 @@ mod tests {
         assert_eq!(c.points[1].duty_percent, 45.0);
         assert_eq!(c.insert_curve_point(10.0, 30.0), Some(0));
         assert!(c.validate().is_ok());
-        // The curve is full at 16 points.
+        // The curve is full at 64 points.
         let mut full = FanCurve::default();
-        for s in 0..16 {
-            full.insert_curve_point(10.0 + s as f32, 100.0);
+        for s in 0..64 {
+            full.insert_curve_point(10.0 + s as f32 * 0.5, 100.0);
         }
         assert_eq!(full.insert_curve_point(120.0, 100.0), None);
     }

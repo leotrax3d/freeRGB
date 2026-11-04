@@ -4,7 +4,7 @@
 //! Safety: every node carries a fail-safe flag. A stale or invalid sensor, an
 //! invalid node or a critical temperature yields 100% and the flag propagates
 //! through mix/follow nodes, so a `minimum` mix can never mask a failed input.
-use crate::{CurveController, FanCurve};
+use crate::{CurveController, FanCurve, LinearCurve};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -17,6 +17,32 @@ const MAX_HOLD_MS: u64 = 600_000;
 pub enum CurveNode {
     /// Point graph over one sensor (the existing [`FanCurve`] evaluator).
     Graph { sensor: String, curve: FanCurve },
+    /// FanControl "linear": two temperatures, two duties (a two-point graph).
+    Linear {
+        sensor: String,
+        min_c: f32,
+        max_c: f32,
+        min_percent: f32,
+        max_percent: f32,
+        critical_c: f32,
+    },
+    /// Adaptive equilibrium: moves the duty towards holding `target_c`. The
+    /// change per second is `gain_percent_per_c * (t - target + trend_s * dT/dt)`,
+    /// bounded by `max_change_percent_per_s`, within `min..max` percent. Starts
+    /// at `max_percent`; stale/missing/critical input fails safe and restarts.
+    Equilibrium {
+        sensor: String,
+        target_c: f32,
+        critical_c: f32,
+        min_percent: f32,
+        max_percent: f32,
+        #[serde(default = "default_gain")]
+        gain_percent_per_c: f32,
+        #[serde(default = "default_change")]
+        max_change_percent_per_s: f32,
+        #[serde(default = "default_trend")]
+        trend_s: f32,
+    },
     /// Fixed duty, independent of sensors.
     Constant { percent: f32 },
     /// Two-threshold switch: `load_percent` once the sensor reaches `load_c`,
@@ -48,6 +74,15 @@ pub enum CurveNode {
 }
 fn one() -> f32 {
     1.0
+}
+fn default_gain() -> f32 {
+    1.0
+}
+fn default_change() -> f32 {
+    2.0
+}
+fn default_trend() -> f32 {
+    10.0
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -107,8 +142,75 @@ impl CurveNode {
         }
     }
 
+    fn linear_curve(&self) -> Option<Result<FanCurve, String>> {
+        match self {
+            Self::Linear {
+                min_c,
+                max_c,
+                min_percent,
+                max_percent,
+                critical_c,
+                ..
+            } => Some(
+                LinearCurve {
+                    min_c: *min_c,
+                    max_c: *max_c,
+                    min_percent: *min_percent,
+                    max_percent: *max_percent,
+                    critical_c: *critical_c,
+                    hysteresis_c: 0.0,
+                }
+                .to_curve(),
+            ),
+            _ => None,
+        }
+    }
+
     fn validate(&self) -> Result<(), String> {
         match self {
+            Self::Linear { sensor, .. } => {
+                if !valid_sensor(sensor) {
+                    return Err("invalid linear sensor".into());
+                }
+                self.linear_curve().expect("linear").map(|_| ())
+            }
+            Self::Equilibrium {
+                sensor,
+                target_c,
+                critical_c,
+                min_percent,
+                max_percent,
+                gain_percent_per_c,
+                max_change_percent_per_s,
+                trend_s,
+            } => {
+                if !valid_sensor(sensor) {
+                    return Err("invalid equilibrium sensor".into());
+                }
+                if !(target_c.is_finite() && critical_c.is_finite())
+                    || !(20.0..=100.0).contains(target_c)
+                    || !(40.0..=110.0).contains(critical_c)
+                    || target_c >= critical_c
+                {
+                    return Err("equilibrium needs 20 <= target < critical <= 110 C".into());
+                }
+                if !valid_percent(*min_percent)
+                    || !valid_percent(*max_percent)
+                    || min_percent > max_percent
+                {
+                    return Err("equilibrium needs 0 <= min <= max <= 100 percent".into());
+                }
+                if !(gain_percent_per_c.is_finite() && (0.1..=20.0).contains(gain_percent_per_c))
+                    || !(max_change_percent_per_s.is_finite()
+                        && (0.1..=50.0).contains(max_change_percent_per_s))
+                    || !(trend_s.is_finite() && (0.0..=120.0).contains(trend_s))
+                {
+                    return Err(
+                        "equilibrium gain 0.1..20, change 0.1..50 %/s, trend 0..120 s".into(),
+                    );
+                }
+                Ok(())
+            }
             Self::Graph { sensor, curve } => {
                 if !valid_sensor(sensor) {
                     return Err("invalid graph sensor".into());
@@ -227,9 +329,10 @@ impl CurveSet {
         self.nodes
             .values()
             .filter_map(|node| match node {
-                CurveNode::Graph { sensor, .. } | CurveNode::Trigger { sensor, .. } => {
-                    Some(sensor.as_str())
-                }
+                CurveNode::Graph { sensor, .. }
+                | CurveNode::Trigger { sensor, .. }
+                | CurveNode::Linear { sensor, .. }
+                | CurveNode::Equilibrium { sensor, .. } => Some(sensor.as_str()),
                 _ => None,
             })
             .collect()
@@ -243,11 +346,25 @@ struct TriggerState {
     pending_since: Option<u64>,
 }
 
+struct EquilibriumState {
+    duty: f32,
+    at_ms: u64,
+    celsius: f32,
+}
+
 /// Stateful evaluator; keep one per running curve set.
 #[derive(Default)]
 pub struct CurveEvaluator {
     graphs: BTreeMap<String, CurveController>,
     triggers: BTreeMap<String, TriggerState>,
+    equilibria: BTreeMap<String, EquilibriumState>,
+}
+
+fn fresh(value: SensorValue) -> Option<f32> {
+    value
+        .celsius
+        .filter(|t| t.is_finite() && (-20.0..=150.0).contains(t))
+        .filter(|_| value.age_ms <= 3000)
 }
 
 impl CurveEvaluator {
@@ -262,6 +379,7 @@ impl CurveEvaluator {
         if set.validate().is_err() {
             self.graphs.clear();
             self.triggers.clear();
+            self.equilibria.clear();
             for name in set.nodes.keys() {
                 out.insert(name.clone(), FAILSAFE);
             }
@@ -269,8 +387,68 @@ impl CurveEvaluator {
         }
         self.graphs.retain(|name, _| set.nodes.contains_key(name));
         self.triggers.retain(|name, _| set.nodes.contains_key(name));
+        self.equilibria
+            .retain(|name, _| set.nodes.contains_key(name));
         for name in set.order().expect("validated") {
-            let result = match &set.nodes[name] {
+            let node = &set.nodes[name];
+            let result = match node {
+                CurveNode::Linear { sensor: id, .. } => {
+                    let curve = node.linear_curve().expect("linear").expect("validated");
+                    let value = sensor(id);
+                    let controller = self.graphs.entry(name.to_string()).or_default();
+                    let percent = controller.update_at(&curve, value.celsius, value.age_ms, now_ms);
+                    CurveOutput {
+                        percent,
+                        failsafe: !fresh(value).is_some_and(|t| t < curve.critical_c),
+                    }
+                }
+                CurveNode::Equilibrium {
+                    sensor: id,
+                    target_c,
+                    critical_c,
+                    min_percent,
+                    max_percent,
+                    gain_percent_per_c,
+                    max_change_percent_per_s,
+                    trend_s,
+                } => match fresh(sensor(id)).filter(|t| t < critical_c) {
+                    Some(t) => {
+                        let state =
+                            self.equilibria
+                                .entry(name.to_string())
+                                .or_insert(EquilibriumState {
+                                    duty: *max_percent,
+                                    at_ms: now_ms,
+                                    celsius: t,
+                                });
+                        if now_ms < state.at_ms {
+                            // Reversed clock: restart from the safe end.
+                            *state = EquilibriumState {
+                                duty: *max_percent,
+                                at_ms: now_ms,
+                                celsius: t,
+                            };
+                        }
+                        let seconds = (now_ms - state.at_ms).min(5000) as f32 / 1000.0;
+                        if seconds > 0.0 {
+                            let trend = (t - state.celsius) / seconds;
+                            let rate = (gain_percent_per_c * (t - target_c + trend_s * trend))
+                                .clamp(-max_change_percent_per_s, *max_change_percent_per_s);
+                            state.duty =
+                                (state.duty + rate * seconds).clamp(*min_percent, *max_percent);
+                            state.at_ms = now_ms;
+                            state.celsius = t;
+                        }
+                        CurveOutput {
+                            percent: state.duty,
+                            failsafe: false,
+                        }
+                    }
+                    None => {
+                        self.equilibria.remove(name);
+                        FAILSAFE
+                    }
+                },
                 CurveNode::Constant { percent } => CurveOutput {
                     percent: *percent,
                     failsafe: false,
@@ -519,6 +697,93 @@ mod tests {
             e.evaluate(&s, temps(&[("gpu", 50.0)]), 200)["t"].percent,
             70.0
         );
+    }
+
+    fn equilibrium() -> CurveNode {
+        CurveNode::Equilibrium {
+            sensor: "cpu".into(),
+            target_c: 60.0,
+            critical_c: 90.0,
+            min_percent: 30.0,
+            max_percent: 90.0,
+            gain_percent_per_c: 1.0,
+            max_change_percent_per_s: 2.0,
+            trend_s: 0.0,
+        }
+    }
+
+    #[test]
+    fn equilibrium_settles_on_a_simulated_thermal_plant() {
+        // Heat 120 W; cooling proportional to duty: dT/dt = 0.02*(heat - k*duty*(T-25)).
+        let s = set(vec![("eq", equilibrium())]);
+        let mut e = CurveEvaluator::default();
+        let mut t = 70.0_f32;
+        let mut duty = 0.0;
+        for step in 0..3000u64 {
+            let out = e.evaluate(&s, temps(&[("cpu", t)]), step * 500)["eq"];
+            assert!(!out.failsafe);
+            assert!((30.0..=90.0).contains(&out.percent));
+            if step == 0 {
+                assert_eq!(out.percent, 90.0); // starts at the safe end
+            }
+            duty = out.percent;
+            t += 0.5 * 0.02 * (120.0 - 0.06 * duty * (t - 25.0));
+        }
+        assert!((t - 60.0).abs() < 1.0, "temperature {t}, duty {duty}");
+        assert!(set(vec![("eq", equilibrium())]).validate().is_ok());
+    }
+
+    #[test]
+    fn equilibrium_change_rate_is_bounded_and_failures_restart_at_max() {
+        let s = set(vec![("eq", equilibrium())]);
+        let mut e = CurveEvaluator::default();
+        assert_eq!(
+            e.evaluate(&s, temps(&[("cpu", 30.0)]), 0)["eq"].percent,
+            90.0
+        );
+        // 30 C below target wants -30 %/s; the limit allows 2 %/s.
+        assert_eq!(
+            e.evaluate(&s, temps(&[("cpu", 30.0)]), 1000)["eq"].percent,
+            88.0
+        );
+        assert_eq!(e.evaluate(&s, temps(&[]), 2000)["eq"], FAILSAFE);
+        assert_eq!(
+            e.evaluate(&s, temps(&[("cpu", 95.0)]), 2500)["eq"],
+            FAILSAFE
+        );
+        assert_eq!(
+            e.evaluate(&s, temps(&[("cpu", 30.0)]), 3000)["eq"].percent,
+            90.0
+        );
+        let mut bad = equilibrium();
+        if let CurveNode::Equilibrium { target_c, .. } = &mut bad {
+            *target_c = 95.0;
+        }
+        assert!(set(vec![("eq", bad)]).validate().is_err());
+    }
+
+    #[test]
+    fn linear_node_is_a_two_point_graph() {
+        let s = set(vec![(
+            "lin",
+            CurveNode::Linear {
+                sensor: "cpu".into(),
+                min_c: 40.0,
+                max_c: 80.0,
+                min_percent: 20.0,
+                max_percent: 100.0,
+                critical_c: 85.0,
+            },
+        )]);
+        let out = CurveEvaluator::default().evaluate(&s, temps(&[("cpu", 60.0)]), 0);
+        assert_eq!(out["lin"].percent, 60.0);
+        let out = CurveEvaluator::default().evaluate(&s, temps(&[]), 0);
+        assert_eq!(out["lin"], FAILSAFE);
+        let json = r#"{"nodes":{"lin":{"type":"linear","sensor":"s","min_c":30,"max_c":70,"min_percent":30,"max_percent":90,"critical_c":85}}}"#;
+        serde_json::from_str::<CurveSet>(json)
+            .unwrap()
+            .validate()
+            .unwrap();
     }
 
     #[test]

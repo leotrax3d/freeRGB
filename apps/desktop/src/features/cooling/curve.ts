@@ -23,9 +23,9 @@ export function movePoint(curve: FanCurve, index: number, temperature: number, d
   return { ...curve, points };
 }
 
-/** Inserts a point in the middle of the widest temperature gap (max 16 points). */
+/** Inserts a point in the middle of the widest temperature gap (max 64 points). */
 export function addPoint(curve: FanCurve): FanCurve {
-  if (curve.points.length >= 16) return curve;
+  if (curve.points.length >= 64) return curve;
   let at = 1;
   let widest = -1;
   for (let i = 1; i < curve.points.length; i++) {
