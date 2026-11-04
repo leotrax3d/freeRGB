@@ -186,6 +186,13 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 },
             ]
         }
+        table::Proto::Siberia350 => {
+            // upstream: RGBController_SteelSeriesSiberia.cpp SetupZones()
+            vec![LedSpec {
+                name: "Headset LED",
+                value: 0,
+            }]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -219,15 +226,20 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
         table::Proto::Rival5 => vec![("Whole Mouse", 10)],
         // upstream: RGBController_SteelSeriesSensei.cpp SetupZones()
         table::Proto::Sensei => vec![("Logo", 1), ("Scroll Wheel", 1)],
+        // upstream: RGBController_SteelSeriesSiberia.cpp SetupZones()
+        table::Proto::Siberia350 => vec![("Headset", 1)],
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }
     }
 }
 fn kind(proto: table::Proto) -> DeviceKind {
-    // upstream: RGBController_SteelSeriesRival.cpp type = DEVICE_TYPE_MOUSE
-    let _ = proto;
-    DeviceKind::Mouse
+    match proto {
+        // upstream: RGBController_SteelSeriesSiberia.cpp type = DEVICE_TYPE_HEADSET
+        table::Proto::Siberia350 => DeviceKind::Headset,
+        // upstream: RGBController_SteelSeriesRival*.cpp type = DEVICE_TYPE_MOUSE
+        _ => DeviceKind::Mouse,
+    }
 }
 pub struct SteelSeries {
     active: bool,
@@ -314,6 +326,14 @@ impl Module for SteelSeries {
             return Err(err("invalid SteelSeries frame"));
         }
         let proto = self.proto.expect("active implies proto");
+        if proto == table::Proto::Siberia350 {
+            // upstream: RGBController_SteelSeriesSiberia.cpp DeviceUpdateLEDs()
+            // -> SetColor (4x 16-byte packets for the single LED)
+            for pkt in report::set_siberia_color(c[0]) {
+                h.write(&pkt).map_err(err)?;
+            }
+            return Ok(());
+        }
         if proto == table::Proto::Rival5 {
             // upstream: RGBController_SteelSeriesRival5.cpp DeviceUpdateLEDs()
             // SetBrightness first (only on change; Direct brightness max 0x64),

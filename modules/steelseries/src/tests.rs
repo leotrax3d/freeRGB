@@ -314,6 +314,39 @@ fn sensei_full_sequence_is_byte_exact() {
     m.shutdown(None, &mut h).unwrap();
 }
 #[test]
+fn siberia350_full_sequence_is_byte_exact() {
+    let mut m = crate::SteelSeries::default();
+    let mut h = Fake::new();
+    // DetectSteelSeriesHeadset row (Siberia 350, interface 3)
+    let i = iface(rival_pid("DetectSteelSeriesHeadset"));
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 1);
+    assert_eq!(caps.layout.leds[0].name, "Headset LED");
+    assert_eq!(caps.kind, freergb_module_api::DeviceKind::Headset);
+    m.frame(&[RGB1], &mut h).unwrap();
+    // 4x 16-byte packets: [01 00 cmd len payload...]
+    assert_eq!(h.writes.len(), 4);
+    // upstream: SteelSeriesSiberiaController.cpp send_usb_msg + commands 1-4
+    assert_eq!(
+        h.writes[0],
+        vec![0x01, 0x00, 0x95, 0x02, 0x80, 0xbf, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    );
+    assert_eq!(
+        h.writes[1],
+        vec![0x01, 0x00, 0x80, 0x02, 0x52, 0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    );
+    assert_eq!(
+        h.writes[2],
+        vec![0x01, 0x00, 0x83, 0x03, 0x11, 0x22, 0x33, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    );
+    assert_eq!(
+        h.writes[3],
+        vec![0x01, 0x00, 0x93, 0x02, 0x03, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    );
+    assert!(h.features.is_empty());
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
 fn sensei_save_is_byte_exact() {
     // upstream: SteelSeriesSenseiController.cpp Save() [00 59 00...]
     assert_eq!(
@@ -354,6 +387,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesRival3",
         "DetectSteelSeriesRival5",
         "DetectSteelSeriesSensei",
+        "DetectSteelSeriesHeadset",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()

@@ -38,6 +38,16 @@ Rival 5: DetectSteelSeriesRival5 PID 0x183C, interface 0, usage page 0xFFC0,
 usage 1.
 Sensei: DetectSteelSeriesSensei PIDs 0x1832, 0x1834, 0x1722, 0x1720, 0x171E,
 0x1736, interface 0.
+Siberia: DetectSteelSeriesHeadset PID 0x1229, interface 3.
+
+### Siberia 350 (SteelSeriesSiberiaController) - 1 detector row, ported
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `SteelSeriesSiberiaController.cpp` `send_usb_msg()` | `report::siberia_packet()` (private helper) | 16-byte framing `[01 00 cmd len payload...]` |
+| `SteelSeriesSiberiaController.cpp` `SetColor()` | `report::set_siberia_color()` | Commands 0x95/0x80 0xbf, 0x80/0x52 0x20, 0x83/rgb, 0x93/0x03 0x80 |
+| `RGBController_SteelSeriesSiberia.cpp` `SetupZones()` | `lib.rs led_specs()` / `zones()` | Single "Headset" LED, kind Headset |
+| `RGBController_SteelSeriesSiberia.cpp` `DeviceUpdateLEDs()` | `lib.rs frame()` (Siberia branch) | Four 16-byte writes per frame |
 
 ### Sensei (SteelSeriesSenseiController) - 6 detector rows, ported
 

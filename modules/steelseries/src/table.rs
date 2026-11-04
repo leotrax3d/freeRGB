@@ -27,6 +27,8 @@ pub enum Proto {
     Rival5,
     /// upstream: SteelSeriesRivalController.h steelseries_type SENSEI
     Sensei,
+    /// upstream: SteelSeriesRivalController.h steelseries_type SIBERIA_350
+    Siberia350,
 }
 /// Maps an upstream detector callback (REGISTER_HID_DETECTOR_* entry in
 /// SteelSeriesControllerDetect.cpp) to its ported protocol.
@@ -47,6 +49,9 @@ pub fn proto_of_handler(handler: &str) -> Option<Proto> {
         // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesSensei
         // (Sensei TEN, Sensei 310, Rival 310 rows, interface 0)
         "DetectSteelSeriesSensei" => Some(Proto::Sensei),
+        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesHeadset
+        // (Siberia 350, interface 3)
+        "DetectSteelSeriesHeadset" => Some(Proto::Siberia350),
         _ => None,
     }
 }

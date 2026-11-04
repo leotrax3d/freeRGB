@@ -47,6 +47,8 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         // Rival 3/5 use the separate mouse protocols (set_mouse_light_effect_all /
         // set_rival5_* builders)
         Proto::Rival3 | Proto::Rival5 => Vec::new(),
+        // Siberia Direct sends only the SetColor command sequence
+        Proto::Siberia350 => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -71,6 +73,8 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         // Rival 3/5 use the mouse protocols handled in lib.rs frame(); their
         // routing happens there, never through set_color()
         Proto::Rival3 | Proto::Rival5 => Vec::new(),
+        // Siberia uses set_siberia_color() handled in lib.rs frame()
+        Proto::Siberia350 => Vec::new(),
         Proto::Sensei => vec![set_sensei_color(zone_id, c)],
         Proto::Rival700 => vec![set_rival700_color(zone_id, c)],
         Proto::Rival100 | Proto::Rival300 => {
@@ -228,6 +232,29 @@ pub fn set_sensei_color(zone_id: u8, c: freergb_core::Rgb) -> Vec<u8> {
 /// 9-byte packet with only the leading 0x59 plus 0x00 report id.
 pub fn sensei_save() -> Vec<u8> {
     write(10, |b| b[0] = 0x59)
+}
+/// upstream: SteelSeriesSiberiaController.cpp send_usb_msg()
+/// Wraps a command in the 16-byte Siberia framing:
+/// `[01 report][00 magic][cmd][len][payload ...]`.
+fn siberia_packet(cmd: u8, payload: &[u8]) -> Vec<u8> {
+    let mut p = vec![0u8; 16];
+    p[0] = 0x01;
+    p[1] = 0x00;
+    p[2] = cmd;
+    p[3] = payload.len() as u8;
+    p[4..4 + payload.len()].copy_from_slice(payload);
+    p
+}
+/// upstream: SteelSeriesSiberiaController.cpp SetColor()
+/// Four 16-byte write packets: two magic commands, the color payload, and
+/// an apply command.
+pub fn set_siberia_color(c: freergb_core::Rgb) -> Vec<Vec<u8>> {
+    vec![
+        siberia_packet(0x95, &[0x80, 0xbf]),    // Command 1
+        siberia_packet(0x80, &[0x52, 0x20]),    // Command 2
+        siberia_packet(0x83, &[c.r, c.g, c.b]), // Command 3 (Set color)
+        siberia_packet(0x93, &[0x03, 0x80]),    // Command 4
+    ]
 }
 #[cfg(test)]
 mod tests {
