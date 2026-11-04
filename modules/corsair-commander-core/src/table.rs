@@ -11,20 +11,28 @@ pub struct Detector {
     pub usage_page: u16,
     pub usage: u16,
 }
+pub fn detector(i: &InterfaceInfo) -> Option<&'static Detector> {
+    DETECTORS.iter().find(|d| d.vid == i.vid && d.pid == i.pid)
+}
 pub fn identify(i: &InterfaceInfo) -> Identification {
-    let d = DETECTORS.iter().find(|d| d.vid == i.vid && d.pid == i.pid);
+    let d = detector(i);
+    if let Some(d) = d {
+        return Identification {
+            // upstream: CorsairCommanderCoreController.cpp routes all rows to
+            // the full command protocol; the variant (V1/V2/V3/XT) is decided
+            // by PID and the 0x02 0x13 version query in initialize(). The
+            // Initialize -> SetFanMode -> GetLedCounts -> SetDirectColor
+            // lifecycle is fully ported.
+            supported: true,
+            model: Some(d.name.into()),
+            kind: Some(DeviceKind::LightingController),
+            reason: None,
+        };
+    }
     Identification {
-        // Detector inventory is not a protocol implementation: the protocol needs
-        // the version query, packet-size negotiation, SetFanMode/SetLedAmount
-        // writes with device reads and config-driven LED counts; the audited
-        // branch version sent a fabricated 97-byte packet instead.
         supported: false,
-        model: d.map(|x| x.name.into()),
-        kind: d.map(|_| DeviceKind::LightingController),
-        reason: Some(if d.is_some() {
-            "Corsair Commander Core detector is inventoried but its protocol is not ported".into()
-        } else {
-            "no Corsair Commander Core HID detector for this VID/PID".into()
-        }),
+        model: None,
+        kind: None,
+        reason: Some("no Corsair Commander Core HID detector for this VID/PID".into()),
     }
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //! Module executable: speaks the freeRGB module protocol on stdin/stdout.
-//! `--list-devices` prints the supported device matches for the catalog
-//! (currently empty: the audited protocol paths are not ported).
+//! `--list-devices` prints the supported device matches for the catalog.
 use freergb_module_corsair_commander_core::devices_table::DETECTORS;
 use freergb_module_corsair_commander_core::table;
 
@@ -30,5 +29,5 @@ fn main() {
         println!("{}", serde_json::to_string_pretty(&devices).unwrap());
         return;
     }
-    freergb_module_api::sdk::run(freergb_module_corsair_commander_core::CommanderCore);
+    freergb_module_api::sdk::run(freergb_module_corsair_commander_core::CommanderCore::default());
 }
