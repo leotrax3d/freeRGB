@@ -10,6 +10,8 @@ use freergb_protocols::corsair_bragi::{BragiDevice, BragiModel};
 use freergb_protocols::registry;
 use std::time::{Duration, Instant};
 
+mod cooling;
+
 #[derive(Parser)]
 #[command(
     name = "freergb",
@@ -88,6 +90,8 @@ enum Cmd {
     },
     /// Check a device description (TOML) without touching any hardware.
     ValidateDevice { file: std::path::PathBuf },
+    /// Fan control through the running freergbd (list/status/set/profiles/stop).
+    Cooling(cooling::CoolingArgs),
     /// Call a method on the running freergbd, e.g. `ctl color.set '{"color":"#ff0000"}'`.
     Ctl {
         method: String,
@@ -172,6 +176,7 @@ fn main() -> Result<()> {
             bragi(cmd, pid, pipelined)
         }
         Cmd::Ctl { method, params } => ctl(&method, params.as_deref()),
+        Cmd::Cooling(args) => cooling::run(args),
         Cmd::StopInstalledDaemon { directory } => {
             let expected = directory.join(if cfg!(windows) {
                 "freergbd.exe"

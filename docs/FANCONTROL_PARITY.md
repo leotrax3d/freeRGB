@@ -63,10 +63,10 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 | Providers | CPU/GPU/board/storage | LINK telemetry; optional read-only Windows LHM provider | Driver-backed/multi-board acceptance; CPU/GPU/storage providers |
 | GPU | Vendor control/release | Missing | NVIDIA/AMD capability handling |
 | Plugins | External sensors/controls | RGB process plugins only | Cooling plugin contract/host |
-| Profiles | Cooling configurations | RGB profiles only | Import/export and switching |
+| Profiles | Cooling configurations | Implemented (simulated): complete profiles (background, live channels, composite set, sensor graph), switching by API/CLI/GUIs/tray/shortcut/app rule, versioned import/export with identity remapping ([COOLING_SERVICE.md](COOLING_SERVICE.md)) | Hardware acceptance (prompt 07) |
 | Desktop | Tray/layout/themes | Partial GUI | Usability parity |
-| Startup | Login/service modes | Login launcher | Approved headless service |
-| CLI | Configuration/window/lifecycle | Basic API CLI | Cooling configuration commands |
+| Startup | Login/service modes | Implemented (simulated): login/service mode, headless `freergbd --cooling-service` with boot profile and independent watchdog; Windows boot still via protected `BackgroundCooling` | Windows boot-channel authorization hand-over; reboot/upgrade/uninstall acceptance |
+| CLI | Configuration/window/lifecycle | `freergb cooling` list/status/set-manual/stop/stop-all/profiles/apply/import/export/service with `--json` ([LOCAL_API.md](LOCAL_API.md#cooling-cli)) | Window/lifecycle commands |
 | Distribution | Update/signing | Installer/update foundation | Signed live update acceptance |
 
 Official hardware coverage depends on provider libraries and third-party plugins.

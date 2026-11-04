@@ -483,24 +483,51 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             .revoke_safety()
             .map(|()| json!(true))
             .map_err(|e| (-32000, e)),
+        "cooling.service.get" => Ok(lock(engine).cooling_service.view()),
+        "cooling.service.set" => serde_json::from_value::<crate::cooling_service::ServiceConfig>(
+            json!({"version": 1, "mode": params["mode"], "boot_profile": params["boot_profile"]}),
+        )
+        .map_err(invalid_params)
+        .and_then(|config| {
+            lock(engine)
+                .cooling_service
+                .set(config)
+                .map(|()| json!(true))
+                .map_err(invalid_params)
+        }),
         "cooling.profiles.list" => Ok(lock(engine).cooling_profiles.view()),
+        "cooling.profiles.get" => params["name"]
+            .as_str()
+            .ok_or_else(|| invalid_params("name required"))
+            .and_then(|name| {
+                lock(engine)
+                    .cooling_profiles
+                    .get(name)
+                    .map(|p| json!(p))
+                    .ok_or((-32004, "Unknown cooling profile".into()))
+            }),
         "cooling.profiles.save" => params["name"]
             .as_str()
             .map(str::to_owned)
             .ok_or_else(|| invalid_params("name required"))
             .and_then(|name| {
                 let mut engine = lock(engine);
-                // Without explicit channels the current background set is saved.
-                let request = if params["channels"].is_null() {
-                    serde_json::from_value(engine.background.view()["saved"].clone())
-                        .map_err(invalid_params)?
+                // `profile`: complete profile; `channels`: background set only
+                // (version 1); neither: the current complete configuration.
+                let profile = if !params["profile"].is_null() {
+                    serde_json::from_value(params["profile"].clone()).map_err(invalid_params)?
+                } else if !params["channels"].is_null() {
+                    serde_json::from_value::<crate::background::BackgroundRequest>(
+                        json!({"channels": params["channels"]}),
+                    )
+                    .map_err(invalid_params)?
+                    .into()
                 } else {
-                    serde_json::from_value(json!({"channels": params["channels"]}))
-                        .map_err(invalid_params)?
+                    engine.capture_profile().map_err(|e| (-32000, e))?
                 };
                 engine
                     .cooling_profiles
-                    .save(&name, request)
+                    .save(&name, profile)
                     .map(|()| json!(true))
                     .map_err(invalid_params)
             }),
@@ -517,12 +544,67 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         "cooling.profiles.activate" => params["name"]
             .as_str()
             .ok_or_else(|| invalid_params("name required"))
+            .and_then(|name| lock(engine).activate_profile(name).map_err(|e| (-32006, e))),
+        "cooling.profiles.export" => params["name"]
+            .as_str()
+            .ok_or_else(|| invalid_params("name required"))
             .and_then(|name| {
-                lock(engine)
-                    .activate_profile(name)
-                    .map(|()| json!(true))
-                    .map_err(|e| (-32006, e))
+                let engine = lock(engine);
+                let board = engine
+                    .mainboard
+                    .summary()
+                    .board
+                    .map(|b| format!("{} {}", b.manufacturer, b.product));
+                engine
+                    .cooling_profiles
+                    .export(name, board)
+                    .map(|document| json!(document))
+                    .map_err(|e| (-32004, e))
             }),
+        "cooling.profiles.import" => (|| -> Result<Value, (i64, String)> {
+            let text = match &params["document"] {
+                Value::String(text) => text.clone(),
+                Value::Null => return Err(invalid_params("document required")),
+                document => document.to_string(),
+            };
+            let remap: std::collections::BTreeMap<String, String> =
+                serde_json::from_value(params["remap"].clone()).unwrap_or_default();
+            let mut engine = lock(engine);
+            let board = engine
+                .mainboard
+                .summary()
+                .board
+                .map(|b| format!("{} {}", b.manufacturer, b.product));
+            let devices: std::collections::BTreeSet<_> = engine
+                .mainboard
+                .channels()
+                .iter()
+                .filter_map(|c| crate::cooling_profiles::device_prefix(&c.sensor_id))
+                .chain(
+                    engine
+                        .mainboard
+                        .sensors()
+                        .iter()
+                        .filter_map(|s| crate::cooling_profiles::device_prefix(&s.sensor.id)),
+                )
+                .collect();
+            let devices: Vec<_> = devices.into_iter().collect();
+            let (name, profile, report) = crate::cooling_profiles::import(
+                &text,
+                &remap,
+                &crate::cooling_profiles::Target {
+                    board,
+                    devices: &devices,
+                },
+            )
+            .map_err(invalid_params)?;
+            let name = params["name"].as_str().map(str::to_owned).unwrap_or(name);
+            engine
+                .cooling_profiles
+                .save(&name, profile)
+                .map_err(invalid_params)?;
+            Ok(json!({"name": name, "report": report}))
+        })(),
         "cooling.support.get" => {
             let engine = lock(engine);
             Ok(engine.fan_support.view(

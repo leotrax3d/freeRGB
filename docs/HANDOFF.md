@@ -28,7 +28,7 @@ checklist for what is done. Older handoff, roadmap and worklist logs are in
 | Native devices | K70 CORE and iCUE LINK hardware-validated; ASUS Aura USB, Gigabyte Fusion 2, ASRock Polychrome mock-tested | [DEVICES.md](DEVICES.md), [MAINBOARD_RGB.md](MAINBOARD_RGB.md) |
 | OpenRGB GPL process modules | 42 HID families in `modules/`, none hardware-accepted | [OPENRGB_PORTING.md](OPENRGB_PORTING.md), [OPENRGB_COMPATIBILITY.md](OPENRGB_COMPATIBILITY.md) |
 | Hardware module system | Signed catalog, atomic install, brokered processes; SMBus bus-module SDK with signed child-process tests | [HARDWARE_MODULES.md](HARDWARE_MODULES.md), [SMBUS_SIMULATION.md](SMBUS_SIMULATION.md) |
-| Fan control | LHM tiers, multi-channel live sessions, composite curves, open-loop RPM targets, Linux hwmon | [COOLING.md](COOLING.md), [FANCONTROL_PARITY.md](FANCONTROL_PARITY.md), [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md), per-chip [FAN_COVERAGE.md](FAN_COVERAGE.md) |
+| Fan control | LHM tiers, multi-channel live sessions, composite curves, open-loop RPM targets, Linux hwmon, complete cooling profiles + import/export, headless `--cooling-service`, `freergb cooling` CLI | [COOLING.md](COOLING.md), [COOLING_SERVICE.md](COOLING_SERVICE.md), [FANCONTROL_PARITY.md](FANCONTROL_PARITY.md), [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md), per-chip [FAN_COVERAGE.md](FAN_COVERAGE.md) |
 | GUIs | Tauri/React desktop (default) and Classic Win32/egui fallback | [GUI_MODERNIZATION.md](GUI_MODERNIZATION.md), [INTEGRATION_CHECKLIST.md](INTEGRATION_CHECKLIST.md) |
 | Distribution | Windows installer, updater, Linux packaging foundations | [INSTALL.md](INSTALL.md), [UPDATES.md](UPDATES.md) |
 

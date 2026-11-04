@@ -774,6 +774,118 @@ mod tests {
         sampler.abort();
     }
 
+    /// Simulated boot path: the service-mode boot profile resolves to the same
+    /// controllers a live session runs (curve and composite here), each against
+    /// its own simulated protected worker, and every channel returns on stop.
+    #[tokio::test]
+    async fn simulated_boot_runs_the_profile_controllers_headless() {
+        use crate::cooling_service::{boot_action, BootAction, RunMode, ServiceConfig};
+        let mut curve = FanCurve {
+            minimum_percent: 40.0,
+            ..FanCurve::default()
+        };
+        for point in &mut curve.points {
+            point.duty_percent = point.duty_percent.max(40.0);
+        }
+        let channel = |index: u8, mode: &str| {
+            json!({
+                "mode": mode,
+                "control_id": format!("/lpc/nct6701d/0/control/{index}"),
+                "temperature_id": "/lpc/nct6701d/0/temperature/0",
+                "rpm_id": format!("/lpc/nct6701d/0/fan/{index}"),
+                "confirmed_fan": true,
+                "curve": if mode == "curve" { json!(curve) } else { serde_json::Value::Null },
+                "critical_c": null,
+                "composite_output": if mode == "composite" { json!("boot_case") } else { serde_json::Value::Null },
+            })
+        };
+        let profile: crate::cooling_profiles::CoolingProfile = serde_json::from_value(
+            json!({"assignments": [channel(1, "curve"), channel(2, "composite")]}),
+        )
+        .unwrap();
+        profile.validate().unwrap();
+        let config = ServiceConfig {
+            version: 1,
+            mode: RunMode::Service,
+            boot_profile: Some("Boot".into()),
+        };
+        assert_eq!(
+            boot_action(&config, &["Boot".to_string()]),
+            BootAction::ActivateProfile("Boot".into())
+        );
+        let feed_out = crate::composite_feed::CompositeFeed::default();
+        let publisher = {
+            let feed_out = feed_out.clone();
+            tokio::spawn(async move {
+                loop {
+                    let ok = freergb_control::curves::CurveOutput {
+                        percent: 65.0,
+                        failsafe: false,
+                    };
+                    feed_out.publish([("boot_case".to_string(), ok)].into(), Instant::now());
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+            })
+        };
+        let epoch = Instant::now();
+        let mut runs = Vec::new();
+        for mut request in profile.assignments.unwrap() {
+            request.composite_feed = Some(feed_out.clone());
+            let plan = request
+                .plan(&crate::cooling_sessions::SessionPolicy::legacy())
+                .unwrap();
+            let (transport, worker) = tokio::io::duplex(4096);
+            let peer = tiered_peer(worker, "lhm_supported");
+            let client = NativeSessionClient::from_authenticated_transport(transport)
+                .await
+                .unwrap();
+            let (samples, rx) = mpsc::channel(4);
+            let (stop, stop_rx) = oneshot::channel();
+            let sampler = feed(samples, epoch, 900.0, false);
+            let runtime = tokio::spawn(run_with_limits(
+                client,
+                plan.mode,
+                plan.limits,
+                SamplerFrame {
+                    temperature_c: 30.0,
+                    temperature_at_ms: now(epoch),
+                    rpm: 900.0,
+                    rpm_at_ms: now(epoch),
+                },
+                rx,
+                stop_rx,
+                epoch,
+            ));
+            runs.push((peer, runtime, stop, sampler));
+        }
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        let mut duties = Vec::new();
+        for (peer, runtime, stop, sampler) in runs {
+            stop.send(()).unwrap();
+            let report = tokio::time::timeout(Duration::from_secs(2), runtime)
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            assert!(report.fault.is_none(), "{:?}", report.fault);
+            let seen = peer.await.unwrap();
+            assert_eq!(seen.last().unwrap()["action"], "close", "channel returned");
+            duties.push(
+                seen.iter()
+                    .filter_map(|r| r["duty_percent"].as_u64())
+                    .collect::<Vec<_>>(),
+            );
+            sampler.abort();
+        }
+        publisher.abort();
+        assert!(!duties[0].is_empty() && duties[0].iter().all(|d| *d >= 40));
+        assert!(
+            duties[1].contains(&65),
+            "composite drove the duty: {:?}",
+            duties[1]
+        );
+    }
+
     #[tokio::test]
     async fn composite_mode_follows_the_feed_and_fails_safe() {
         let (transport, worker) = tokio::io::duplex(4096);

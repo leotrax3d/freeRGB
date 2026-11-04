@@ -14,6 +14,7 @@ pub mod cooling_assignments;
 pub mod cooling_host;
 pub mod cooling_profiles;
 pub mod cooling_runtime;
+pub mod cooling_service;
 pub mod cooling_sessions;
 pub mod custom_effects;
 pub mod engine;

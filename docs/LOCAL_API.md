@@ -562,22 +562,64 @@ keeps lease, tier floor, critical-temperature override and fail-safe return.
   and restarts at `max_percent`. Both are cycle-checked and propagate fail-safe like
   other nodes.
 
-## Cooling profiles (additive, 2026-10-22)
+## Cooling profiles (additive, 2026-10-22; complete configurations 2026-11-04)
 
-Named, switchable sets of background channel curves (per-user config
-`cooling-profiles.json`, at most 32 profiles, 8 channels each).
+Named, switchable complete cooling configurations (per-user config
+`cooling-profiles.json`, at most 32 profiles; file version 1 still loads). A
+profile holds `channels` (background curves, at most 8), optional `assignments`
+(live channels: `cooling.sessions.start` requests of continuous modes),
+`curve_set` and `sensors`. Channel bindings are never part of a profile. See
+[COOLING_SERVICE.md](COOLING_SERVICE.md).
 
-* `cooling.profiles.list` -> `{profiles:[{name,channels}], active, error}`.
-* `cooling.profiles.save {name, channels?}` -> `true`. Names are 1..64 characters
-  without control characters or surrounding spaces; without `channels` the
-  current background set (`cooling.background.get` -> `saved`) is stored. Curves
-  are validated, duplicate channels refused. Saving never touches hardware.
+* `cooling.profiles.list` -> `{profiles:[{name,channels,live_channels,curve_set,sensors}], active, error}`.
+* `cooling.profiles.get {name}` -> the profile object.
+* `cooling.profiles.save {name, profile? | channels?}` -> `true`. Names are 1..64
+  characters without control characters or surrounding spaces. `profile` stores
+  a complete profile, `channels` only a background set (version 1 behaviour);
+  without either the current complete configuration is captured. Everything is
+  validated; saving never touches hardware.
 * `cooling.profiles.delete {name}` -> `{deleted}`.
-* `cooling.profiles.activate {name}` -> `true` when the hand-over started. Every
-  channel is re-resolved like `cooling.background.apply` (tier, channel test,
-  unlock); one channel no longer permitted fails the whole activation instead of
-  being dropped. The protected service then runs the profile (UAC).
+* `cooling.profiles.activate {name}` ->
+  `{profile, started:[control_id], restarting:[control_id], background_applied}`.
+  Every channel is re-resolved under the current policy first; one channel no
+  longer permitted fails the whole activation before anything changes. Live
+  channels outside the profile return to firmware, unchanged ones keep running.
+  Background curves are handed to the protected service (UAC) only when they
+  differ from the saved set.
+* `cooling.profiles.export {name}` ->
+  `{schema:"freergb.cooling-profile", version:2, name, source:{board, devices}, profile}`.
+* `cooling.profiles.import {document, name?, remap?}` -> `{name, report:{name,
+  remapped, same_board, unresolved, needs_confirmation}}`. `document` is the
+  exported object or its JSON text; `remap` maps source device prefixes to local
+  ones (`{"/lpc/it8689e/0":"/lpc/nct6701d/0"}`, automatic with one device on
+  each side). On another board or after a remap every `confirmed_fan` is
+  cleared.
 
+## Cooling service (additive, 2026-11-04)
+
+* `cooling.service.get` -> `{mode:"login"|"service", boot_profile, headless,
+  boot:{state:"pending"|"resumed"|"profile"|"failed"|"unavailable", ...}, error}`.
+* `cooling.service.set {mode, boot_profile}` -> `true` (per-user
+  `cooling-service.json`). `headless` is true only in a process started with
+  `freergbd --cooling-service`, which applies the boot profile (service mode)
+  or the remembered assignments and runs the independent watchdog.
+
+## Cooling CLI
+
+`freergb cooling <command> [--json]` calls the API above; `--json` prints the
+daemon's result unchanged for scripts, otherwise a short text summary. Exit code
+is non-zero on any daemon error.
+
+| Command | API |
+|---------|-----|
+| `list` | `cooling.channels.list` |
+| `status` | `cooling.sessions.list`, `cooling.service.get`, `cooling.profiles.list` |
+| `set-manual <control_id> <percent> --temperature <id> --rpm <id> [--confirmed-fan]` | `cooling.sessions.start` (`mode:"manual"`) |
+| `stop <control_id>` / `stop-all` | `cooling.sessions.stop_channel` / `stop_all` |
+| `profiles` / `save <name>` / `apply <name>` / `delete <name>` | `cooling.profiles.*` |
+| `export <name> [--out file]` | `cooling.profiles.export` |
+| `import <file> [--name n] [--remap FROM=TO ...]` | `cooling.profiles.import` |
+| `service [--mode login\|service] [--boot-profile name]` | `cooling.service.get/set` (empty name clears) |
 
 ## Pause (additive, 2026-10-23)
 

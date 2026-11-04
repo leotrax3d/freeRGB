@@ -1066,7 +1066,13 @@ impl eframe::App for App {
 
                 ui.separator();
                 ui.heading("Profiles");
-                self.app_profiles.ui(ui, profiles.as_deref());
+                let cooling: Vec<String> = self.state.lock().unwrap_or_else(|e| e.into_inner()).control["cooling_profiles"]["profiles"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|p| p["name"].as_str().map(str::to_owned))
+                    .collect();
+                self.app_profiles.ui(ui, profiles.as_deref(), &cooling);
                 match &profiles {
                     None => {
                         ui.label("Profiles are disabled (daemon started with --no-state).");

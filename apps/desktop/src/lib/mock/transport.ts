@@ -436,7 +436,7 @@ export function mockTransport(): Transport {
           backgroundSaved = channels;
           activeProfile = p.name as string;
           fakeApply(); emit("cooling_profiles");
-          return true as T;
+          return { profile: p.name, started: [], restarting: [], background_applied: true } as T;
         }
         case "effects.get":
           return effect as T;
