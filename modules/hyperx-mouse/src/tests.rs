@@ -43,7 +43,10 @@ fn only_ported_devices_are_claimed() {
             product: None,
         };
         let id = crate::table::identify(&i);
-        assert_eq!(id.supported, dev.protocol == "surge");
+        assert_eq!(
+            id.supported,
+            dev.protocol == "surge" || dev.protocol == "fps"
+        );
     }
 }
 
@@ -108,8 +111,9 @@ impl Hid for NoIo {
 fn unsupported_initialize_fails_without_io() {
     let mut m = crate::HyperX::default();
     let mut h = NoIo;
-    // FPS Pro (0x16d7) uses the unported "fps" path
-    assert!(m.initialize(&info_for(0x16d7), &mut h).is_err());
+    // FPS Pro (0x16d7) uses the now-ported path; Dart (0x16e1) and Haste
+    // (0x1727) stay unported
+    assert!(m.initialize(&info_for(0x16e1), &mut h).is_err());
     // Haste (0x1727) uses the unported "haste" path
     assert!(m.initialize(&info_for(0x1727), &mut h).is_err());
     assert!(m.frame(&[], &mut h).is_err());
@@ -148,4 +152,34 @@ fn surge_full_sequence_is_byte_exact() {
     assert_eq!(&p[0x6C..0x6F], &[32, 64, 96]);
     m.shutdown(None, &mut h).unwrap();
     assert_eq!(h.features.len(), 1); // no exit packets
+}
+
+#[test]
+fn fps_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingFeature::new();
+    // FPS Pro row: interface 1, usage page 0xFF01
+    let i = info_for(0x16d7);
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 1);
+    assert_eq!(caps.layout.leds[0].name, "Logo");
+    assert_eq!(caps.zones.len(), 1);
+    assert!(h.features.is_empty());
+    m.frame(
+        &[Rgb {
+            r: 10,
+            g: 20,
+            b: 30,
+        }],
+        &mut h,
+    )
+    .unwrap();
+    assert_eq!(h.features.len(), 1);
+    let p = &h.features[0];
+    // upstream: SendDirect [07 0A r g b .. 0xA0@0x08]
+    assert_eq!(p.len(), 264);
+    assert_eq!(&p[0..9], &[0x07, 0x0A, 10, 20, 30, 0, 0, 0, 0xA0]);
+    assert!(p[9..].iter().all(|b| *b == 0));
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.features.len(), 1);
 }

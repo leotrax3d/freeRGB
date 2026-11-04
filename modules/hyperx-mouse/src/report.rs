@@ -27,6 +27,19 @@ pub fn surge_direct(colors: &[freergb_core::Rgb]) -> Vec<u8> {
     p[0x6E] = logo.b;
     p
 }
+/// upstream: HyperXPulsefireFPSProController.cpp SendDirect()
+/// 264-byte feature report `[07 0A r g b ...0xA0@0x08]` for the single logo
+/// LED (FPS Pro and Pulsefire Core share the path).
+pub fn fps_direct(c: freergb_core::Rgb) -> Vec<u8> {
+    let mut p = vec![0u8; PACKET_LEN];
+    p[0x00] = 0x07;
+    p[0x01] = 0x0A;
+    p[0x02] = c.r;
+    p[0x03] = c.g;
+    p[0x04] = c.b;
+    p[0x08] = 0xA0;
+    p
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -51,5 +64,13 @@ mod tests {
         assert!(p[0x68..0x6C].iter().all(|b| *b == 0));
         assert!(p[0x6F..].iter().all(|b| *b == 0));
         assert!(p[0x04..0x08].iter().all(|b| *b == 0));
+    }
+    // upstream: HyperXPulsefireFPSProController.cpp SendDirect
+    #[test]
+    fn fps_direct_is_byte_exact() {
+        let p = fps_direct(A);
+        assert_eq!(p.len(), 264);
+        assert_eq!(&p[0..9], &[0x07, 0x0A, 1, 2, 3, 0, 0, 0, 0xA0]);
+        assert!(p[9..].iter().all(|b| *b == 0));
     }
 }

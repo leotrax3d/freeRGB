@@ -34,13 +34,13 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
             && (d.interface == 255 || i32::from(d.interface) == i.interface)
             && d.usage_page == i.usage_page
     });
-    // Only the Pulsefire Surge controller path is ported so far; the FPS /
-    // Dart / Raid / Haste feature report layouts stay unsupported.
+    // The Pulsefire Surge and FPS Pro/Core controller paths are ported so
+    // far; the Dart / Raid / Haste feature report layouts stay unsupported.
     let ported = d.and_then(|d| {
         crate::devices_table::DEVICES
             .iter()
-            .find(|dev| dev.pid == d.pid && dev.protocol == "surge")
-            .map(|dev| dev.leds)
+            .find(|dev| dev.pid == d.pid && (dev.protocol == "surge" || dev.protocol == "fps"))
+            .map(|dev| (dev.protocol, dev.leds))
     });
     if let (Some(d), Some(_)) = (d, ported) {
         return Identification {

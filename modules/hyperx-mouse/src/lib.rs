@@ -20,6 +20,8 @@ fn err(e: impl std::fmt::Display) -> ModuleError {
 pub struct HyperX {
     active: bool,
     leds: usize,
+    fps: bool,
+    leds_vec: Vec<Led>,
 }
 impl freergb_module_api::sdk::Module for HyperX {
     fn info(&self) -> ModuleInfo {
@@ -42,20 +44,39 @@ impl freergb_module_api::sdk::Module for HyperX {
         let d = table::detector(i).ok_or_else(|| err("no HyperX mouse detector"))?;
         let dev = crate::devices_table::DEVICES
             .iter()
-            .find(|dev| dev.pid == d.pid && dev.protocol == "surge")
+            .find(|dev| dev.pid == d.pid && (dev.protocol == "surge" || dev.protocol == "fps"))
             .ok_or_else(|| err("HyperX mouse controller path not ported"))?;
         // upstream: RGBController_HyperXPulsefireSurge.cpp SetupZones()
-        // (LED Strip 32 + Logo 1; constructor sends nothing)
+        // (Surge: LED Strip 32 + Logo 1; FPS Pro: single "Logo" LED;
+        // constructors send nothing)
         self.leds = dev.leds;
+        self.fps = dev.protocol == "fps";
         self.active = true;
         let count = self.leds;
-        Ok(Capabilities {
-            name: d.name.into(),
-            kind: DeviceKind::Mouse,
-            layout: LedLayout {
-                width: count as u16,
-                height: 1,
-                leds: (0..count)
+        let (zones, leds): (Vec<Zone>, Vec<Led>) = if self.fps {
+            (
+                vec![Zone {
+                    name: "Logo".into(),
+                    leds: 1,
+                }],
+                vec![Led {
+                    name: "Logo".into(),
+                    pos: (0, 0),
+                }],
+            )
+        } else {
+            (
+                vec![
+                    Zone {
+                        name: "LED Strip".into(),
+                        leds: 32,
+                    },
+                    Zone {
+                        name: "Logo".into(),
+                        leds: 1,
+                    },
+                ],
+                (0..count)
                     .map(|n| Led {
                         name: if n < 32 {
                             format!("LED Strip LED {}", n + 1)
@@ -65,19 +86,22 @@ impl freergb_module_api::sdk::Module for HyperX {
                         pos: (n as u16, 0),
                     })
                     .collect(),
+            )
+        };
+        self.leds_vec = leds;
+        self.active = true;
+        let count = self.leds_vec.len();
+        Ok(Capabilities {
+            name: d.name.into(),
+            kind: DeviceKind::Mouse,
+            layout: LedLayout {
+                width: count as u16,
+                height: 1,
+                leds: self.leds_vec.clone(),
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![
-                Zone {
-                    name: "LED Strip".into(),
-                    leds: 32,
-                },
-                Zone {
-                    name: "Logo".into(),
-                    leds: 1,
-                },
-            ],
+            zones,
         })
     }
     fn initialize(
@@ -91,12 +115,16 @@ impl freergb_module_api::sdk::Module for HyperX {
         if !self.active {
             return Err(err("HyperX mouse module is not initialized"));
         }
-        if c.len() != self.leds {
+        if c.len() != self.leds_vec.len() {
             return Err(err("invalid HyperX frame"));
         }
-        // upstream: DeviceUpdateLEDs() -> HyperXPulsefireSurgeController
-        // SendDirect(): one 264-byte feature report per frame
-        h.send_feature(&report::surge_direct(c)).map_err(err)?;
+        // upstream: DeviceUpdateLEDs() -> SendDirect(): one 264-byte feature
+        // report per frame (Surge RGB planes / FPS Pro logo packet)
+        if self.fps {
+            h.send_feature(&report::fps_direct(c[0])).map_err(err)?;
+        } else {
+            h.send_feature(&report::surge_direct(c)).map_err(err)?;
+        }
         Ok(())
     }
     fn shutdown(

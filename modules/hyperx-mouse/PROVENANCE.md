@@ -22,6 +22,14 @@ fully ported; the remaining rows stay unsupported:
 | `HyperXPulsefireRaidController.cpp :: SendColors` | feature report with `0A` start byte, 2 LEDs at bytes 2..7, `A0` end byte at 8, 10 ms delay. |
 | `HyperXPulsefireDartController.cpp :: SendDirect` | 65-byte write `00 D2 <led> <mode> 08 <rgb> <rgb> <brightness> <speed>` per LED, mode 8. |
 
+### Ported: Pulsefire FPS Pro / Core (DetectHyperXPulsefireFPSProControllers) - 3 rows, ported
+
+| Upstream file/function | Rust mapping | Behaviour |
+|---|---|---|
+| `HyperXPulsefireFPSProController.cpp` `SendDirect()` | `report::fps_direct()` | 264-byte feature report `[07 0A r g b 000000 A0@0x08]` for the single logo LED |
+| `RGBController_HyperXPulsefireFPSPro.cpp` `SetupZones()` | `lib.rs initialize_with_zones()` (fps branch) | single "Logo" zone/LED; constructor sends nothing |
+| `RGBController_HyperXPulsefireFPSPro.cpp` `DeviceUpdateLEDs()` | `lib.rs frame()` | one fps_direct feature report per frame |
+
 ## Ported: Pulsefire Surge (DetectHyperXPulsefireSurgeControllers) - 2 rows, ported
 
 | Upstream file/function | Rust mapping | Behaviour |
@@ -35,7 +43,7 @@ fully ported; the remaining rows stay unsupported:
 | Sub-controller | Status | Devices |
 |---|---|---|
 | DetectHyperXPulsefireSurgeControllers | portiert | 2 |
-| DetectHyperXPulsefireFPSProControllers | nicht portiert (audit) | 3 |
+| DetectHyperXPulsefireFPSProControllers | portiert | 3 |
 | DetectHyperXPulsefireDartControllers | nicht portiert (audit) | 4 |
 | DetectHyperXPulsefireRaidControllers | nicht portiert (audit) | 1 |
 | DetectHyperXPulsefireHasteControllers | nicht portiert (audit) | 4 |
