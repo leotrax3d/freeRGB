@@ -60,3 +60,30 @@ release metadata provide integrity within that distribution channel, not an
 independent publisher signature. SmartScreen, signed publication, cross-version
 upgrade/rollback and native installer/UAC validation remain release decisions or
 gates described in `BETA_READINESS_AUDIT.md`.
+
+## Failure recovery simulation (WS4)
+
+`cargo test -p freergb-update --locked` exercises the production transfer and
+verification functions with interrupted readers, short/oversized/corrupt bytes,
+and a short write followed by simulated disk-full failure. Failed transfers remove
+their temporary file and preserve any existing verified destination. A leftover
+partial file cannot pass verification as the destination; tampering after staging
+is rejected by the same verification used before launch.
+
+A separate disk-backed installer model upgrades synthetic 0.1.0 bytes to 0.2.0,
+rejects a partial image before swapping, restores the exact old bytes after a
+simulated failed start, and succeeds on retry. It executes no installer or child
+process. This is model evidence, not implementation or acceptance of automatic
+rollback in Windows Setup. Installer SHA-256 checks are not publisher signatures;
+bad Ed25519 signatures are tested for module catalogs separately.
+
+### Owner acceptance steps
+
+On a disposable Windows VM, retain a snapshot and install the previous released
+version with test profiles. Upgrade through the visible updater to the next
+version, confirm the reported version and preserved profiles, then exercise UAC
+cancellation, interrupted download and insufficient disk space. Check that no
+partial installer launches. With the installer maintainer, inject a failed new
+start and verify the documented recovery procedure and prior profile/image state.
+Record results before claiming real cross-version or rollback acceptance. No such
+installation, service change or hardware write was performed for WS4.

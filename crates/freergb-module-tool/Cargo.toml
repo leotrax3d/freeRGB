@@ -11,6 +11,7 @@ publish = false
 freergb-modules.workspace = true
 freergb-module-api.workspace = true
 serde_json.workspace = true
+serde.workspace = true
 anyhow.workspace = true
 clap = { version = "4", features = ["derive"] }
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"] }
