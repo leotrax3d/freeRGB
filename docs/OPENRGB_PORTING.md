@@ -193,7 +193,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `ClevoLightbarController` | ported | `00f5cb2` | 1 | Direct mode fully ported: single "Lightbar" LED; feature reports `[14 00 01 R G B 00 00]` (SetColor) then `[08 22 01 06 64 01 00 00]` (SetMode: mode 1, speed default inverted 6, brightness 100). Brokered `send_feature`; serial/product/firmware reads omitted; Off/effects (Wave/Bounce/Marquee/Scan/Breathing) omitted. |
 | `MountainKeyboardController` | partial | `4d550e6` | 0 | 3 USB-HID detector rows inventoried (Mountain Everest, Everest 60 ANSI/ISO). Upstream protocol (chunked 65-byte direct-colour packets, wheel config, Save/SelectMode, effect modes) is not ported. Old branch module audited and reduced to inventory-only; no fabricated bytes are sent. |
 | `ThingMController` | ported | `4d550e6` | 1 | Direct mode fully ported for blink(1) mk2: two-LED layout (LED A/B), 9-byte feature report `[1, 0x63, R, G, B, 0, 0, led, 0]`, interface usage page 0xFF00 / usage 0x01. Off/Fade modes and serial/product reads omitted by module policy. |
-| `NvidiaESAController` | ported | `53295c4` | 1 | Direct mode fully ported: 5 zones (Front Drive Bays, Front USB, Rear, Internal, Front Audio), 4-byte output reports `0x42+zone` with inverted 4-bit channels. Init/shutdown/effect modes and serial reads omitted. |
+| `NvidiaESAController` | ported | `4b56674` | 1 | Direct mode fully ported: 5 zones (Front Drive Bays, Front USB, Rear, Internal, Front Audio), 4-byte output reports `0x42+zone` with inverted 4-bit channels. Init/shutdown/effect modes and serial reads omitted. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
