@@ -1,7 +1,7 @@
 //! Official-only catalog, bounded GitHub downloads and immutable local packages.
 //! Network jobs never hold the daemon's render mutex. TLS authenticates the
 //! official repository; size/SHA-256 bind each module to its catalog entry.
-use crate::runtime::{Fault, WasmEffect, MAX_WASM};
+use crate::runtime::{Fault, MAX_WASM};
 use freergb_modules::{
     catalog::Artifact,
     source::{Fetcher, Progress, Source},
@@ -228,6 +228,7 @@ pub struct View {
     pub source: String,
     pub catalog: Vec<Entry>,
     pub installed: Vec<Entry>,
+    pub disabled: BTreeSet<String>,
     pub job: Option<Job>,
     pub error: Option<String>,
     pub failure: Option<Failure>,
@@ -235,6 +236,8 @@ pub struct View {
 }
 struct State {
     catalog: Catalog,
+    proof: Option<crate::trust::Proof>,
+    disabled: BTreeSet<String>,
     installed: BTreeMap<String, Entry>,
     job: Option<Job>,
     error: Option<String>,
@@ -305,17 +308,33 @@ impl Manager {
     }
     fn open(root: PathBuf, source: Source, bundled: bool) -> Result<Arc<Self>> {
         std::fs::create_dir_all(root.join("packages")).map_err(|e| e.to_string())?;
-        let catalog_path = root.join("catalog.json");
-        let catalog = if catalog_path.exists() {
-            Catalog::parse(&read(&catalog_path, 256 * 1024)?)?
+        let proof_path = root.join("trusted-catalog.json");
+        let proof: Option<crate::trust::Proof> = if bundled && proof_path.exists() {
+            Some(
+                serde_json::from_slice(&read(&proof_path, 512 * 1024)?)
+                    .map_err(|e| e.to_string())?,
+            )
+        } else {
+            None
+        };
+        let catalog = if let Some(proof) = &proof {
+            proof.verify()?
         } else if bundled {
             Catalog::parse(include_bytes!("../../../effects/catalog.json"))?
+        } else if root.join("catalog.json").exists() {
+            Catalog::parse(&read(&root.join("catalog.json"), 256 * 1024)?)?
         } else {
             Catalog {
                 schema: 1,
                 sequence: 0,
                 effects: Vec::new(),
             }
+        };
+        let disabled = if root.join("disabled.json").exists() {
+            serde_json::from_slice(&read(&root.join("disabled.json"), 16 * 1024)?)
+                .map_err(|e| e.to_string())?
+        } else {
+            BTreeSet::new()
         };
         let index = root.join("installed.json");
         let installed: BTreeMap<String, Entry> = if index.exists() {
@@ -351,6 +370,8 @@ impl Manager {
             bundled,
             state: Mutex::new(State {
                 catalog,
+                proof,
+                disabled,
                 installed,
                 job: None,
                 error: None,
@@ -369,6 +390,7 @@ impl Manager {
             source: self.source.describe(),
             catalog: s.catalog.effects.clone(),
             installed: s.installed.values().cloned().collect(),
+            disabled: s.disabled.clone(),
             job: s.job.clone(),
             error: s.error.clone(),
             failure: s.failure.clone(),
@@ -568,6 +590,18 @@ impl Manager {
                     let bytes = Fetcher::new(manager.source.clone())
                         .small("catalog.json", 256 * 1024)
                         .map_err(|e| e.to_string())?;
+                    let proof = if manager.bundled {
+                        let signature = Fetcher::new(manager.source.clone())
+                            .small("catalog.sig", 256)
+                            .map_err(|e| e.to_string())?;
+                        crate::trust::verify(&bytes, &signature)?;
+                        Some(crate::trust::Proof {
+                            catalog: String::from_utf8(bytes.clone()).map_err(|e| e.to_string())?,
+                            signature: String::from_utf8(signature).map_err(|e| e.to_string())?,
+                        })
+                    } else {
+                        None
+                    };
                     let catalog = Catalog::parse(&bytes)?;
                     let mut s = manager.lock();
                     if catalog.sequence < s.catalog.sequence
@@ -575,7 +609,12 @@ impl Manager {
                     {
                         return Err("Catalog rollback or conflicting sequence rejected".into());
                     }
-                    atomic(&manager.root.join("catalog.json"), &bytes)?;
+                    if let Some(proof) = &proof {
+                        atomic(&manager.root.join("trusted-catalog.json"), &json(proof)?)?;
+                    } else {
+                        atomic(&manager.root.join("catalog.json"), &bytes)?;
+                    }
+                    s.proof = proof;
                     s.catalog = catalog;
                     Ok(())
                 })();
@@ -659,16 +698,8 @@ impl Manager {
         if let Some(job) = &mut self.lock().job {
             job.stage = "validating".into();
         }
-        let fault = WasmEffect::fault();
-        let mut effect = WasmEffect::load(&bytes, &entry.values(&BTreeMap::new())?, fault.clone())?;
-        use freergb_effects::Effect;
-        effect.render(
-            std::time::Duration::ZERO,
-            &mut freergb_core::Canvas::new(128, 64),
-        );
-        if let Some(error) = fault.lock().unwrap_or_else(|e| e.into_inner()).clone() {
-            return Err(error);
-        }
+        let host = crate::process::HostCommand::sibling().map_err(|e| e.to_string())?;
+        crate::process::ProcessEffect::load(&host, &bytes, &entry.values(&BTreeMap::new())?)?;
         {
             let mut state = self.lock();
             if self.cancel.load(Ordering::SeqCst) {
@@ -687,6 +718,24 @@ impl Manager {
             if old != entry {
                 return Err("Published effect versions are immutable; use a new version".into());
             }
+        }
+        if self.bundled
+            && !Catalog::parse(include_bytes!("../../../effects/catalog.json"))?
+                .effects
+                .contains(&entry)
+        {
+            let proof = self
+                .lock()
+                .proof
+                .clone()
+                .ok_or("Missing signed effect catalog")?;
+            if !proof.verify()?.effects.contains(&entry) {
+                return Err("Package is not in signed catalog".into());
+            }
+            atomic(
+                &dir.join(format!("{}.proof.json", entry.version)),
+                &json(&proof)?,
+            )?;
         }
         atomic(&dir.join(format!("{}.wasm", entry.version)), &bytes)?;
         atomic(&meta, &json(&entry)?)?;
@@ -717,18 +766,49 @@ impl Manager {
             .map_err(|e| e.to_string())?;
         read(&path, MAX_WASM)
     }
+    pub fn enabled(&self, id: &str) -> bool {
+        let s = self.lock();
+        s.installed.contains_key(id) && !s.disabled.contains(id)
+    }
+    pub fn set_enabled(&self, id: &str, enabled: bool) -> Result<()> {
+        let mut s = self.lock();
+        if s.job.is_some() {
+            return Err("Another marketplace operation is running".into());
+        }
+        if !s.installed.contains_key(id) {
+            return Err("Effect is not installed".into());
+        }
+        let mut disabled = s.disabled.clone();
+        disabled.retain(|id| s.installed.contains_key(id));
+        if enabled {
+            disabled.remove(id);
+        } else {
+            disabled.insert(id.into());
+        }
+        atomic(&self.root.join("disabled.json"), &json(&disabled)?)?;
+        s.disabled = disabled;
+        Ok(())
+    }
     pub fn load(
-        &self,
+        self: &Arc<Self>,
         id: &str,
         version: &str,
         parameters: &BTreeMap<String, f64>,
         fault: Fault,
-    ) -> Result<WasmEffect> {
+    ) -> Result<crate::lifecycle::ManagedEffect> {
+        crate::lifecycle::ManagedEffect::load(self.clone(), id, version, parameters, fault)
+    }
+    pub(crate) fn package(
+        &self,
+        id: &str,
+        version: &str,
+        parameters: &BTreeMap<String, f64>,
+    ) -> Result<(Vec<u8>, Vec<f64>)> {
         if !safe(id) || !safe(version) {
             return Err("Invalid effect reference".into());
         }
-        if !self.lock().installed.contains_key(id) {
-            return Err("Effect is not installed".into());
+        if !self.enabled(id) {
+            return Err("Effect is disabled or not installed".into());
         }
         let dir = self.root.join("packages").join(id);
         let entry: Entry =
@@ -738,9 +818,26 @@ impl Manager {
         if entry.id != id || entry.version != version {
             return Err("Stored package identity mismatch".into());
         }
+        if self.bundled
+            && !Catalog::parse(include_bytes!("../../../effects/catalog.json"))?
+                .effects
+                .contains(&entry)
+        {
+            let proof: crate::trust::Proof = serde_json::from_slice(&read(
+                &dir.join(format!("{version}.proof.json")),
+                512 * 1024,
+            )?)
+            .map_err(|e| e.to_string())?;
+            if !proof.verify()?.effects.contains(&entry) {
+                return Err("Stored package is not signed".into());
+            }
+        }
         let bytes = read(&dir.join(format!("{version}.wasm")), MAX_WASM)?;
         verified(&entry, &bytes)?;
-        WasmEffect::load(&bytes, &entry.values(parameters)?, fault)
+        Ok((bytes, entry.values(parameters)?))
+    }
+    pub(crate) fn reload_error(&self, error: String) {
+        self.lock().error = Some(error);
     }
     pub fn uninstall(&self, id: &str) -> Result<()> {
         let mut s = self.lock();

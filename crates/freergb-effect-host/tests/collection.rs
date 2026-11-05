@@ -52,6 +52,7 @@ fn development_install_is_offline_and_has_no_community_client() {
     assert_eq!(m.view().catalog.len(), 28);
     for e in m.view().catalog {
         m.install(&e.id).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(30);
         while m.busy() {
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(1));

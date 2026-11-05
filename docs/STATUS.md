@@ -30,7 +30,7 @@ infer completion from a build, simulator, detected device or old pending CI note
 - [x] Experimental iCUE LINK lighting implementation and selected-device acceptance. Evidence: [devices](DEVICES.md), [protocols](PROTOCOLS.md).
 - [x] Declarative device descriptions and process-device plugin foundation. Evidence: [plugins](PLUGIN_SYSTEM.md).
 - [ ] Extended simultaneous-device soak and LINK promotion beyond experimental. Evidence: [worklist](archive/WORKLIST.md).
-- [ ] Hardware process-plugin acceptance, effect plugins and install/hot reload. Evidence: [plugins](PLUGIN_SYSTEM.md).
+- [ ] Hardware process-plugin acceptance, effect plugins and install/hot reload. Evidence: [plugins](PLUGIN_SYSTEM.md), [effect lifecycle and owner acceptance](EFFECT_PLUGINS.md).
 - [ ] ASUS header colour/fallback acceptance and configuration UI. Evidence: [mainboard RGB](MAINBOARD_RGB.md).
 - [x] Downloadable hardware modules: signed catalog, verified atomic install, brokered module processes and setup UI (simulation and process tests; first module ports OpenRGB Razer). Evidence: [hardware modules](HARDWARE_MODULES.md).
 - [ ] Razer Chroma module hardware acceptance and first published signed module release (needs release key). Evidence: [hardware modules](HARDWARE_MODULES.md).

@@ -1843,6 +1843,7 @@ name = "freergb-effect-host"
 version = "0.1.0-beta.4"
 dependencies = [
  "base64 0.22.1",
+ "ed25519-dalek",
  "freergb-core",
  "freergb-effects",
  "freergb-modules",
@@ -1851,6 +1852,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tokio",
  "wasmi",
  "wat",
 ]

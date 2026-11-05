@@ -161,5 +161,8 @@ crash-frame, hang-shutdown, malformed, oversized, wrong-id, wrong-version).
 exact RGB values, reconnect, frame size checks, malformed manifests and fault handling.
 `scripts/smoke-daemon.ps1 -WithPlugin` covers real Windows IPC and start/stop/restart.
 
-Next stages: hardware protocol plugins after validation; effect-process plugins;
-brokered shared transport; manifest installation/hot reload. These are not implemented.
+Effect packages have a separate signed marketplace, WASM process sandbox and live
+reload lifecycle; see [EFFECT_PLUGINS.md](EFFECT_PLUGINS.md). This does not change
+the native device-plugin trust model described above. Hardware protocol validation,
+brokered shared transport and native device-plugin installation/hot reload remain
+future work.

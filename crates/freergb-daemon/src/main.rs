@@ -160,6 +160,12 @@ fn module_manager(args: &Args) -> Result<Option<Arc<freergb_modules::setup::Mana
 }
 
 fn main() -> Result<()> {
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|arg| arg == "--effect-worker")
+    {
+        return freergb_effect_host::process::serve().map_err(Into::into);
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),

@@ -8,7 +8,7 @@ export interface Package {
 }
 export interface MarketplaceStatus {
   packages: {
-    source: string; catalog: Package[]; installed: Package[]; error: string | null;
+    source: string; catalog: Package[]; installed: Package[]; disabled?: string[]; error: string | null;
     failure: { code: string; effect_id: string | null; version: string | null } | null;
     ratings: Ratings;
     job: { action: string; id: string | null; stage: string; bytes: number; total: number } | null;

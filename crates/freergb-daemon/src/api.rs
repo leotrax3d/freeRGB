@@ -291,15 +291,15 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 None => Err((-32003,"Marketplace is unavailable".into())),
             }
         }
-        "marketplace.uninstall" => {
+        "marketplace.enable" | "marketplace.disable" | "marketplace.uninstall" => {
             let engine = lock(engine);
             let id = params["id"].as_str().unwrap_or_default();
-            if matches!(engine.effect(), EffectSpec::Marketplace { id: active, .. } if active == id) {
-                Err((-32000, "Switch to another effect before uninstalling the active package".into()))
-            } else {
-                engine.marketplace.as_ref().ok_or((-32003,"Marketplace is unavailable".into()))
-                    .and_then(|m| m.uninstall(id).map(|()|json!(true)).map_err(|e|(-32000,e)))
-            }
+            engine.marketplace.as_ref().ok_or((-32003,"Marketplace is unavailable".into()))
+                .and_then(|manager| {
+                    let result = if method == "marketplace.uninstall" { manager.uninstall(id) }
+                        else { manager.set_enabled(id, method == "marketplace.enable") };
+                    result.map(|()|json!(true)).map_err(|e|(-32000,e))
+                })
         }
         "daemon.version" => Ok(json!({
             "api_version": API_VERSION,

@@ -1,0 +1,2 @@
+# Effect catalog public release key, owned by the module-signing key holder.
+23469f6bec07ca5df93240261eaf3015b2ca8dbe37226e201499d1a8c1823c4a

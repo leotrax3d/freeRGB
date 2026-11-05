@@ -18,6 +18,7 @@ function EffectCard({ pkg, installed, status, disabled, run }: {
   const active = status.active.type === "marketplace" && status.active.id === pkg.id;
   const current = active && status.active.type === "marketplace" ? status.active : null;
   const target = installed ?? pkg;
+  const packageDisabled = status.packages.disabled?.includes(pkg.id) ?? false;
   const [installStarted, setInstallStarted] = useState<number | null>(null);
   const [installAccepted, setInstallAccepted] = useState(false);
   useEffect(() => {
@@ -49,8 +50,9 @@ function EffectCard({ pkg, installed, status, disabled, run }: {
         {update && <p className="text-caption text-accent">Update available · {installed.version} → {pkg.version}</p>}
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
           {!ready && <Button disabled={disabled || installStarted !== null} onClick={async () => {setInstallAccepted(false);setInstallStarted(Date.now()); if (await run("marketplace.install", { id: pkg.id })) setInstallAccepted(true); else setInstallStarted(null);}}><Download className="size-4" />{update ? "Update" : "Install"}</Button>}
-          {installed && <Button disabled={disabled} onClick={async () => {if(await run("effects.set", { type: "marketplace", id: pkg.id, version: target.version, parameters: current?.version === target.version ? current.parameters : defaults(target) })) useNavigation.getState().go("lighting");}}>Open in Lighting</Button>}
-          {installed && <Button variant="ghost" aria-label={`Uninstall ${pkg.name}`} title={active ? "Switch to another effect before uninstalling" : "Uninstall effect"} disabled={disabled || active} onClick={() => void run("marketplace.uninstall", { id: pkg.id })}><Trash2 className="size-4" /></Button>}
+          {installed && <Button disabled={disabled || packageDisabled} onClick={async () => {if(await run("effects.set", { type: "marketplace", id: pkg.id, version: target.version, parameters: current?.version === target.version ? current.parameters : defaults(target) })) useNavigation.getState().go("lighting");}}>Open in Lighting</Button>}
+          {installed && <Button variant="secondary" disabled={disabled} aria-label={`${packageDisabled ? "Enable" : "Disable"} ${pkg.name}`} onClick={() => void run(packageDisabled ? "marketplace.enable" : "marketplace.disable", { id: pkg.id })}>{packageDisabled ? "Enable" : "Disable"}</Button>}
+          {installed && <Button variant="ghost" aria-label={`Uninstall ${pkg.name}`} title="Uninstall effect" disabled={disabled} onClick={() => void run("marketplace.uninstall", { id: pkg.id })}><Trash2 className="size-4" /></Button>}
         </div>
       </div>
     </article>

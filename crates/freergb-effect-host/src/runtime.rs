@@ -21,7 +21,10 @@ pub struct WasmEffect {
 
 impl WasmEffect {
     pub fn load(bytes: &[u8], parameters: &[f64], fault: Fault) -> Result<Self, String> {
-        if bytes.len() > MAX_WASM || parameters.len() > 16 {
+        if bytes.len() > MAX_WASM
+            || parameters.len() > 16
+            || parameters.iter().any(|p| !p.is_finite())
+        {
             return Err("Effect exceeds package or parameter limit".into());
         }
         let mut config = Config::default();
@@ -73,7 +76,7 @@ impl WasmEffect {
         Arc::new(Mutex::new(None))
     }
 
-    fn frame(&mut self, t: Duration, canvas: &mut Canvas) -> Result<(), String> {
+    pub(crate) fn frame(&mut self, t: Duration, canvas: &mut Canvas) -> Result<(), String> {
         // A shared 128x64 effect surface keeps work independent of LED count.
         let w = canvas.width().min(128);
         let h = canvas.height().min(64);
