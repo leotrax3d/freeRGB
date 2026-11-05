@@ -511,3 +511,10 @@ Rules during the transition:
 3. Whether desktop automation (app profiles, hotkeys, alerts) should eventually move
    into the daemon so it runs without an open GUI.
 4. Native title bar (recommended for now) vs. custom title bar.
+
+---
+
+## 8. Languages and accessibility (WS5)
+
+The desktop app ships English and German with a runtime language switch and keyboard/screen-reader
+improvements; how it works and how views add strings is documented in [I18N.md](I18N.md).

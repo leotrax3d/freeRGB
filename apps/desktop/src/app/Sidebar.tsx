@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { BrandWordmark } from "@/components/brand";
 import { StatusDot } from "@/components/status";
+import { t } from "@/lib/i18n";
 import { useDaemon } from "@/lib/store/daemon";
 import { cn } from "@/lib/utils";
 import { useNavigation } from "./navigation";
@@ -22,7 +23,7 @@ function NavItem({ view, active, onSelect }: { view: ViewDef; active: boolean; o
       )}
     >
       <Icon className={cn("size-4", active ? "text-text" : "text-text-subtle group-hover:text-text-muted")} />
-      <span className="flex-1 text-left">{view.label}</span>
+      <span className="flex-1 text-left">{t(view.label)}</span>
     </button>
   );
 }
@@ -31,13 +32,13 @@ function ServiceStatus() {
   const connection = useDaemon((s) => s.connection);
   const fps = useDaemon((s) => s.diagnostics?.measured_fps);
   const mode = useDaemon((s) => s.mode);
-  if (mode === "mock") return <StatusDot tone="warn" label="Mock data" />;
-  if (!connection) return <StatusDot tone="idle" label="Connecting…" />;
-  if (!connection.connected) return <StatusDot tone="error" label="Service offline" />;
+  if (mode === "mock") return <StatusDot tone="warn" label={t("status.mock")} />;
+  if (!connection) return <StatusDot tone="idle" label={t("status.connecting")} />;
+  if (!connection.connected) return <StatusDot tone="error" label={t("status.offline")} />;
   return (
     <StatusDot
       tone="ok"
-      label={fps === undefined ? "Service running" : `Running · ${fps.toFixed(0)} fps`}
+      label={fps === undefined ? t("status.running") : t("status.runningFps", { fps: fps.toFixed(0) })}
       className="tabular"
     />
   );
@@ -60,7 +61,7 @@ export function Sidebar() {
   const footer = VIEWS.filter((v) => v.group === "footer");
   const openPalette = usePalette((s) => s.open);
   return (
-    <nav ref={nav} onKeyDown={onKeyDown} aria-label="Main" className="flex w-60 shrink-0 flex-col gap-1 bg-bg px-3 pb-3 pt-5">
+    <nav ref={nav} onKeyDown={onKeyDown} aria-label={t("nav.main")} className="flex w-60 shrink-0 flex-col gap-1 bg-bg px-3 pb-3 pt-5">
       <div className="mb-5 flex items-center gap-3 px-3">
         <BrandWordmark height={26} />
       </div>
@@ -68,16 +69,18 @@ export function Sidebar() {
         type="button"
         onClick={openPalette}
         data-tour="search"
+        aria-keyshortcuts="Control+K"
+        aria-label={t("nav.searchAria")}
         className="mb-4 flex h-9 items-center gap-2.5 rounded-control border border-border px-3 text-small text-text-subtle transition-colors hover:border-border-strong hover:text-text-muted"
       >
         <Search className="size-4" />
-        <span className="flex-1 text-left">Search</span>
-        <kbd className="rounded-chip bg-surface px-1.5 font-sans text-caption">Ctrl K</kbd>
+        <span className="flex-1 text-left">{t("nav.search")}</span>
+        <kbd className="rounded-chip bg-surface px-1.5 font-sans text-caption" aria-hidden>Ctrl K</kbd>
       </button>
       <div data-tour="nav" className="flex flex-col">
       {(Object.keys(GROUP_LABELS) as (keyof typeof GROUP_LABELS)[]).map((group) => (
-        <div key={group} className="mb-3 flex flex-col gap-0.5">
-          <span className="px-3 pb-1 text-caption font-medium text-text-subtle">{GROUP_LABELS[group]}</span>
+        <div key={group} role="group" aria-labelledby={`nav-group-${group}`} className="mb-3 flex flex-col gap-0.5">
+          <span id={`nav-group-${group}`} className="px-3 pb-1 text-caption font-medium text-text-subtle">{t(GROUP_LABELS[group])}</span>
           {VIEWS.filter((v) => v.group === group).map((v) => (
             <NavItem key={v.id} view={v} active={view === v.id} onSelect={() => go(v.id)} />
           ))}

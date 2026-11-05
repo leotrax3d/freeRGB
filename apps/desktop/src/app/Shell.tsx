@@ -1,11 +1,12 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/toast";
 import { CommandPalette } from "./CommandPalette";
 import { Tour, useFirstRunTour } from "./Tour";
 import { BrandRing } from "@/components/brand";
-import { Banner, EmptyState } from "@/components/status";
+import { Banner, EmptyState, InlineError } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { transport } from "@/lib/api/transport";
+import { t, tn, useLocale } from "@/lib/i18n";
 import { rpc, useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
 import { Sidebar } from "./Sidebar";
@@ -31,18 +32,17 @@ function ServiceUnavailable({ error }: { error: string | null }) {
   return (
     <EmptyState
       icon={<BrandRing size={48} className="opacity-40 grayscale" />}
-      title="The freeRGB service is not running"
+      title={t("shell.offline.title")}
       action={
         <div className="flex flex-col items-center gap-3">
           <Button variant="primary" onClick={start} disabled={starting}>
-            {starting ? "Starting…" : "Start service"}
+            {starting ? t("shell.offline.starting") : t("shell.offline.start")}
           </Button>
-          {startError && <p className="text-small text-danger-text">{startError}</p>}
+          {startError && <InlineError>{startError}</InlineError>}
         </div>
       }
     >
-      Lighting keeps running in the background service, independent of this window. Start it here, with the
-      freeRGB launcher, or with <code className="font-mono text-caption">freergbd</code>.
+      {t("shell.offline.text")} <code className="font-mono text-caption">freergbd</code>.
       {error && <span className="mt-3 block text-caption text-text-subtle">{error}</span>}
     </EmptyState>
   );
@@ -58,15 +58,14 @@ function Conflicts() {
   if (paused)
     return (
       <Banner tone="info">
-        <span className="flex-1">Lighting is paused — your devices show their own hardware lighting. Fans are not affected.</span>
-        <Button size="sm" onClick={() => void rpc("lighting.pause", { paused: false })}>Resume lighting</Button>
+        <span className="flex-1">{t("shell.paused")}</span>
+        <Button size="sm" onClick={() => void rpc("lighting.pause", { paused: false })}>{t("shell.resume")}</Button>
       </Banner>
     );
   if (!conflicts?.length) return null;
   return (
     <Banner tone="warn">
-      {conflicts.join(", ")} {conflicts.length === 1 ? "is" : "are"} running — freeRGB leaves your hardware alone
-      until {conflicts.length === 1 ? "it is" : "they are"} closed.
+      {tn("shell.conflict", conflicts.length, { names: conflicts.join(", ") })}
     </Banner>
   );
 }
@@ -78,12 +77,41 @@ export function Shell() {
   const offline = connection && !connection.connected;
   const onboardingDone = useDaemon((s) => s.onboarding?.completed === true);
   const View = def.component;
+  // A language change remounts the whole tree so every plain `t()` call re-runs.
+  const locale = useLocale((s) => s.locale);
+  const main = useRef<HTMLElement>(null);
+  const firstView = useRef(true);
   useEffect(preloadViews, []);
   useFirstRunTour();
+  // After navigating, move focus to the new page so keyboard and screen-reader
+  // users start at its top instead of in the sidebar. Not on the first render.
+  useEffect(() => {
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
+    main.current?.focus({ preventScroll: true });
+  }, [view]);
   return (
-    <div className="flex h-full bg-bg">
+    <div key={locale} className="flex h-full bg-bg">
+      <a
+        href="#main-content"
+        onClick={(e) => {
+          e.preventDefault();
+          main.current?.focus();
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-control focus:bg-text focus:px-4 focus:py-2 focus:text-black"
+      >
+        {t("a11y.skip")}
+      </a>
       <Sidebar />
-      <main className="my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-panel bg-surface">
+      <main
+        id="main-content"
+        ref={main}
+        tabIndex={-1}
+        aria-label={t(def.label)}
+        className="my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-panel bg-surface outline-none"
+      >
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-8">
             <Conflicts />

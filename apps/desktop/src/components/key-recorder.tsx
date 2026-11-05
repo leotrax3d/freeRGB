@@ -1,5 +1,6 @@
 import { Keyboard, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const MODIFIER_ORDER = ["ctrl", "alt", "shift", "meta"] as const;
@@ -8,7 +9,7 @@ const LABELS: Record<string, string> = {
   ctrl: "Ctrl",
   alt: "Alt",
   shift: "Shift",
-  meta: "Win",
+  meta: "Win", // Windows key; the same cap label is used in German
   enter: "Enter",
   escape: "Esc",
   tab: "Tab",
@@ -62,7 +63,7 @@ export function KeyRecorder({
   onChange,
   accept,
   label,
-  placeholder = "Click and press keys",
+  placeholder = t("keys.placeholder"),
 }: {
   value: string[];
   onChange: (keys: string[]) => void;
@@ -108,7 +109,7 @@ export function KeyRecorder({
       <button
         ref={box}
         type="button"
-        aria-label={`${label}: ${value.length ? value.join(" + ") : "none"}. Press Enter, then the keys.`}
+        aria-label={t("keys.aria", { label, value: value.length ? value.join(" + ") : t("keys.none") })}
         onClick={() => setRecording(true)}
         onBlur={() => setRecording(false)}
         onKeyDown={onKeyDown}
@@ -127,13 +128,13 @@ export function KeyRecorder({
         ) : (
           <span className="flex items-center gap-2 px-1 text-small text-text-subtle">
             <Keyboard className="size-4" />
-            {recording ? "Press keys…" : placeholder}
+            {recording ? t("keys.recording") : placeholder}
           </span>
         )}
         {recording && shown.length > 0 && <span className="ml-1 text-caption text-info-text">…</span>}
       </button>
       {value.length > 0 && !recording && (
-        <button type="button" aria-label={`Clear ${label}`} onClick={() => onChange([])} className="rounded-chip p-1 text-text-subtle hover:text-text">
+        <button type="button" aria-label={t("keys.clear", { label })} onClick={() => onChange([])} className="rounded-chip p-1 text-text-subtle hover:text-text">
           <X className="size-3.5" />
         </button>
       )}

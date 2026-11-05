@@ -1,3 +1,4 @@
+import { hasMessage, t } from "@/lib/i18n";
 import type { EffectName, EffectSpec, Rgb } from "./types";
 
 /** Display order and labels; matches `EffectSpec::NAMES` in freergb-effects. */
@@ -34,7 +35,8 @@ export const EFFECT_FIELDS: Record<EffectSpec["type"], readonly string[]> = {
 };
 
 export function effectLabel(name: string): string {
-  return EFFECTS.find((e) => e.name === name)?.label ?? (name === "marketplace" ? "Marketplace effect" : "Unknown effect");
+  const key = `effect.${name}`;
+  return hasMessage(key) ? t(key) : t("effect.unknown");
 }
 
 const css = ({ r, g, b }: Rgb) => `rgb(${r} ${g} ${b})`;

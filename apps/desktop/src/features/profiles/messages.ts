@@ -1,0 +1,53 @@
+import { defineMessages } from "@/lib/i18n";
+
+const en = {
+  "profileview.title": "Profiles",
+  "profileview.description": "Snapshots of your effect and brightness. Load one to switch instantly.",
+  "profileview.off.title": "Profiles are turned off",
+  "profileview.off.text": "The service was started with --no-state, so nothing can be saved. Restart it without that option to use profiles.",
+  "profileview.save": "Save current lighting",
+  "profileview.name": "Profile name",
+  "profileview.placeholder": "e.g. Evening",
+  "profileview.submit": "Save profile",
+  "profileview.saved": "Profile {name} saved",
+  "profileview.loaded": "Profile {name} loaded",
+  "profileview.deleted": "Profile {name} deleted",
+  "profileview.list": "Saved profiles — click to load",
+  "profileview.none": "No profiles yet.",
+  "profileview.running": "Running — click to load again",
+  "profileview.load": "Load {name}",
+  "profileview.loading": "Loading…",
+  "profileview.active": "Active",
+  "profileview.modified": "Modified",
+  "profileview.modifiedHint": "Loaded last, but the lighting has changed since — click to restore",
+  "profileview.delete": "Delete {name}",
+  "profileview.auto": "Automatic switching",
+  "profileview.autoText": "Application profiles (switch when a program comes to the foreground) still run in freeRGB Classic. They move here once that logic is shared between both apps (M5).",
+} as const;
+
+const de: Record<keyof typeof en, string> = {
+  "profileview.title": "Profile",
+  "profileview.description": "Momentaufnahmen von Effekt und Helligkeit. Lade eines, um sofort umzuschalten.",
+  "profileview.off.title": "Profile sind ausgeschaltet",
+  "profileview.off.text": "Der Dienst wurde mit --no-state gestartet, deshalb kann nichts gespeichert werden. Starte ihn ohne diese Option neu, um Profile zu nutzen.",
+  "profileview.save": "Aktuelle Beleuchtung speichern",
+  "profileview.name": "Profilname",
+  "profileview.placeholder": "z. B. Abend",
+  "profileview.submit": "Profil speichern",
+  "profileview.saved": "Profil {name} gespeichert",
+  "profileview.loaded": "Profil {name} geladen",
+  "profileview.deleted": "Profil {name} gelöscht",
+  "profileview.list": "Gespeicherte Profile – zum Laden anklicken",
+  "profileview.none": "Noch keine Profile.",
+  "profileview.running": "Läuft – anklicken, um erneut zu laden",
+  "profileview.load": "{name} laden",
+  "profileview.loading": "Wird geladen…",
+  "profileview.active": "Aktiv",
+  "profileview.modified": "Geändert",
+  "profileview.modifiedHint": "Zuletzt geladen, aber die Beleuchtung wurde seitdem geändert – anklicken zum Wiederherstellen",
+  "profileview.delete": "{name} löschen",
+  "profileview.auto": "Automatisches Umschalten",
+  "profileview.autoText": "Anwendungsprofile (Umschalten, wenn ein Programm in den Vordergrund kommt) laufen noch in freeRGB Classic. Sie ziehen hierher um, sobald diese Logik von beiden Apps gemeinsam genutzt wird (M5).",
+};
+
+export const { t } = defineMessages("profileview", { en, de });

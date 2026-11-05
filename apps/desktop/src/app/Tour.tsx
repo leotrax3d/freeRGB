@@ -1,8 +1,10 @@
 import { X } from "lucide-react";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { BrandRing } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import { useFocusTrap } from "@/lib/a11y";
+import { t, type MessageKey } from "@/lib/i18n";
 import { useDaemon } from "@/lib/store/daemon";
 import { useNavigation } from "./navigation";
 import type { ViewId } from "./views";
@@ -13,27 +15,20 @@ interface Step {
   /** `data-tour` value of the element to highlight; none = centered card. */
   target?: string;
   view?: ViewId;
-  title: string;
-  text: string;
-  demoText?: string;
+  title: MessageKey;
+  text: MessageKey;
+  demoText?: MessageKey;
 }
 
 const STEPS: Step[] = [
-  {
-    title: "Welcome to freeRGB",
-    text: "Your lighting runs in a small background service. This window is only the remote control — close it whenever you like, the lights keep running.",
-    demoText: "Explore the real desktop interface with virtual devices. This browser demo runs entirely in this tab; nothing connects to hardware, and changes reset when reloaded.",
-  },
-  { target: "nav", title: "Everything in one place", text: "Light, hardware and automation, grouped on the left. Arrow keys move through the list." },
-  { target: "search", title: "Quick search", text: "Press Ctrl+K anywhere to jump to a view, start an effect or load a profile." },
-  { target: "now", view: "lighting", title: "What is running", text: "The current effect and the overall brightness for all devices." },
-  { target: "effects", view: "lighting", title: "Pick an effect", text: "One click switches every device. Your own saved effects appear below the list." },
-  { target: "inspector", view: "lighting", title: "Fine-tune it", text: "Colours, speed and more for the running effect. Changes apply live and are remembered by the service.", demoText: "Try colours, speed and brightness. The preview updates here; these changes are held only in this tab." },
-  { target: "status", title: "Service status", text: "Shows whether the background service is running and how smoothly it renders.", demoText: "Mock data means virtual hardware. Sensor readings and performance values are illustrative, not measurements." },
-  {
-    title: "You're set",
-    text: "Place your devices under Layout so effects line up with your desk. You can start this tour again any time in Settings.",
-  },
+  { title: "tour.welcome.title", text: "tour.welcome.text", demoText: "tour.welcome.demo" },
+  { target: "nav", title: "tour.nav.title", text: "tour.nav.text" },
+  { target: "search", title: "tour.search.title", text: "tour.search.text" },
+  { target: "now", view: "lighting", title: "tour.now.title", text: "tour.now.text" },
+  { target: "effects", view: "lighting", title: "tour.effects.title", text: "tour.effects.text" },
+  { target: "inspector", view: "lighting", title: "tour.inspector.title", text: "tour.inspector.text", demoText: "tour.inspector.demo" },
+  { target: "status", title: "tour.status.title", text: "tour.status.text", demoText: "tour.status.demo" },
+  { title: "tour.done.title", text: "tour.done.text" },
 ];
 
 export const useTour = create<{ step: number | null; start: () => void; stop: () => void }>((set) => ({
@@ -100,6 +95,8 @@ export function Tour() {
     if (current?.view) go(current.view);
   }, [current, go]);
   const rect = useTargetRect(current?.target, step ?? -1);
+  const dialog = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialog, step !== null);
 
   useEffect(() => {
     if (step === null) return;
@@ -126,7 +123,7 @@ export function Tour() {
     : { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
 
   return (
-    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div ref={dialog} className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
       {rect ? (
         <div
           className="pointer-events-none absolute rounded-card transition-all duration-(--duration-slow) ease-(--ease-out)"
@@ -146,16 +143,16 @@ export function Tour() {
         style={card}
         key={step}
       >
-        <button type="button" onClick={stop} aria-label="Close tour" className="absolute right-3 top-3 rounded-chip p-1 text-text-subtle hover:text-text">
-          <X className="size-4" />
+        <button type="button" onClick={stop} aria-label={t("tour.close")} className="absolute right-3 top-3 rounded-chip p-1 text-text-subtle hover:text-text">
+          <X className="size-4" aria-hidden />
         </button>
         {!rect && <BrandRing size={32} className="mb-3" />}
         <h2 id="tour-title" className="pr-6 text-title font-semibold">
-          {current.title}
+          {t(current.title)}
         </h2>
-        <p className="mt-1.5 text-small text-text-muted">{simulated ? current.demoText ?? current.text : current.text}</p>
+        <p className="mt-1.5 text-small text-text-muted">{t(simulated ? current.demoText ?? current.text : current.text)}</p>
         <div className="mt-5 flex items-center gap-2">
-          <div className="flex gap-1" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
+          <div className="flex gap-1" role="img" aria-label={t("tour.step", { n: step + 1, total: STEPS.length })}>
             {STEPS.map((_, i) => (
               <span key={i} className={i === step ? "h-1.5 w-4 rounded-full bg-text" : "size-1.5 rounded-full bg-white/20"} />
             ))}
@@ -163,11 +160,11 @@ export function Tour() {
           <div className="ml-auto flex gap-2">
             {step > 0 && (
               <Button size="sm" variant="ghost" onClick={back}>
-                Back
+                {t("common.back")}
               </Button>
             )}
             <Button size="sm" variant="primary" onClick={next} autoFocus>
-              {last ? "Done" : step === 0 ? "Show me" : "Next"}
+              {last ? t("common.done") : step === 0 ? t("tour.showMe") : t("common.next")}
             </Button>
           </div>
         </div>

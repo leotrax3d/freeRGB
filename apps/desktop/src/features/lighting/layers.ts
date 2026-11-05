@@ -1,15 +1,16 @@
 import fixtures from "@/lib/api/fixtures/effects.json";
 import type { BlendMode, EffectName, Layer } from "@/lib/api/types";
+import type { LightingKey } from "./messages";
 
 /** Mirrors `freergb_effects::layers::MAX_LAYERS`. */
 export const MAX_LAYERS = 8;
 
-export const BLENDS: readonly { mode: BlendMode; label: string }[] = [
-  { mode: "normal", label: "Normal" },
-  { mode: "add", label: "Add" },
-  { mode: "multiply", label: "Multiply" },
-  { mode: "screen", label: "Screen" },
-  { mode: "max", label: "Max" },
+export const BLENDS: readonly { mode: BlendMode; label: LightingKey }[] = [
+  { mode: "normal", label: "lighting.blend.normal" },
+  { mode: "add", label: "lighting.blend.add" },
+  { mode: "multiply", label: "lighting.blend.multiply" },
+  { mode: "screen", label: "lighting.blend.screen" },
+  { mode: "max", label: "lighting.blend.max" },
 ];
 
 type LayerEffect = Layer["effect"];

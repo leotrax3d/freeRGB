@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/toast";
 import type { ModuleDeviceKind, SetupCard, SetupPhase } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { t } from "./messages";
 import { bytes, errorHint, PHASES } from "./model";
 
 const KIND_ICONS: Partial<Record<ModuleDeviceKind, LucideIcon>> = {
@@ -72,7 +73,7 @@ function PhaseLine({ card }: { card: SetupCard }) {
         )}
         aria-hidden
       />
-      {card.builtin && card.phase === "ready" ? "Ready · built in" : info.label}
+      {card.builtin && card.phase === "ready" ? t("setup.readyBuiltin") : t(info.label)}
     </span>
   );
 }
@@ -87,7 +88,7 @@ function Progress({ card }: { card: SetupCard }) {
       <div
         className="h-1.5 overflow-hidden rounded-full bg-surface-raised"
         role="progressbar"
-        aria-label={`Download for ${card.name}`}
+        aria-label={t("setup.card.download", { name: card.name })}
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={done}
@@ -95,8 +96,8 @@ function Progress({ card }: { card: SetupCard }) {
         <div className="h-full rounded-full bg-accent transition-[width] duration-(--duration-base)" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-caption text-text-subtle tabular">
-        {bytes(done)} of {bytes(total)}
-        {card.module && " · shared module"}
+        {t("setup.card.of", { done: bytes(done), total: bytes(total) })}
+        {card.module && t("setup.card.shared")}
       </span>
     </div>
   );
@@ -105,9 +106,9 @@ function Progress({ card }: { card: SetupCard }) {
 async function copyInfo(card: SetupCard) {
   try {
     await navigator.clipboard.writeText(card.technical);
-    toast("Device information copied");
+    toast(t("setup.card.copied"));
   } catch {
-    toast("Could not access the clipboard", "error");
+    toast(t("setup.card.clipboardFailed"), "error");
   }
 }
 
@@ -132,7 +133,7 @@ export const SetupCardView = memo(function SetupCardView({
   const hint = errorHint(card);
   return (
     <article
-      aria-label={`${card.name}: ${PHASES[card.phase].label}`}
+      aria-label={`${card.name}: ${t(PHASES[card.phase].label)}`}
       className={cn(
         "flex flex-col gap-3 rounded-card border bg-surface-sunken animate-[pop-in_var(--duration-slow)_var(--ease-out)_both]",
         compact ? "p-3" : "p-4",
@@ -153,26 +154,26 @@ export const SetupCardView = memo(function SetupCardView({
         </div>
         {selected !== undefined && onSelect && (
           <Checkbox checked={selected} onChange={onSelect} className="mt-1">
-            <span className="sr-only">Set up {card.name}</span>
+            <span className="sr-only">{t("setup.card.setUp", { name: card.name })}</span>
           </Checkbox>
         )}
       </header>
       <Progress card={card} />
       {card.phase === "detected" && card.download_size !== null && !card.installed && selected !== undefined && (
-        <p className="text-caption text-text-subtle">Needs a {bytes(card.download_size)} module download.</p>
+        <p className="text-caption text-text-subtle">{t("setup.card.needs", { size: bytes(card.download_size) })}</p>
       )}
-      {card.phase === "detected" && card.installed && <p className="text-caption text-text-subtle">Module already installed.</p>}
+      {card.phase === "detected" && card.installed && <p className="text-caption text-text-subtle">{t("setup.card.installed")}</p>}
       {card.phase === "failed" && (
         <div className="flex flex-col gap-2">
           <p className="rounded-chip bg-danger/10 px-2.5 py-1.5 text-caption text-danger-text">{hint}</p>
           <div className="flex items-center gap-2">
             {onRetry && (
               <Button size="sm" onClick={onRetry}>
-                <RotateCw /> Try again
+                <RotateCw aria-hidden /> {t("setup.card.retry")}
               </Button>
             )}
             <details className="text-caption text-text-subtle">
-              <summary className="cursor-pointer select-none">Details</summary>
+              <summary className="cursor-pointer select-none">{t("setup.card.details")}</summary>
               <p className="mt-1 select-text break-words font-mono">{card.error?.message}</p>
             </details>
           </div>
@@ -180,9 +181,9 @@ export const SetupCardView = memo(function SetupCardView({
       )}
       {card.phase === "unsupported" && (
         <div className="flex items-center justify-between gap-2">
-          <p className="text-caption text-text-subtle">freeRGB cannot control this device yet.</p>
+          <p className="text-caption text-text-subtle">{t("setup.card.cannot")}</p>
           <Button size="sm" variant="ghost" onClick={() => void copyInfo(card)}>
-            <Copy /> Copy device info
+            <Copy aria-hidden /> {t("setup.card.copy")}
           </Button>
         </div>
       )}

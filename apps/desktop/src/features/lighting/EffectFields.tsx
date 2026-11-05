@@ -2,6 +2,7 @@ import { Info } from "lucide-react";
 import { ColorField } from "@/components/color-picker";
 import { Slider } from "@/components/ui/slider";
 import type { EffectSpec, Rgb } from "@/lib/api/types";
+import { t } from "./messages";
 import { SCHEMA, type Field } from "./schema";
 
 export type FieldChange = (key: string, value: unknown, commit: boolean) => void;
@@ -18,11 +19,11 @@ function RangeField({
   return (
     <div className="flex flex-col gap-2 px-2 py-1.5">
       <div className="flex items-baseline justify-between">
-        <span className="text-body">{field.label}</span>
+        <span className="text-body">{t(field.label)}</span>
         <span className="text-small text-text-muted tabular">{field.format(value)}</span>
       </div>
       <Slider
-        aria-label={field.label}
+        aria-label={t(field.label)}
         min={field.min}
         max={field.max}
         step={field.step}
@@ -31,7 +32,7 @@ function RangeField({
         onValueChange={([v]) => onChange(v!, false)}
         onValueCommit={([v]) => onChange(v!, true)}
       />
-      {field.hint && <span className="text-caption text-text-subtle">{field.hint}</span>}
+      {field.hint && <span className="text-caption text-text-subtle">{t(field.hint)}</span>}
     </div>
   );
 }
@@ -46,7 +47,7 @@ export function EffectFields({ spec, onChange }: { spec: Exclude<EffectSpec, { t
         field.kind === "color" ? (
           <ColorField
             key={field.key}
-            label={field.label}
+            label={t(field.label)}
             value={values[field.key] as Rgb}
             onChange={(rgb) => onChange(field.key, rgb, false)}
             onCommit={(rgb) => onChange(field.key, rgb, true)}
@@ -62,8 +63,8 @@ export function EffectFields({ spec, onChange }: { spec: Exclude<EffectSpec, { t
       )}
       {note && (
         <p className="flex gap-2 px-2 pt-2 text-caption text-text-subtle">
-          <Info className="mt-px size-3.5 shrink-0" />
-          {note}
+          <Info className="mt-px size-3.5 shrink-0" aria-hidden />
+          {t(note)}
         </p>
       )}
     </div>

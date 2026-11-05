@@ -1,4 +1,6 @@
 import { Sparkles, Trash2 } from "lucide-react";
+import { InlineError } from "@/components/status";
+import { t } from "./messages";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Section } from "@/components/page";
 import type { EffectSpec } from "@/lib/api/types";
@@ -20,11 +22,9 @@ export function CustomEffects() {
     });
 
   return (
-    <Section title="Custom effects" aside={error && <span className="text-caption text-danger-text">{error}</span>}>
+    <Section title={t("lighting.custom")} aside={error && <InlineError>{error}</InlineError>}>
       {names.length === 0 ? (
-        <p className="text-small text-text-subtle">
-          Adjust an effect and use “Save as custom effect” in the settings panel to keep it here.
-        </p>
+        <p className="text-small text-text-subtle">{t("lighting.custom.empty")}</p>
       ) : (
         <ul className="flex flex-wrap gap-2">
           {names.map((name) => (
@@ -45,10 +45,10 @@ export function CustomEffects() {
                 {name}
               </button>
               <ConfirmButton
-                label={`Delete ${name}`}
+                label={t("lighting.custom.delete", { name })}
                 icon={<Trash2 />}
                 disabled={pending !== null}
-                onConfirm={() => run(name, () => rpc("custom_effects.delete", { name }), `Deleted ${name}`)}
+                onConfirm={() => run(name, () => rpc("custom_effects.delete", { name }), t("lighting.custom.deleted", { name }))}
               />
             </li>
           ))}

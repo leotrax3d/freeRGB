@@ -9,17 +9,19 @@ import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useDaemonValue } from "@/lib/store/useDaemonValue";
 import { cn } from "@/lib/utils";
 import { CustomEffects } from "./CustomEffects";
+import { InlineError } from "@/components/status";
+import { t, type LightingKey } from "./messages";
 import { Inspector } from "./Inspector";
 import { useCurrentEffect } from "./useEffectDraft";
 import { InstalledEffects, useInstalledEffects } from "./InstalledEffects";
 
 const DEFAULTS = fixtures as Record<EffectName, EffectSpec>;
 
-const HINTS: Partial<Record<EffectName, string>> = {
-  audio_pulse: "Reacts to sound",
-  audio_spectrum: "Reacts to sound",
-  screen_ambience: "Mirrors your screen",
-  layers: "Your own mix",
+const HINTS: Partial<Record<EffectName, LightingKey>> = {
+  audio_pulse: "lighting.hint.sound",
+  audio_spectrum: "lighting.hint.sound",
+  screen_ambience: "lighting.hint.screen",
+  layers: "lighting.hint.layers",
 };
 
 function Brightness() {
@@ -30,7 +32,7 @@ function Brightness() {
       <div className="flex items-center gap-3">
         <Sun className="size-4 text-text-subtle" aria-hidden />
         <Slider
-          aria-label="Global brightness"
+          aria-label={t("lighting.brightness")}
           min={0}
           max={1}
           step={0.01}
@@ -40,7 +42,7 @@ function Brightness() {
         />
         <span className="w-10 text-right text-small text-text-muted tabular">{Math.round(value * 100)}%</span>
       </div>
-      {error && <p className="text-caption text-danger-text">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
     </div>
   );
 }
@@ -139,7 +141,7 @@ export default function LightingView() {
 
   return (
     <>
-      <PageHeader title="Lighting" />
+      <PageHeader title={t("lighting.title")} />
       {/* Wide: settings beside the effects. Narrow: settings under "Now running". */}
       <div className="@container">
         <div className="grid items-start gap-6 [grid-template-areas:'now'_'settings'_'effects'] @3xl:grid-cols-[minmax(0,1fr)_300px] @3xl:[grid-template-areas:'now_settings'_'effects_settings']">
@@ -147,13 +149,13 @@ export default function LightingView() {
             <NowPlaying />
           </div>
           <div className="flex min-w-0 flex-col gap-6 [grid-area:effects]">
-            <Section title="Effects" aside={error && <span className="text-caption text-danger-text">{error}</span>}>
+            <Section title={t("lighting.effects")} aside={error && <InlineError>{error}</InlineError>}>
               <div data-tour="effects" className="grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2">
-                {EFFECTS.map(({ name, label }) => (
+                {EFFECTS.map(({ name }) => (
                   <EffectTile
                     key={name}
                     name={name}
-                    label={label}
+                    label={effectLabel(name)}
                     spec={effect?.type === name ? effect : DEFAULTS[name]}
                     active={effect?.type === name}
                     busy={busy !== null}

@@ -1,7 +1,8 @@
 import { LoaderCircle, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigation } from "@/app/navigation";
-import { Banner } from "@/components/status";
+import { Banner, InlineError } from "@/components/status";
+import { t, tn } from "./messages";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useDaemon } from "@/lib/store/daemon";
@@ -20,11 +21,11 @@ function Overall({ cards }: { cards: SetupCard[] }) {
     <div className="flex flex-col gap-2" aria-live="polite">
       <div className="flex items-baseline justify-between text-small">
         <span className="text-text">
-          {s.working > 0 ? `Setting up ${s.working} of ${s.total}` : `${s.ready} ready${s.failed ? ` · ${s.failed} failed` : ""}`}
+          {s.working > 0 ? t("setup.wizard.working", { working: s.working, total: s.total }) : `${t("setup.wizard.ready", { ready: s.ready })}${s.failed ? t("setup.wizard.failed", { failed: s.failed }) : ""}`}
         </span>
         {downloading && status && (
           <span className="text-text-subtle tabular">
-            {bytes(status.job.bytes_done)} of {bytes(status.job.bytes_total)}
+            {t("setup.wizard.progress", { done: bytes(status.job.bytes_done), total: bytes(status.job.bytes_total) })}
           </span>
         )}
       </div>
@@ -52,9 +53,9 @@ function LightTest({ ready }: { ready: SetupCard[] }) {
   return (
     <section className="flex flex-col gap-3 rounded-card border border-border p-4">
       <div className="flex flex-col gap-1">
-        <h3 className="text-body font-medium">Optional light test</h3>
+        <h3 className="text-body font-medium">{t("setup.wizard.test")}</h3>
         <p className="text-small text-text-muted">
-          {simulated ? "This simulates a two-second light test. No physical device will light up." : "The chosen devices glow once in soft white for about two seconds, without flashing, and then return to the lighting freeRGB is showing now."}
+          {simulated ? t("setup.wizard.testSim") : t("setup.wizard.testReal")}
         </p>
       </div>
       <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -70,11 +71,11 @@ function LightTest({ ready }: { ready: SetupCard[] }) {
       </div>
       <div>
         <Button onClick={() => void setup.lightTest(chosen)} disabled={chosen.length === 0 || remaining !== null}>
-          {remaining !== null ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
-          {remaining !== null ? "Testing…" : "Run light test"}
+          {remaining !== null ? <LoaderCircle className="animate-spin" aria-hidden /> : <Sparkles aria-hidden />}
+          {remaining !== null ? t("setup.wizard.testing") : t("setup.wizard.runTest")}
         </Button>
       </div>
-      {setup.error && <p className="text-caption text-danger-text">{setup.error}</p>}
+      {setup.error && <InlineError>{setup.error}</InlineError>}
     </section>
   );
 }
@@ -135,24 +136,20 @@ export function SetupWizard({ embedded = false, onDone }: { embedded?: boolean; 
       <div className={embedded ? "flex w-full flex-col gap-6" : "flex w-full max-w-4xl flex-col gap-6 px-8 py-10"}>
         <header className="flex flex-col gap-1">
           <h1 id="setup-title" ref={heading} tabIndex={-1} className="text-page font-semibold tracking-tight outline-none">
-            {stage === "done" ? "Your devices are set up" : "Set up your devices"}
+            {stage === "done" ? t("setup.wizard.titleDone") : t("setup.wizard.title")}
           </h1>
           <p className="text-body text-text-muted">
-            {stage === "select" &&
-              "freeRGB looked for lighting devices. Supported ones are selected; freeRGB downloads only the modules they need."}
-            {stage === "working" && (simulated ? "Simulated setup — keep this tab open. Nothing is downloaded or installed." : "You can close this window — setup continues in the background service.")}
-            {stage === "done" && "Everything that could be set up is ready. You can change devices later under Devices."}
+            {stage === "select" && t("setup.wizard.introSelect")}
+            {stage === "working" && (simulated ? t("setup.wizard.introSim") : t("setup.wizard.introWorking"))}
+            {stage === "done" && t("setup.wizard.introDone")}
           </p>
         </header>
 
         {status.catalog.state === "error" && (
           <Banner tone="warn">
-            <span className="flex-1">
-              The module catalog is unavailable, so new devices cannot be set up right now. Installed modules keep
-              working offline.
-            </span>
+            <span className="flex-1">{t("setup.wizard.catalog")}</span>
             <Button size="sm" onClick={() => void setup.refreshCatalog()}>
-              Try again
+              {t("setup.card.retry")}
             </Button>
           </Banner>
         )}
@@ -160,7 +157,7 @@ export function SetupWizard({ embedded = false, onDone }: { embedded?: boolean; 
         {(searching || devices.length === 0) && stage === "select" && (
           <div className="flex items-center gap-3 text-small text-text-muted" role="status">
             {searching ? <LoaderCircle className="size-4 animate-spin" aria-hidden /> : null}
-            {searching ? "Looking for devices…" : "No lighting devices that need setup were found."}
+            {searching ? t("setup.wizard.searching") : t("setup.wizard.none")}
           </div>
         )}
 
@@ -187,7 +184,7 @@ export function SetupWizard({ embedded = false, onDone }: { embedded?: boolean; 
         {unsupported.length > 0 && (
           <details className="flex flex-col gap-3">
             <summary className="cursor-pointer text-small text-text-subtle">
-              {unsupported.length} device{unsupported.length === 1 ? "" : "s"} not yet supported
+              {tn("setup.wizard.unsupported", unsupported.length)}
             </summary>
             <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
               {unsupported.map((c, i) => (
@@ -198,42 +195,42 @@ export function SetupWizard({ embedded = false, onDone }: { embedded?: boolean; 
         )}
 
         {stage === "done" && <LightTest ready={ready} />}
-        {setup.error && <p role="alert" className="text-small text-danger-text">{setup.error}</p>}
+        {setup.error && <InlineError>{setup.error}</InlineError>}
 
         <footer className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-bg py-4">
           {stage === "select" ? (
             <>
               <Button variant="ghost" onClick={() => void finish()}>
-                {embedded ? "Skip devices" : "Skip for now"}
+                {embedded ? t("setup.wizard.skipEmbedded") : t("setup.wizard.skip")}
               </Button>
               <div className="flex items-center gap-3">
                 {chosen.length > 0 && (
                   <span className="text-small text-text-subtle tabular">
-                    {size.bytes > 0 ? `${bytes(size.bytes)} download` : "No download needed"}
-                    {size.unknown && " (size partly unknown)"}
+                    {size.bytes > 0 ? t("setup.wizard.download", { size: bytes(size.bytes) }) : t("setup.wizard.noDownload")}
+                    {size.unknown && t("setup.wizard.partly")}
                   </span>
                 )}
                 <Button variant="primary" disabled={chosen.length === 0 || setup.pending === "start"} onClick={() => void start(chosen)}>
-                  Set up{chosen.length > 0 ? ` ${chosen.length} device${chosen.length === 1 ? "" : "s"}` : ""}
+                  {chosen.length > 0 ? tn("setup.wizard.setUpN", chosen.length) : t("setup.wizard.setUp")}
                 </Button>
               </div>
             </>
           ) : stage === "working" ? (
             <>
               <Button variant="ghost" onClick={() => void setup.cancel()} disabled={!status.job.running}>
-                Cancel
+                {t("setup.wizard.cancel")}
               </Button>
               <Button variant="secondary" onClick={() => void finish()}>
-                Continue with working devices
+                {t("setup.wizard.continueWorking")}
               </Button>
             </>
           ) : (
             <>
               <span className="text-small text-text-subtle">
-                {summary(runCards).failed > 0 && "Failed devices can be retried here or later under Devices."}
+                {summary(runCards).failed > 0 && t("setup.wizard.retryLater")}
               </span>
               <Button variant="primary" onClick={() => void finish()}>
-                {embedded ? "Continue" : "Go to dashboard"}
+                {embedded ? t("setup.wizard.continue") : t("setup.wizard.dashboard")}
               </Button>
             </>
           )}
