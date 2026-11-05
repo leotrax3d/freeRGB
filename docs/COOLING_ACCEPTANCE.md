@@ -94,3 +94,18 @@ engineering effort. The earlier 55% estimate retained in the SVG is a different,
 rough historical estimate. README keeps the new generated checklist; no combined
 acceptance milestone was checked merely because the API/Classic implementation
 now builds. Incoming branding, website and README structure were preserved.
+
+## Owner acceptance session 2026-11-05 (prompt 07)
+
+Board ASUS PRIME X870-P WIFI, Nuvoton NCT6701D; installed with local installers
+built from `main` and `cooling/fix-reader-hang`. Fans stayed under firmware control
+throughout block A; no hardware writes.
+
+| Step | Build | Result | Observation |
+|---|---|---|---|
+| A0 upgrade over beta.4 | `c8b79fa` | pass | Setup replaced files, verified LHM, reinstalled the protected service; PawnIO and .NET already present. |
+| A1 discovery | `c8b79fa` | **fail** | Protected reader never delivered a first snapshot ("Motherboard reader is starting" for > 20 min). Cause: LHM storage enumeration (`IsStorageEnabled`, added with the sensor catalog) blocks `Computer.Open` in the LocalSystem worker; the 10 s first-reply timeout never fired on the synchronous redirected stdout. Fixed in `44781c2` (storage off, kill watchdog). |
+| A1 discovery | `44781c2` | **fail** | Broker now answers `ready` when the helper is run directly, but the daemon stayed `permission_denied`: it started ~3 s before the broker and its provider thread never retried a non-ready reply. Fixed in `79c2972` (retry every 5 s). |
+| A1 discovery | `79c2972` | **fail, then pass** | After setup the broker's single pipe instance stayed busy (ERROR_PIPE_BUSY 231) until `Restart-Service freeRGBMainboard`; afterwards `ready` within seconds. Root cause of the stuck instance is open. |
+| A1 inventory | `79c2972` | pass | 7 NCT6701D controls (tier `verified`, coverage `hardware-verified`), CHA_FAN2 = `control/2` (30 %, 697 rpm), second tachometer `fan/1` 1790 rpm (AIO pump). LHM also reports `/gpu-amd/5` fan/control. |
+| A1 pump safety | `79c2972` | **open** | The pump header is not identified automatically; no binding/pump confirmation exists after upgrade. Must be confirmed by the owner before any write step. |
