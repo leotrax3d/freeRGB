@@ -35,6 +35,13 @@ impl Module for Drgb {
         zones: Option<&[Zone]>,
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
+        let id = table::identify(i);
+        if !id.supported {
+            return Err(ModuleError::new(
+                ErrorCode::Unsupported,
+                id.reason.unwrap_or_else(|| "unsupported".into()),
+            ));
+        }
         let dev = crate::devices_table::DEVICES
             .iter()
             .find(|d| d.pid == i.pid)
@@ -47,8 +54,8 @@ impl Module for Drgb {
             _ => vec![dev.leds_per_channel; dev.channels],
         };
         let total: usize = channel_counts.iter().sum();
-        if total > 1800 {
-            return Err(err("DeepRGB frame exceeds 1800 LED Direct-mode limit"));
+        if total > 8192 {
+            return Err(err("DeepRGB frame exceeds 8192 LED Direct-mode limit"));
         }
         let leds = (0..total)
             .map(|n| Led {

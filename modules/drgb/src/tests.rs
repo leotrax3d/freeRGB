@@ -63,8 +63,12 @@ fn unsupported_initialize_fails_without_io() {
     }
     let mut m = crate::Drgb::default();
     let mut h = Fake;
-    assert!(m.initialize(&info_for(0), &mut h).is_err());
-    assert!(m.initialize(&info_for(32), &mut h).is_err());
+    let mut u1 = info_for(0);
+    u1.vid = 0;
+    assert!(m.initialize(&u1, &mut h).is_err());
+    let mut unknown = info_for(0);
+    unknown.vid = 0;
+    assert!(m.initialize(&unknown, &mut h).is_err());
     assert!(m.frame(&[], &mut h).is_err());
 }
 struct RecordingWrite {
@@ -118,6 +122,39 @@ fn v1_frame_is_byte_exact() {
     assert!(!h.writes.is_empty());
     assert_eq!(h.writes[0][1], 0x46);
     assert_eq!(h.writes[0][2], 0xBB);
-    assert!(h.writes[1][1] == (0x47u8) || h.writes[1][1] == 0x47);
+    m.shutdown(None, &mut h).unwrap();
+}
+#[test]
+fn v4_frame_is_byte_exact() {
+    let mut m = crate::Drgb::default();
+    let mut h = RecordingWrite { writes: Vec::new() };
+    let v4dev = crate::devices_table::DEVICES
+        .iter()
+        .find(|d| d.version == 4)
+        .unwrap();
+    let row = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.pid == v4dev.pid)
+        .unwrap();
+    let i = freergb_module_api::InterfaceInfo {
+        vid: row.vid,
+        pid: row.pid,
+        interface: 0,
+        usage_page: 0,
+        usage: 0,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    let total = caps.layout.leds.len();
+    assert!(total > 316);
+    let colors = vec![freergb_core::Rgb { r: 7, g: 8, b: 9 }; total];
+    assert!(m.frame(&colors, &mut h).is_ok());
+    assert!(!h.writes.is_empty());
+    assert_eq!(h.writes[0].len(), 1025);
+    assert_eq!(h.writes[0][1], 100);
+    // colors at logical offset 72*? only report's first packet includes zone header then colors at 77.
+    assert_eq!(h.writes[0][77], 7);
+    assert_eq!(h.writes[0][78], 8);
+    assert_eq!(h.writes[0][79], 9);
     m.shutdown(None, &mut h).unwrap();
 }

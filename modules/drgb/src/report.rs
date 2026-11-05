@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use freergb_core::Rgb;
 pub const REPORT_LEN: usize = 65;
+pub const V4_REPORT_LEN: usize = 1025;
+pub const V4_ONE_PACKAGE_SIZE: usize = 316;
+pub const V4_PACKAGE_SIZE: usize = 340;
+pub const V4_HEADER_SIZE: usize = 72;
 pub fn frames(version: u8, counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
     match version {
         2 => frames_v2(counts, colors),
@@ -18,7 +22,7 @@ pub fn frames_v1(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
     }
     let total = data.len() / 3;
     let mut out = Vec::new();
-    let mut header = vec![0u8; REPORT_LEN];
+    let mut header = [0u8; REPORT_LEN];
     header[1] = 0x46;
     header[2] = 0xBB;
     let mut offset = 3usize;
@@ -30,7 +34,7 @@ pub fn frames_v1(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
         header[offset + 1] = (count & 0xFF) as u8;
         offset += 2;
     }
-    out.push(header);
+    out.push(header.to_vec());
     if total == 0 {
         return out;
     }
@@ -45,9 +49,9 @@ pub fn frames_v1(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
         let mut p = vec![0u8; REPORT_LEN];
         p[1] = marker;
         let start = i * 63;
-        let end = (start + 63).min(data.len());
-        if end > start {
-            p[2..2 + (end - start)].copy_from_slice(&data[start..end]);
+        let endb = (start + 63).min(data.len());
+        if endb > start {
+            p[2..2 + (endb - start)].copy_from_slice(&data[start..endb]);
         }
         out.push(p);
     }
@@ -60,11 +64,9 @@ pub fn frames_v2(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
         if count == 0 {
             continue;
         }
-        // Slice this zone's colors from the flattened input.
-        let zone_start = consumed;
-        let zone_end = consumed + count.min(colors.len().saturating_sub(consumed));
-        let zone_colors = if zone_start < colors.len() {
-            &colors[zone_start..zone_end]
+        let zone_colors = if consumed < colors.len() {
+            let end = (consumed + count).min(colors.len());
+            &colors[consumed..end]
         } else {
             &[] as &[Rgb]
         };
@@ -98,7 +100,6 @@ pub fn frames_v2(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
     }
     out
 }
-
 pub fn frames_v3(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
     let mut data = Vec::with_capacity(colors.len() * 3);
     for c in colors {
@@ -108,7 +109,7 @@ pub fn frames_v3(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
     }
     let total = data.len() / 3;
     let mut out = Vec::new();
-    let mut header = vec![0u8; REPORT_LEN];
+    let mut header = [0u8; REPORT_LEN];
     header[1] = 0x60;
     header[2] = 0xBB;
     let mut offset = 3usize;
@@ -120,7 +121,6 @@ pub fn frames_v3(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
         header[offset + 1] = (count & 0xFF) as u8;
         offset += 2;
     }
-    out.push(header);
     if total == 0 {
         return out;
     }
@@ -143,55 +143,53 @@ pub fn frames_v3(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
     }
     out
 }
-
 pub fn frames_v4(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
-    let total = colors.len();
-    let mut data = vec![0u8; total * 3 + 72];
-    for (z, &count) in counts.iter().enumerate() {
+    let zones_count = counts;
+    let mut data = vec![0u8; colors.len() * 3 + V4_HEADER_SIZE];
+    for (z, &count) in zones_count.iter().enumerate() {
         if z * 2 + 1 < data.len() {
             data[z * 2 + 1] = (count & 0xFF) as u8;
         }
     }
     for (i, c) in colors.iter().enumerate() {
-        let off = 72 + i * 3;
+        let off = V4_HEADER_SIZE + i * 3;
         if off + 2 < data.len() {
             data[off] = c.r;
             data[off + 1] = c.g;
             data[off + 2] = c.b;
         }
     }
-    let n_packets = if total <= 316 {
+    let total = colors.len();
+    let n_packets = if total <= V4_ONE_PACKAGE_SIZE {
         1usize
     } else {
-        1 + ((total - 316) / 340) + (((total - 316) % 340) > 0) as usize
+        1 + ((total - V4_ONE_PACKAGE_SIZE) / V4_PACKAGE_SIZE)
+            + (((total - V4_ONE_PACKAGE_SIZE) % V4_PACKAGE_SIZE) > 0) as usize
     };
     let mut out = Vec::new();
+    // header color-less report is raw 1025? SendPacketFS uses ArrayData 65; raw branch writes 64 bytes. In freeRGB send separately 65-byte header.
+    // no separate header report for V4; it is embedded in the flat data buffer above
+
     for i in 0..n_packets {
         let count_for_packet = if i == 0 {
-            total.min(316)
+            total.min(V4_ONE_PACKAGE_SIZE)
         } else {
-            let consumed = 316 + (i - 1) * 340;
-            (total - consumed).min(340)
+            let consumed = V4_ONE_PACKAGE_SIZE + (i - 1) * V4_PACKAGE_SIZE;
+            (total - consumed).min(V4_PACKAGE_SIZE)
         };
         let marker = (100 + i) as u8;
-        let mut buf = vec![0u8; REPORT_LEN];
+        let mut buf = vec![0u8; V4_REPORT_LEN];
         buf[1] = marker;
         buf[2] = (n_packets + 99) as u8;
         buf[3] = (count_for_packet >> 8) as u8;
         buf[4] = (count_for_packet & 0xFF) as u8;
         let start = i * 1020;
         let endb = (start + 1020).min(data.len());
-        if endb > start && buf.len() >= 6 {
-            let dst_end = (5 + (endb - start)).min(buf.len());
-            if dst_end > 5 {
-                buf[5..dst_end]
-                    .copy_from_slice(&data[start..start + (dst_end - 5).min(data.len() - start)]);
-            }
+        if endb > start {
+            let bytes = endb - start;
+            buf[5..5 + bytes].copy_from_slice(&data[start..endb]);
         }
         out.push(buf);
-    }
-    if total == 0 {
-        out.push(vec![0u8; REPORT_LEN]);
     }
     out
 }
