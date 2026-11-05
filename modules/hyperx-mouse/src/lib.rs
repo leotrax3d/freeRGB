@@ -22,6 +22,7 @@ pub struct HyperX {
     leds: usize,
     fps: bool,
     raid: bool,
+    haste: bool,
     leds_vec: Vec<Led>,
 }
 impl freergb_module_api::sdk::Module for HyperX {
@@ -47,7 +48,10 @@ impl freergb_module_api::sdk::Module for HyperX {
             .iter()
             .find(|dev| {
                 dev.pid == d.pid
-                    && (dev.protocol == "surge" || dev.protocol == "fps" || dev.protocol == "raid")
+                    && (dev.protocol == "surge"
+                        || dev.protocol == "fps"
+                        || dev.protocol == "raid"
+                        || dev.protocol == "haste")
             })
             .ok_or_else(|| err("HyperX mouse controller path not ported"))?;
         // upstream: RGBController_HyperXPulsefireSurge.cpp SetupZones()
@@ -56,9 +60,10 @@ impl freergb_module_api::sdk::Module for HyperX {
         self.leds = dev.leds;
         self.fps = dev.protocol == "fps";
         self.raid = dev.protocol == "raid";
+        self.haste = dev.protocol == "haste";
         self.active = true;
         let count = self.leds;
-        let (zones, leds): (Vec<Zone>, Vec<Led>) = if self.fps {
+        let (zones, leds): (Vec<Zone>, Vec<Led>) = if self.fps || self.haste {
             (
                 vec![Zone {
                     name: "Logo".into(),
@@ -154,6 +159,9 @@ impl freergb_module_api::sdk::Module for HyperX {
         } else if self.raid {
             h.send_feature(&report::raid_direct(c[0], c[1]))
                 .map_err(err)?;
+        } else if self.haste {
+            h.send_feature(&report::haste_setup()).map_err(err)?;
+            h.send_feature(&report::haste_color(c[0])).map_err(err)?;
         } else {
             h.send_feature(&report::surge_direct(c)).map_err(err)?;
         }

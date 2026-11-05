@@ -45,7 +45,10 @@ fn only_ported_devices_are_claimed() {
         let id = crate::table::identify(&i);
         assert_eq!(
             id.supported,
-            dev.protocol == "surge" || dev.protocol == "fps" || dev.protocol == "raid"
+            dev.protocol == "surge"
+                || dev.protocol == "fps"
+                || dev.protocol == "raid"
+                || dev.protocol == "haste"
         );
     }
 }
@@ -184,6 +187,36 @@ fn fps_full_sequence_is_byte_exact() {
     assert_eq!(h.features.len(), 1);
 }
 
+#[test]
+fn haste_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingFeature::new();
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler.contains("Haste"))
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: d.interface as i32,
+        usage_page: d.usage_page,
+        usage: d.usage,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 1);
+    assert_eq!(caps.layout.leds[0].name, "Logo");
+    assert!(h.features.is_empty());
+    m.frame(&[Rgb { r: 7, g: 8, b: 9 }], &mut h).unwrap();
+    assert_eq!(h.features.len(), 2);
+    // upstream: SendDirectSetup then SendDirectColor
+    assert_eq!(&h.features[0][0..9], &[0, 4, 0xF2, 0, 0, 0, 0, 0, 0x02]);
+    assert_eq!(&h.features[1][0..9], &[0, 0x81, 7, 8, 9, 0, 0, 0, 0x02]);
+    assert_eq!(h.features[0].len(), 65);
+    assert_eq!(h.features[1].len(), 65);
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.features.len(), 2);
+}
 #[test]
 fn raid_full_sequence_is_byte_exact() {
     let mut m = crate::HyperX::default();

@@ -34,16 +34,15 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
             && (d.interface == 255 || i32::from(d.interface) == i.interface)
             && d.usage_page == i.usage_page
     });
-    // The Pulsefire Surge and FPS Pro/Core controller paths are ported so
-    // far; the Dart / Raid / Haste feature report layouts stay unsupported.
+    // Ported so far: Surge, FPS Pro/Core, Raid, Haste. Dart stays unsupported.
     let ported = d.and_then(|d| {
-        crate::devices_table::DEVICES
-            .iter()
-            .find(|dev| {
-                dev.pid == d.pid
-                    && (dev.protocol == "surge" || dev.protocol == "fps" || dev.protocol == "raid")
-            })
-            .map(|dev| (dev.protocol, dev.leds))
+        crate::devices_table::DEVICES.iter().find(|dev| {
+            dev.pid == d.pid
+                && (dev.protocol == "surge"
+                    || dev.protocol == "fps"
+                    || dev.protocol == "raid"
+                    || dev.protocol == "haste")
+        })
     });
     if let (Some(d), Some(_)) = (d, ported) {
         return Identification {
@@ -54,9 +53,8 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
         };
     }
     Identification {
-        // Detector inventory is not a protocol implementation: the unused
-        // upstream controllers send 264/65-byte feature reports with different
-        // layouts (FPS/Dart/Haste/Raid direct frames, Haste setup packet).
+        // Detector inventory is not a protocol implementation: Dart direct
+        // writes (00 D2 per-LED) are not yet ported.
         supported: false,
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::Mouse),
@@ -69,8 +67,19 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
     }
 }
 pub fn device(i: &InterfaceInfo) -> Option<&'static Device> {
-    let d = detector(i)?;
-    crate::devices_table::DEVICES
-        .iter()
-        .find(|dev| dev.pid == d.pid)
+    if let Some(d) = detector(i) {
+        if let Some(dev) = crate::devices_table::DEVICES
+            .iter()
+            .find(|dev| dev.pid == d.pid)
+        {
+            if dev.protocol == "surge"
+                || dev.protocol == "fps"
+                || dev.protocol == "raid"
+                || dev.protocol == "haste"
+            {
+                return Some(dev);
+            }
+        }
+    }
+    None
 }

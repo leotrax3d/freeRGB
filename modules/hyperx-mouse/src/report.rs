@@ -56,6 +56,22 @@ pub fn raid_direct(c0: freergb_core::Rgb, c1: freergb_core::Rgb) -> Vec<u8> {
     p[8] = 0xA0;
     p
 }
+pub fn haste_setup() -> Vec<u8> {
+    let mut p = vec![0u8; 65];
+    p[1] = 0x04;
+    p[2] = 0xF2;
+    p[8] = 0x02;
+    p
+}
+pub fn haste_color(c: freergb_core::Rgb) -> Vec<u8> {
+    let mut p = vec![0u8; 65];
+    p[1] = 0x81;
+    p[2] = c.r;
+    p[3] = c.g;
+    p[4] = c.b;
+    p[8] = 0x02;
+    p
+}
 #[cfg(test)]
 mod tests {
     use super::*;
