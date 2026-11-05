@@ -1807,6 +1807,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-aoc-mousemat"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-api"
 version = "0.1.0"
 dependencies = [
@@ -2024,7 +2033,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-gamesir"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-gigabyte-aorus-laptop"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-gigabyte-aorus-mouse"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2069,7 +2096,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-ionico"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-lenovo"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-lexip-mouse"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2097,6 +2142,15 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-luxafor"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-madcatz-cyborg"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2150,6 +2204,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-n5312a"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-nollie"
 version = "0.1.0"
 dependencies = [
@@ -2160,6 +2223,15 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-nzxt-hue2"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-nzxt-mouse"
 version = "0.1.0"
 dependencies = [
  "freergb-core",

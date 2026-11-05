@@ -164,7 +164,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `CorsairLightingNodeController` | ported | `9314d1f` | 7 | Direct mode fully ported for all 7 detector rows: PortState/Direct(R,G,B planes, 50-LED blocks with running offset)/Commit per channel, two 204-LED-max zones. 5s keepalive and firmware read omitted |
 | `CorsairCommanderCoreController` | ported | `f3f3e79` | 7 | Direct mode fully ported for all 7 rows: SendCommand framing [00 08 cmd] (V2 97/V3 65/XT 385/V1 1025 bytes via FW-major-1 negotiation), version query [02 13], SetFanMode fan-mode payload (XT shifts), GetLedCounts endpoint read (pump + host-configured fan zones), 699/1224-byte RGB buffer with 34-LED zone padding, chunked WriteData (06-header + 07 continuations), hardware-mode shutdown. 10 s keepalive thread and 33 ms throttle omitted (no timer threads in the module API); XT external-port SetLedAmount exposed only as tested builder |
 | `AsusMonitorController` | ported | `26aa68c` | 7 | Direct mode fully ported: LED-count query (byte 32 response), SendInit, single SetDirect packet; interface 1/2 + usage 0xFF72/0x00A1 matching; fails closed on missing response |
-| `DRGBController` | ported | TBD | 33 | All versions (V1, V2, V3, V4) Direct-mode ported (append-only 65/1025-byte reports; V1/V3 header+0x47/0x64 and 0xA3/0xC8; V2 zone reports 0xBB; V4 316/340 + 948 packed bytes at i*1020). Upstream 500 ms keepalive omitted; default per-channel LED allocation avoided by using runtime zone counts. |
+| `DRGBController` | ported | `96bb611` | 33 | All versions (V1,V2,V3,V4) Direct-mode fully ported (append-only 65/1025-byte reports; V1/V3 header+0x47/0x64 and 0xA3/0xC8 markers; V2 per-zone 20-LED reports 0xBB; V4 316/340-byte-cap reports with 1020-byte flat chunks). Upstream 500 ms keepalive omitted; byte-exact runtime-controlled zones. |
 | `NZXTHue2Controller` | ported | `241dc17` | 21 | Direct mode fully ported for all 21 detector rows: device-list query, id-to-LED table (0x10..0x1F fixed), per-channel direct/apply incl. empty channels, RGB channel counts from upstream spawn_hue calls. Fan/pump/temperature reads and 2023-effects omitted |
 | `FnaticStreakController` | partial | `d14c9ac` | 0 | 3 detector rows audited; fabricated 1-LED feature report removed. Direct mode needs the fragmented SendRequest framing plus 0x07 keepalive (full 124 / mini 106 LEDs) or the Streak65 `0F 15` packet with 0xFF padding |
 | `GigabyteAorusLaptopController` | ported | `2de0d2e` | 2 | Direct mode fully ported for both Keyboard rows: single-LED 9-byte feature report with checksum, brightness default 0x19; backlight rows unsupported (no direct mode upstream); interface 3/usage 0xFF01/1 matching |
@@ -208,15 +208,6 @@ unclear upstream licensing or missing upstream hardware information. User-sized
 LED layouts use the optional initialize `zones` parameter documented in
 `docs/HARDWARE_MODULES.md`.
 
-
-
-
-
-
-
-
-
-
 ## TODO / Fortschritt (freeRGB Portierung)
 
 - [x] Teil A – Aufräumen/Audit (Mountain, ThingM)
@@ -224,18 +215,25 @@ LED layouts use the optional initialize `zones` parameter documented in
 - [x] Dream Cheeky
 - [x] Clevo Lightbar
 - [x] Tecknet M008
-- [x] MSI 3-Zone
+- [x] MSI 3‑Zone
 - [x] Dark Project KD3B V2
 - [x] Corsair K55 RGB PRO XT
-- [ ] Corsair K65 Mini (Subagent-Analyse läuft)
-- [ ]~Corsair Peripheral Generic ~ blocked: shared KeyboardLayoutManager + 42K key mappings; Direct mode not supported for keyboards.
- -[x] DRGBController (33) (all Direct versions; keepalive omitted)
+- [x] Corsair K65 Mini
+- [x] Corsair Peripheral Generic – Mouse/Mat/ST100 (+16)
+- [ ] Corsair Peripheral Generic – Keyboards STREAM 0x7F (blockiert)
+- [x] Patriot Viper V550
+- [x] DRGB V1–V4 (33, Direct complete, keepalive omitted)
+- [x] GameSir
+- [x] Lexip Np93 ALPHA
+- [x] MadCatz Cyborg
+- [x] Gigabyte Aorus Mouse
+- [x] N5312A
+- [x] Ionico
+- [x] NZXT Mouse
+- [x] AOC Mousemat
 - [ ] CoolerMasterController (38)
 - [ ] RoccatController (28)
-- [ ] AsusAuraUSB (Mouse, Mousemat, HeadsetStand, Monitor, RyuoAIO, ROG, Keyboard, TUF, Mainboard)
+- [ ] AsusAuraUSB (ohne 0b05:19af)
+- [ ] weitere kleine Familien (Cougar, LegoDimensions, RealtekARGB, Skydimo, XPG Summoner …)
 
-Last update: K65 port (122e71), TODO updated.
-
-
-
-
+Last update: DRGB all versions ported.
