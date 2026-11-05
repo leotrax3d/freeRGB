@@ -441,7 +441,8 @@ impl Session {
             if *stop.0.lock().unwrap_or_else(|e| e.into_inner()) {
                 return Ok(());
             }
-            let timeout = Duration::from_secs(if initial { 10 } else { 3 });
+            // Steady deadline matches the broker worker deadline (6 s, acceptance item 8).
+            let timeout = Duration::from_secs(if initial { 10 } else { 6 });
             let request_at = Instant::now();
             let request = tokio::time::timeout(timeout, async {
                 self.input

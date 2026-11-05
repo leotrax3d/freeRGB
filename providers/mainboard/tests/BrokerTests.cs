@@ -221,10 +221,35 @@ internal static class BrokerTests
         }
         Assert(cache.Read().Contains("reader failed") && !cache.Read().Contains("starting"), "Silent worker left the reader starting.");
     }
+    // Item 8: a slow CPU sensor (1.8 s per update) must not stretch every reply;
+    // the motherboard is updated on every snapshot, the CPU about every second snapshot,
+    // and a fast GPU keeps its per-snapshot cadence.
+    private static void CadenceTests()
+    {
+        var cadence = new UpdateCadence();
+        long now = 0, longest = 0; int boardUpdates = 0, cpuUpdates = 0, gpuUpdates = 0;
+        for (int snapshot = 0; snapshot < 30; snapshot++)
+        {
+            long reply = 0;
+            Assert(cadence.Due("/motherboard", true, now), "Motherboard must be updated on every snapshot.");
+            cadence.Record("/motherboard", now, 120); reply += 120; boardUpdates++;
+            if (cadence.Due("/amdcpu/0", false, now + reply)) { cadence.Record("/amdcpu/0", now + reply, 1800); reply += 1800; cpuUpdates++; }
+            if (cadence.Due("/gpu-amd/5", false, now + reply)) { cadence.Record("/gpu-amd/5", now + reply, 40); reply += 40; gpuUpdates++; }
+            longest = Math.Max(longest, reply);
+            Assert(cadence.AgeMs("/amdcpu/0", now + reply) <= 4500, "Reused CPU values grew too old: " + cadence.AgeMs("/amdcpu/0", now + reply));
+            now += reply + 1000; // broker waits 1 s between snapshots
+        }
+        Assert(boardUpdates == 30 && gpuUpdates == 30, "Fast hardware lost its per-snapshot cadence.");
+        Assert(cpuUpdates >= 12 && cpuUpdates <= 16, "Slow CPU was not sampled on its own cadence: " + cpuUpdates);
+        Assert(longest < 6000, "A snapshot exceeded the broker steady deadline.");
+        Assert(cadence.IntervalMs("/amdcpu/0") == UpdateCadence.MaximumIntervalMs && cadence.IntervalMs("/gpu-amd/5") == UpdateCadence.MinimumIntervalMs, "Interval scaling wrong.");
+        var slow = cadence.Slow();
+        Assert(slow.Count == 1 && slow[0].Key == "/amdcpu/0" && slow[0].Value == 1800, "Slow hardware not reported.");
+    }
     private static int Main(string[] args)
     {
         if (args.Length == 1 && args[0] == "--silent-worker") { Thread.Sleep(30000); return 0; }
-        CacheTests(); SilentWorkerTests(); RequestTests(); PipeTests();
+        CacheTests(); SilentWorkerTests(); CadenceTests(); RequestTests(); PipeTests();
         Reject(delegate { BrokerService.CheckInstallation(true); }, "Unprotected worker startup accepted.");
         Reject(delegate { NativeProbeJob.Claim(); }, "Unprotected hardware diagnostic admission accepted.");
         Reject(delegate { NativeControl.CreateProtected(new object(), false); }, "Unprotected native control factory accepted.");

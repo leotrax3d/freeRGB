@@ -184,7 +184,7 @@ internal sealed class BrokerService : ServiceBase
                         {
                             long began = BrokerCache.Now;
                             child.StandardInput.WriteLine("snapshot"); child.StandardInput.Flush();
-                            cache.Store(ReadWorkerReply(child, first ? 10000 : 3000), began);
+                            cache.Store(ReadWorkerReply(child, first ? 30000 : 6000), began);
 #if BROKER_FIXTURE_CLIENT_AUTH
                             if (first)
                             {
