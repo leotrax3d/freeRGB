@@ -93,6 +93,7 @@ members = [
     "modules/acer-nitro-hid-led",
     "modules/roccat-burst-pro-air",
     "modules/amd-wraith-prism",
+    "modules/creative-soundblaster-xg6",
 ]
 
 [workspace.package]

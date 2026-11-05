@@ -200,6 +200,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AcerNitroHidLed` | ported | `85e97f4` | 1 | Direct-mode keeper for the single LED: 11-byte feature report 0xA4, device id 0x65, mode 0x02, brightness 100, zone select 1. Effects omitted. |
 | `RoccatBurstProAirController` | ported | `080488d` | 1 | Direct mode fully ported: 4-LED mouse, 30-byte feature report report ID 0x06, RGB per LED with marker values 0xFF; effects, SetModeValues and reads omitted. |
 | `AMDWraithPrismController` | ported | `a99a4bb` | 1 | Direct mode fully ported: 17 LEDs (Logo, Fan, Ring×15), enable/apply plus two color packets (2+15 LEDs) with hardware ID ordering; effects, firmware read, Save and brightness parameters omitted. |
+| `CreativeController` (XG6) | ported | pending | 1 | Direct mode fully ported: single Logo LED, three 64-byte output reports with report ID 0, color order BGR at bytes 10-12, fixed brightness 0xFF. Effects and Save omitted. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
@@ -226,6 +227,8 @@ LED layouts use the optional initialize `zones` parameter documented in
 - [x] MSI Optix (12 LEDs)
 - [x] Acer Nitro HID LED (1 LED)
 - [x] Roccat Burst Pro Air (4 LEDs)
+- [x] AMD Wraith Prism (17 LEDs)
+- [x] Creative SoundBlasterX G6 (1 LED)
 - [x] AMD Wraith Prism (17 LEDs)
 - [x] Clevo Lightbar
 - [x] Tecknet M008
