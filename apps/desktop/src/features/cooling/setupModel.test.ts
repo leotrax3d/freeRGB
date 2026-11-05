@@ -39,3 +39,18 @@ describe("guided setup model", () => {
     expect(c.critical_c).toBeLessThanOrEqual(100);
   });
 });
+
+describe("role gate", () => {
+  it("lists every header with a tachometer but no role", async () => {
+    const { unassignedRoles } = await import("./setupModel");
+    const views = [
+      { id: "c1", role: null, rpm: { id: "f1" }, rpmValue: 1700 },
+      { id: "c2", role: "pump" as const, rpm: { id: "f2" }, rpmValue: 1750 },
+      { id: "c3", role: null, rpm: null, rpmValue: null },
+      { id: "c4", role: "fan" as const, rpm: { id: "f4" }, rpmValue: 900 },
+      { id: "c5", role: null, rpm: null, rpmValue: 600 },
+    ];
+    expect(unassignedRoles(views).map((v) => v.id)).toEqual(["c1", "c5"]);
+    expect(unassignedRoles(views.filter((v) => v.role !== null))).toEqual([]);
+  });
+});
