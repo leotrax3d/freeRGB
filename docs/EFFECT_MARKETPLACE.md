@@ -10,7 +10,9 @@ selected effect after login/reboot; this feature does not install a second servi
 
 The host, package manager and examples are Rust. Built-in effects keep their
 existing native render path. Downloadable effects are portable `no_std` Rust
-compiled to `wasm32-unknown-unknown`, executed by `wasmi` inside the daemon.
+compiled to `wasm32-unknown-unknown`, executed by `wasmi` in a sandboxed child
+process. [EFFECT_PLUGINS.md](EFFECT_PLUGINS.md) describes the process contract,
+signed catalogs, live reload and lifecycle behavior.
 There is no native dynamic-library loading or JavaScript execution.
 
 One guest instance is reused for the active selection. Parameters are sent once
@@ -21,11 +23,14 @@ brightness and output. Runtime cost does not grow with the number of devices.
 This resolution is appropriate for the current LED layouts; it is an explicit
 API-v1 quality limit, not a promise of arbitrary screen-resolution rendering.
 
-A local release-mode benchmark (`cargo run --release -p freergb-effect-host
---example benchmark`) measured approximately 0.94–1.56 ms per frame for the
-three examples, including sampling into the 320×200 canvas, over 300 frames each
-in the onboarding cloud instance. This is a sample, not a cross-machine latency
-guarantee or a benchmark of audio capture or physical device I/O.
+Before the process host, a local interpreter-only benchmark measured approximately
+0.94-1.56 ms per frame for the three examples, including sampling into the
+320x200 canvas, over 300 frames each in the onboarding cloud instance. Those
+historical figures exclude process IPC and are not a current host latency claim.
+To measure the current process host, first build its sibling worker with
+`cargo build --release -p freergb-effect-host --bin freergb-effect-worker`, then
+run `cargo run --release -p freergb-effect-host --example benchmark`. That run
+includes process IPC and canvas sampling, but excludes physical device I/O.
 
 Downloads run on separate threads without holding the engine mutex. Only one
 catalog/install job runs at a time. Activation validates the installed reference
@@ -41,9 +46,12 @@ Production source is fixed to `github:leotrax3d/FreeRGB@effects`. The existing
 GitHub release-asset transport is reused. Catalogs and packages come from that
 repository over verified HTTPS. Catalog entries may name release assets only;
 arbitrary URLs, paths and repositories are rejected. SHA-256 and exact size bind
-each downloaded program to its entry. This is a GitHub/TLS trust model, **not an
-Ed25519-signed catalog**. The hardware-module signing keys are deliberately not
-repurposed, and their signature requirements remain unchanged.
+each downloaded program to its entry. Remote catalogs additionally require an
+Ed25519 detached signature with a distinct effect domain, authenticated with the
+owner's release public key. Per-version signed proofs are checked on activation
+and reload. Compiled examples are trusted as application assets. See
+[EFFECT_PLUGINS.md](EFFECT_PLUGINS.md#installation-and-trust) for signing format
+and migration behavior. Hardware-module signature requirements remain unchanged.
 
 API v1 requires `permissions: []` and rejects unknown permissions and API
 versions. Guests have no WASI or other imports, so there is no direct filesystem,
@@ -58,8 +66,9 @@ Limits: 512 KiB per program, 8 MiB guest linear memory, one memory/table, 1,024
 table entries, 16 finite numeric parameters, 256 KiB/128 entries per catalog and
 2,000,000 interpreter fuel units per frame. Start functions and imports are
 rejected; initialization shares a bounded fuel allowance. Traps, exhausted fuel
-or invalid output buffers fault that effect and render black. The daemon and
-API remain available, and the fault is shown in Marketplace. Reapplying settings
+or invalid output buffers fault that child. A healthy previous child is restored
+after a reload fault; otherwise the previous daemon effect is restored (black
+when no previous selection exists). The fault is shown in Marketplace. Reapplying settings
 or choosing another effect resets the fault. A malformed installed package at
 startup falls back to the native default with a visible error; it does not stop
 the daemon. Failure to initialize the marketplace store disables Marketplace
@@ -72,8 +81,8 @@ Catalog, metadata and installed-index writes use temporary files and rename;
 package contents and hashes are rechecked on activation and restart. Offline
 installed effects need neither a catalog refresh nor network access.
 
-Uninstall removes the installed registration and prevents activation. It is
-rejected while that package is active. Immutable old versions and verified
+Uninstall removes the installed registration and prevents activation. An active
+selection falls back at the next frame, as does disabling an active package. Immutable old versions and verified
 downloads are retained as a local cache, so an older saved profile can work after
 reinstallation. A missing installation produces a clear error rather than
 silently substituting another effect. This cache does not allow uninstalled
@@ -109,6 +118,10 @@ For a new release, use a new version and strictly increasing sequence:
 ```bash
 python3 scripts/build-effects.py --version 1.0.1 --sequence 2 --out-dir /tmp/effect-release
 ```
+
+Remote publication must also include the domain-separated `catalog.sig` described
+in [EFFECT_PLUGINS.md](EFFECT_PLUGINS.md); unsigned refreshes are rejected. Signing
+workflow wiring is owned separately and remains an owner release step.
 
 The **Official effects** GitHub Actions workflow builds portable programs and
 uploads reviewable workflow artifacts by default. With its explicit `publish`
@@ -158,10 +171,11 @@ for metadata, supported numeric parameter schemas and preview colours.
 
 | Method | Parameters | Result |
 |---|---|---|
-| `marketplace.status` | none | `packages: {source, catalog, installed, job, error}`, `active`, `runtime_error` |
+| `marketplace.status` | none | `packages: {source, catalog, installed, disabled, job, error}`, `active`, `runtime_error` |
 | `marketplace.refresh` | none | `true` when job accepted; poll status until `job: null` and inspect `error` |
 | `marketplace.install` | `{id}` | `true` when install/update accepted; poll status for progress/completion |
-| `marketplace.uninstall` | `{id}` | `true`; rejects active packages or concurrent jobs |
+| `marketplace.uninstall` | `{id}` | `true`; active selection falls back; rejects concurrent jobs |
+| `marketplace.enable` / `marketplace.disable` | `{id}` | `true`; enabled state persists; disabled packages cannot activate |
 | `effects.set` | `{type:"marketplace", id, version, parameters:{speed:1, brightness:0.8}}` | `true` only after loading and saving the selection |
 
 Validation failures return normal local-API errors. Jobs expose action, id,

@@ -107,10 +107,19 @@ pub struct CoolingSupportEntry {
 /// Pseudo-conflict while the user paused lighting (shown like other conflicts).
 pub const PAUSED_BY_USER: &str = "Paused by you";
 
+struct PreviousEffect {
+    effect: Box<dyn Effect>,
+    spec: EffectSpec,
+    start: Instant,
+    fault: freergb_effect_host::runtime::Fault,
+}
+
 pub struct Engine {
     pub marketplace: Option<Arc<freergb_effect_host::marketplace::Manager>>,
     effect_fault: freergb_effect_host::runtime::Fault,
     activation_error: Option<String>,
+    effect_fallback: Option<PreviousEffect>,
+    runtime_fallback_error: Option<String>,
     pub cooling_sessions: crate::cooling_sessions::CoolingSessions,
     pub cooling_assignments: crate::cooling_assignments::Assignments,
     pub background: crate::background::Background,
@@ -311,6 +320,8 @@ impl Engine {
             marketplace: None,
             effect_fault: freergb_effect_host::runtime::WasmEffect::fault(),
             activation_error: None,
+            effect_fallback: None,
+            runtime_fallback_error: None,
             channel_bindings: Default::default(),
             keyboard: Default::default(),
             controls: Default::default(),
@@ -818,11 +829,12 @@ impl Engine {
     pub fn runtime_error_code(&self) -> Option<&'static str> {
         if self.activation_error.is_some() {
             Some("FX_ACTIVATION_FAILED")
-        } else if self
-            .effect_fault
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .is_some()
+        } else if self.runtime_fallback_error.is_some()
+            || self
+                .effect_fault
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_some()
         {
             Some("FX_RUNTIME_FAULT")
         } else {
@@ -831,12 +843,15 @@ impl Engine {
     }
 
     pub fn runtime_error(&self) -> Option<String> {
-        self.activation_error.clone().or_else(|| {
-            self.effect_fault
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .clone()
-        })
+        self.activation_error
+            .clone()
+            .or_else(|| self.runtime_fallback_error.clone())
+            .or_else(|| {
+                self.effect_fault
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .clone()
+            })
     }
 
     pub fn try_set_effect(&mut self, spec: EffectSpec) -> Result<(), String> {
@@ -864,7 +879,19 @@ impl Engine {
                 .map_err(|e| format!("Effect was not activated: cannot save state ({e})"))?;
         }
         let ctx = self.audio_context(&spec);
-        self.effect = prepared.unwrap_or_else(|| spec.build_with(&ctx));
+        let next = prepared.unwrap_or_else(|| spec.build_with(&ctx));
+        let previous = std::mem::replace(&mut self.effect, next);
+        self.effect_fallback = if matches!(spec, EffectSpec::Marketplace { .. }) {
+            Some(PreviousEffect {
+                effect: previous,
+                spec: self.spec.clone(),
+                start: self.effect_start,
+                fault: self.effect_fault.clone(),
+            })
+        } else {
+            None
+        };
+        self.runtime_fallback_error = None;
         self.effect_fault = fault;
         self.activation_error = None;
         self.spec = spec;
@@ -970,6 +997,60 @@ impl Engine {
             now.saturating_duration_since(self.effect_start),
             &mut self.canvas,
         );
+        if matches!(self.spec, EffectSpec::Marketplace { .. })
+            && self
+                .effect_fault
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_some()
+        {
+            let error = self
+                .effect_fault
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
+            let previous = self.effect_fallback.take().unwrap_or_else(|| {
+                let spec = EffectSpec::Solid {
+                    color: freergb_core::Rgb::BLACK,
+                };
+                PreviousEffect {
+                    effect: spec.build(),
+                    spec,
+                    start: now,
+                    fault: freergb_effect_host::runtime::WasmEffect::fault(),
+                }
+            });
+            self.effect = previous.effect;
+            self.spec = previous.spec;
+            self.effect_start = previous.start;
+            self.runtime_fallback_error = error;
+            self.activation_error = None;
+            self.effect_fault = previous.fault;
+            if self.spec.needs_audio() || self.spec.needs_screen() {
+                let spec = self.spec.clone();
+                let context = self.audio_context(&spec);
+                self.effect = spec.build_with(&context);
+            }
+            self.effect.render(
+                now.saturating_duration_since(self.effect_start),
+                &mut self.canvas,
+            );
+            if self
+                .effect_fault
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_some()
+            {
+                // The saved previous package may also have been removed/disabled.
+                self.spec = EffectSpec::Solid {
+                    color: freergb_core::Rgb::BLACK,
+                };
+                self.effect = self.spec.build();
+                self.effect_fault = freergb_effect_host::runtime::WasmEffect::fault();
+                self.canvas.fill(freergb_core::Rgb::BLACK);
+            }
+            self.persist();
+        }
         let brightness = self.brightness;
         if self
             .light_test
@@ -1862,6 +1943,74 @@ mod tests {
         assert_eq!(e.release_hardware(), 1);
         assert_eq!(e.devices().len(), 1);
         assert_eq!(e.devices()[0].info.id.0, "virtual:virt");
+    }
+
+    #[test]
+    fn failed_effect_selection_preserves_current_effect() {
+        let spec = EffectSpec::Solid { color: Rgb::RED };
+        let mut engine = Engine::new(spec.clone(), 30);
+        assert!(engine
+            .try_set_effect(EffectSpec::Marketplace {
+                id: "missing".into(),
+                version: "1.0.0".into(),
+                parameters: Default::default()
+            })
+            .is_err());
+        assert_eq!(engine.effect(), &spec);
+    }
+
+    #[test]
+    fn runtime_fault_restores_previous_effect_and_exposes_error() {
+        let spec = EffectSpec::Solid { color: Rgb::RED };
+        let mut engine = Engine::new(spec.clone(), 30);
+        engine.effect_fallback = Some(PreviousEffect {
+            effect: spec.build(),
+            spec: spec.clone(),
+            start: Instant::now(),
+            fault: freergb_effect_host::runtime::WasmEffect::fault(),
+        });
+        engine.spec = EffectSpec::Marketplace {
+            id: "fixture".into(),
+            version: "1.0.0".into(),
+            parameters: Default::default(),
+        };
+        *engine.effect_fault.lock().unwrap() = Some("synthetic child crash".into());
+        engine.tick(Instant::now());
+        assert_eq!(engine.effect(), &spec);
+        assert_eq!(engine.canvas.get(0, 0), Some(Rgb::RED));
+        assert_eq!(engine.runtime_error_code(), Some("FX_RUNTIME_FAULT"));
+        assert_eq!(
+            engine.runtime_error().as_deref(),
+            Some("synthetic child crash")
+        );
+        engine
+            .try_set_effect(EffectSpec::Solid { color: Rgb::BLUE })
+            .unwrap();
+        assert!(engine.runtime_error().is_none());
+    }
+
+    #[test]
+    fn unavailable_previous_package_falls_back_to_black_in_the_same_frame() {
+        let spec = EffectSpec::Marketplace {
+            id: "fixture".into(),
+            version: "1.0.0".into(),
+            parameters: Default::default(),
+        };
+        let mut engine = Engine::new(EffectSpec::Solid { color: Rgb::RED }, 30);
+        let previous_fault = freergb_effect_host::runtime::WasmEffect::fault();
+        *previous_fault.lock().unwrap() = Some("previous package removed".into());
+        engine.effect_fallback = Some(PreviousEffect {
+            effect: EffectSpec::Solid { color: Rgb::BLUE }.build(),
+            spec: spec.clone(),
+            start: Instant::now(),
+            fault: previous_fault,
+        });
+        engine.spec = spec;
+        *engine.effect_fault.lock().unwrap() = Some("current child crashed".into());
+        engine.tick(Instant::now());
+        assert_eq!(engine.effect(), &EffectSpec::Solid { color: Rgb::BLACK });
+        assert_eq!(engine.canvas.get(0, 0), Some(Rgb::BLACK));
+        assert_eq!(engine.runtime_error_code(), Some("FX_RUNTIME_FAULT"));
     }
 
     #[test]

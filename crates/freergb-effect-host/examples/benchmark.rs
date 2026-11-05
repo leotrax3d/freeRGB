@@ -1,4 +1,5 @@
-//! cargo run --release -p freergb-effect-host --example benchmark
+//! First: cargo build --release -p freergb-effect-host --bin freergb-effect-worker
+//! Then: cargo run --release -p freergb-effect-host --example benchmark
 use freergb_core::Canvas;
 use freergb_effect_host::{marketplace::Manager, runtime::WasmEffect};
 use freergb_effects::Effect;

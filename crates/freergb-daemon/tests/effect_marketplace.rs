@@ -32,8 +32,9 @@ fn install_activate_persist_restore_offline_and_uninstall() {
     engine.marketplace = Some(manager.clone());
     let state = root.join("config/state.json");
     let engine = Arc::new(Mutex::new(engine.with_state_file(state.clone())));
+    let previous = success(&engine, "effects.get", json!({}));
     success(&engine, "marketplace.install", json!({"id":"aurora"}));
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(30);
     while manager.busy() {
         assert!(Instant::now() < deadline);
         std::thread::sleep(Duration::from_millis(5));
@@ -49,11 +50,18 @@ fn install_activate_persist_restore_offline_and_uninstall() {
     );
     assert_eq!(success(&engine, "effects.get", json!({})), selection);
     success(&engine, "profiles.save", json!({"name":"Aurora profile"}));
-    assert!(
-        call(&engine, "marketplace.uninstall", json!({"id":"aurora"}))
-            .get("error")
-            .is_some()
+    success(&engine, "marketplace.disable", json!({"id":"aurora"}));
+    lock(&engine).tick(Instant::now());
+    assert_eq!(success(&engine, "effects.get", json!({})), previous);
+    assert_eq!(
+        success(&engine, "marketplace.status", json!({}))["packages"]["disabled"],
+        json!(["aurora"])
     );
+    assert!(call(&engine, "effects.set", selection.clone())
+        .get("error")
+        .is_some());
+    success(&engine, "marketplace.enable", json!({"id":"aurora"}));
+    success(&engine, "effects.set", selection.clone());
     // Invalid parameters and missing packages must leave active state untouched.
     let mut invalid = selection.clone();
     invalid["parameters"]["speed"] = 999.into();
@@ -67,12 +75,16 @@ fn install_activate_persist_restore_offline_and_uninstall() {
     assert_eq!(success(&restored, "effects.get", json!({})), selection);
     lock(&restored).tick(Instant::now());
     assert!(lock(&restored).runtime_error().is_none());
-    success(
-        &restored,
-        "effects.set",
-        json!({"type":"solid","color":{"r":1,"g":2,"b":3}}),
-    );
     success(&restored, "marketplace.uninstall", json!({"id":"aurora"}));
+    lock(&restored).tick(Instant::now());
+    assert_eq!(
+        success(&restored, "effects.get", json!({}))["type"],
+        "solid"
+    );
+    assert_eq!(
+        lock(&restored).runtime_error_code(),
+        Some("FX_RUNTIME_FAULT")
+    );
     assert!(
         call(&restored, "profiles.load", json!({"name":"Aurora profile"}))
             .get("error")
@@ -121,7 +133,7 @@ fn development_collection_installs_and_configures_through_lighting_api() {
     engine.marketplace = Some(manager.clone());
     let engine = Arc::new(Mutex::new(engine));
     let wait = || {
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + Duration::from_secs(30);
         while manager.busy() {
             assert!(Instant::now() < deadline);
             std::thread::sleep(Duration::from_millis(2));

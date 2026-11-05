@@ -21,6 +21,8 @@ pub const ALLOWED: &[&str] = &[
     "marketplace.install",
     "marketplace.cancel",
     "marketplace.uninstall",
+    "marketplace.enable",
+    "marketplace.disable",
     "daemon.version",
     "monitoring.sensors.list",
     "cooling.providers.list",

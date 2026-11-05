@@ -645,7 +645,10 @@ headers are never reduced below 100%.
 ## Downloadable effect marketplace
 
 The daemon supports the `marketplace.status`, `marketplace.refresh`,
-`marketplace.install` and `marketplace.uninstall` methods. `effects.set` also
+`marketplace.install`, `marketplace.enable`, `marketplace.disable` and
+`marketplace.uninstall` methods. Enable/disable accept `{ "id": "aurora" }`;
+`marketplace.status.packages.disabled` lists disabled installations. Disabling or
+uninstalling an active package restores the previous effect at the next frame. `effects.set` also
 accepts `{ "type": "marketplace", "id": "aurora", "version": "1.0.0",
 "parameters": { "speed": 1, "brightness": 0.8 } }`. This reference is saved in
 normal state/profiles and resolved from verified installed packages on restart.
