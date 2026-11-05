@@ -61,6 +61,7 @@ members = [
     "modules/lianli",
     "modules/gigabyte-rgbfusion2",
     "modules/dream-cheeky",
+    "modules/clevo-lightbar",
     "modules/mountain-keyboard",
     "modules/thingm-blink",
 ]
