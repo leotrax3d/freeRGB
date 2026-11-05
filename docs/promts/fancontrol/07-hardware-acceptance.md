@@ -1,35 +1,67 @@
 # Prompt 07 — Hardware acceptance on the owner board (owner present)
 
 Read `00-common-rules.md` first. Branch: `cooling/acceptance-<date>`.
-Run after each of prompts 01–06 for the steps they listed, and once fully at
-the end.
+Run once all of prompts 01–06 are merged (05 adds GUI steps when it lands).
 
 Hardware: ASUS PRIME X870-P WIFI, Nuvoton NCT6701D; case fan on CHA_FAN2
-(`/lpc/nct6701d/0/control/2`). The second motherboard tachometer belongs to the
-Corsair iCUE LINK AIO pump: **never reduce it**.
+(`/lpc/nct6701d/0/control/2`, RPM `/lpc/nct6701d/0/fan/2`). The second
+motherboard tachometer belongs to the Corsair iCUE LINK AIO pump: **never
+reduce it**. GPU: owner NVIDIA card (NVML).
 
 ## Rules
-- Ask the owner before every step that writes to hardware or stops the running
-  `freergbd`; state what will happen and how it is undone.
-- Record each result (date, build commit, step, observation, pass/fail) in
-  `docs/COOLING_ACCEPTANCE.md`. Failures are recorded too, with a fix issue.
-- Only confirmed results may set `hardware-verified` in `docs/FAN_COVERAGE.md`
-  and check boxes in `docs/STATUS.md`.
+- Ask the owner before every step that writes to hardware, stops the running
+  `freergbd`, reboots, or needs admin rights; say what happens and how it is undone.
+- Preconditions for every write step: CPU below 60 °C, stop-all ready
+  (`freergb cooling stop-all`), iCUE closed for LINK steps.
+- Record each result (date, build commit, step id, observation, pass/fail) in
+  `docs/COOLING_ACCEPTANCE.md`. Failures are recorded too, with a fix task.
+- Only recorded results may set `hardware-verified` in `docs/FAN_COVERAGE.md`
+  and check boxes in `docs/STATUS.md` (regenerate the README progress block).
+- Stop at the first safety-relevant failure (fan not returning to firmware/100 %,
+  pump reduced, write after stop) and report before continuing.
 
-## Checklist (extend with steps from earlier prompts)
-1. Discovery: all headers, correct tier, pump identified.
-2. Guided channel test and calibration incl. start/stall thresholds.
-3. Each curve type and controller feature from prompt 02 on CHA_FAN2, observed
-   RPM and noise; resonance skip; closed-loop RPM target accuracy.
-4. Sensors from prompt 03 incl. text-file sensor and GPU fan take/release.
-5. Fault return: stop daemon, kill worker, stale sensor, unplug tachometer ->
-   100 %, then firmware mode.
-6. Boot-time control after reboot without login; profile switch by app rule;
-   CLI commands; upgrade, uninstall and rollback during active control.
-7. Sustained 2-hour run with variable load; no drift, no stuck channels.
-8. Export the community hardware report for this board and add it as the first
-   matrix evidence.
+## Session plan (in this order; detailed steps live in the linked docs)
+
+### A. Baseline and discovery (~10 min, read-only)
+A1. Build from `main`, note the commit. Start daemon, export the redacted
+    hardware report (prompt 01); confirm board/chip/tier, CHA_FAN2 tier
+    `verified`, pump channel identified and excluded from reduction.
+A2. Add the report as the first evidence row in `docs/FAN_COVERAGE.md`.
+
+### B. Controller and calibration (~40 min) — [FANCONTROL_PARITY.md](../../FANCONTROL_PARITY.md) "Owner hardware steps"
+B1 fine sweep · B2 stall sweep (unrestricted unlock, pump refusal) ·
+B3 closed-loop RPM ±3 % and stale-RPM fallback · B4 shaping (offset, max, delay,
+hysteresis, avoided range) · B5 spin-up / fan stop (refusal on locked channel and
+pump) · B6 linear, step and equilibrium curves incl. sensor-loss fault return ·
+B7 daemon restart resumes only with unchanged identity.
+
+### C. Sensors and GPU fans (~20 min) — [COOLING_SOURCES_GPU.md](../../COOLING_SOURCES_GPU.md)
+C1. Every source class appears with plausible values: CPU package/CCD, GPU
+    core/hotspot/memory, board, NVMe, LINK liquid temperature.
+C2. Text-file sensor: write a number to a file, use it in a curve; stop
+    updating the file -> stale -> curve goes 100 %.
+C3. GPU fan (admin): take control, set 40 % and 70 %, compare RPM with the
+    NVIDIA app; stop -> driver auto restored; kill the daemon during control ->
+    driver auto restored (check with the NVIDIA app / `nvidia-smi` as admin).
+
+### D. Service, profiles, CLI, lifecycle (~45 min, reboots) — [COOLING_SERVICE.md](../../COOLING_SERVICE.md) "Owner hardware steps"
+D1 login-mode baseline · D2 service mode boot without login · D3 profile
+switching by CLI/tray/shortcut/app rule · D4 export/delete/import · D5 watchdog
+via suspended daemon · D6 upgrade / rollback / uninstall during active control.
+
+### E. Cooling plugins (~20 min) — [COOLING_PLUGINS.md](../../COOLING_PLUGINS.md) "Owner hardware steps"
+E1 build/sign/install the iCUE LINK plugin · E2 readings match `link-probe`/iCUE ·
+E3 hub returns to hardware mode after each sample · E4 kill plugin -> failsafe ·
+E5 unplug/replug the hub.
+
+### F. GUI walkthrough (after prompt 05 is merged)
+Guided setup on CHA_FAN2 end-to-end, dashboard live values, curve editors, tray
+profile switch and fault notification; steps from prompt 05's report.
+
+### G. Endurance (~2 h, unattended after start)
+G1. Composite curve on CHA_FAN2 + GPU fan under a varying load script for 2 h;
+    afterwards: no stuck channels, no drift beyond calibration, journal clean.
 
 ## Done when
-All steps recorded; failures turned into fix tasks; STATUS/FAN_COVERAGE updated
-only from recorded evidence.
+All steps recorded with commit and result; failures turned into fix tasks;
+STATUS/FAN_COVERAGE/README progress updated only from recorded evidence.
