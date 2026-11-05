@@ -70,6 +70,8 @@ members = [
     "modules/aoc-mouse",
     "modules/nzxt-mouse",
     "modules/gamesir",
+    "modules/sayo-device",
+    "modules/sayo-device",
     "modules/skydimo-hid",
     "modules/roccat-burst-core",
     "modules/aoc-mousemat",
