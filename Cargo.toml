@@ -71,6 +71,7 @@ members = [
     "modules/gamesir",
     "modules/madcatz-cyborg",
     "modules/lexip-mouse",
+    "modules/gigabyte-aorus-mouse",
     "modules/patriot-viper-mouse",
     "modules/mountain-keyboard",
     "modules/thingm-blink",
