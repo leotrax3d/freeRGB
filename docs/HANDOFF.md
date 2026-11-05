@@ -1,4 +1,4 @@
-# Handoff — current entry point (2026-11-02)
+# Handoff — current entry point (2026-11-05)
 
 Start here. This page says where things are; [STATUS.md](STATUS.md) is the only
 checklist for what is done. Older handoff, roadmap and worklist logs are in
@@ -20,6 +20,38 @@ checklist for what is done. Older handoff, roadmap and worklist logs are in
 * Rule for new work: one branch per task from `main`, one PR, delete the
   branch after merge. Do not start parallel implementations of the same area.
 
+## Product-completion run (2026-11-05, WS1–WS7)
+
+A coordinated agent team worked through
+[docs/promts/herdr-product-completion.md](promts/herdr-product-completion.md).
+All seven PRs are merged into `main` in the prescribed order. Each was verified
+locally before merge (fmt, workspace clippy `-D warnings`, workspace tests,
+desktop typecheck/tests where touched). CI runs on GitHub in parallel and was
+not used as the gate. A post-merge integration run on `main` was also green
+locally. No UAC, installer runs, service changes, hardware writes or passwords
+were used. Every result below is **simulated or fixture-tested only**, and no
+STATUS box was checked.
+
+| WS | PR | What landed | Simulated only / limits | Owner acceptance |
+|---|---|---|---|---|
+| WS4 updates & release tooling | [#21](https://github.com/leotrax3d/FreeRGB/pull/21) | Fault-injected download/verify/stage tests (interrupt, bad hash, disk full); cross-version swap/failed-start/rollback model; `freergb-module-tool` release command (build, pack, sign with external key, catalog, release notes, `--dry-run`) | Swap/rollback is a disk-backed model, nothing installed; no publishing | [UPDATES.md](UPDATES.md), [HARDWARE_MODULES.md](HARDWARE_MODULES.md) "Owner acceptance steps for local releases" |
+| WS2 effect plugins | [#25](https://github.com/leotrax3d/FreeRGB/pull/25) | Versioned child-process effect host (`--effect-worker`), domain-separated signed effect catalog (existing owner public key), enable/disable, hot reload at frame boundaries, crash/trap fallback to previous effect, active uninstall | Fixture WASM effects and virtual canvases only; catalog signature with the real key not produced | [EFFECT_PLUGINS.md](EFFECT_PLUGINS.md) |
+| WS6 motherboard RGB | [#24](https://github.com/leotrax3d/FreeRGB/pull/24) | ASUS per-header colour order and release fallback, header/LED detection report, config in both GUIs, import/export with profiles, byte-exact protocol tests | No packets sent to a real board | [MAINBOARD_RGB.md](MAINBOARD_RGB.md) |
+| WS1 macros | [#26](https://github.com/leotrax3d/FreeRGB/pull/26) | Recorder state machine (`macros.record.*`), key down/up + text with coalescing/caps, privacy stops, draft-until-save, Tauri + Classic record UI, tray indicator, device-key assignments with validation | The Windows keyboard hook gives no physical device identity (`device_id` stays null). Per-device triggers are tested with synthetic events only | [MACROS.md](MACROS.md) |
+| WS3 Linux parity | [#29](https://github.com/leotrax3d/FreeRGB/pull/29) | PulseAudio/PipeWire monitor audio, portal/X11 screen capture helper, read-only evdev input (same `InputEvent`), `.deb`/`.rpm`/AppImage scripts, udev rule, systemd user service docs | Built on Windows. Audio and evdev were cross-checked for `x86_64-unknown-linux-gnu`; screen capture (PipeWire/GLib) compiles only in Linux CI. The CI step snippet is in the PR description for the CI owner | [INSTALL.md](INSTALL.md) Linux "Owner acceptance steps" |
+| WS5 desktop i18n/a11y | [#22](https://github.com/leotrax3d/FreeRGB/pull/22) | Dependency-free i18n (English + German, settings switch, parity test), keyboard navigation, screen-reader labels, shared empty/error states, foreground-app profile card | Cooling, macros and mainboard RGB views are not translated yet (add through the same framework, see [I18N.md](I18N.md)); screenshots were not regenerated | Check the German UI and screen-reader output in the real app; regenerate `docs/screenshots/` |
+| WS7 user docs & website | [#20](https://github.com/leotrax3d/FreeRGB/pull/20) | [USER_GUIDE.md](USER_GUIDE.md) (install, first run, lighting, profiles, macros, plugins, fan safety, troubleshooting), website guide and coverage pages that read the coverage JSON | Coverage JSON files are only read | Proofread the published website |
+
+Follow-ups found during the run:
+* `cargo test -p freergb-daemon` on its own fails `tests/effect_marketplace.rs`,
+  because that test needs the effect-worker binary built by the workspace. The
+  full `cargo test --workspace` passes. Make the test self-sufficient.
+* The marketplace and plugin process tests have tight timing and failed under
+  heavy local load (they pass when rerun or isolated).
+* Local builds: the dev box's `C:` SSD saturates with several parallel cargo
+  builds. Per-worktree `target-dir`s on the NVMe `E:` drive (via a gitignored
+  `.cargo/config.toml`) fixed this.
+
 ## What exists (simulated/unit-tested unless stated)
 
 | Area | State | Details |
@@ -30,8 +62,9 @@ checklist for what is done. Older handoff, roadmap and worklist logs are in
 | Hardware module system | Signed catalog, atomic install, brokered processes; SMBus bus-module SDK with signed child-process tests | [HARDWARE_MODULES.md](HARDWARE_MODULES.md), [SMBUS_SIMULATION.md](SMBUS_SIMULATION.md) |
 | Cooling plugins | API 3 contract, policy-enforcing host, virtual + read-only iCUE LINK reference plugins (simulated) | [COOLING_PLUGINS.md](COOLING_PLUGINS.md) |
 | Fan control | LHM tiers, multi-channel live sessions, composite curves, open-loop RPM targets, Linux hwmon, complete cooling profiles + import/export, headless `--cooling-service`, `freergb cooling` CLI, Tauri guided fan setup, tray stop-all, Classic composite editor | [COOLING.md](COOLING.md), [COOLING_SERVICE.md](COOLING_SERVICE.md), [FANCONTROL_PARITY.md](FANCONTROL_PARITY.md), [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md), per-chip [FAN_COVERAGE.md](FAN_COVERAGE.md) |
-| GUIs | Tauri/React desktop (default) and Classic Win32/egui fallback | [GUI_MODERNIZATION.md](GUI_MODERNIZATION.md), [INTEGRATION_CHECKLIST.md](INTEGRATION_CHECKLIST.md) |
-| Distribution | Windows installer, updater, Linux packaging foundations | [INSTALL.md](INSTALL.md), [UPDATES.md](UPDATES.md) |
+| Macros, effect plugins | Macro recording + device keys; signed effect plugins with hot reload (simulated) | [MACROS.md](MACROS.md), [EFFECT_PLUGINS.md](EFFECT_PLUGINS.md) |
+| GUIs | Tauri/React desktop (default, English/German) and Classic Win32/egui fallback | [GUI_MODERNIZATION.md](GUI_MODERNIZATION.md), [I18N.md](I18N.md), [INTEGRATION_CHECKLIST.md](INTEGRATION_CHECKLIST.md) |
+| Distribution | Windows installer, updater with recovery simulation, module release tool, Linux `.deb`/`.rpm`/AppImage scripts | [INSTALL.md](INSTALL.md), [UPDATES.md](UPDATES.md), [USER_GUIDE.md](USER_GUIDE.md) |
 
 ## Biggest open gaps
 
