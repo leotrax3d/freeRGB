@@ -16,6 +16,9 @@ struct Library {
     /// Composite curves (graph/constant/trigger/mix/follow). Preview only.
     #[serde(default)]
     curve_set: freergb_control::curves::CurveSet,
+    /// User-configured text-file temperature sources.
+    #[serde(default)]
+    file_sensors: freergb_control::sensor_sources::FileSensorSet,
 }
 
 struct Job {
@@ -35,6 +38,7 @@ pub struct Controls {
     sensor_epoch: Option<Instant>,
     sensor_inputs: BTreeMap<String, freergb_control::sensors::InputSample>,
     sensor_sources: BTreeMap<String, String>,
+    sensor_catalog: Vec<Value>,
     path: Option<PathBuf>,
     job: Option<Job>,
     pub input_enabled: bool,
@@ -46,6 +50,7 @@ impl Controls {
         let now = self.sensor_now();
         self.sensor_inputs.clear();
         self.sensor_sources.clear();
+        self.sensor_catalog.clear();
         for device in devices.as_array().into_iter().flatten() {
             if device["status"] != "Connected" {
                 continue;
@@ -63,14 +68,16 @@ impl Controls {
                     continue;
                 };
                 let key = serde_json::to_string(&(id, sensor_id)).unwrap_or_default();
-                self.sensor_sources.insert(
-                    key.clone(),
-                    format!(
-                        "{} / {}",
-                        device["info"]["name"].as_str().unwrap_or(id),
-                        sensor["name"].as_str().unwrap_or(sensor_id)
-                    ),
-                );
+                let device_name = device["info"]["name"].as_str().unwrap_or(id);
+                let sensor_name = sensor["name"].as_str().unwrap_or(sensor_id);
+                let provider = device["provider"].as_str().unwrap_or("device");
+                let label = format!("{device_name} / {sensor_name}");
+                self.sensor_catalog.push(json!({
+                    "id": key, "label": label, "provider": provider, "unit": "°C",
+                    "category": freergb_control::sensor_sources::classify(provider, id, sensor_name),
+                    "value": sensor["value"], "age_ms": age, "error": null,
+                }));
+                self.sensor_sources.insert(key.clone(), label);
                 if age <= now {
                     self.sensor_inputs.insert(
                         key,
@@ -82,8 +89,53 @@ impl Controls {
                 }
             }
         }
+        self.read_file_sensors(now);
         let outputs = self.evaluate_curve_set(now);
         self.composite_feed.publish(outputs, Instant::now());
+    }
+
+    /// Bounded, shell-free reads of configured text files. Missing, invalid,
+    /// oversized or stale files become a missing reading (curves go to 100%).
+    fn read_file_sensors(&mut self, now: u64) {
+        use freergb_control::sensor_sources::{FILE_SOURCE_PREFIX, MAX_FILE_BYTES};
+        use std::io::Read;
+        for (name, sensor) in &self.library.file_sensors.sensors {
+            let result = (|| {
+                let file = std::fs::File::open(&sensor.path).map_err(|e| e.to_string())?;
+                let meta = file.metadata().map_err(|e| e.to_string())?;
+                if !meta.is_file() {
+                    return Err("not a regular file".to_owned());
+                }
+                let age = meta
+                    .modified()
+                    .ok()
+                    .and_then(|m| m.elapsed().ok())
+                    .map_or(0, |d| d.as_millis().min(u128::from(u64::MAX)) as u64);
+                let mut bytes = Vec::new();
+                file.take(MAX_FILE_BYTES + 1)
+                    .read_to_end(&mut bytes)
+                    .map_err(|e| e.to_string())?;
+                sensor.parse(&bytes, age)
+            })();
+            let key = format!("{FILE_SOURCE_PREFIX}{name}");
+            let label = format!("File / {name}");
+            let (value, error) = match result {
+                Ok(v) => (Some(v), None),
+                Err(e) => (None, Some(e)),
+            };
+            self.sensor_catalog.push(json!({
+                "id": key, "label": label, "provider": "file", "unit": "°C",
+                "category": "file", "value": value, "age_ms": 0, "error": error,
+            }));
+            self.sensor_sources.insert(key.clone(), label);
+            self.sensor_inputs.insert(
+                key,
+                freergb_control::sensors::InputSample {
+                    value,
+                    sampled_at_ms: now,
+                },
+            );
+        }
     }
 
     /// Evaluates the composite curve set against live and derived sensors.
@@ -131,6 +183,7 @@ impl Controls {
                         && library.macros.len() <= 64
                         && library.sensors.validate().is_ok()
                         && library.curve_set.validate().is_ok()
+                        && library.file_sensors.validate().is_ok()
                         && library.curves.iter().all(|(n, c)| {
                             crate::profiles::validate_name(n).is_ok() && c.validate().is_ok()
                         })
@@ -182,6 +235,22 @@ impl Controls {
                 self.sensor_evaluator
                     .evaluate(&self.library.sensors, &self.sensor_inputs, now)?;
             return Ok(json!({"now_ms": now, "values": values}));
+        }
+        if method == "cooling.sensors.catalog" {
+            return Ok(json!(self.sensor_catalog));
+        }
+        if method == "cooling.file_sensors.get" {
+            return Ok(json!(self.library.file_sensors));
+        }
+        if method == "cooling.file_sensors.save" {
+            let set: freergb_control::sensor_sources::FileSensorSet =
+                serde_json::from_value(params["set"].clone()).map_err(|e| e.to_string())?;
+            set.validate()?;
+            let mut library = self.library.clone();
+            library.file_sensors = set;
+            self.save(&library)?;
+            self.library = library;
+            return Ok(json!(true));
         }
         if method == "cooling.sensors.get" {
             return Ok(json!(self.library.sensors));
@@ -555,5 +624,61 @@ mod tests {
         assert!(corrupt.call("cooling.status", &json!({})).unwrap()["error"].is_string());
         std::fs::remove_file(path).unwrap();
         std::fs::remove_dir(directory).unwrap();
+    }
+
+    #[test]
+    fn file_sensors_feed_curves_and_invalid_files_are_missing() {
+        let directory =
+            std::env::temp_dir().join(format!("freergb-file-sensors-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let temp = directory.join("gpu.txt");
+        std::fs::write(&temp, "51.5\n").unwrap();
+        let mut controls = Controls::default().with_file(directory.join("control.json"));
+        assert!(controls
+            .call(
+                "cooling.file_sensors.save",
+                &json!({"set":{"sensors":{"bad":{"path":"relative.txt"}}}})
+            )
+            .is_err());
+        let set = json!({"sensors":{"gpu":{"path":temp.to_str().unwrap()},"gone":{"path":directory.join("missing.txt").to_str().unwrap()}}});
+        controls
+            .call("cooling.file_sensors.save", &json!({ "set": set }))
+            .unwrap();
+        controls.refresh_sensors(&json!([{"status":"Connected","provider":"mainboard.lhm","info":{"id":"mainboard.lhm:/amdcpu/0","name":"CPU"},"sensors":[{"id":"/amdcpu/0/temperature/2","name":"Tctl","unit":"°C","value":60.0,"age_ms":0}]}]));
+        let catalog = controls
+            .call("cooling.sensors.catalog", &Value::Null)
+            .unwrap();
+        let find = |id: &str| {
+            catalog
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e["id"] == id)
+                .cloned()
+                .unwrap()
+        };
+        assert_eq!(find("file:gpu")["value"], 51.5);
+        assert_eq!(find("file:gone")["value"], Value::Null);
+        assert!(find("file:gone")["error"].is_string());
+        assert_eq!(
+            find(r#"["mainboard.lhm:/amdcpu/0","/amdcpu/0/temperature/2"]"#)["category"],
+            "cpu"
+        );
+        let sources = controls
+            .call("cooling.sensors.sources", &Value::Null)
+            .unwrap();
+        assert!(sources.get("file:gpu").is_some() && sources.get("file:gone").is_some());
+        // A graph input on the missing file yields an unavailable reading.
+        controls
+            .call("cooling.sensors.save", &json!({"graph":{"nodes":{"a":{"type":"input","source":"file:gpu"},"b":{"type":"input","source":"file:gone"}}}}))
+            .unwrap();
+        let values = controls
+            .call("cooling.sensors.values", &Value::Null)
+            .unwrap();
+        assert_eq!(values["values"]["a"]["value"], 51.5);
+        assert!(values["values"]["b"]["value"].is_null());
+        let reloaded = Controls::default().with_file(directory.join("control.json"));
+        assert_eq!(reloaded.library.file_sensors.sensors.len(), 2);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }
