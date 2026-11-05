@@ -7,9 +7,17 @@
 
 use freergb_core::ScreenFrame;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+#[cfg(not(target_os = "linux"))]
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+#[cfg(not(target_os = "linux"))]
 use std::time::{Duration, Instant};
+
+#[cfg(any(target_os = "linux", test))]
+mod linux;
+#[cfg(target_os = "linux")]
+pub use linux::run_helper as run_linux_helper;
 
 /// Resolution of the published frame (16:9).
 pub const FRAME_W: usize = 64;
@@ -31,8 +39,11 @@ pub struct ScreenInput {
     stop: Arc<AtomicBool>,
     handle: Option<JoinHandle<()>>,
     monitor_name: String,
+    #[cfg(target_os = "linux")]
+    capture_state: Arc<std::sync::atomic::AtomicU8>,
 }
 
+#[cfg(not(target_os = "linux"))]
 fn primary_monitor() -> Result<xcap::Monitor, ScreenError> {
     let monitors = xcap::Monitor::all().map_err(|e| ScreenError::Capture(e.to_string()))?;
     let mut fallback = None;
@@ -48,6 +59,16 @@ fn primary_monitor() -> Result<xcap::Monitor, ScreenError> {
 impl ScreenInput {
     /// Captures the primary monitor at up to `fps` frames per second.
     pub fn start_primary(fps: u32) -> Result<Self, ScreenError> {
+        #[cfg(target_os = "linux")]
+        {
+            linux::start(fps)
+        }
+        #[cfg(not(target_os = "linux"))]
+        Self::start_native(fps)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    fn start_native(fps: u32) -> Result<Self, ScreenError> {
         let frame: ScreenHandle = Arc::new(Mutex::new(ScreenFrame::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let (ready_tx, ready_rx) = mpsc::channel::<Result<String, ScreenError>>();
@@ -117,6 +138,12 @@ impl ScreenInput {
     }
 
     pub fn monitor_name(&self) -> &str {
+        #[cfg(target_os = "linux")]
+        match self.capture_state.load(Ordering::SeqCst) {
+            0 => return "Waiting for screen capture / portal consent (up to 60s)",
+            2 => return "Screen capture denied, unavailable or stopped; reselect effect to retry",
+            _ => {}
+        }
         &self.monitor_name
     }
 

@@ -1,22 +1,27 @@
 //! System-audio capture.
 //!
 //! * Windows: WASAPI loopback of the default output device (what you hear).
-//! * Linux: the default input device. To react to playback, make the
-//!   "Monitor of …" source the default (e.g. `pactl set-default-source
-//!   <sink>.monitor`) or pass its name. Not yet tested on Linux.
+//! * Linux: PulseAudio monitor through `parec`, including PipeWire's Pulse
+//!   compatibility server. Never falls back to a microphone.
 //!
 //! The capture thread owns the platform stream, keeps the newest samples in a
 //! small ring buffer and publishes [`AudioFeatures`] about every 15 ms.
 
-use crate::analysis::{Analyzer, AudioFeatures};
+#[cfg(not(target_os = "linux"))]
+use crate::analysis::Analyzer;
+use crate::analysis::AudioFeatures;
+#[cfg(not(target_os = "linux"))]
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+#[cfg(not(target_os = "linux"))]
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+#[cfg(not(target_os = "linux"))]
 const FFT_SIZE: usize = 2048;
+#[cfg(not(target_os = "linux"))]
 const UPDATE: Duration = Duration::from_millis(15);
 
 #[derive(Debug, thiserror::Error)]
@@ -36,8 +41,7 @@ pub struct AudioInput {
 }
 
 impl AudioInput {
-    /// Starts capturing what the system plays (Windows) or the default input
-    /// (Linux, see module docs).
+    /// Starts capturing system playback (WASAPI or PulseAudio/PipeWire monitor).
     pub fn start_system_audio() -> Result<Self, CaptureError> {
         let features = Arc::new(Mutex::new(AudioFeatures::default()));
         let stop = Arc::new(AtomicBool::new(false));
@@ -91,6 +95,7 @@ impl Drop for AudioInput {
     }
 }
 
+#[cfg(not(target_os = "linux"))]
 fn pick_device() -> Result<cpal::Device, CaptureError> {
     let host = cpal::default_host();
     // On WASAPI an input stream on an *output* device is a loopback capture.
@@ -102,6 +107,7 @@ fn pick_device() -> Result<cpal::Device, CaptureError> {
 }
 
 /// Everything the capture thread keeps alive.
+#[cfg(not(target_os = "linux"))]
 struct Running {
     stream: cpal::Stream,
     name: String,
@@ -109,6 +115,7 @@ struct Running {
     ring: Arc<Mutex<VecDeque<f32>>>,
 }
 
+#[cfg(not(target_os = "linux"))]
 fn run(
     features: Arc<Mutex<AudioFeatures>>,
     stop: Arc<AtomicBool>,
@@ -214,3 +221,6 @@ fn run(
     drop(stream);
     tracing::info!("audio capture stopped");
 }
+
+#[cfg(target_os = "linux")]
+use crate::linux::run;
