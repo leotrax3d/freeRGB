@@ -69,6 +69,8 @@ members = [
     "modules/corsair-k65-mini",
     "modules/aoc-mouse",
     "modules/gamesir",
+    "modules/ionico",
+    "modules/ionico",
     "modules/madcatz-cyborg",
     "modules/lexip-mouse",
     "modules/gigabyte-aorus-mouse",
