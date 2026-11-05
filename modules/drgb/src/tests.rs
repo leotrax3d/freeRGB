@@ -32,7 +32,7 @@ fn v1_devices_are_supported() {
         let id = crate::table::identify(&info_for(row));
         assert_eq!(
             id.supported,
-            dev.is_some_and(|e| e.version == 1 || e.version == 2),
+            dev.is_some_and(|e| e.version == 1 || e.version == 2 || e.version == 3),
             "row {}",
             row
         );
