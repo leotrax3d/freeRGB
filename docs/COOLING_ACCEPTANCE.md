@@ -128,3 +128,19 @@ B1 root cause in simulation: a fan that saturates near 100 % failed the
 1 %-per-step monotonic rule, so the result was dropped. The owner run also
 ended after the 95 % step with `calibration: null`; the abort reason was not
 reported then and is now. If R5 still ends early, its `report.fault` names why.
+
+### Owner evening session 2026-11-05 (build 984c041 and an experimental variant without LHM GPU)
+
+| Step | Result | Notes |
+|---|---|---|
+| R2 broker after setup | **pass** | Ready right after setup, no `Restart-Service`. |
+| R4 job origin | **pass** | Jobs carry `origin: "api"`. |
+| R5 fine sweep | **fail** | Ended "blocked: Cooling supervision stopped: Stopped, Some(Stale); preserve recovery intent"; channel returned cleanly, recovery null. Cause: reader flapping (item 8). |
+| Reader stability | **fail** | Over 2 min: 14/24 snapshots ready with iCUE running, 14/24 with LHM GPU disabled, 20/24 with iCUE closed (CorsairCpuIdService stopped). "Isolated motherboard reader failed (TimeoutException)" / "sample expired" / daemon "helper timed out". Ring0/PawnIO contention contributes, not the only cause. |
+| D6 maintenance drain | **fail** | PrepareToInstall "Mainboard-Rückgabe nicht bestätigt"; `mainboard-maintenance-result.json` failed ("Native return failed; maintenance refused."), last error stage admission/IOException; background control/2 at 47 %. Install succeeded after `cooling.background.apply {channels:[]}`. |
+| Bindings | **fail** | A third binding in channel-id spelling (`["/lpc/nct6701d/0","…/control/2"]`, header "Fan #3") duplicated the plain-id CHA_FAN2 binding. |
+
+Fixes (simulated; re-test in prompt 07 block R): item 8 (reader update
+budget, deadlines), item 9 (drain stops background curves first), item 10
+(binding canonicalization) — see the branch `cooling/fix-reader-hang` log.
+The experimental installer without LHM GPU on the owner PC is not committed.

@@ -47,7 +47,24 @@ reproduced in tests/simulators; owner re-test happens afterwards (prompt 07).
 7. **Installer UX.** A second installer started while the first waited behind
    UAC. Use a mutex/`AppMutex` so only one setup runs.
 
+8. **Reader flapping** (owner evening session 2026-11-05). With the kill
+   watchdog the steady 3 s reply deadline became real; slow snapshots got the
+   worker killed in a loop (14/24 ready with iCUE running or LHM GPU off,
+   20/24 with iCUE closed); R5 ended "Cooling supervision stopped: Stopped,
+   Some(Stale)". Fixed: motherboard tree first and on every snapshot, other
+   hardware on a measured cadence with conservative ages, slow updates named
+   in the provider message, broker deadlines 30 s first / 6 s steady, daemon
+   6 s. Simulated slow-sensor test.
+9. **Maintenance drain refused with an active background curve** (D6):
+   setup failed "Mainboard-Rückgabe nicht bestätigt" while control/2 ran at
+   47 %. Fixed: background cooling returns to firmware before the drain and
+   restarts if the drain is refused.
+10. **Duplicate channel binding**: guided setup added a second CHA_FAN2
+    binding in channel-id spelling next to a plain-id one. Fixed: ids are
+    canonicalized server-side, a legacy twin is merged, canonical duplicates
+    are rejected; the desktop upsert treats both spellings as one header.
+
 ## Done when
-All seven items have tests (simulated), CI green, PR open; the acceptance record
+All ten items have tests (simulated), CI green, PR open; the acceptance record
 lists the fix commits; owner re-test steps (A1 after upgrade, B1) are written in
 `07-hardware-acceptance.md`.

@@ -83,6 +83,18 @@ R5. Fine sweep (B1 re-test): `cooling.sessions.start`
     `rpm_range` in `cooling.support.get`. If it ends early, record
     `report.fault` ("Calibration aborted: <reason>") — the reason is now shown.
 R6. Plain calibration (100/80/60/40) on the same channel stores its result.
+R7. Reader stability (item 8): with iCUE running, sample
+    `freergb.exe ctl cooling.providers.list` every 5 s for 2 min; expect
+    `mainboard.lhm` ready in (almost) every sample and no "reader failed"
+    loop. Note any "Slow sensor updates" hint in the message (which hardware,
+    how many ms). Then repeat R5.
+R8. Maintenance drain with a background curve (item 9 / D6): with the
+    CHA_FAN2 background curve running, run the next installer; setup must
+    not fail with "Mainboard-Rückgabe nicht bestätigt"; afterwards the curve
+    runs again (service start).
+R9. Bindings (item 10): `cooling.bindings.get` after one save from the
+    desktop shows one CHA_FAN2 binding (channel-id spelling) and the pump
+    binding; assigning CHA_FAN2 again in guided setup replaces it.
 
 ## Done when
 All steps recorded with commit and result; failures turned into fix tasks;
