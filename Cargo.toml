@@ -89,6 +89,7 @@ members = [
     "modules/hp-omen-30l",
     "modules/nvidia-esa",
     "modules/cryorig-h7-quad-lumi",
+    "modules/msi-optix",
 ]
 
 [workspace.package]
