@@ -91,6 +91,10 @@ Releases.
       "answer": "Support is tracked by hardware class and capability. Some integrations provide full control, while others may currently offer limited or detection-only support."
     },
     {
+      "question": "Something does not work. Where do I start?",
+      "answer": "Read the troubleshooting section of the user guide. It covers missing devices, the motherboard reader that stays in the starting state, and recovery when the daemon pipe is busy."
+    },
+    {
       "question": "Is Linux hardware access validated?",
       "answer": "Not yet. The shared core, CI, udev rules, and systemd user unit are implemented, but real Linux hardware acceptance and capture parity remain open."
     }

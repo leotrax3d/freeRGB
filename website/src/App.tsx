@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react"
 import {
-  Activity, ArrowUpRight, AudioLines, Cable, Check, CircleHelp, Cpu, Download, Fan,
+  Activity, ArrowUpRight, AudioLines, BookOpen, Cable, Check, CircleHelp, Cpu, Download, Fan,
   Github, Keyboard, Layers, LayoutDashboard, Monitor, MonitorUp, Package, PlugZap,
   Search, ScanSearch, Settings, ShieldCheck, Sparkles, Terminal, type LucideIcon,
 } from "lucide-react"
@@ -9,6 +9,7 @@ import appIcon from "../../assets/icons/freergb-32.png"
 import bundledWebsiteContent from "../../docs/WEBSITE_CONTENT.md?raw"
 import { LiveDemo } from "./components/LiveDemo"
 import { HardwareCheck } from "./components/HardwareCheck"
+import { FanCoverage, RgbCoverage } from "./components/Coverage"
 
 const repo = "https://github.com/leotrax3d/FreeRGB"
 
@@ -115,6 +116,8 @@ export default function App() {
     ...groups.slice(0, 3).map(({ id, nav: label, icon }) => ({ id, label, icon })),
     { id: "check", label: "Check your hardware", icon: ScanSearch },
     { id: "compatibility", label: "Compatibility", icon: Search },
+    { id: "coverage", label: "Coverage", icon: Fan },
+    { id: "guide", label: "User guide", icon: BookOpen },
     { id: "platform", label: "Open platform", icon: PlugZap },
     { id: "install", label: "Install", icon: Download },
     { id: "faq", label: "FAQ", icon: CircleHelp },
@@ -200,6 +203,8 @@ export default function App() {
         <span className="nav-label second">Project</span>
         <SideLink href="#check" icon={ScanSearch} active={activeSection === "check"}>Check your hardware</SideLink>
         <SideLink href="#compatibility" icon={Search} active={activeSection === "compatibility"}>Compatibility</SideLink>
+        <SideLink href="#coverage" icon={Fan} active={activeSection === "coverage"}>Coverage</SideLink>
+        <SideLink href="#guide" icon={BookOpen} active={activeSection === "guide"}>User guide</SideLink>
         <SideLink href="#platform" icon={PlugZap} active={activeSection === "platform"}>Open platform</SideLink>
         <SideLink href="#install" icon={Download} active={activeSection === "install"}>Install</SideLink>
         <SideLink href="#faq" icon={CircleHelp} active={activeSection === "faq"}>FAQ</SideLink>
@@ -239,6 +244,22 @@ export default function App() {
           {websiteData.devices.map((device) => <article className="device-row" key={device.name}><div><b>{device.name}</b><code>{device.id}</code></div><p>{device.scope}</p></article>)}
         </div>
         <p className="section-note">Availability depends on the underlying protocol and safety validation. See the device documentation for exact limitations.</p>
+      </section>
+
+      <section id="coverage" className="catalog view-section">
+        <header className="view-header"><div className="view-symbol"><Fan size={18} /></div><div><h2>Lighting and fan coverage</h2><p>Generated from the project's compatibility data: how many devices and fan controller chips are covered, and how well.</p></div></header>
+        <h3 className="cov-title">RGB devices</h3>
+        <RgbCoverage />
+        <h3 className="cov-title">Fan controller chips</h3>
+        <FanCoverage />
+      </section>
+
+      <section id="guide" className="catalog view-section">
+        <header className="view-header"><div className="view-symbol"><BookOpen size={18} /></div><div><h2>User guide</h2><p>Install, first run, lighting, profiles, macros, fan control safety and troubleshooting.</p></div></header>
+        <div className="install-list">
+          <a href={`${repo}/blob/main/docs/USER_GUIDE.md`} target="_blank" rel="noreferrer"><BookOpen size={20} /><span><b>Read the user guide</b><small>Includes "motherboard reader is starting" and pipe-busy recovery</small></span><ArrowUpRight size={15} /></a>
+          <a href={`${repo}/blob/main/docs/INSTALL.md`} target="_blank" rel="noreferrer"><Download size={20} /><span><b>Installation details</b><small>Windows installer, source builds, Linux</small></span><ArrowUpRight size={15} /></a>
+        </div>
       </section>
 
       {groups.slice(3).map((group) => <section id={group.id} className="catalog view-section" key={group.id}>
