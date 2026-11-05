@@ -45,7 +45,18 @@ internal sealed class BrokerService : ServiceBase
 #endif
     protected override void OnCustomCommand(int command)
     {
-        if (command == 129) { MainboardMaintenance.Service(controlBroker); return; }
+        if (command == 129)
+        {
+#if BROKER_INSTALLER
+            MainboardMaintenance.Drain(
+                delegate { lock (backgroundGate) { if (background != null) { background.Dispose(); background = null; } } },
+                delegate { return MainboardMaintenance.Service(controlBroker); },
+                StartBackground);
+#else
+            MainboardMaintenance.Service(controlBroker);
+#endif
+            return;
+        }
 #if BROKER_INSTALLER
         if (command == 130) { StartBackground(); return; }
 #endif
