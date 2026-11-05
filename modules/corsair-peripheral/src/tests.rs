@@ -32,26 +32,12 @@ fn mouse_class_devices_are_supported() {
     for row in 0..crate::devices_table::DETECTORS.len() {
         let d = &crate::devices_table::DETECTORS[row];
         let id = crate::table::identify(&info_for(row));
-        let portable = matches!(
-            d.pid,
-            0x1b34
-                | 0x1b74
-                | 0x1b3c
-                | 0x1b75
-                | 0x1b5d
-                | 0x1b12
-                | 0x1b2e
-                | 0x1b5a
-                | 0x1b5c
-                | 0x1b1e
-                | 0x1b3e
-                | 0x1b8b
-                | 0x1b2f
-                | 0x1b32
-                | 0x1b3b
-                | 0x0a34
+        assert_eq!(
+            id.supported,
+            crate::table::supported_pid(d.pid),
+            "row {}",
+            row
         );
-        assert_eq!(id.supported, portable, "row {}", row);
     }
 }
 

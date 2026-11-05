@@ -106,6 +106,22 @@ impl Module for CorsairPeripheral {
                 0x04u8,
                 2u8,
             ),
+            0xC0 => (
+                DeviceKind::Keyboard,
+                113usize,
+                (0..113usize)
+                    .map(|n| Led {
+                        name: format!("LED {}", n + 1),
+                        pos: (n as u16, 0),
+                    })
+                    .collect(),
+                Zone {
+                    name: "Keyboard".into(),
+                    leds: 113,
+                },
+                0x03u8,
+                4u8,
+            ),
             _ => return Err(err("generic keyboard not ported")),
         };
         // LightingControl software
@@ -145,6 +161,13 @@ impl Module for CorsairPeripheral {
                 return Err(err("invalid headset stand frame"));
             }
             h.write(&report::stand_direct(colors)).map_err(err)?;
+        } else if self.kind == 4 {
+            if colors.len() != 113 {
+                return Err(err("invalid keyboard frame"));
+            }
+            for packet in report::keyboard_normal(colors) {
+                h.write(&packet).map_err(err)?;
+            }
         } else {
             return Err(err("unsupported device"));
         }

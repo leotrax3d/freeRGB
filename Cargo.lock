@@ -1789,6 +1789,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-acer-nitro-led"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-annepro2"
 version = "0.1.0"
 dependencies = [
@@ -1890,6 +1899,15 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-coolermaster"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-coolermaster-mm712"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2105,6 +2123,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-lego-dimensions-toypad"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-lenovo"
 version = "0.1.0"
 dependencies = [
@@ -2295,7 +2322,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-sayo-device"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-sinowealth"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-skydimo-hid"
 version = "0.1.0"
 dependencies = [
  "freergb-core",

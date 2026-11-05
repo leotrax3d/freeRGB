@@ -70,6 +70,7 @@ members = [
     "modules/aoc-mouse",
     "modules/nzxt-mouse",
     "modules/gamesir",
+    "modules/acer-nitro-led",
     "modules/sayo-device",
     "modules/sayo-device",
     "modules/skydimo-hid",
