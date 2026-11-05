@@ -92,6 +92,7 @@ members = [
     "modules/msi-optix",
     "modules/acer-nitro-hid-led",
     "modules/roccat-burst-pro-air",
+    "modules/amd-wraith-prism",
 ]
 
 [workspace.package]
