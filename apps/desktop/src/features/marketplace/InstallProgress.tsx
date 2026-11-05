@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { t } from "./messages";
 
 export function installationProgress(elapsed: number, reported: number, completed: boolean): number {
   const visual = Math.min(90, elapsed / 12);
@@ -20,7 +21,7 @@ export function InstallProgress({ name, started, reported, completed, onFinish }
     return () => clearTimeout(timer);
   }, [progress, onFinish]);
   return <div className="flex flex-col gap-2" role="status">
-    <span className="text-caption text-text-muted">{progress === 100 ? "Installed" : completed ? "Finishing…" : "Installing…"}</span>
-    <div role="progressbar" aria-label={`${name} installation`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} className="h-1.5 overflow-hidden rounded-full bg-surface-raised"><div className="h-full rounded-full bg-accent transition-[width] duration-100 motion-reduce:transition-none" style={{width:`${progress}%`}} /></div>
+    <span className="text-caption text-text-muted">{progress === 100 ? t("market.progress.installed") : completed ? t("market.progress.finishing") : t("market.progress.installing")}</span>
+    <div role="progressbar" aria-label={t("market.installation", { name })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} className="h-1.5 overflow-hidden rounded-full bg-surface-raised"><div className="h-full rounded-full bg-accent transition-[width] duration-100 motion-reduce:transition-none" style={{width:`${progress}%`}} /></div>
   </div>;
 }

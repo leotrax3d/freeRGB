@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Section } from "@/components/page";
+import { InlineError } from "@/components/status";
+import { t } from "./messages";
 import { rpc } from "@/lib/store/daemon";
 import { defaults, type MarketplaceStatus, type Package } from "@/features/marketplace/types";
 import { useCurrentEffect } from "./useEffectDraft";
@@ -22,7 +24,7 @@ export function InstalledEffects({packages}:{packages:Package[]}) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
   if(!packages.length)return null;
-  return <Section title="Installed effects">
+  return <Section title={t("lighting.installed")}>
     <div className="grid grid-cols-[repeat(auto-fill,minmax(128px,1fr))] gap-2">{packages.map(pkg=>{
       const active=current?.type==="marketplace" && current.id===pkg.id && current.version===pkg.version;
       return <button key={pkg.id} aria-pressed={active} disabled={busy} className={cn("flex flex-col gap-2 rounded-card p-1.5 text-left",active?"bg-surface-raised ring-1 ring-accent/60":"hover:bg-surface-raised")} onClick={async()=>{
@@ -31,6 +33,6 @@ export function InstalledEffects({packages}:{packages:Package[]}) {
         try {await rpc("effects.set",{type:"marketplace",id:pkg.id,version:pkg.version,parameters:defaults(pkg)});} catch(e){setError(e instanceof Error?e.message:String(e));} finally{setBusy(false);}
       }}><div className="h-14 w-full rounded-control" style={{background:`linear-gradient(125deg,${pkg.preview[0]},${pkg.preview[1]})`}} aria-hidden /><span className="px-1 text-small font-medium">{pkg.name}</span></button>;
     })}</div>
-    {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
+    {error && <InlineError>{error}</InlineError>}
   </Section>;
 }

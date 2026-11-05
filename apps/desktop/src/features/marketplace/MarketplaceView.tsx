@@ -7,6 +7,7 @@ import { rpc, useDaemon } from "@/lib/store/daemon";
 import { cn } from "@/lib/utils";
 import { useNavigation } from "@/app/navigation";
 import { InstallProgress } from "./InstallProgress";
+import { t } from "./messages";
 import { ReportIssue } from "./ReportIssue";
 import { Stars } from "./Stars";
 import { defaults, matches, sortPackages, type SortOrder, type MarketplaceStatus, type Package } from "./types";
@@ -38,21 +39,21 @@ function EffectCard({ pkg, installed, status, disabled, run }: {
       </div>
       <div className="flex flex-1 flex-col gap-4 p-4">
         <div>
-          <div className="flex items-center justify-between gap-2"><h2 className="text-title font-semibold">{pkg.name}</h2>{active && <span className="flex items-center gap-1 text-caption text-accent"><Check className="size-3" />Active{current?.version !== pkg.version ? ` · ${current?.version}` : ""}</span>}</div>
+          <div className="flex items-center justify-between gap-2"><h2 className="text-title font-semibold">{pkg.name}</h2>{active && <span className="flex items-center gap-1 text-caption text-accent"><Check className="size-3" aria-hidden />{t("market.active")}{current?.version !== pkg.version ? ` · ${current?.version}` : ""}</span>}</div>
           <p className="mt-1 text-small text-text-muted">{pkg.description}</p>
-          <p className="mt-2 text-caption text-text-subtle">By <span className="font-medium text-text-muted">{pkg.publisher.name}</span> · @{pkg.publisher.id}</p>
+          <p className="mt-2 text-caption text-text-subtle">{t("market.by")} <span className="font-medium text-text-muted">{pkg.publisher.name}</span> · @{pkg.publisher.id}</p>
         </div>
         <Stars id={pkg.id} name={pkg.name} ratings={status.packages.ratings} disabled={disabled} rate={(stars) => void run("marketplace.rate", { id: pkg.id, stars })} />
-        <p className="flex items-center gap-2 text-caption text-text-subtle"><Download className="size-3" aria-hidden />{status.packages.ratings.updated_at ? `${(status.packages.ratings.by_effect[pkg.id]?.downloads ?? 0).toLocaleString()} downloads` : "— downloads"}</p>
+        <p className="flex items-center gap-2 text-caption text-text-subtle"><Download className="size-3" aria-hidden />{status.packages.ratings.updated_at ? t("market.downloads", { n: (status.packages.ratings.by_effect[pkg.id]?.downloads ?? 0).toLocaleString() }) : t("market.downloadsNone")}</p>
         {installStarted !== null && <InstallProgress name={pkg.name} started={installStarted} reported={progress} completed={ready && !job} onFinish={() => setInstallStarted(null)} />}
-        {job && installStarted === null && <progress aria-label={`${pkg.name} installation`} max={100} value={Math.min(95,progress)} className="h-1.5 w-full accent-accent" />}
-        {job && job.stage !== "committing" && <Button variant="ghost" onClick={() => void run("marketplace.cancel")}>Cancel installation</Button>}
-        {update && <p className="text-caption text-accent">Update available · {installed.version} → {pkg.version}</p>}
+        {job && installStarted === null && <progress aria-label={t("market.installation", { name: pkg.name })} max={100} value={Math.min(95,progress)} className="h-1.5 w-full accent-accent" />}
+        {job && job.stage !== "committing" && <Button variant="ghost" onClick={() => void run("marketplace.cancel")}>{t("market.cancel")}</Button>}
+        {update && <p className="text-caption text-accent">{t("market.updateAvailable", { from: installed.version, to: pkg.version })}</p>}
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
-          {!ready && <Button disabled={disabled || installStarted !== null} onClick={async () => {setInstallAccepted(false);setInstallStarted(Date.now()); if (await run("marketplace.install", { id: pkg.id })) setInstallAccepted(true); else setInstallStarted(null);}}><Download className="size-4" />{update ? "Update" : "Install"}</Button>}
-          {installed && <Button disabled={disabled || packageDisabled} onClick={async () => {if(await run("effects.set", { type: "marketplace", id: pkg.id, version: target.version, parameters: current?.version === target.version ? current.parameters : defaults(target) })) useNavigation.getState().go("lighting");}}>Open in Lighting</Button>}
-          {installed && <Button variant="secondary" disabled={disabled} aria-label={`${packageDisabled ? "Enable" : "Disable"} ${pkg.name}`} onClick={() => void run(packageDisabled ? "marketplace.enable" : "marketplace.disable", { id: pkg.id })}>{packageDisabled ? "Enable" : "Disable"}</Button>}
-          {installed && <Button variant="ghost" aria-label={`Uninstall ${pkg.name}`} title="Uninstall effect" disabled={disabled} onClick={() => void run("marketplace.uninstall", { id: pkg.id })}><Trash2 className="size-4" /></Button>}
+          {!ready && <Button disabled={disabled || installStarted !== null} onClick={async () => {setInstallAccepted(false);setInstallStarted(Date.now()); if (await run("marketplace.install", { id: pkg.id })) setInstallAccepted(true); else setInstallStarted(null);}}><Download className="size-4" aria-hidden />{update ? t("market.update") : t("market.install")}</Button>}
+          {installed && <Button disabled={disabled || packageDisabled} onClick={async () => {if(await run("effects.set", { type: "marketplace", id: pkg.id, version: target.version, parameters: current?.version === target.version ? current.parameters : defaults(target) })) useNavigation.getState().go("lighting");}}>{t("market.open")}</Button>}
+          {installed && <Button variant="secondary" disabled={disabled} aria-label={t(packageDisabled ? "market.enableAria" : "market.disableAria", { name: pkg.name })} onClick={() => void run(packageDisabled ? "marketplace.enable" : "marketplace.disable", { id: pkg.id })}>{packageDisabled ? t("market.enable") : t("market.disable")}</Button>}
+          {installed && <Button variant="ghost" aria-label={t("market.uninstall", { name: pkg.name })} title={t("market.uninstallHint")} disabled={disabled} onClick={() => void run("marketplace.uninstall", { id: pkg.id })}><Trash2 className="size-4" aria-hidden /></Button>}
         </div>
       </div>
     </article>
@@ -100,22 +101,22 @@ export default function MarketplaceView() {
   const packages = [...(status?.packages.catalog ?? []), ...(status?.packages.installed.filter((p) => !status.packages.catalog.some((c) => c.id === p.id)) ?? [])];
   const visible = sortPackages(packages.filter((pkg) => matches(pkg, query, installed.has(pkg.id), sortOrder === "installed") && (sortOrder !== "updates" || (installed.has(pkg.id) && installed.get(pkg.id)?.version !== pkg.version))), sortOrder, status?.packages.ratings.by_effect ?? {});
   return <>
-    <PageHeader title="Effect Marketplace" />
+    <PageHeader title={t("market.title")} />
     <div className="flex flex-col gap-5">
       <div className="flex justify-end">
-        <Button variant="secondary" disabled={disabled || !status} onClick={() => void run("marketplace.refresh")}><RefreshCw className={cn("size-4", status?.packages.job?.action === "refresh" && "animate-spin")} />Check for updates</Button>
+        <Button variant="secondary" disabled={disabled || !status} onClick={() => void run("marketplace.refresh")}><RefreshCw className={cn("size-4", status?.packages.job?.action === "refresh" && "animate-spin")} aria-hidden />{t("market.check")}</Button>
       </div>
       {connectionError && <p role="alert" className="text-small text-danger-text">{connectionError}</p>}
       {error && <p role="alert" className="rounded-control border border-danger-text/30 p-3 text-small text-danger-text">{error}</p>}
-      {status?.packages.error && <p role="alert" className="rounded-control border border-danger-text/30 p-3 text-small text-danger-text">{status.packages.failure?.code && <strong>{status.packages.failure.code}: </strong>}{status.packages.error} Your installed effects remain available. Check the connection or retry the operation.
-        {status.packages.failure && status.packages.failure.code !== "FX_INSTALL_CANCELLED" && <Button variant="secondary" className="mt-2" onClick={() => setReportKind("operation")}>Review error report</Button>}</p>}
-      {status?.runtime_error && <p role="alert" className="rounded-control border border-danger-text/30 p-3 text-small text-danger-text">{status.runtime_error_code && <strong>{status.runtime_error_code}: </strong>}{status.runtime_error} Select another effect in Lighting, or reapply settings to retry.
-        {status.runtime_error_code && <Button variant="secondary" className="mt-2" onClick={() => setReportKind("runtime")}>Review error report</Button>}</p>}
-      {status?.packages.ratings.error && <p role="alert" className="text-small text-danger-text">{status.packages.ratings.error} Previously loaded scores may be out of date.</p>}
-      <div className="flex flex-wrap items-center gap-4"><label className="relative min-w-48 flex-1"><Search className="absolute left-3 top-2.5 size-4 text-text-subtle" aria-hidden /><input aria-label="Search effects" placeholder="Search effects…" value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-control border border-border bg-surface-sunken pl-9 pr-3 text-small" /></label><span className="text-caption text-text-subtle">{installed.size} installed</span></div>
-      <div className="flex items-center gap-3 text-small"><span>Sort by</span><Select<SortOrder> label="Sort effects" value={sortOrder} onChange={setSortOrder} options={[{value:"downloads",label:"Most downloaded"},{value:"rating",label:"Highest rated"},{value:"name",label:"Name A–Z"},{value:"installed",label:"Installed"},{value:"updates",label:"Updates available"}]} />{status?.packages.ratings.configured && <Button variant="ghost" aria-label="Refresh ratings" disabled={status.packages.ratings.loading || !!status.packages.ratings.saving} onClick={() => void run("marketplace.ratings.refresh")}><RefreshCw className={cn("size-4",status.packages.ratings.loading && "animate-spin")} /></Button>}</div>
-      {!status && mode !== "mock" && !error && <p role="status" className="text-small text-text-muted">Connecting to the effect service…</p>}
-      {status && visible.length === 0 && <p className="py-10 text-center text-small text-text-muted">No effects match your search.</p>}
+      {status?.packages.error && <p role="alert" className="rounded-control border border-danger-text/30 p-3 text-small text-danger-text">{status.packages.failure?.code && <strong>{status.packages.failure.code}: </strong>}{status.packages.error} {t("market.err.package")}
+        {status.packages.failure && status.packages.failure.code !== "FX_INSTALL_CANCELLED" && <Button variant="secondary" className="mt-2" onClick={() => setReportKind("operation")}>{t("market.err.review")}</Button>}</p>}
+      {status?.runtime_error && <p role="alert" className="rounded-control border border-danger-text/30 p-3 text-small text-danger-text">{status.runtime_error_code && <strong>{status.runtime_error_code}: </strong>}{status.runtime_error} {t("market.err.runtime")}
+        {status.runtime_error_code && <Button variant="secondary" className="mt-2" onClick={() => setReportKind("runtime")}>{t("market.err.review")}</Button>}</p>}
+      {status?.packages.ratings.error && <p role="alert" className="text-small text-danger-text">{status.packages.ratings.error} {t("market.err.ratings")}</p>}
+      <div className="flex flex-wrap items-center gap-4"><label className="relative min-w-48 flex-1"><Search className="absolute left-3 top-2.5 size-4 text-text-subtle" aria-hidden /><input aria-label={t("market.search")} placeholder={t("market.searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-control border border-border bg-surface-sunken pl-9 pr-3 text-small" /></label><span className="text-caption text-text-subtle">{t("market.installedCount", { n: installed.size })}</span></div>
+      <div className="flex items-center gap-3 text-small"><span>{t("market.sortBy")}</span><Select<SortOrder> label={t("market.sortAria")} value={sortOrder} onChange={setSortOrder} options={[{value:"downloads",label:t("market.sort.downloads")},{value:"rating",label:t("market.sort.rating")},{value:"name",label:t("market.sort.name")},{value:"installed",label:t("market.sort.installed")},{value:"updates",label:t("market.sort.updates")}]} />{status?.packages.ratings.configured && <Button variant="ghost" aria-label={t("market.refreshRatings")} disabled={status.packages.ratings.loading || !!status.packages.ratings.saving} onClick={() => void run("marketplace.ratings.refresh")}><RefreshCw className={cn("size-4",status.packages.ratings.loading && "animate-spin")} /></Button>}</div>
+      {!status && mode !== "mock" && !error && <p role="status" className="text-small text-text-muted">{t("market.connecting")}</p>}
+      {status && visible.length === 0 && <p className="py-10 text-center text-small text-text-muted">{t("market.noMatch")}</p>}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] items-stretch gap-4">{status && visible.map((pkg) => <EffectCard key={pkg.id} pkg={pkg} installed={installed.get(pkg.id)} status={status} disabled={disabled} run={run} />)}</div>
     </div>
     {reportKind && <ReportIssue kind={reportKind} onClose={() => setReportKind(null)} />}

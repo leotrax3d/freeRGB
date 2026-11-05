@@ -1,6 +1,8 @@
 import { Slider } from "@/components/ui/slider";
 import type { Package } from "@/features/marketplace/types";
 import { NameForm } from "@/components/name-form";
+import { InlineError } from "@/components/status";
+import { t } from "./messages";
 import { effectLabel } from "@/lib/api/effects";
 import { rpc, useDaemon } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
@@ -15,16 +17,16 @@ function SaveCustom() {
   if (names === null) return null; // --no-state: no storage
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-4">
-      <span className="text-small font-medium text-text-subtle">Save as custom effect</span>
+      <span className="text-small font-medium text-text-subtle">{t("lighting.custom.save")}</span>
       <NameForm
-        label="Custom effect name"
-        placeholder="Name"
-        submit="Save"
+        label={t("lighting.custom.name")}
+        placeholder={t("lighting.custom.namePlaceholder")}
+        submit={t("lighting.custom.submit")}
         existing={names ?? []}
         busy={pending !== null}
-        onSubmit={(name) => run("save", () => rpc("custom_effects.save", { name, effect }), `Saved ${name}`)}
+        onSubmit={(name) => run("save", () => rpc("custom_effects.save", { name, effect }), t("lighting.custom.saved", { name }))}
       />
-      {error && <p className="text-caption text-danger-text">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
     </div>
   );
 }
@@ -35,7 +37,7 @@ export function Inspector({packages=[]}:{packages?:Package[]}) {
   const pkg=effect.type==="marketplace" ? packages.find(p=>p.id===effect.id && p.version===effect.version) : undefined;
 
   return (
-    <aside data-tour="inspector" aria-label="Effect settings" className="flex flex-col gap-4 rounded-card bg-surface-sunken p-4">
+    <aside data-tour="inspector" aria-label={t("lighting.settings")} className="flex flex-col gap-4 rounded-card bg-surface-sunken p-4">
       <header className="flex flex-col gap-0.5 px-2">
         <h2 className="text-title font-semibold">{pkg?.name ?? effectLabel(effect.type)}</h2>
       </header>
@@ -49,7 +51,7 @@ export function Inspector({packages=[]}:{packages?:Package[]}) {
       ) : (
         <EffectFields spec={effect} onChange={set} />
       )}
-      {error && <p className="px-2 text-caption text-danger-text">{error}</p>}
+      {error && <InlineError className="px-2">{error}</InlineError>}
       <SaveCustom />
     </aside>
   );

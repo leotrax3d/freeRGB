@@ -13,15 +13,17 @@ import { approxEqual } from "@/lib/store/approxEqual";
 import { rpc, useDaemon } from "@/lib/store/daemon";
 import { keyedFrameThrottle } from "@/lib/utils";
 import { useCurrentEffect } from "../lighting/useEffectDraft";
+import { InlineError } from "@/components/status";
+import { t, type LayoutKey } from "./messages";
 
 /** Device colours on the canvas: the brand accents, then two extra hues. */
 const COLORS = ["#3b82f6", "#10a37f", "#f59e0b", "#a855f7", "#ef4444", "#22d3ee", "#f472b6"];
 
-const FIELDS: { key: keyof Region; label: string }[] = [
-  { key: "x", label: "Left" },
-  { key: "y", label: "Top" },
-  { key: "w", label: "Width" },
-  { key: "h", label: "Height" },
+const FIELDS: { key: keyof Region; label: LayoutKey }[] = [
+  { key: "x", label: "layout.left" },
+  { key: "y", label: "layout.top" },
+  { key: "w", label: "layout.width" },
+  { key: "h", label: "layout.height" },
 ];
 
 function RegionFields({ region, onChange }: { region: Region; onChange: (r: Region, commit: boolean) => void }) {
@@ -30,11 +32,11 @@ function RegionFields({ region, onChange }: { region: Region; onChange: (r: Regi
       {FIELDS.map(({ key, label }) => (
         <div key={key} className="flex flex-col gap-1.5">
           <div className="flex justify-between text-small">
-            <span>{label}</span>
+            <span>{t(label)}</span>
             <span className="text-text-muted tabular">{Math.round(region[key] * 100)}%</span>
           </div>
           <Slider
-            aria-label={label}
+            aria-label={t(label)}
             min={key === "w" || key === "h" ? 0.05 : 0}
             max={1}
             step={0.01}
@@ -87,9 +89,9 @@ export default function LayoutView() {
   if (devices.length === 0) {
     return (
       <>
-        <PageHeader title="Layout" />
-        <EmptyState icon={<LayoutDashboard />} title="No devices to place">
-          Devices appear here as soon as the service finds them.
+        <PageHeader title={t("layout.title")} />
+        <EmptyState icon={<LayoutDashboard />} title={t("layout.empty.title")}>
+          {t("layout.empty.text")}
         </EmptyState>
       </>
     );
@@ -113,8 +115,8 @@ export default function LayoutView() {
   return (
     <>
       <PageHeader
-        title="Layout"
-        description="Where each device sits on the effect canvas. Effects are painted onto this canvas and every device shows its part."
+        title={t("layout.title")}
+        description={t("layout.description")}
       />
       <div className="@container">
         <div className="grid items-start gap-6 @3xl:grid-cols-[minmax(0,1fr)_280px]">
@@ -127,25 +129,24 @@ export default function LayoutView() {
               onChange={change}
             />
             <p className="text-caption text-text-subtle">
-              Drag to move, drag the corner to resize. Snaps to the 5 % grid when you let go — hold Alt for free placement. The tinted
-              background only suggests the current effect.
+              {t("layout.help")}
             </p>
-            {error && <p className="text-caption text-danger-text">{error}</p>}
+            {error && <InlineError>{error}</InlineError>}
           </div>
 
-          <aside aria-label="Device placement" className="flex flex-col gap-4 rounded-card bg-surface-sunken p-4">
+          <aside aria-label={t("layout.aside")} className="flex flex-col gap-4 rounded-card bg-surface-sunken p-4">
             {current ? (
               <>
                 <header className="flex flex-col gap-1">
                   <h2 className="text-title font-semibold">{current.info.name}</h2>
                   <StatusDot
                     tone={deviceStatus(current.status) === "connected" ? "ok" : "idle"}
-                    label={`${current.leds} LEDs · ${current.info.vendor}`}
+                    label={t("layout.leds", { n: current.leds, vendor: current.info.vendor })}
                   />
                 </header>
                 <RegionFields region={regionOf(current)} onChange={(r, commit) => change(current.info.id, r, commit)} />
                 <Button variant="ghost" size="sm" onClick={() => change(current.info.id, FULL, true)}>
-                  <RotateCcw /> Use whole canvas
+                  <RotateCcw aria-hidden /> {t("layout.whole")}
                 </Button>
               </>
             ) : (
