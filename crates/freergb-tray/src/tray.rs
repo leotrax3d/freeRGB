@@ -78,6 +78,7 @@ enum Action {
     Profile(String),
     PauseFans(bool),
     CoolingProfile(String),
+    StopAllLive,
     Quit,
 }
 
@@ -180,6 +181,23 @@ fn build_menu(state: &TrayState) -> Menus {
             }
             let _ = menu.append(&profiles);
         }
+        if state.live_sessions > 0 {
+            let stop = MenuItem::new(
+                format!(
+                    "Stop all live fans ({}) and return to BIOS",
+                    state.live_sessions
+                ),
+                true,
+                None,
+            );
+            add(
+                &menu,
+                &mut actions,
+                &stop,
+                stop.id().clone(),
+                Action::StopAllLive,
+            );
+        }
     }
     let _ = menu.append(&PredefinedMenuItem::separator());
     let quit = MenuItem::new("Quit freeRGB", true, None);
@@ -208,6 +226,7 @@ fn perform(action: &Action, done: mpsc::Sender<()>) -> bool {
                 Action::CoolingProfile(name) => {
                     ("cooling.profiles.activate", json!({"name": name}))
                 }
+                Action::StopAllLive => ("cooling.sessions.stop_all", Value::Null),
                 _ => unreachable!(),
             };
             std::thread::spawn(move || {

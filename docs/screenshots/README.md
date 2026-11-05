@@ -29,3 +29,15 @@ Only the local development origin is allowed. The script verifies mock transport
 skips hardware setup, captures each page after its heading/fonts are ready and
 fails on JavaScript page errors. It never enables real fan control. Inspect the
 images and update this capture date/version when refreshing the gallery.
+
+## Guided fan setup
+
+Captured on 2026-11-05 from the built-in browser mock (Chromium, dark theme,
+800 px wide pane). Nothing was written to hardware; chip names come from the
+mock inventory, RPM rises and calibration ranges are simulated.
+
+| Step | Image |
+|---|---|
+| Detect chips and support tiers | [cooling-setup-detect.jpg](cooling-setup-detect.jpg) |
+| Identify, name and auto-pair the tachometer | [cooling-setup-identify.jpg](cooling-setup-identify.jpg) |
+| Proposed curve per confirmed fan | [cooling-setup-curves.jpg](cooling-setup-curves.jpg) |

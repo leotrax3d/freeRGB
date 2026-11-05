@@ -31,6 +31,9 @@ pub struct PackageManifest {
     /// Schema 2 simulation policy, authenticated by the signed package digest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bus: Option<freergb_module_api::bus::Policy>,
+    /// Schema 3 cooling plugin policy (sensors, channels, HID allowlist, fail-safe).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cooling: Option<freergb_module_api::cooling::Policy>,
     /// Every other file in the package with its SHA-256.
     pub files: BTreeMap<String, String>,
 }
@@ -49,14 +52,21 @@ impl PackageManifest {
         if !valid_id(&self.id) || self.api.is_empty() {
             return Err(invalid("invalid package manifest"));
         }
-        match (self.schema, &self.bus) {
-            (1, None) if !self.devices.is_empty() => {}
-            (2, Some(policy))
+        match (self.schema, &self.bus, &self.cooling) {
+            (1, None, None) if !self.devices.is_empty() => {}
+            (2, Some(policy), None)
                 if self.api == [freergb_module_api::bus::API] && self.devices.is_empty() =>
             {
                 policy
                     .validate()
                     .map_err(|_| invalid("invalid bus policy"))?;
+            }
+            (3, None, Some(policy))
+                if self.api == [freergb_module_api::cooling::API] && self.devices.is_empty() =>
+            {
+                policy
+                    .validate()
+                    .map_err(|_| invalid("invalid cooling policy"))?;
             }
             _ => return Err(invalid("unsupported manifest schema or transport")),
         }

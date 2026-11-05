@@ -16,7 +16,11 @@ static SESSION: AtomicU64 = AtomicU64::new(0);
 #[serde(deny_unknown_fields)]
 struct Rule {
     executable: String,
+    /// Lighting profile; empty when the rule only switches cooling.
     profile: String,
+    /// Cooling profile switched together with (or instead of) lighting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cooling_profile: Option<String>,
 }
 fn executable(text: &str) -> Option<String> {
     let text = text.trim();
@@ -39,15 +43,23 @@ fn validate(rules: &[Rule]) -> Result<(), String> {
     for rule in rules {
         let name = executable(&rule.executable)
             .ok_or("Use an executable filename, for example game.exe")?;
-        if !seen.insert(name)
-            || rule.profile.is_empty()
-            || rule.profile.chars().count() > 64
-            || rule.profile.trim() != rule.profile
-            || !rule
-                .profile
-                .chars()
-                .all(|c| c.is_alphanumeric() || matches!(c, ' ' | '-' | '_'))
-        {
+        let lighting_ok = if rule.profile.is_empty() {
+            rule.cooling_profile.is_some()
+        } else {
+            rule.profile.chars().count() <= 64
+                && rule.profile.trim() == rule.profile
+                && rule
+                    .profile
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || matches!(c, ' ' | '-' | '_'))
+        };
+        let cooling_ok = rule.cooling_profile.as_deref().is_none_or(|name| {
+            !name.is_empty()
+                && name.len() <= 64
+                && name.trim() == name
+                && !name.chars().any(char::is_control)
+        });
+        if !seen.insert(name) || !lighting_ok || !cooling_ok {
             return Err("Duplicate application or invalid profile name".into());
         }
     }
@@ -112,7 +124,15 @@ pub fn load_if_current(params: Value) -> Result<Value, freergb_client::ClientErr
     {
         return Ok(json!(false));
     }
-    freergb_client::call("profiles.load", json!({"name":params["profile"]}))
+    let mut loaded = json!(false);
+    if params["profile"].as_str().is_some_and(|p| !p.is_empty()) {
+        loaded = freergb_client::call("profiles.load", json!({"name":params["profile"]}))?;
+    }
+    if let Some(cooling) = params["cooling_profile"].as_str() {
+        // Same policy as a manual switch; a refused channel keeps firmware control.
+        loaded = freergb_client::call("cooling.profiles.activate", json!({ "name": cooling }))?;
+    }
+    Ok(loaded)
 }
 
 struct ForegroundWorker {
@@ -231,16 +251,17 @@ impl AppProfiles {
                         .iter()
                         .find(|r| executable(&r.executable).as_deref() == Some(&app))
                     {
-                        if !snapshot
-                            .profiles
-                            .as_ref()
-                            .is_some_and(|list| list.contains(&rule.profile))
+                        if !rule.profile.is_empty()
+                            && !snapshot
+                                .profiles
+                                .as_ref()
+                                .is_some_and(|list| list.contains(&rule.profile))
                         {
                             self.error =
                                 Some(format!("Profile {:?} no longer exists", rule.profile));
                             continue;
                         }
-                        sent |= tx.send(Command { method: "gui.load_app_profile", params: json!({"executable":app,"profile":rule.profile,"session":self.ticket}) }).is_ok();
+                        sent |= tx.send(Command { method: "gui.load_app_profile", params: json!({"executable":app,"profile":rule.profile,"cooling_profile":rule.cooling_profile,"session":self.ticket}) }).is_ok();
                     }
                 }
             }
@@ -254,15 +275,15 @@ impl AppProfiles {
         }
         sent
     }
-    pub fn ui(&mut self, ui: &mut egui::Ui, profiles: Option<&[String]>) {
+    pub fn ui(&mut self, ui: &mut egui::Ui, profiles: Option<&[String]>, cooling: &[String]) {
         ui.collapsing("Profiles by foreground application", |ui| {
-            ui.label("Windows only; off at each launch. Matches executable filenames after 2 seconds. Unmatched applications keep the current lighting. No activity history is saved.");
+            ui.label("Windows only; off at each launch. Matches executable filenames after 2 seconds. Unmatched applications keep the current lighting and cooling. A cooling profile passes the same safety policy as a manual switch. No activity history is saved.");
             let mut enabled = self.enabled;
             if ui.add_enabled(cfg!(windows) && profiles.is_some(), egui::Checkbox::new(&mut enabled,"Enable application profiles for this session")).changed() {
                 if !enabled { self.disable(); }
                 else if self.rules.is_empty() { self.error = Some("Add an application rule first".into()); }
                 else if let Err(error) = validate(&self.rules) { self.error = Some(error); }
-                else if self.rules.iter().any(|r| !profiles.unwrap_or_default().contains(&r.profile)) { self.error = Some("Choose existing saved profiles".into()); }
+                else if self.rules.iter().any(|r| (!r.profile.is_empty() && !profiles.unwrap_or_default().contains(&r.profile)) || r.cooling_profile.as_ref().is_some_and(|c| !cooling.contains(c))) { self.error = Some("Choose existing saved profiles".into()); }
                 else {
                     self.ticket = SESSION.fetch_add(1,Ordering::SeqCst) + 1;
                     self.enabled = true; self.error = None; self.planner = Planner::default();
@@ -278,13 +299,18 @@ impl AppProfiles {
                     ui.push_id(index, |ui| { ui.horizontal(|ui| {
                         ui.add(egui::TextEdit::singleline(&mut rule.executable).hint_text("game.exe").desired_width(160.0));
                         egui::ComboBox::from_id_salt("profile").selected_text(&rule.profile).show_ui(ui, |ui| {
+                            ui.selectable_value(&mut rule.profile,String::new(),"(no lighting change)");
                             for name in profiles.unwrap_or_default() { ui.selectable_value(&mut rule.profile,name.clone(),name); }
+                        });
+                        egui::ComboBox::from_id_salt("cooling").selected_text(rule.cooling_profile.as_deref().unwrap_or("(no cooling change)")).show_ui(ui, |ui| {
+                            ui.selectable_value(&mut rule.cooling_profile,None,"(no cooling change)");
+                            for name in cooling { ui.selectable_value(&mut rule.cooling_profile,Some(name.clone()),name); }
                         });
                         if ui.small_button("Remove").clicked() { remove = Some(index); }
                     }); });
                 }
                 if let Some(index) = remove { self.rules.remove(index); }
-                if ui.add_enabled(self.rules.len()<64,egui::Button::new("Add application")).clicked() { self.rules.push(Rule { executable: String::new(), profile: String::new() }); }
+                if ui.add_enabled(self.rules.len()<64,egui::Button::new("Add application")).clicked() { self.rules.push(Rule { executable: String::new(), profile: String::new(), cooling_profile: None }); }
                 if ui.button("Save application profile rules").clicked() {
                     self.error = (|| -> Result<(),String> {
                         validate(&self.rules)?;
@@ -318,14 +344,29 @@ mod tests {
         assert!(validate(&[
             Rule {
                 executable: "Game.exe".into(),
-                profile: "Gaming".into()
+                profile: "Gaming".into(),
+                cooling_profile: None,
             },
             Rule {
                 executable: "GAME.EXE".into(),
-                profile: "Other".into()
+                profile: "Other".into(),
+                cooling_profile: None,
             }
         ])
         .is_err());
+        let rule = |profile: &str, cooling: Option<&str>| Rule {
+            executable: "game.exe".into(),
+            profile: profile.into(),
+            cooling_profile: cooling.map(Into::into),
+        };
+        assert!(validate(&[rule("", Some("Silent Night"))]).is_ok());
+        assert!(validate(&[rule("Gaming", Some("Performance"))]).is_ok());
+        assert!(validate(&[rule("", None)]).is_err());
+        assert!(validate(&[rule("Gaming", Some(" bad"))]).is_err());
+        // Old rule files without the cooling field still load.
+        let old: Vec<Rule> =
+            serde_json::from_str(r#"[{"executable":"a.exe","profile":"P"}]"#).unwrap();
+        assert!(old[0].cooling_profile.is_none());
     }
     #[test]
     fn focus_must_stabilize_and_does_not_reload_repeatedly() {

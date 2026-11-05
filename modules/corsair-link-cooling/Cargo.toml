@@ -1,0 +1,20 @@
+[package]
+name = "freergb-cooling-corsair-link"
+description = "freeRGB cooling plugin: CORSAIR iCUE LINK hub fan/pump RPM and temperatures (read-only)"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "freergb-cooling-corsair-link"
+path = "src/main.rs"
+
+[dependencies]
+freergb-module-api = { path = "../../crates/freergb-module-api" }
+freergb-protocols = { path = "../../crates/freergb-protocols" }
+serde_json.workspace = true
+
+[lints]
+workspace = true

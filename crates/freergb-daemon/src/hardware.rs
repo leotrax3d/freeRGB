@@ -177,6 +177,17 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
         }
     }
     crate::modules::scan(engine, &list, &builtin, true);
+    let configured = lock(engine)
+        .modules
+        .as_ref()
+        .map(|m| m.configured())
+        .unwrap_or_default();
+    lock(engine).cooling_plugins.scan(&list, &|info| {
+        builtin.contains_key(&info.path)
+            || configured.contains_key(&freergb_modules::setup::device_key(
+                &crate::modules::interface(info),
+            ))
+    });
     added
 }
 

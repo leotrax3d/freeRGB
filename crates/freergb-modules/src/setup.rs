@@ -231,6 +231,45 @@ impl Manager {
         &self.store
     }
 
+    /// API 3 cooling plugins offered by the last verified catalog.
+    pub fn cooling_catalog(&self) -> Vec<ModuleEntry> {
+        lock(&self.inner)
+            .catalog
+            .as_ref()
+            .map(|c| {
+                c.modules
+                    .iter()
+                    .filter(|m| m.cooling_artifact().is_ok())
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Downloads and installs one cooling plugin from the verified catalog.
+    /// Blocking; installing never enables or starts it.
+    pub fn install_cooling(&self, id: &str) -> Result<()> {
+        let entry = self
+            .cooling_catalog()
+            .into_iter()
+            .find(|m| m.id == id)
+            .ok_or_else(|| invalid(format!("{id} is not a cooling plugin in the catalog")))?;
+        let artifact = entry.cooling_artifact().map_err(invalid)?.clone();
+        let cancel = AtomicBool::new(false);
+        let progress = Progress {
+            cancel: &cancel,
+            on_bytes: &|_| {},
+        };
+        let path = Fetcher::new(self.source.clone()).download(
+            &artifact,
+            &self.store.downloads(),
+            &progress,
+        )?;
+        let result = self.store.install_cooling(&entry, &path);
+        let _ = std::fs::remove_file(&path);
+        result
+    }
+
     fn save(&self, persisted: &Persisted) {
         let path = self.config.join("modules-setup.json");
         let _ = std::fs::create_dir_all(&self.config);

@@ -1,4 +1,7 @@
-import { ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, Wand2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CoolingSetup } from "./CoolingSetup";
 import { PageHeader } from "@/components/page";
 import { useSlices } from "@/lib/store/daemon";
 import { CurvesSection } from "./CurvesSection";
@@ -10,17 +13,21 @@ import { UnrestrictedSection } from "./UnrestrictedSection";
 import { CoolingActions, FanOverview } from "./FanOverview";
 import { HwmonSection } from "./HwmonSection";
 import { GpuFansSection, SourcesSection } from "./SourcesSection";
+import { PluginChannelsSection } from "./PluginsSection";
 
 /** Fans first: what each header does now and one place to change it. */
 export default function CoolingView() {
   useSlices("curves", "cooling_status", "sensor_graph", "sensor_sources", "sensor_values");
+  const [setup, setSetup] = useState(false);
   return (
     <>
-      <PageHeader title="Cooling" description="Your fans, what controls them, and the curves they follow." actions={<CoolingActions />} />
+      <PageHeader title="Cooling" description="Your fans, what controls them, and the curves they follow." actions={<div className="flex flex-col items-end gap-2"><Button size="sm" variant={setup ? "secondary" : "primary"} aria-expanded={setup} onClick={() => setSetup((s) => !s)}><Wand2 />Guided fan setup</Button><CoolingActions /></div>} />
       <div className="@container flex flex-col gap-8">
+        {setup && <CoolingSetup onClose={() => setSetup(false)} />}
         <FanOverview />
         <HwmonSection />
         <GpuFansSection />
+        <PluginChannelsSection />
         <LiveSession />
         <CurvesSection />
         <details className="group flex flex-col gap-6 rounded-card border border-border px-4 py-3">

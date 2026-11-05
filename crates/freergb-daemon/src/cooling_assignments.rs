@@ -129,6 +129,17 @@ impl Assignments {
         self.resume_pending = false;
         self.persist();
     }
+    /// Remembered requests (as the user asked for them).
+    pub fn requests(&self) -> Vec<StartRequest> {
+        self.list.iter().map(|a| a.request.clone()).collect()
+    }
+    /// A boot profile decides instead of the remembered assignments.
+    pub fn skip_resume(&mut self) {
+        self.resume_pending = false;
+    }
+    pub fn resume_pending(&self) -> bool {
+        self.resume_pending
+    }
     pub fn control_ids(&self) -> Vec<String> {
         self.list
             .iter()

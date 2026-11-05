@@ -165,7 +165,7 @@ For frontend changes, also run `npm test` and `npm run build` in `apps/desktop`.
 <summary>Roadmap</summary>
 
 <!-- progress:start -->
-**Delivery checklist: 51.3% complete — 20 of 39 milestones; 19 remaining.**
+**Delivery checklist: 51.2% complete — 21 of 41 milestones; 20 remaining.**
 
 [View completed and remaining work](docs/STATUS.md). Automatically calculated from the delivery checklist; milestones are equally weighted, not an estimate of effort or release readiness.
 <!-- progress:end -->

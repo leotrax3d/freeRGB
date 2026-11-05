@@ -17,6 +17,8 @@ pub struct TrayState {
     pub active_cooling_profile: Option<String>,
     /// Current fan problems, one line each (background channels and sessions).
     pub fan_problems: Vec<String>,
+    /// Interactive sessions currently driving a channel (stop-all target).
+    pub live_sessions: usize,
 }
 
 fn names(value: &Value) -> Vec<String> {
@@ -72,6 +74,21 @@ fn problems(channels: &[Value], sessions: Option<&Value>) -> Vec<String> {
     list
 }
 
+/// Sessions that still hold a channel (not idle, stopped or faulted).
+fn live(sessions: Option<&Value>) -> usize {
+    sessions
+        .and_then(|s| s["jobs"].as_array())
+        .into_iter()
+        .flatten()
+        .filter(|j| {
+            matches!(
+                j["state"].as_str(),
+                Some("authorizing" | "executing" | "stopping")
+            )
+        })
+        .count()
+}
+
 /// New problems since the previous state, plus a lost service.
 pub fn alerts(previous: &TrayState, current: &TrayState) -> Vec<String> {
     let mut alerts: Vec<String> = current
@@ -119,6 +136,7 @@ impl TrayState {
             cooling_profiles: names(&cooling["profiles"]),
             active_cooling_profile: cooling["active"].as_str().map(str::to_owned),
             fan_problems: problems(&channels, sessions.as_ref()),
+            live_sessions: live(sessions.as_ref()),
         }
     }
 
@@ -170,6 +188,13 @@ impl TrayState {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn counts_only_sessions_that_still_hold_a_channel() {
+        let sessions = json!({"jobs":[{"state":"executing"},{"state":"authorizing"},{"state":"faulted","control_id":"x","job_id":1},{"state":"idle"}]});
+        assert_eq!(live(Some(&sessions)), 2);
+        assert_eq!(live(None), 0);
+    }
 
     #[test]
     fn disconnected_service_shows_a_clear_state() {

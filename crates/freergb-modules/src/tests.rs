@@ -71,6 +71,7 @@ fn manifest(version: &str) -> PackageManifest {
         license: "GPL-2.0-or-later".into(),
         devices: vec![device_match(0x00A3), device_match(0x00AF)],
         bus: None,
+        cooling: None,
         files: Default::default(),
     }
 }

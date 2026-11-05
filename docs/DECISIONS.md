@@ -39,3 +39,11 @@
     per-channel opt-in after a guided RPM-response test, runtime RPM plausibility
     and fail-safe return to firmware), *read-only*. Pumps and unidentified
     channels are never reduced. Plan: `COOLING_BROAD_SUPPORT_PLAN.md`.
+15. **One cooling evaluator in the Rust daemon (2026-11-04).** Every controller
+    type runs in `freergb-control` inside `freergbd`; boot-time operation is
+    the same daemon started headless (`--cooling-service`) with an independent
+    watchdog, not a second evaluator in the protected C# service. The C# service
+    keeps the native boundary. Its `BackgroundCooling` simple-curve mirror stays
+    only until the protected service can authorize boot channels for a
+    service-launched daemon (owner review + hardware, prompt 07). Cooling
+    profiles never contain electrical channel bindings. See `COOLING_SERVICE.md`.

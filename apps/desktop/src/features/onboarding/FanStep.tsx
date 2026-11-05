@@ -6,6 +6,7 @@ import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import type { ChannelBinding } from "@/lib/api/types";
 import { fanHeaders, upsertBinding, type FanHeader } from "./fans";
 import { tierLabel } from "@/features/cooling/support";
+import { correlateTach, mergePeak, rpmSnapshot } from "@/features/cooling/setupModel";
 
 export type FanOutcome = "fan" | "pump" | "none" | "blocked" | "skipped";
 
@@ -33,6 +34,15 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
   const [startedAt, setStartedAt] = useState(0);
   const [now, setNow] = useState(Date.now());
   const timer = useRef<number | undefined>(undefined);
+  // Tachometer pairing: RPM before the spin-up, peak during it, chosen sensor per header.
+  const [before, setBefore] = useState<Record<string, number>>({});
+  const [peak, setPeak] = useState<Record<string, number>>({});
+  const [tach, setTach] = useState<Record<string, string>>({});
+  const [paired, setPaired] = useState<Record<string, boolean>>({});
+  const tachometers = (channels ?? []).filter((c) => c.kind === "fan");
+  useEffect(() => {
+    if (active?.mode === "identify") setPeak((p) => mergePeak(p, rpmSnapshot(channels)));
+  }, [active, channels]);
 
   const busy = active !== null || ["authorizing", "executing", "stopping"].includes(session?.state ?? "");
   const provider = providers?.find((p) => p.id === "mainboard.lhm");
@@ -42,10 +52,15 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
     if (!active || session?.job_id !== active.job) return;
     if (["completed", "stopped", "faulted", "failed", "blocked"].includes(session.state)) {
       if (session.state !== "completed" && session.state !== "stopped") setError(session.error ?? `The ${active.mode === "identify" ? "identification" : "channel test"} ended: ${session.state}. The header was returned to firmware control.`);
-      else if (active.mode === "identify") setAsking(active.id);
+      else if (active.mode === "identify") {
+        const auto = correlateTach(before, peak);
+        if (auto) setTach((t) => ({ ...t, [active.id]: auto }));
+        setPaired((p) => ({ ...p, [active.id]: auto !== null }));
+        setAsking(active.id);
+      }
       setActive(null);
     }
-  }, [active, session]);
+  }, [active, session, before, peak]);
   useEffect(() => {
     timer.current = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(timer.current);
@@ -60,6 +75,7 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
         ...(mode === "channel_test" ? { critical_c: 80 } : {}),
       });
       setStartedAt(Date.now());
+      if (mode === "identify") { const now = rpmSnapshot(channels); setBefore(now); setPeak(now); }
       setActive({ id: header.control.reading.id, job: result.job_id, mode });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -74,7 +90,7 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
         if (!name) throw new Error("Give the header a name, for example CPU_FAN or Front intake.");
         const binding: ChannelBinding = {
           provider: "mainboard.lhm", device_id: header.control.device_id, control_id: header.control.id,
-          tachometer_id: header.rpm?.id ?? null, header: name.slice(0, 64), role: outcome, electrical_mode: "unknown",
+          tachometer_id: tachometers.find((t) => t.reading.id === tach[header.control.reading.id])?.id ?? header.rpm?.id ?? null, header: name.slice(0, 64), role: outcome, electrical_mode: "unknown",
         };
         const next = upsertBinding(bindings?.config.bindings ?? [], binding);
         await rpc("cooling.bindings.save", { config: { version: 1, bindings: next } });
@@ -141,6 +157,14 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
                     <span>Name of this header (as printed on the board or where the fan sits)</span>
                     <input className="max-w-sm rounded-control border border-border bg-surface-sunken px-3 py-2" maxLength={64}
                       value={names[id] ?? h.control.name} onChange={(e) => setNames((n) => ({ ...n, [id]: e.target.value }))} aria-label="Header name" />
+                  </label>
+                  <label className="flex flex-col gap-1 text-small">
+                    <span>RPM sensor of this header{paired[id] ? " (paired automatically from the speed-up)" : " (no clear speed-up seen; pick it manually)"}</span>
+                    <select className="max-w-sm rounded-control border border-border bg-surface-sunken px-3 py-2" aria-label="RPM sensor"
+                      value={tach[id] ?? h.rpm?.reading.id ?? ""} onChange={(e) => setTach((t) => ({ ...t, [id]: e.target.value }))}>
+                      <option value="">None</option>
+                      {tachometers.map((t) => <option key={t.reading.id} value={t.reading.id}>{t.name} · {Math.round(t.reading.value ?? 0)} RPM{peak[t.reading.id] !== undefined && before[t.reading.id] !== undefined ? ` (peak ${Math.round(peak[t.reading.id]!)})` : ""}</option>)}
+                    </select>
                   </label>
                   <span className="text-small">What sped up?</span>
                   <div className="flex flex-wrap gap-2">

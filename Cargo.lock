@@ -1772,6 +1772,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-cooling-corsair-link"
+version = "0.1.0"
+dependencies = [
+ "freergb-module-api",
+ "freergb-protocols",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-cooling-virtual"
+version = "0.1.0"
+dependencies = [
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-core"
 version = "0.1.0-beta.4"
 dependencies = [
@@ -2307,6 +2324,7 @@ name = "freergb-modules"
 version = "0.1.0-beta.4"
 dependencies = [
  "ed25519-dalek",
+ "freergb-control",
  "freergb-core",
  "freergb-device-api",
  "freergb-module-api",

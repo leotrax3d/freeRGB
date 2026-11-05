@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 
 pub const CATALOG_SCHEMA: u32 = 1;
 pub const BUS_CATALOG_SCHEMA: u32 = 2;
+/// Adds API 3 cooling plugins (no device matches; policy in the package).
+pub const COOLING_CATALOG_SCHEMA: u32 = 3;
 pub const MAX_CATALOG: usize = 1024 * 1024;
 pub const MAX_PACKAGE: u64 = 64 * 1024 * 1024;
 
@@ -163,7 +165,7 @@ impl Catalog {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.schema != CATALOG_SCHEMA && self.schema != BUS_CATALOG_SCHEMA {
+        if !(CATALOG_SCHEMA..=COOLING_CATALOG_SCHEMA).contains(&self.schema) {
             return Err(invalid("unsupported catalog schema"));
         }
         let mut ids = std::collections::BTreeSet::new();
@@ -174,15 +176,19 @@ impl Catalog {
                     m.id
                 )));
             }
-            let bus = self.schema == BUS_CATALOG_SCHEMA
+            let bus = self.schema >= BUS_CATALOG_SCHEMA
                 && m.api == [freergb_module_api::bus::API]
+                && m.devices.is_empty();
+            let cooling = self.schema == COOLING_CATALOG_SCHEMA
+                && m.api == [freergb_module_api::cooling::API]
                 && m.devices.is_empty();
             if !valid_version(&m.version)
                 || m.api.is_empty()
-                || (m.devices.is_empty() && !bus)
-                || (self.schema == BUS_CATALOG_SCHEMA
+                || (m.devices.is_empty() && !bus && !cooling)
+                || (self.schema >= BUS_CATALOG_SCHEMA
                     && m.api.contains(&freergb_module_api::bus::API)
                     && !bus)
+                || (m.api.contains(&freergb_module_api::cooling::API) && !cooling)
             {
                 return Err(invalid(format!(
                     "module {} has invalid version/api/devices",
@@ -241,6 +247,14 @@ impl ModuleEntry {
         }
         self.artifact()
             .ok_or_else(|| "no bus package for this target".into())
+    }
+    /// Explicit cooling plugin route; never used by HID setup/discovery.
+    pub fn cooling_artifact(&self) -> std::result::Result<&Artifact, String> {
+        if self.api != [freergb_module_api::cooling::API] || !self.devices.is_empty() {
+            return Err("not an API 3 cooling plugin".into());
+        }
+        self.artifact()
+            .ok_or_else(|| "no cooling plugin package for this target".into())
     }
     pub fn artifact(&self) -> Option<&Artifact> {
         self.artifacts.iter().find(|a| a.target == host_target())

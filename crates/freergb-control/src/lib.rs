@@ -13,6 +13,7 @@ pub mod rpm;
 pub mod sensor_sources;
 pub mod sensors;
 pub mod shaping;
+pub mod supervisor;
 pub mod telemetry_guard;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

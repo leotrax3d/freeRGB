@@ -9,6 +9,14 @@ import { num } from "@/lib/format";
 import { rpc, useDaemon } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { nodeNameProblem } from "./SensorsSection";
+import { CurveEditor } from "./CurveEditor";
+import type { FanCurve } from "@/lib/api/control";
+
+/** Drag editor for graph and linear nodes (linear = two draggable points). */
+function DragCurve({ curve, onChange }: { curve: FanCurve; onChange: (c: FanCurve) => void }) {
+  const [selected, setSelected] = useState<number | null>(null);
+  return <div className="w-full max-w-xl"><CurveEditor curve={curve} selected={selected} onSelect={setSelected} onChange={onChange} /></div>;
+}
 
 const field =
   "h-8 rounded-chip border border-border-strong bg-surface px-2 text-small text-text outline-none focus-visible:border-info";
@@ -76,6 +84,7 @@ function NodeFields({ node, others, sensors, onChange }: { node: CurveNode; othe
           <span className="text-caption text-text-subtle">
             {node.curve.points.map((p) => `${num(p.temperature_c, 0)}°→${num(p.duty_percent, 0)}%`).join("  ")}
           </span>
+          <DragCurve curve={node.curve} onChange={(curve) => onChange({ ...node, curve })} />
         </div>
       );
     case "constant":
@@ -121,6 +130,9 @@ function NodeFields({ node, others, sensors, onChange }: { node: CurveNode; othe
           <Num label="to" unit="°C" value={node.max_c} onChange={(max_c) => onChange({ ...node, max_c })} />
           <Num label="at" unit="%" value={node.max_percent} onChange={(max_percent) => onChange({ ...node, max_percent })} />
           <Num label="Critical" unit="°C" value={node.critical_c} onChange={(critical_c) => onChange({ ...node, critical_c })} />
+          <DragCurve
+            curve={{ points: [{ temperature_c: node.min_c, duty_percent: node.min_percent }, { temperature_c: node.max_c, duty_percent: node.max_percent }], minimum_percent: Math.min(node.min_percent, node.max_percent), critical_c: node.critical_c, hysteresis_c: 0 }}
+            onChange={(c) => onChange({ ...node, min_c: c.points[0]!.temperature_c, min_percent: c.points[0]!.duty_percent, max_c: c.points[1]!.temperature_c, max_percent: c.points[1]!.duty_percent })} />
         </div>
       );
     case "equilibrium":

@@ -13,7 +13,21 @@ struct Binding {
     function_key: u8,
     alt: bool,
     shift: bool,
+    /// Macro to run; empty when the shortcut switches a cooling profile.
+    #[serde(default)]
     macro_name: String,
+    /// Cooling profile to activate instead of a macro.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cooling_profile: Option<String>,
+}
+
+fn cooling_names(snapshot: &Snapshot) -> Vec<String> {
+    snapshot.control["cooling_profiles"]["profiles"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|p| p["name"].as_str().map(str::to_owned))
+        .collect()
 }
 
 fn validate(bindings: &[Binding]) -> Result<(), String> {
@@ -27,7 +41,16 @@ fn validate(bindings: &[Binding]) -> Result<(), String> {
                 "use Ctrl plus Alt and/or Shift with F6–F10; F11 is reserved for cancel".into(),
             );
         }
-        if binding.macro_name.is_empty()
+        if let Some(name) = &binding.cooling_profile {
+            if !binding.macro_name.is_empty()
+                || name.is_empty()
+                || name.len() > 64
+                || name.trim() != name
+                || name.chars().any(char::is_control)
+            {
+                return Err("select either a saved macro or a cooling profile".into());
+            }
+        } else if binding.macro_name.is_empty()
             || binding.macro_name.chars().count() > 64
             || binding.macro_name.trim() != binding.macro_name
             || !binding
@@ -137,7 +160,14 @@ impl Hotkeys {
         if !snapshot.connected {
             return Err("daemon is not connected".into());
         }
+        let cooling = cooling_names(snapshot);
         for binding in &self.bindings {
+            if let Some(name) = &binding.cooling_profile {
+                if !cooling.contains(name) {
+                    return Err(format!("cooling profile {name:?} no longer exists"));
+                }
+                continue;
+            }
             if snapshot.control["macros"]
                 .get(&binding.macro_name)
                 .is_none()
@@ -209,6 +239,12 @@ impl Hotkeys {
                             params: json!({}),
                         });
                     }
+                    native::Action::Cooling(name) => {
+                        let _ = tx.send(Command {
+                            method: "cooling.profiles.activate",
+                            params: json!({ "name": name }),
+                        });
+                    }
                     native::Action::Run(name) => {
                         if snapshot.control["macros"].get(&name).is_none() {
                             self.disable();
@@ -233,8 +269,9 @@ impl Hotkeys {
         self.enabled
     }
     pub fn ui(&mut self, ui: &mut egui::Ui, snapshot: &Snapshot) {
+        let cooling = cooling_names(snapshot);
         egui::CollapsingHeader::new("Global macro shortcuts").show(ui,|ui| {
-            ui.label("Off at every launch. Active only while this GUI is running. Ctrl+Shift+F11 cancels the running macro.");
+            ui.label("Off at every launch. Active only while this GUI is running. Ctrl+Shift+F11 cancels the running macro. A shortcut can also switch a cooling profile (same safety policy as a manual switch).");
             let mut enabled=self.enabled;
             if ui.add_enabled(cfg!(windows)&&snapshot.connected,egui::Checkbox::new(&mut enabled,"Enable global macro shortcuts for this session")).changed() {
                 if enabled { if let Err(error)=self.enable(ui.ctx(),snapshot) { self.error=Some(error); } } else { self.disable(); }
@@ -247,12 +284,15 @@ impl Hotkeys {
                     ui.push_id(index,|ui| {ui.horizontal(|ui| {
                         ui.label("Ctrl +");ui.checkbox(&mut binding.alt,"Alt");ui.checkbox(&mut binding.shift,"Shift");
                         egui::ComboBox::from_id_salt("function").selected_text(format!("F{}",binding.function_key)).show_ui(ui,|ui| {for key in 6..=10 {ui.selectable_value(&mut binding.function_key,key,format!("F{key}"));}});
-                        egui::ComboBox::from_id_salt("macro").selected_text(&binding.macro_name).show_ui(ui,|ui| {if let Some(macros)=snapshot.control["macros"].as_object() {for name in macros.keys() {ui.selectable_value(&mut binding.macro_name,name.clone(),name);}}});
+                        egui::ComboBox::from_id_salt("macro").selected_text(binding.cooling_profile.as_ref().map_or(binding.macro_name.clone(),|c| format!("Cooling: {c}"))).show_ui(ui,|ui| {
+                            if let Some(macros)=snapshot.control["macros"].as_object() {for name in macros.keys() {if ui.selectable_label(binding.cooling_profile.is_none()&&&binding.macro_name==name,name).clicked() {binding.macro_name=name.clone();binding.cooling_profile=None;}}}
+                            for name in &cooling {if ui.selectable_label(binding.cooling_profile.as_ref()==Some(name),format!("Cooling: {name}")).clicked() {binding.macro_name.clear();binding.cooling_profile=Some(name.clone());}}
+                        });
                         if ui.small_button("Remove").clicked() {remove=Some(index);}
                     });});
                 }
                 if let Some(index)=remove {self.bindings.remove(index);}
-                if ui.add_enabled(self.bindings.len()<16,egui::Button::new("Add shortcut")).clicked() {self.bindings.push(Binding{function_key:8,alt:false,shift:true,macro_name:String::new()});}
+                if ui.add_enabled(self.bindings.len()<16,egui::Button::new("Add shortcut")).clicked() {self.bindings.push(Binding{function_key:8,alt:false,shift:true,macro_name:String::new(),cooling_profile:None});}
                 if ui.button("Save shortcut bindings").clicked() {
                     let result=validate(&self.bindings).and_then(|()| {
                         let path=super::pages::config_root().ok_or("configuration directory unavailable")?.join("hotkeys.json");
@@ -278,6 +318,7 @@ mod native {
     #[derive(Clone)]
     pub enum Action {
         Run(String),
+        Cooling(String),
         Cancel,
     }
     pub struct Registration {
@@ -307,7 +348,11 @@ mod native {
                     _ => return Err("invalid function key".into()),
                 };
                 let key = HotKey::new(Some(modifiers), code);
-                actions.insert(key.id(), Action::Run(binding.macro_name.clone()));
+                let action = match &binding.cooling_profile {
+                    Some(name) => Action::Cooling(name.clone()),
+                    None => Action::Run(binding.macro_name.clone()),
+                };
+                actions.insert(key.id(), action);
                 keys.push(key);
             }
             let cancel = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::F11);
@@ -347,6 +392,7 @@ mod tests {
             alt: false,
             shift: true,
             macro_name: "Test".into(),
+            cooling_profile: None,
         };
         assert!(validate(std::slice::from_ref(&binding)).is_ok());
         assert!(validate(&[binding.clone(), binding]).is_err());
@@ -354,9 +400,20 @@ mod tests {
             function_key: 11,
             alt: false,
             shift: true,
-            macro_name: "Test".into()
+            macro_name: "Test".into(),
+            cooling_profile: None,
         }])
         .is_err());
+        let cooling = |macro_name: &str, profile: &str| Binding {
+            function_key: 9,
+            alt: true,
+            shift: false,
+            macro_name: macro_name.into(),
+            cooling_profile: Some(profile.into()),
+        };
+        assert!(validate(&[cooling("", "Silent")]).is_ok());
+        assert!(validate(&[cooling("Test", "Silent")]).is_err());
+        assert!(validate(&[cooling("", "")]).is_err());
     }
     #[test]
     fn partial_registration_is_rolled_back() {

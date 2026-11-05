@@ -207,7 +207,7 @@ export function mockTransport(): Transport {
     macro_status: { running: null, input_enabled: false, error: null },
     cooling_status: { hardware_control: false, reason: "Mock data: nothing is written.", error: null },
     sensor_graph: graph,
-    cooling_channels: coolingChannels,
+    cooling_channels: [...coolingChannels],
     monitoring_sensors: boardSensors,
     providers: [{ id: "mainboard.lhm", name: "LibreHardwareMonitor motherboard", status: "ready", message: "Mock data: nothing is written.", age_ms: 300 }],
     cooling_session: { ...session, jobs: [...mockJobs.values()].reverse() },
@@ -325,7 +325,20 @@ export function mockTransport(): Transport {
           const base: CoolingSession = { available: true, job_id: job, state: "executing", report: null, error: null, tier, mode, control_id: id };
           setJob(base);
           const finish = (report: Record<string, unknown>) => setJob({ ...mockJobs.get(job)!, state: "completed", report });
-          if (mode === "identify") setTimeout(() => finish({ tier, note: "mock identification" }), 8000);
+          if (mode === "identify") {
+            // Demo: the paired tachometer speeds up so the wizard can pair it automatically.
+            const tachId = id.replace("/control/", "/fan/");
+            const i = coolingChannels.findIndex((c) => c.kind === "fan" && c.reading.id === tachId);
+            const original = i >= 0 ? coolingChannels[i]!.reading.value : null;
+            const setRpm = (value: number | null) => { if (i >= 0) { coolingChannels[i] = { ...coolingChannels[i]!, reading: { ...coolingChannels[i]!.reading, value } }; emit("cooling_channels"); } };
+            if (original !== null) setTimeout(() => setRpm(Math.round(original * 1.7)), 1500);
+            setTimeout(() => { setRpm(original); finish({ tier, note: "mock identification" }); }, 8000);
+          }
+          if (mode === "calibration") setTimeout(() => {
+            evidence[id] = { ...evidence[id]!, test: "passed", tested: [{ duty_percent: 100, rpm: 1620 }, { duty_percent: 80, rpm: 1350 }, { duty_percent: 60, rpm: 1060 }, { duty_percent: 40, rpm: 760 }], rpm_range: { min_rpm: 760, max_rpm: 1620 } };
+            finish({ tier, note: "mock calibration (simulated)" });
+            emit("cooling_support");
+          }, 4000);
           if (mode === "channel_test") setTimeout(() => {
             evidence[id] = { ...evidence[id]!, test: "passed", tested: [{ duty_percent: 100, rpm: 1500 }, { duty_percent: 70, rpm: 1120 }, { duty_percent: 50, rpm: 830 }] };
             finish({ tier, note: "mock channel test" });
@@ -373,6 +386,32 @@ export function mockTransport(): Transport {
           return { started: true, paused: false, backends: ["simulated"], fans: [{ fan: { id: "nvml:GPU-mock/fan0", vendor: "nvidia", gpu_name: "GeForce (mock)", index: 0, duty_percent: 35, controllable: true, reason: null, min_percent: 30 }, floor_percent: 40, assignment: null, applied_percent: null, fault: null }] } as T;
         case "cooling.gpu.set":
         case "cooling.gpu.release":
+          return true as T;
+        case "cooling.plugins.list":
+          return {
+            started: true,
+            plugins: [
+              {
+                id: "cooling-virtual", version: "0.1.0", family: "virtual", license: "MIT OR Apache-2.0", installed: true, enabled: true,
+                capability: "both", virtual: true, device_found: true, error: null, install: null, failures: 0,
+                status: { id: "cooling-virtual", running: true, fault: null, failsafe: null, controls: [], virtual_io: true },
+                sensors: [
+                  { id: "liquid", name: "Virtual liquid", unit: "celsius", value: 39.6, age_ms: 400 },
+                  { id: "fan1_rpm", name: "Virtual fan 1", unit: "rpm", value: 1080, age_ms: 400 },
+                  { id: "pump_rpm", name: "Virtual pump", unit: "rpm", value: 2800, age_ms: 400 },
+                ],
+                channels: [
+                  { channel: { id: "fan1", name: "Virtual fan 1", role: "fan", floor_percent: 40, tachometer: "fan1_rpm" }, assignment: null, applied_percent: null, fault: null },
+                  { channel: { id: "pump", name: "Virtual pump", role: "pump", floor_percent: 100, tachometer: "pump_rpm" }, assignment: null, applied_percent: null, fault: null },
+                ],
+              },
+              { id: "example-hub-cooling", name: "Example fan hub (cooling)", version: "0.1.0", family: "example-hub", license: "MIT OR Apache-2.0", installed: false, enabled: false },
+            ],
+          } as T;
+        case "cooling.plugins.enable":
+        case "cooling.plugins.install":
+        case "cooling.plugins.set":
+        case "cooling.plugins.release":
           return true as T;
         case "cooling.hwmon.set":
         case "cooling.hwmon.release":
@@ -452,7 +491,7 @@ export function mockTransport(): Transport {
           backgroundSaved = channels;
           activeProfile = p.name as string;
           fakeApply(); emit("cooling_profiles");
-          return true as T;
+          return { profile: p.name, started: [], restarting: [], background_applied: true } as T;
         }
         case "effects.get":
           return effect as T;
