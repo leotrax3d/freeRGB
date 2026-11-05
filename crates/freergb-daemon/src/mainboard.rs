@@ -12,6 +12,8 @@ use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 const MAX_MESSAGE: usize = 256 * 1024;
 const STALE_MS: u64 = 5000;
+/// Pause before a new helper session after the provider was unavailable or failed.
+const RETRY: Duration = Duration::from_secs(5);
 
 /// Protected inventory of what a control can reach (no I/O performed for it).
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -251,13 +253,23 @@ impl MainboardProvider {
         self.worker = Some(
             std::thread::Builder::new()
                 .name("mainboard-sensors".into())
-                .spawn(move || {
-                    let result = Session::run(helper, library, &cache, &stop);
+                .spawn(move || loop {
+                    let result = Session::run(helper.clone(), library.clone(), &cache, &stop);
                     if let Err(error) = result {
                         let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
                         cache.status = "faulted".into();
                         cache.message = error;
                         cache.snapshot = None;
+                    }
+                    // The protected broker may start after the daemon (installer,
+                    // boot): retry unavailable or failed sessions until stopped.
+                    let guard = stop.0.lock().unwrap_or_else(|e| e.into_inner());
+                    let (guard, _) = stop
+                        .1
+                        .wait_timeout_while(guard, RETRY, |stop| !*stop)
+                        .unwrap_or_else(|e| e.into_inner());
+                    if *guard {
+                        return;
                     }
                 })
                 .map_err(|e| e.to_string())?,
