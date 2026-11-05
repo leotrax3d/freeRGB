@@ -1898,6 +1898,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-corsair-k55-pro-xt"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-corsair-k65-mini"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-corsair-lighting-node"
 version = "0.1.0"
 dependencies = [
@@ -1917,6 +1935,15 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-corsair-peripheral-v2"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-dark-project"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
