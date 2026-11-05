@@ -12,6 +12,7 @@ use freergb_device_api::{DeviceId, DeviceInfo, DeviceStatus, RgbDevice};
 use freergb_effects::{Effect, EffectSpec};
 use freergb_plugins::{Access, Manifest, ProcessDevice};
 use serde::Serialize;
+use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -115,6 +116,9 @@ pub struct Engine {
     pub background: crate::background::Background,
     pub fan_support: crate::fan_support::FanSupport,
     pub cooling_profiles: crate::cooling_profiles::CoolingProfiles,
+    pub cooling_service: crate::cooling_service::CoolingService,
+    /// Profile channels waiting for their previous job to return.
+    profile_pending: Vec<(crate::cooling_sessions::StartRequest, Instant)>,
     pub onboarding: crate::onboarding::Onboarding,
     pub mainboard_rgb: crate::mainboard_rgb::MainboardRgb,
     recorded_test_job: Option<u64>,
@@ -126,6 +130,7 @@ pub struct Engine {
     pub hwmon: crate::hwmon::HwmonProvider,
     /// GPU fans (NVML); started only with hardware access.
     pub gpu: crate::gpu_cooling::GpuCooling,
+    pub cooling_plugins: crate::cooling_plugins::CoolingPlugins,
     sensor_refresh_at: Option<Instant>,
     plugins: std::collections::BTreeMap<String, PluginEntry>,
     /// Hardware module setup service (absent with --no-modules).
@@ -312,10 +317,13 @@ impl Engine {
             mainboard: Default::default(),
             hwmon: Default::default(),
             gpu: Default::default(),
+            cooling_plugins: Default::default(),
             cooling_sessions: Default::default(),
             background: Default::default(),
             fan_support: Default::default(),
             cooling_profiles: Default::default(),
+            profile_pending: Vec::new(),
+            cooling_service: Default::default(),
             onboarding: Default::default(),
             mainboard_rgb: Default::default(),
             cooling_assignments: Default::default(),
@@ -674,6 +682,8 @@ impl Engine {
                 .with_file(parent.join("cooling-fan-support.json"));
             self.cooling_profiles = std::mem::take(&mut self.cooling_profiles)
                 .with_file(parent.join("cooling-profiles.json"));
+            self.cooling_service = std::mem::take(&mut self.cooling_service)
+                .with_file(parent.join("cooling-service.json"));
             self.onboarding =
                 std::mem::take(&mut self.onboarding).with_file(parent.join("onboarding.json"));
             self.cooling_assignments = std::mem::take(&mut self.cooling_assignments)
@@ -906,6 +916,7 @@ impl Engine {
     /// Renders one frame at `now` and offers it to every connected device.
     /// Never blocks on device I/O.
     pub fn tick(&mut self, now: Instant) {
+        self.cooling_service.health.beat();
         self.record_channel_test();
         let has_keyboard = self.conflicts.is_empty()
             && self.workers.iter().any(|w| {
@@ -929,6 +940,7 @@ impl Engine {
                 .sensors()
                 .into_iter()
                 .chain(self.hwmon.sensors())
+                .chain(self.cooling_plugins.sensors())
             {
                 devices.as_array_mut().unwrap().push(serde_json::json!({
                     "status":"Connected", "provider":entry.provider, "info":{"id":entry.device_id,"name":entry.device_name}, "sensors":[entry.sensor]
@@ -936,6 +948,8 @@ impl Engine {
             }
             self.controls.refresh_sensors(&devices);
             self.gpu.tick(&self.controls.composite_feed, now);
+            self.cooling_plugins
+                .feed(&self.controls.composite_feed, now);
         }
         if let Some(step) = self.controls.tick(now) {
             use freergb_control::MacroStep;
@@ -1143,8 +1157,36 @@ impl Engine {
     /// Resumes remembered assignments once the channel inventory is known
     /// (called periodically; does nothing after the first decision).
     pub fn resume_cooling(&mut self) {
+        self.start_pending_profile_channels();
         if !self.cooling_sessions.status().available {
+            if self.cooling_service.boot_pending() {
+                self.cooling_service
+                    .finish_boot(json!({"state": "unavailable"}));
+            }
             return;
+        }
+        if self.cooling_service.boot_pending() {
+            let action = crate::cooling_service::boot_action(
+                &self.cooling_service.config,
+                &self.cooling_profiles.names(),
+            );
+            if let crate::cooling_service::BootAction::ActivateProfile(name) = action {
+                let ready = !self.mainboard.channels().is_empty();
+                if !ready && self.started.elapsed() < Duration::from_secs(60) {
+                    return;
+                }
+                // The boot profile replaces the remembered assignments.
+                self.cooling_assignments.skip_resume();
+                let outcome = match self.activate_profile(&name) {
+                    Ok(result) => json!({"state": "profile", "result": result}),
+                    Err(error) => {
+                        tracing::warn!(%error, name, "boot profile not applied");
+                        json!({"state": "failed", "profile": name, "error": error})
+                    }
+                };
+                self.cooling_service.finish_boot(outcome);
+                return;
+            }
         }
         let ready = !self.mainboard.channels().is_empty();
         let identities: std::collections::BTreeMap<_, _> = self
@@ -1156,6 +1198,7 @@ impl Engine {
         let requests = self
             .cooling_assignments
             .take_resumable(|id| identities.get(id).cloned(), ready);
+        let mut resumed = Vec::new();
         for mut request in requests {
             request.composite_feed = Some(self.controls.composite_feed.clone());
             let control = request.control_id.clone();
@@ -1164,12 +1207,19 @@ impl Engine {
                 .and_then(|()| self.cooling_policy(&control))
                 .and_then(|policy| self.cooling_sessions.start(request, &policy));
             match result {
-                Ok(job) => tracing::info!(job, control, "resumed cooling assignment"),
+                Ok(job) => {
+                    tracing::info!(job, control, "resumed cooling assignment");
+                    resumed.push(control);
+                }
                 Err(error) => {
                     tracing::warn!(%error, control, "cooling assignment not resumed");
                     self.cooling_assignments.flag(&control, error);
                 }
             }
+        }
+        if self.cooling_service.boot_pending() && !self.cooling_assignments.resume_pending() {
+            self.cooling_service
+                .finish_boot(json!({"state": "resumed", "started": resumed}));
         }
     }
 
@@ -1277,14 +1327,39 @@ impl Engine {
     /// (tier, test, unlock) and hand it to the protected service (UAC). Unlike a
     /// revocation re-apply, a channel that is no longer permitted fails the
     /// activation instead of being dropped silently.
-    pub fn activate_profile(&mut self, name: &str) -> Result<(), String> {
-        let request = self
+    /// Current complete configuration as a profile (background curves, live
+    /// assignments, composite curve set, sensor graph).
+    pub fn capture_profile(&mut self) -> Result<crate::cooling_profiles::CoolingProfile, String> {
+        let background: crate::background::BackgroundRequest =
+            serde_json::from_value(self.background.view()["saved"].clone())
+                .map_err(|e| e.to_string())?;
+        let curve_set =
+            serde_json::from_value(self.controls.call("cooling.curve_set.get", &Value::Null)?)
+                .map_err(|e| e.to_string())?;
+        let sensors =
+            serde_json::from_value(self.controls.call("cooling.sensors.get", &Value::Null)?)
+                .map_err(|e| e.to_string())?;
+        Ok(crate::cooling_profiles::CoolingProfile {
+            channels: background.channels,
+            assignments: Some(self.cooling_assignments.requests()),
+            curve_set: Some(curve_set),
+            sensors: Some(sensors),
+        })
+    }
+
+    /// Switches to a saved profile. Every channel passes the normal policy
+    /// before anything changes; live channels outside the profile return to
+    /// firmware, unchanged ones keep running; background curves go to the
+    /// protected service (UAC) only when they differ from the saved set.
+    pub fn activate_profile(&mut self, name: &str) -> Result<Value, String> {
+        let profile = self
             .cooling_profiles
             .get(name)
             .cloned()
             .ok_or("Unknown cooling profile")?;
+        profile.validate()?;
         let mut entries = Vec::new();
-        for channel in &request.channels {
+        for channel in &profile.channels {
             let policy = self.cooling_policy(&channel.control_id)?;
             let bands = self.plausibility(&channel.control_id);
             entries.push(
@@ -1292,8 +1367,112 @@ impl Engine {
                     .map_err(|e| format!("{}: {e}", channel.control_id))?,
             );
         }
-        self.background.apply(request, entries)?;
-        self.cooling_profiles.mark_active(name)
+        for request in profile.assignments.iter().flatten() {
+            let mut checked = request.clone();
+            self.resolve_rpm_target(&mut checked)?;
+            let policy = self.cooling_policy(&request.control_id)?;
+            checked
+                .plan(&policy)
+                .map_err(|e| format!("{}: {e}", request.control_id))?;
+        }
+        if let Some(graph) = &profile.sensors {
+            self.controls
+                .call("cooling.sensors.save", &json!({ "graph": graph }))?;
+        }
+        if let Some(set) = &profile.curve_set {
+            self.controls
+                .call("cooling.curve_set.save", &json!({ "set": set }))?;
+        }
+        let mut started = Vec::new();
+        let mut restarting = Vec::new();
+        if let Some(assignments) = &profile.assignments {
+            let wanted: std::collections::BTreeMap<_, _> = assignments
+                .iter()
+                .map(|a| (a.control_id.clone(), a))
+                .collect();
+            let current: std::collections::BTreeMap<_, _> = self
+                .cooling_assignments
+                .requests()
+                .into_iter()
+                .map(|a| (a.control_id.clone(), a))
+                .collect();
+            self.profile_pending.clear();
+            let mut busy = std::collections::BTreeSet::new();
+            for job in self.cooling_sessions.active() {
+                let (Some(id), Some(control)) = (job.job_id, job.control_id) else {
+                    continue;
+                };
+                let unchanged = matches!(
+                    (wanted.get(&control), current.get(&control)),
+                    (Some(want), Some(have)) if same_request(want, have)
+                );
+                busy.insert(control.clone());
+                if unchanged {
+                    continue;
+                }
+                self.cooling_sessions.stop(id)?;
+                self.cooling_assignments.forget(&control);
+                if let Some(want) = wanted.get(&control) {
+                    restarting.push(control.clone());
+                    self.profile_pending.push(((*want).clone(), Instant::now()));
+                }
+            }
+            for request in assignments {
+                if busy.contains(&request.control_id) {
+                    continue;
+                }
+                let control = request.control_id.clone();
+                match self.start_cooling(request.clone()) {
+                    Ok(_) => started.push(control),
+                    Err(error) => self.cooling_assignments.flag(&control, error),
+                }
+            }
+        }
+        let saved: crate::background::BackgroundRequest =
+            serde_json::from_value(self.background.view()["saved"].clone()).unwrap_or_default();
+        let background_changed =
+            serde_json::to_value(&saved).ok() != serde_json::to_value(profile.background()).ok();
+        if background_changed {
+            self.background.apply(profile.background(), entries)?;
+        }
+        self.cooling_profiles.mark_active(name)?;
+        Ok(json!({
+            "profile": name,
+            "started": started,
+            "restarting": restarting,
+            "background_applied": background_changed,
+        }))
+    }
+
+    /// Starts profile channels once their previous job returned (bounded wait).
+    fn start_pending_profile_channels(&mut self) {
+        if self.profile_pending.is_empty() {
+            return;
+        }
+        let busy: std::collections::BTreeSet<_> = self
+            .cooling_sessions
+            .active()
+            .into_iter()
+            .filter_map(|j| j.control_id)
+            .collect();
+        for (request, since) in std::mem::take(&mut self.profile_pending) {
+            let control = request.control_id.clone();
+            if busy.contains(&control) {
+                if since.elapsed() < Duration::from_secs(10) {
+                    self.profile_pending.push((request, since));
+                } else {
+                    self.cooling_assignments.flag(
+                        &control,
+                        "Previous controller did not return in time; activate the profile again"
+                            .into(),
+                    );
+                }
+                continue;
+            }
+            if let Err(error) = self.start_cooling(request) {
+                self.cooling_assignments.flag(&control, error);
+            }
+        }
     }
 
     /// After a revocation, re-validate the saved background channels under the
@@ -1357,6 +1536,7 @@ impl Engine {
     pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
         let mut entries = self.mainboard.sensors();
         entries.extend(self.hwmon.sensors());
+        entries.extend(self.cooling_plugins.sensors());
         for device in self.devices() {
             for mut sensor in device.sensors {
                 if device.status != DeviceStatus::Connected {
@@ -1766,4 +1946,12 @@ fn plugin_allowlist_is_atomic_and_no_hardware_is_enforced() {
     engine.tick(Instant::now());
     assert!(engine.devices().is_empty());
     assert!(!engine.has_hardware_plugins());
+}
+
+/// Same controller and limits (ignores engine-owned runtime attachments).
+fn same_request(
+    a: &crate::cooling_sessions::StartRequest,
+    b: &crate::cooling_sessions::StartRequest,
+) -> bool {
+    serde_json::to_value(a).ok() == serde_json::to_value(b).ok()
 }

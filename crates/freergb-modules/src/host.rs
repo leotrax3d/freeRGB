@@ -256,7 +256,7 @@ fn transport_error(e: TransportError) -> String {
 }
 
 /// Executes one call on the daemon-owned handle.
-fn broker(call: &Call, transport: &mut Option<Box<dyn HidTransport>>) -> CallReply {
+pub(crate) fn broker(call: &Call, transport: &mut Option<Box<dyn HidTransport>>) -> CallReply {
     let mut reply = CallReply {
         v: MODULE_API,
         call: call.call,

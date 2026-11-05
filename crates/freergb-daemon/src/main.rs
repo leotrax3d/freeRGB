@@ -61,6 +61,11 @@ struct Args {
         )
     )]
     mainboard_library: Option<std::path::PathBuf>,
+    /// Boot-time cooling service: run headless (no GUI/login needed), apply the
+    /// boot profile or remembered assignments and supervise the daemon with an
+    /// independent watchdog (exit code 3 after returning all channels).
+    #[arg(long)]
+    cooling_service: bool,
     /// Target frames per second.
     #[arg(long, default_value_t = 30)]
     fps: u32,
@@ -260,7 +265,36 @@ fn main() -> Result<()> {
             .name("module-catalog".into())
             .spawn(move || manager.refresh_catalog())?;
     }
+    engine.cooling_service.headless = args.cooling_service;
+    let health = engine.cooling_service.health.clone();
+    if let Some(manager) = &engine.modules {
+        // Cooling plugins (API 3) live in the module store; enabling is explicit.
+        let state_dir = (!args.no_state)
+            .then(state::default_path)
+            .flatten()
+            .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+        let root = manager.store().root().to_path_buf();
+        engine.cooling_plugins.start(root, state_dir);
+    }
     let engine: SharedEngine = Arc::new(Mutex::new(engine));
+    if args.cooling_service {
+        let watched = engine.clone();
+        freergb_daemon::cooling_service::spawn_watchdog(health, Default::default(), move |_| {
+            // A hung engine may hold its lock: then process exit closes every
+            // native transport and the worker leases return the channels.
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < deadline {
+                if let Ok(engine) = watched.try_lock() {
+                    let _ = engine.cooling_sessions.stop_all();
+                    drop(engine);
+                    std::thread::sleep(Duration::from_millis(1500));
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        })
+        .map_err(anyhow::Error::msg)?;
+    }
     if args.virtual_device {
         lock(&engine).add_device(Box::new(VirtualDevice::new(
             "Virtual Strip",

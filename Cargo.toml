@@ -24,6 +24,8 @@ members = [
     "crates/freergb-modules",
     "crates/freergb-module-tool",
     "modules/razer-chroma",
+    "modules/cooling-virtual",
+    "modules/corsair-link-cooling",
     "modules/redragon-mouse",
     "modules/luxafor",
     "modules/msi-motherboard",

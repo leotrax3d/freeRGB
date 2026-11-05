@@ -1,0 +1,375 @@
+{
+  "capability": "sensor",
+  "sensors": [
+    {
+      "id": "slot0_rpm",
+      "name": "LINK slot 0 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot1_rpm",
+      "name": "LINK slot 1 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot2_rpm",
+      "name": "LINK slot 2 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot3_rpm",
+      "name": "LINK slot 3 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot4_rpm",
+      "name": "LINK slot 4 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot5_rpm",
+      "name": "LINK slot 5 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot6_rpm",
+      "name": "LINK slot 6 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot7_rpm",
+      "name": "LINK slot 7 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot8_rpm",
+      "name": "LINK slot 8 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot9_rpm",
+      "name": "LINK slot 9 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot10_rpm",
+      "name": "LINK slot 10 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot11_rpm",
+      "name": "LINK slot 11 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot12_rpm",
+      "name": "LINK slot 12 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot13_rpm",
+      "name": "LINK slot 13 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot14_rpm",
+      "name": "LINK slot 14 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot15_rpm",
+      "name": "LINK slot 15 speed",
+      "unit": "rpm",
+      "min": 0.0,
+      "max": 10000.0
+    },
+    {
+      "id": "slot0_temp",
+      "name": "LINK slot 0 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot1_temp",
+      "name": "LINK slot 1 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot2_temp",
+      "name": "LINK slot 2 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot3_temp",
+      "name": "LINK slot 3 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot4_temp",
+      "name": "LINK slot 4 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot5_temp",
+      "name": "LINK slot 5 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot6_temp",
+      "name": "LINK slot 6 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot7_temp",
+      "name": "LINK slot 7 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot8_temp",
+      "name": "LINK slot 8 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot9_temp",
+      "name": "LINK slot 9 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot10_temp",
+      "name": "LINK slot 10 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot11_temp",
+      "name": "LINK slot 11 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot12_temp",
+      "name": "LINK slot 12 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot13_temp",
+      "name": "LINK slot 13 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot14_temp",
+      "name": "LINK slot 14 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    },
+    {
+      "id": "slot15_temp",
+      "name": "LINK slot 15 temperature",
+      "unit": "celsius",
+      "min": -20.0,
+      "max": 125.0
+    }
+  ],
+  "channels": [],
+  "io": {
+    "transport": "hid",
+    "devices": [
+      {
+        "vid": 6940,
+        "pid": 3135
+      }
+    ],
+    "rules": [
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          18
+        ],
+        "max_len": 4
+      },
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          2,
+          3,
+          0
+        ],
+        "max_len": 6
+      },
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          1,
+          3,
+          0,
+          2,
+          0,
+          0
+        ],
+        "max_len": 9
+      },
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          1,
+          3,
+          0,
+          1,
+          0,
+          0
+        ],
+        "max_len": 9
+      },
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          9,
+          1,
+          0
+        ],
+        "max_len": 6
+      },
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          5,
+          1,
+          1
+        ],
+        "max_len": 6
+      },
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          13,
+          1,
+          23
+        ],
+        "max_len": 6
+      },
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          13,
+          1,
+          33
+        ],
+        "max_len": 6
+      },
+      {
+        "op": "write",
+        "prefix": [
+          0,
+          0,
+          1,
+          8,
+          1
+        ],
+        "max_len": 5
+      },
+      {
+        "op": "read",
+        "prefix": [],
+        "max_len": 1024
+      }
+    ],
+    "failsafe": [
+      {
+        "op": "write",
+        "data": [
+          0,
+          0,
+          1,
+          1,
+          3,
+          0,
+          1,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "sample_interval_ms": 2000,
+  "max_age_ms": 6000
+}

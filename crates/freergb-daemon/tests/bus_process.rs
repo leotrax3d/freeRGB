@@ -84,6 +84,7 @@ impl Harness {
             license: "MIT".into(),
             devices: vec![],
             bus: Some(policy),
+            cooling: None,
             files: Default::default(),
         };
         let archive = root.join("fixture.zip");
