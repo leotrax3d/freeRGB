@@ -17,6 +17,7 @@ const POLL_INTERVAL: Duration = Duration::from_secs(1);
 mod alerts;
 mod app_profiles;
 mod channel_bindings;
+mod composite_curves;
 mod custom_sensors;
 mod diagnostics;
 mod hotkeys;
@@ -194,6 +195,8 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             "sensor_sources": get("cooling.sensors.sources").unwrap_or(Value::Null),
             "sensor_values": get("cooling.sensors.values").unwrap_or(Value::Null),
             "sensor_graph": get("cooling.sensors.get").unwrap_or(Value::Null),
+            "curve_set": get("cooling.curve_set.get").unwrap_or(Value::Null),
+            "curve_set_values": get("cooling.curve_set.values").unwrap_or(Value::Null),
             "cooling_providers": get("cooling.providers.list").unwrap_or(Value::Null),
             "cooling_channels": get("cooling.channels.list").unwrap_or(Value::Null),
             "cooling_session": get("cooling.sessions.status").unwrap_or(Value::Null),

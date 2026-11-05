@@ -36,8 +36,8 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 
 | Area | Target | Current freeRGB | Acceptance still needed |
 |---|---|---|---|
-| Setup | Guided discovery | Inventory | Guided channel identification |
-| Pairing | Manual/automatic tachometer pairing | Candidate LINK map | Physical correlation |
+| Setup | Guided discovery | Implemented (mock-verified): Cooling → Guided fan setup detects chips/tiers, identifies headers one at a time at 100 %, names them, marks pumps, runs the channel test and calibration and proposes a floor-respecting curve per confirmed fan ([screenshots](screenshots/README.md#guided-fan-setup)) | Owner walkthrough on real hardware (prompt 07) |
+| Pairing | Manual/automatic tachometer pairing | Implemented (mock-verified): the identify spin-up records RPM before/peak and pairs the tachometer with a clear rise (≥150 RPM, ≥15 %, ≥2× runner-up); otherwise manual choice | Physical correlation on the owner board |
 | Calibration | Duty/RPM characterization | Implemented (simulated): channel test, 100/80/60/40 calibration and fine sweeps (2..20 % steps) stored per channel identity; chip-family simulator sweeps | Owner-board fine sweep (prompt 07) |
 | Calibration | Startup/stall thresholds | Implemented (simulated): unrestricted-only stall sweep records stall and start duty per channel identity; never on pumps or below 40 % otherwise | Per-channel verified limits on owner board (prompt 07) |
 | Calibration | Avoid resonance ranges | Implemented (simulated): `shaping.avoid` duty or RPM ranges (RPM via measured map), deterministic nearest-boundary skip, floor-aware | Validated ranges on real fans (prompt 07) |
@@ -64,7 +64,7 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 | GPU | Vendor control/release | NVML backend (NVIDIA), amdgpu via hwmon (Linux); journal + release on stop/pause/crash/fault; simulated tests; Tauri panel | NVML hardware acceptance; elevated GPU worker; AMD ADLX (Windows) missing; Intel Arc read-only |
 | Plugins | External sensors/controls | API 3 cooling plugins: signed schema-3 packages, policy-limited brokered I/O, host lease/floor/pump/freshness rules and host-written fail-safe; virtual reference plugin (CI e2e) and read-only iCUE LINK plugin (simulated hub); install/enable in the module manager, channels with source badge ([details](COOLING_PLUGINS.md)) | iCUE LINK plugin owner-hardware acceptance; no OS sandbox; control-capable real plugin |
 | Profiles | Cooling configurations | Implemented (simulated): complete profiles (background, live channels, composite set, sensor graph), switching by API/CLI/GUIs/tray/shortcut/app rule, versioned import/export with identity remapping ([COOLING_SERVICE.md](COOLING_SERVICE.md)) | Hardware acceptance (prompt 07) |
-| Desktop | Tray/layout/themes | Partial GUI | Usability parity |
+| Desktop | Tray/layout/themes | Tauri: dashboard cards (live RPM/duty/tier/fault), drag editor for point, graph and linear curves, composite/adaptive/sensor-graph editors, avoided ranges and limits; tray: cooling profile switch, pause, stop all live fans, fault toasts; Classic: composite-curve editor and profile switch | Owner UI walkthrough (prompt 07) |
 | Startup | Login/service modes | Implemented (simulated): login/service mode, headless `freergbd --cooling-service` with boot profile and independent watchdog; Windows boot still via protected `BackgroundCooling` | Windows boot-channel authorization hand-over; reboot/upgrade/uninstall acceptance |
 | CLI | Configuration/window/lifecycle | `freergb cooling` list/status/set-manual/stop/stop-all/profiles/apply/import/export/service with `--json` ([LOCAL_API.md](LOCAL_API.md#cooling-cli)) | Window/lifecycle commands |
 | Distribution | Update/signing | Installer/update foundation | Signed live update acceptance |

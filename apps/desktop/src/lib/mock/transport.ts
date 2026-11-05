@@ -207,7 +207,7 @@ export function mockTransport(): Transport {
     macro_status: { running: null, input_enabled: false, error: null },
     cooling_status: { hardware_control: false, reason: "Mock data: nothing is written.", error: null },
     sensor_graph: graph,
-    cooling_channels: coolingChannels,
+    cooling_channels: [...coolingChannels],
     monitoring_sensors: boardSensors,
     providers: [{ id: "mainboard.lhm", name: "LibreHardwareMonitor motherboard", status: "ready", message: "Mock data: nothing is written.", age_ms: 300 }],
     cooling_session: { ...session, jobs: [...mockJobs.values()].reverse() },
@@ -325,7 +325,20 @@ export function mockTransport(): Transport {
           const base: CoolingSession = { available: true, job_id: job, state: "executing", report: null, error: null, tier, mode, control_id: id };
           setJob(base);
           const finish = (report: Record<string, unknown>) => setJob({ ...mockJobs.get(job)!, state: "completed", report });
-          if (mode === "identify") setTimeout(() => finish({ tier, note: "mock identification" }), 8000);
+          if (mode === "identify") {
+            // Demo: the paired tachometer speeds up so the wizard can pair it automatically.
+            const tachId = id.replace("/control/", "/fan/");
+            const i = coolingChannels.findIndex((c) => c.kind === "fan" && c.reading.id === tachId);
+            const original = i >= 0 ? coolingChannels[i]!.reading.value : null;
+            const setRpm = (value: number | null) => { if (i >= 0) { coolingChannels[i] = { ...coolingChannels[i]!, reading: { ...coolingChannels[i]!.reading, value } }; emit("cooling_channels"); } };
+            if (original !== null) setTimeout(() => setRpm(Math.round(original * 1.7)), 1500);
+            setTimeout(() => { setRpm(original); finish({ tier, note: "mock identification" }); }, 8000);
+          }
+          if (mode === "calibration") setTimeout(() => {
+            evidence[id] = { ...evidence[id]!, test: "passed", tested: [{ duty_percent: 100, rpm: 1620 }, { duty_percent: 80, rpm: 1350 }, { duty_percent: 60, rpm: 1060 }, { duty_percent: 40, rpm: 760 }], rpm_range: { min_rpm: 760, max_rpm: 1620 } };
+            finish({ tier, note: "mock calibration (simulated)" });
+            emit("cooling_support");
+          }, 4000);
           if (mode === "channel_test") setTimeout(() => {
             evidence[id] = { ...evidence[id]!, test: "passed", tested: [{ duty_percent: 100, rpm: 1500 }, { duty_percent: 70, rpm: 1120 }, { duty_percent: 50, rpm: 830 }] };
             finish({ tier, note: "mock channel test" });
