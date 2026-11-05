@@ -39,7 +39,7 @@ impl Module for Drgb {
             .iter()
             .find(|d| d.pid == i.pid)
             .ok_or_else(|| err("no DeepRGB detector"))?;
-        if dev.version != 1 && dev.version != 2 && dev.version != 3 {
+        if dev.version != 1 && dev.version != 2 && dev.version != 3 && dev.version != 4 {
             return Err(err("DeepRGB version is not ported yet"));
         }
         let channel_counts = match zones {
