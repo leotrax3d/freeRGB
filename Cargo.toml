@@ -90,6 +90,7 @@ members = [
     "modules/nvidia-esa",
     "modules/cryorig-h7-quad-lumi",
     "modules/msi-optix",
+    "modules/acer-nitro-hid-led",
 ]
 
 [workspace.package]
