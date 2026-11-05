@@ -104,6 +104,8 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
         let (id, make): (DeviceId, DeviceFactory) = match m.adapter {
             "asus-aura-usb" => {
                 let (mut counts, names) = mainboard.headers::<4>(vid, pid);
+                let (orders, fallbacks) = mainboard.header_options::<4>(vid, pid);
+                let report = lock(engine).mainboard_rgb.report_cell(vid, pid);
                 if opts.enable_asus_aura {
                     counts = opts.asus_argb_leds;
                 }
@@ -114,7 +116,9 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
                             freergb_protocols::asus_aura::AuraDevice::new(
                                 transport, pid, serial, counts,
                             )
-                            .with_names(names),
+                            .with_names(names)
+                            .with_header_options(orders, fallbacks)
+                            .with_report(report.clone()),
                         ) as Box<dyn RgbDevice>
                     }),
                 )

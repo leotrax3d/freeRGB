@@ -29,6 +29,23 @@ Supported controllers are detected and opened at startup like any other device.
 - `enabled` — global "Manage motherboard RGB" switch, default **on**;
 - per controller (`vvvv:pppp`) up to four headers with `leds` (0..512) and an
   optional `name` shown on the layout canvas. Presets for 8/12/16/18-LED fans
+- ASUS Aura headers also take `order` (`rgb` default, `rbg`, `grb`, `gbr`, `brg`,
+  `bgr`) and `fallback` (`{"mode":"spectrum"}` default, `{"mode":"off"}`,
+  `{"mode":"static","color":"#rrggbb"}`). `order` is the byte order the strip
+  expects: if a red test LED shows green and a green one shows red, choose `grb`.
+  `fallback` is what the header shows when freeRGB stops: the firmware spectrum
+  effect (the previous effect cannot be read back), the firmware "off" effect, or
+  one last direct frame in the given colour. Both are volatile: nothing is
+  written to flash. Gigabyte and ASRock headers ignore these two fields.
+- `mainboard_rgb.get` also returns `detected` per controller: what the controller
+  reports (ASUS: which of the four ARGB headers exist and the fixed-LED count; the
+  protocol does not report attached strip lengths, so the LED count stays a user
+  setting). The modern GUI can export/import the settings as JSON (validated; the
+  per-header test pattern is an owner step, see below).
+
+Owner acceptance (needs the real board, not run by the worker): set a header's
+LED count, apply a red/green/blue frame, pick the `order` that shows the right
+colours, then close freeRGB and check the chosen `fallback`.
   (times chained fans) are offered by the GUI.
 
 RPC: `mainboard_rgb.get`, `mainboard_rgb.save {settings}`; saving releases the
