@@ -358,6 +358,22 @@ export function mockTransport(): Transport {
               fans: [{ index: 1, label: "Fan 1", rpm: 1180 }, { index: 2, label: "Fan 2", rpm: 960 }],
               pwms: [1, 2].map((i) => ({ channel_id: `nct6799@platform/nct6775.656/pwm${i}`, label: `PWM ${i}`, percent: 45, enable: 5, mode: 1, writable: true, paired_fan: i })) }],
             assignments: [], status: [] } as T;
+        case "cooling.sensors.catalog":
+          return [
+            { id: "[\"mock:link\",\"temperature:4\"]", label: "RGB Fan Hub (virtual) / Coolant (mock)", provider: "device", unit: "°C", category: "liquid", value: 31.2, age_ms: 0, error: null },
+            { id: "[\"mainboard.lhm:/amdcpu/0\",\"/amdcpu/0/temperature/2\"]", label: "AMD Ryzen (mock) / Core (Tctl/Tdie)", provider: "mainboard.lhm", unit: "°C", category: "cpu", value: 54.8, age_ms: 0, error: null },
+            { id: "[\"mainboard.lhm:/gpu-nvidia/0\",\"/gpu-nvidia/0/temperature/2\"]", label: "GeForce (mock) / GPU Hot Spot", provider: "mainboard.lhm", unit: "°C", category: "gpu", value: 61.0, age_ms: 0, error: null },
+            { id: "file:ambient", label: "File / ambient", provider: "file", unit: "°C", category: "file", value: null, age_ms: 0, error: "file not updated within timeout" },
+          ] as T;
+        case "cooling.file_sensors.get":
+          return { sensors: { ambient: { path: "C:\\temps\\ambient.txt" } } } as T;
+        case "cooling.file_sensors.save":
+          return true as T;
+        case "cooling.gpu.list":
+          return { started: true, paused: false, backends: ["simulated"], fans: [{ fan: { id: "nvml:GPU-mock/fan0", vendor: "nvidia", gpu_name: "GeForce (mock)", index: 0, duty_percent: 35, controllable: true, reason: null, min_percent: 30 }, floor_percent: 40, assignment: null, applied_percent: null, fault: null }] } as T;
+        case "cooling.gpu.set":
+        case "cooling.gpu.release":
+          return true as T;
         case "cooling.hwmon.set":
         case "cooling.hwmon.release":
           return true as T;

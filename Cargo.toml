@@ -17,6 +17,7 @@ members = [
     "crates/freergb-screen",
     "crates/freergb-plugins",
     "crates/freergb-control",
+    "crates/freergb-gpu-nvml",
     "crates/freergb-tray",
     "crates/freergb-update",
     "crates/freergb-module-api",

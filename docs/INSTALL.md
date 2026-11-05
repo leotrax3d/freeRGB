@@ -153,6 +153,15 @@ Settings → Apps → freeRGB → Uninstall. Delete the state directory separate
 if you want to drop profiles and settings.
 
 
+## Optional sensor and GPU components
+
+Nothing here is mandatory. CPU/GPU/storage temperatures on Windows come from the
+optional LHM provider below; on Linux from the kernel hwmon drivers (`k10temp`,
+`coretemp`, `amdgpu`, `nvme`, `drivetemp`). NVIDIA GPU fan control uses the NVML
+library that ships with the NVIDIA driver (no extra install) and needs
+administrator/root rights to set speeds. AMD Windows (ADLX) control is not
+available. See `COOLING_SOURCES_GPU.md`.
+
 ## Optional motherboard backend
 
 Normal installation/startup requires no PawnIO, LHM or additional .NET runtime.
