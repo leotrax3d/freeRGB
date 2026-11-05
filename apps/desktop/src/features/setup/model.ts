@@ -1,24 +1,26 @@
 import type { ModulesStatus, SetupCard, SetupPhase } from "@/lib/api/types";
 import type { Tone } from "@/components/status";
+import { t, type SetupKey } from "./messages";
 
 export interface PhaseInfo {
-  label: string;
+  /** Message key; translate with `t()` when rendering. */
+  label: SetupKey;
   tone: Tone;
   /** Work in progress without a measurable amount: show an activity indicator. */
   busy: boolean;
 }
 
 export const PHASES: Record<SetupPhase, PhaseInfo> = {
-  detected: { label: "Detected", tone: "idle", busy: false },
-  waiting: { label: "Waiting", tone: "idle", busy: true },
-  downloading: { label: "Downloading", tone: "warn", busy: false },
-  verifying: { label: "Verifying", tone: "warn", busy: true },
-  installing: { label: "Setting up", tone: "warn", busy: true },
-  initializing: { label: "Connecting", tone: "warn", busy: true },
-  ready: { label: "Ready", tone: "ok", busy: false },
-  failed: { label: "Failed", tone: "error", busy: false },
-  not_connected: { label: "Not connected", tone: "idle", busy: false },
-  unsupported: { label: "Not yet supported", tone: "idle", busy: false },
+  detected: { label: "setup.phase.detected", tone: "idle", busy: false },
+  waiting: { label: "setup.phase.waiting", tone: "idle", busy: true },
+  downloading: { label: "setup.phase.downloading", tone: "warn", busy: false },
+  verifying: { label: "setup.phase.verifying", tone: "warn", busy: true },
+  installing: { label: "setup.phase.installing", tone: "warn", busy: true },
+  initializing: { label: "setup.phase.initializing", tone: "warn", busy: true },
+  ready: { label: "setup.phase.ready", tone: "ok", busy: false },
+  failed: { label: "setup.phase.failed", tone: "error", busy: false },
+  not_connected: { label: "setup.phase.not_connected", tone: "idle", busy: false },
+  unsupported: { label: "setup.phase.unsupported", tone: "idle", busy: false },
 };
 
 /** Supported by a module, not built in. */
@@ -84,24 +86,25 @@ export function bytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-const ERROR_HINTS: Record<string, string> = {
-  offline: "freeRGB could not reach the module source. Check the internet connection, then try again.",
-  source: "The module source is not available.",
-  permission: "freeRGB is not allowed to open this device.",
-  busy: "Another program is using this device. Close other RGB software and try again.",
-  invalid_package: "The downloaded module failed verification and was not installed.",
-  incompatible: "No compatible module exists for this system yet.",
-  initialization: "The device did not accept the module's setup.",
-  timeout: "The device did not respond in time.",
-  removed: "The device was disconnected during setup.",
-  cancelled: "Setup was cancelled.",
+const ERROR_HINTS: Record<string, SetupKey> = {
+  offline: "setup.err.offline",
+  source: "setup.err.source",
+  permission: "setup.err.permission",
+  busy: "setup.err.busy",
+  invalid_package: "setup.err.invalid_package",
+  incompatible: "setup.err.incompatible",
+  initialization: "setup.err.initialization",
+  timeout: "setup.err.timeout",
+  removed: "setup.err.removed",
+  cancelled: "setup.err.cancelled",
 };
 
 /** One-sentence cause for a failed card; the raw message stays in details. */
 export function errorHint(card: SetupCard): string | null {
   if (!card.error) return null;
   const raw = card.error.message.toLowerCase();
-  if (card.error.code === "initialization" && raw.includes("permission")) return ERROR_HINTS.permission!;
-  if (card.error.code === "initialization" && (raw.includes("busy") || raw.includes("unavailable"))) return ERROR_HINTS.busy!;
-  return ERROR_HINTS[card.error.code] ?? "Something went wrong.";
+  if (card.error.code === "initialization" && raw.includes("permission")) return t(ERROR_HINTS.permission!);
+  if (card.error.code === "initialization" && (raw.includes("busy") || raw.includes("unavailable"))) return t(ERROR_HINTS.busy!);
+  const key = ERROR_HINTS[card.error.code];
+  return key ? t(key) : t("setup.err.other");
 }

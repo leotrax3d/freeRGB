@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Section } from "@/components/page";
 import { Button } from "@/components/ui/button";
 import { bytes, isWorking, newDevices, selectable, selectionSize, supported } from "./model";
+import { InlineError } from "@/components/status";
+import { t } from "./messages";
 import { SetupCardView } from "./SetupCard";
 import { useSetup } from "./useSetup";
 
@@ -31,28 +33,28 @@ export function NewDevicesPanel() {
     <div className="flex flex-col gap-6">
       {(fresh.length > 0 || attention.length > 0) && (
         <section
-          aria-label="New devices"
+          aria-label={t("setup.panel.aria")}
           className="flex flex-col gap-3 rounded-card border border-border-strong bg-surface-raised/40 p-4 animate-[pop-in_var(--duration-slow)_var(--ease-out)]"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-col">
-              <h2 className="text-title font-semibold">{fresh.length > 0 ? "New devices found" : "Devices need attention"}</h2>
-              <p className="text-small text-text-muted">Your other devices keep running while these are set up.</p>
+              <h2 className="text-title font-semibold">{fresh.length > 0 ? t("setup.panel.found") : t("setup.panel.attention")}</h2>
+              <p className="text-small text-text-muted">{t("setup.panel.running")}</p>
             </div>
             {offer.length > 0 && working.length === 0 && (
               <div className="flex items-center gap-2">
                 {size.bytes > 0 && <span className="text-small text-text-subtle tabular">{bytes(size.bytes)}</span>}
                 <Button variant="ghost" size="sm" onClick={() => void setup.dismiss(offer.map((c) => c.key))}>
-                  Not now
+                  {t("setup.panel.later")}
                 </Button>
                 <Button variant="primary" size="sm" disabled={chosen.length === 0} onClick={() => void setup.start(chosen)}>
-                  Set up
+                  {t("setup.panel.setUp")}
                 </Button>
               </div>
             )}
             {status.job.running && (
               <Button variant="ghost" size="sm" onClick={() => void setup.cancel()}>
-                Cancel
+                {t("setup.panel.cancel")}
               </Button>
             )}
           </div>
@@ -74,7 +76,7 @@ export function NewDevicesPanel() {
               />
             ))}
           </div>
-          {setup.error && <p className="text-caption text-danger-text">{setup.error}</p>}
+          {setup.error && <InlineError>{setup.error}</InlineError>}
         </section>
       )}
 
@@ -92,7 +94,7 @@ export function SetupExtras() {
   return (
     <div className="flex flex-col gap-6">
       {unsupported.length > 0 && (
-        <Section title="Not yet supported">
+        <Section title={t("setup.extras.unsupported")}>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
             {unsupported.map((c, i) => (
               <SetupCardView key={c.key} card={c} index={i} compact />
@@ -102,7 +104,7 @@ export function SetupExtras() {
       )}
 
       {status.installed.length > 0 && (
-        <Section title="Hardware modules">
+        <Section title={t("setup.extras.modules")}>
           <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
             {status.installed.map((m) => (
               <li key={m.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-small">
@@ -113,15 +115,14 @@ export function SetupExtras() {
                 <span className="flex-1" />
                 {(m.previous || (m.last_good && m.last_good !== m.version)) && (
                   <Button size="sm" variant="ghost" disabled={setup.pending === `rollback:${m.id}`} onClick={() => void setup.rollback(m.id)}>
-                    <History /> Use previous version
+                    <History aria-hidden /> {t("setup.extras.previous")}
                   </Button>
                 )}
               </li>
             ))}
           </ul>
           <p className="text-caption text-text-subtle">
-            Modules never update on their own. Source: {status.catalog.source}
-            {status.catalog.state === "error" && " (unavailable — installed modules work offline)"}.
+            {t("setup.extras.note", { source: status.catalog.source, unavailable: status.catalog.state === "error" ? t("setup.extras.unavailable") : "" })}
           </p>
         </Section>
       )}
