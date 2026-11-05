@@ -554,7 +554,7 @@ mod tests {
         let direct: Vec<_> = device
             .transport
             .written()
-            .into_iter()
+            .iter()
             .filter(|p| p[1] == 0x40)
             .collect();
         // Fixed channel stays rgb; header 2 (direct channel 1) is sent g, r, b.
