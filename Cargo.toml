@@ -67,6 +67,7 @@ members = [
     "modules/dark-project",
     "modules/corsair-k55-pro-xt",
     "modules/corsair-k65-mini",
+    "modules/aoc-mouse",
     "modules/patriot-viper-mouse",
     "modules/mountain-keyboard",
     "modules/thingm-blink",
