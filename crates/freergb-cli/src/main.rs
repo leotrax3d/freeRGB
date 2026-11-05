@@ -187,6 +187,7 @@ fn main() -> Result<()> {
                 bail!("installation directory must be absolute");
             }
             let deadline = Instant::now() + Duration::from_secs(5);
+            let mut requested = false;
             loop {
                 match freergb_client::call(
                     "daemon.shutdown_if",
@@ -194,6 +195,7 @@ fn main() -> Result<()> {
                 ) {
                     Ok(serde_json::Value::Bool(false)) => break,
                     Ok(serde_json::Value::Bool(true)) => {
+                        requested = true;
                         if Instant::now() >= deadline {
                             bail!("daemon did not stop; close freeRGB before continuing setup");
                         }
@@ -210,6 +212,12 @@ fn main() -> Result<()> {
                     Err(error) => return Err(error.into()),
                     Ok(_) => bail!("unexpected daemon shutdown response"),
                 }
+            }
+            // The pipe closes before the process has exited; setup must not
+            // continue while freergbd.exe is still running (Restart Manager
+            // would then abort the upgrade, Package run 2026-11-05).
+            if requested {
+                wait_until_unlocked(&expected, Duration::from_secs(15))?;
             }
             Ok(())
         }
@@ -691,5 +699,57 @@ fn bragi(cmd: BragiCmd, pid: u16, pipelined: bool) -> Result<()> {
                 Ok(())
             })
         }
+    }
+}
+
+/// Waits until `executable` is no longer running. Windows denies write
+/// access to the image of a running process, so a successful write-open
+/// (nothing is written) means the process has exited. Elsewhere a stopped
+/// pipe is sufficient.
+fn wait_until_unlocked(executable: &std::path::Path, limit: Duration) -> Result<()> {
+    if !cfg!(windows) || !executable.exists() {
+        return Ok(());
+    }
+    let deadline = Instant::now() + limit;
+    loop {
+        if std::fs::OpenOptions::new()
+            .write(true)
+            .open(executable)
+            .is_ok()
+        {
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            bail!("daemon is still running; close freeRGB before continuing setup");
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+#[cfg(test)]
+mod stop_tests {
+    use super::*;
+
+    #[test]
+    fn unlocked_or_missing_executables_do_not_wait() {
+        let dir = std::env::temp_dir().join(format!("freergb-unlock-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("freergbd.exe");
+        std::fs::write(&file, b"not running").unwrap();
+        let started = Instant::now();
+        wait_until_unlocked(&file, Duration::from_secs(5)).unwrap();
+        wait_until_unlocked(&dir.join("missing.exe"), Duration::from_secs(5)).unwrap();
+        assert!(started.elapsed() < Duration::from_secs(1));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_running_image_blocks_until_the_limit() {
+        // This test binary is running, so its image is locked.
+        let me = std::env::current_exe().unwrap();
+        let started = Instant::now();
+        assert!(wait_until_unlocked(&me, Duration::from_millis(300)).is_err());
+        assert!(started.elapsed() >= Duration::from_millis(300));
     }
 }

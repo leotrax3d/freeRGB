@@ -412,3 +412,34 @@ See [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md) for current local results and
 hardware/release limits, and [LOCAL_API.md](LOCAL_API.md) for additive live-session
 parameters and errors. Native test passes remain synthetic unless explicitly
 identified as the existing CHA_FAN2 hardware evidence in that record.
+
+## CI timings — 2026-11-05 (prompt 10)
+
+Baseline (CI run 42094247735 on `main`, before this change): `windows-latest`
+31 min, `ubuntu-latest` 24 min. Slowest Windows steps: workspace `test` 7.7 min,
+`release build` 4.7 min, Desktop Rust tests 4.7 min, rust-cache **save** 4.3 min
+(also on every PR), Desktop clippy 2.7 min, motherboard helper 1.3 min, clippy
+1.1 min, cache restore 1 min.
+
+New layout (`.github/workflows/ci.yml`), no check removed:
+
+| Job | Contents | Runs in parallel |
+|---|---|---|
+| `changes` | docs-only filter (`docs/`, `website/`, `*.md`): heavy jobs are skipped | first, ~10 s |
+| `windows-latest`, `ubuntu-latest` | workspace fmt/clippy/test, feature-gated process tests, Windows C# boundary scripts; Linux keeps its release build + GLib/marketplace smoke | yes |
+| `windows release smoke` | Windows release build, daemon/plugin smoke, cooling session API | yes |
+| `desktop (windows-latest / ubuntu-latest)` | npm tests/build, Tauri fmt/clippy/test/build (own target, own cache) | yes |
+
+Caches are written only on `main` (`save-if`); PRs restore them, which drops
+the 4 min Windows cache upload from every PR run. Expected Windows critical path
+about 13–15 min with a warm cache (workspace job minus desktop, release and
+cache save). Measured timings of the first runs are added below once CI ran.
+
+Package workflow: the 2026-10-24 tag runs (`v0.1.0-beta.2..4`) never started —
+GitHub annotation "recent account payments have failed or your spending limit
+needs to be increased" (owner: Billing & plans). The 2026-11-05 manual run
+failed in `test-installer.ps1` (`upgrade-options-off`, setup exit 5): the
+upgrade's `stop-installed-daemon` returned when the pipe closed while
+`freergbd.exe` was still exiting, so Restart Manager could not close it and the
+silent setup aborted. `freergb stop-installed-daemon` now also waits (max 15 s)
+until the installed daemon image is no longer locked.
