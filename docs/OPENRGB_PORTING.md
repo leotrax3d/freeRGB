@@ -160,7 +160,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `MSIKeyboardController` | partial | `634be02` | 0 | Four detector rows audited; MS_1565 and MSI_64 packet structures, zone layouts and mode lifecycles remain unsupported. |
 | `MSILaptopController` | partial | `025d945` | 0 | Four detector rows audited; model matrices, 525-byte keyboard transfers, commit packets and lightbar mapping remain unsupported. |
 | `CorsairHydroPlatinumController` | ported | `a5c312b` | 13 | Direct mode fully ported: magic init, monotonic sequence number, 20-LED combined chunk frames (commands 4/5/6), hardware-magic shutdown restore, 5x5 CPU block + optional fan zone (5 Elite PIDs CPU-only). No firmware read. |
-| `CorsairPeripheralController` | partial (deferred) | `5f38dc5` | 0 | 39 detector rows audited; the generic controller is a 42K+53K C++ dual file with ~10 embedded keyboard protocols - too large for one byte-exact port step; needs the split...o Generic/K55 PRO XT/K65 Mini sub-controllers (byte details in `modules/corsair-peripheral/PROVENANCE.md`) |
+| `CorsairPeripheralController` | partial+blocked | `4ab24c3` | 18 | Generic mouse path ported; keyboard STREAM 0x7F path blocked (shared KeyboardLayoutManager + 42K key maps). See modules/corsair-peripheral. |
 | `CorsairLightingNodeController` | ported | `9314d1f` | 7 | Direct mode fully ported for all 7 detector rows: PortState/Direct(R,G,B planes, 50-LED blocks with running offset)/Commit per channel, two 204-LED-max zones. 5s keepalive and firmware read omitted |
 | `CorsairCommanderCoreController` | ported | `f3f3e79` | 7 | Direct mode fully ported for all 7 rows: SendCommand framing [00 08 cmd] (V2 97/V3 65/XT 385/V1 1025 bytes via FW-major-1 negotiation), version query [02 13], SetFanMode fan-mode payload (XT shifts), GetLedCounts endpoint read (pump + host-configured fan zones), 699/1224-byte RGB buffer with 34-LED zone padding, chunked WriteData (06-header + 07 continuations), hardware-mode shutdown. 10 s keepalive thread and 33 ms throttle omitted (no timer threads in the module API); XT external-port SetLedAmount exposed only as tested builder |
 | `AsusMonitorController` | ported | `26aa68c` | 7 | Direct mode fully ported: LED-count query (byte 32 response), SendInit, single SetDirect packet; interface 1/2 + usage 0xFF72/0x00A1 matching; fails closed on missing response |
@@ -184,6 +184,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `EVGAUSBController` | partial | `131e74d` | 0 | 7 detector rows audited; fabricated packets removed. Direct mode needs keyboard packet_map feature reports (two controller-ID sizes, Z20 extra keys), mouse single-LED SetLed with feature queries and wireless delays, and the X12 read/state machine |
 | `GaiZongGaiKeyboardController` | partial | `c41713d` | 0 | 9 detector rows audited; fabricated packets removed. Direct mode needs per-PID packet layouts (0x10/0x11/0x12/0x13 with fixed offsets 0/21/42/68/85 and sizes 63/60/51), flash reads for LightBoard/HUB counts and the FF restore packet |
 | `AnnePro2Controller` | ported | `72525ea` | 5 | Direct mode fully ported: 5-packet 64-byte stream with upstream 51-byte payload layout, real frame index mapping with the 9 gap triplets (LED_REAL_COUNT 70), upstream 5x14 key names, interface 1 matching |
+| `PatriotViperMouseController` | ported | TBD | 1 | Direct mode fully ported: 7 LEDs, init 64-byte feature packet, 7 feature packets with per-LED checksum adjustment (xor ±1 if even/odd). Brokered send_feature. |
 | `DarkProject` | ported | `5288f3d` | 1 | Direct mode fully ported: 87 LEDs, two 256-byte feature reports (RG: R@+5 of `packet_map`, G@+107; B@+5 of second report). Brokered `send_feature`; serial reads omitted; only Direct. |
 | `MSI3ZoneController` | ported | `5fed4db` | 1 | Direct mode fully ported: 4 LEDs ("Keyboard Left/Middle/Right" + "Aux"), 7 feature reports of 8 bytes: zones 1-4 carry RGB, zones 5-7 repeat the last colour. Brokered `send_feature`; no save. |
 | `TecknetController` | ported | `9e2a147` | 1 | Direct mode fully ported: single "Logo" LED, 16-byte feature report with RGB inverted (255-R/G/B), brightness 0x03, speed 0x00. Brokered `send_feature`; serial/name reads omitted. |
@@ -226,13 +227,14 @@ LED layouts use the optional initialize `zones` parameter documented in
 - [x] Dark Project KD3B V2
 - [x] Corsair K55 RGB PRO XT
 - [ ] Corsair K65 Mini (Subagent-Analyse l√§uft)
-- [ ] Corsair Peripheral Generic (37)
+- [ ]~Corsair Peripheral Generic ~ blocked: shared KeyboardLayoutManager + 42K key mappings; Direct mode not supported for keyboards.
 - [ ] DRGBController (33)
 - [ ] CoolerMasterController (38)
 - [ ] RoccatController (28)
 - [ ] AsusAuraUSB (Mouse, Mousemat, HeadsetStand, Monitor, RyuoAIO, ROG, Keyboard, TUF, Mainboard)
 
 Last update: K65 port (122e71), TODO updated.
+
 
 
 
