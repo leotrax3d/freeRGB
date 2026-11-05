@@ -232,4 +232,5 @@ LED layouts use the optional initialize `zones` parameter documented in
 - [ ] RoccatController (28)
 - [ ] AsusAuraUSB (Mouse, Mousemat, HeadsetStand, Monitor, RyuoAIO, ROG, Keyboard, TUF, Mainboard)
 
-Last update: K55 port (91546e1).
+Last update: K65 port (122e71), TODO updated.
+
