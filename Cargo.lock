@@ -1789,15 +1789,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "freergb-module-acer-nitro-led"
-version = "0.1.0"
-dependencies = [
- "freergb-core",
- "freergb-module-api",
- "serde_json",
-]
-
-[[package]]
 name = "freergb-module-annepro2"
 version = "0.1.0"
 dependencies = [
