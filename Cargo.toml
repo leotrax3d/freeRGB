@@ -70,6 +70,7 @@ members = [
     "modules/aoc-mouse",
     "modules/nzxt-mouse",
     "modules/gamesir",
+    "modules/aoc-mousemat",
     "modules/ionico",
     "modules/ionico",
     "modules/madcatz-cyborg",
