@@ -1,0 +1,15 @@
+# Provenance: freeRGB module `msi-3-zone`
+
+SPDX-License-Identifier: GPL-2.0-or-later
+
+Upstream: OpenRGB, https://gitlab.com/CalcProgrammer1/OpenRGB, commit
+`bbc77470a7cba56af60989e54ba910d5ac66a3ac`, `Controllers/MSI3ZoneController`.
+
+| Upstream function | Rust function | Adopted behaviour |
+|---|---|---|
+| `MSI3ZoneControllerDetect.cpp` | `table::identify` | VID 0x1770, PID 0xFF00 |
+| `MSI3ZoneController.cpp` `SetLEDs` | `report::frames` | seven 8-byte feature reports: zones 1-4 with RGB, zones 5-7 repeat last colour |
+| `RGBController_MSI3Zone.cpp` `SetupZones` | `lib.rs::initialize` | "Keyboard" zone 3 LEDs (Left/Middle/Right) + "Aux" zone 1 LED |
+| `RGBController_MSI3Zone.cpp` `DeviceUpdateLEDs` | `lib.rs::frame` | send all 7 packets per frame |
+
+Changes: brokered `send_feature`; no save (device does not save). Test status: simulated only.

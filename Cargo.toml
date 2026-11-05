@@ -63,6 +63,7 @@ members = [
     "modules/dream-cheeky",
     "modules/clevo-lightbar",
     "modules/tecknet",
+    "modules/msi-3-zone",
     "modules/mountain-keyboard",
     "modules/thingm-blink",
 ]
