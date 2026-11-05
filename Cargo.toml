@@ -66,6 +66,7 @@ members = [
     "modules/msi-3-zone",
     "modules/dark-project",
     "modules/corsair-k55-pro-xt",
+    "modules/corsair-k65-mini",
     "modules/mountain-keyboard",
     "modules/thingm-blink",
 ]
