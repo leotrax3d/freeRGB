@@ -628,7 +628,10 @@ mod tests {
                     saw_denied |= provider.summary().status == "permission_denied";
                     std::thread::sleep(Duration::from_millis(20));
                 }
-                assert!(saw_denied, "first helper session must report permission_denied");
+                assert!(
+                    saw_denied,
+                    "first helper session must report permission_denied"
+                );
                 assert_eq!(provider.summary().status, "ready", "retry must recover");
                 assert_eq!(provider.sensors()[0].sensor.value, Some(900.0));
                 drop(provider);

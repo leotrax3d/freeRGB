@@ -472,6 +472,14 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
                 output.phase,
                 CalibrationPhase::Completed | CalibrationPhase::Aborted
             ) {
+                // Surface why a calibration ended without a result (B1 showed
+                // calibration: null with no reason).
+                if output.phase == CalibrationPhase::Aborted && fault.is_none() {
+                    fault = Some(format!(
+                        "Calibration aborted: {}",
+                        output.reason.as_deref().unwrap_or("unknown")
+                    ));
+                }
                 result = output.result;
                 closing = true;
             } else if output.phase == CalibrationPhase::RestorationFailed {
@@ -662,6 +670,165 @@ mod tests {
                 }
             }
         })
+    }
+
+    /// Duty-responsive fan: the peer stores each applied duty, the feed reports
+    /// `max_rpm * duty / 100` (NCT6701D CHA_FAN2-like, acceptance B1 2026-11-05).
+    fn responsive_peer(
+        worker: tokio::io::DuplexStream,
+        duty: std::sync::Arc<std::sync::atomic::AtomicU8>,
+    ) -> tokio::task::JoinHandle<Vec<serde_json::Value>> {
+        use std::sync::atomic::Ordering;
+        tokio::spawn(async move {
+            let mut worker = BufReader::new(worker);
+            let mut reply = json!({"version":1,"session":"a".repeat(32),"ticket":"b".repeat(32),
+                "sequence":0,"state":"active","reason":null,"duty_percent":100,"ticket_ms":250,
+                "lease_ms":1000,"owned":true,"physical_write_verified":false,"tier":"lhm_supported",
+                "firmware_returned":false,"warning":null});
+            worker
+                .get_mut()
+                .write_all(format!("{reply}\n").as_bytes())
+                .await
+                .unwrap();
+            let mut seen = Vec::new();
+            loop {
+                let mut line = String::new();
+                if worker.read_line(&mut line).await.unwrap() == 0 {
+                    break;
+                }
+                let request: serde_json::Value = serde_json::from_str(&line).unwrap();
+                reply["sequence"] = request["sequence"].clone();
+                reply["ticket"] = json!(format!("{:032x}", seen.len() + 1));
+                let close = request["action"] == "close";
+                if close {
+                    reply["state"] = json!("closed");
+                    reply["owned"] = json!(false);
+                    reply["duty_percent"] = json!(100);
+                    reply["firmware_returned"] = json!(true);
+                    reply["journal_cleared"] = json!(true);
+                    duty.store(100, Ordering::SeqCst);
+                } else {
+                    reply["duty_percent"] = request["duty_percent"].clone();
+                    duty.store(
+                        request["duty_percent"].as_u64().unwrap() as u8,
+                        Ordering::SeqCst,
+                    );
+                }
+                seen.push(request);
+                worker
+                    .get_mut()
+                    .write_all(format!("{reply}\n").as_bytes())
+                    .await
+                    .unwrap();
+                if close {
+                    break;
+                }
+            }
+            seen
+        })
+    }
+
+    async fn run_responsive(
+        mode: ControlMode,
+        fan: fn(u8) -> f32,
+    ) -> (RuntimeReport, Vec<serde_json::Value>) {
+        use std::sync::atomic::{AtomicU8, Ordering};
+        let duty = std::sync::Arc::new(AtomicU8::new(100));
+        let (transport, worker) = tokio::io::duplex(4096);
+        let peer = responsive_peer(worker, duty.clone());
+        let client = NativeSessionClient::from_authenticated_transport(transport)
+            .await
+            .unwrap();
+        let epoch = Instant::now();
+        let (samples, rx) = mpsc::channel(4);
+        let (_stop, stop_rx) = oneshot::channel();
+        let sampler = tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(25)).await;
+                let at = now(epoch);
+                let frame = SamplerFrame {
+                    temperature_c: 45.0,
+                    temperature_at_ms: at,
+                    rpm: fan(duty.load(Ordering::SeqCst)),
+                    rpm_at_ms: at,
+                };
+                if samples.send(frame).await.is_err() {
+                    break;
+                }
+            }
+        });
+        let runtime = tokio::spawn(run_with_limits(
+            client,
+            mode,
+            RuntimeLimits::default(),
+            SamplerFrame {
+                temperature_c: 45.0,
+                temperature_at_ms: 0,
+                rpm: fan(100),
+                rpm_at_ms: 0,
+            },
+            rx,
+            stop_rx,
+            epoch,
+        ));
+        let report = tokio::time::timeout(Duration::from_secs(150), runtime)
+            .await
+            .expect("calibration must finish")
+            .unwrap()
+            .unwrap();
+        sampler.abort();
+        (report, peer.await.unwrap())
+    }
+
+    /// Linear fan whose top end saturates (100 and 95 % give the same RPM), as
+    /// many case fans do: the fine sweep must still measure and keep every step.
+    fn saturating_fan(duty: u8) -> f32 {
+        1600.0 * f32::from(duty.min(95)) / 95.0
+    }
+
+    #[tokio::test]
+    async fn fine_sweep_runs_all_thirteen_steps_and_reports_a_storable_map() {
+        let (report, seen) = run_responsive(
+            ControlMode::Sweep {
+                critical_c: 80.0,
+                options: freergb_control::calibration::SweepOptions {
+                    step_percent: 5,
+                    lowest_percent: 40,
+                    probe_stall: false,
+                },
+            },
+            saturating_fan,
+        )
+        .await;
+        assert!(report.fault.is_none(), "{:?}", report.fault);
+        assert_eq!(report.minimum_applied_percent, 40);
+        let result = report.calibration.expect("sweep result");
+        let duties: Vec<u8> = result.tested.iter().map(|t| t.duty_percent).collect();
+        assert_eq!(duties, (0..13).map(|i| 100 - 5 * i).collect::<Vec<u8>>());
+        assert!(
+            result.response_observed && result.monotonic_response,
+            "{result:?}"
+        );
+        assert!(seen.iter().any(|r| r["duty_percent"] == 40));
+        // The stored record must yield an RPM range (fan_support.rs).
+        let rpm: Vec<f32> = result.tested.iter().map(|t| t.rpm).collect();
+        assert!(rpm[0] > 1500.0 && rpm[12] < 700.0, "{rpm:?}");
+    }
+
+    #[tokio::test]
+    async fn plain_calibration_completes_with_a_storable_result() {
+        let (report, _) = run_responsive(
+            ControlMode::Calibration { critical_c: 80.0 },
+            saturating_fan,
+        )
+        .await;
+        assert!(report.fault.is_none(), "{:?}", report.fault);
+        let result = report.calibration.expect("calibration result");
+        assert_eq!(result.tested.len(), 4);
+        assert!(
+            result.response_observed && result.monotonic_response,
+            "{result:?}"
+        );
     }
 
     #[tokio::test]

@@ -101,7 +101,8 @@ pub struct CalibrationResult {
     pub hardware_verified: bool,
     /// Mean RPM per tested duty, highest duty first.
     pub tested: Vec<TestedDuty>,
-    /// Every lower duty produced at least 5% lower RPM (monotonic, plausible).
+    /// Every lower duty produced at least 5% lower RPM (monotonic, plausible);
+    /// fine sweeps: no step rose by more than 2% (non-increasing within noise).
     pub monotonic_response: bool,
     /// Highest duty at which the fan stopped (stall sweep only).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -146,7 +147,8 @@ pub struct Calibration {
     stall_percent: Option<u8>,
     start_percent: Option<u8>,
     timeout_ms: u64,
-    /// Each lower duty must give at most this fraction of the previous RPM.
+    /// Each lower duty must give at most this fraction of the previous RPM
+    /// (0.95 for the coarse calibration, 1.02 noise tolerance for sweeps).
     monotonic_ratio: f32,
 }
 impl Calibration {
@@ -172,8 +174,11 @@ impl Calibration {
         }
         duties.push(options.lowest_percent);
         let mut sweep = Self::with_duties(role, critical_c, now_ms, duties, options.probe_stall)?;
-        // Fine steps change the speed less: require a 1% drop per step.
-        sweep.monotonic_ratio = 0.99;
+        // Fine steps change the speed less and many fans saturate near 100%
+        // (owner acceptance B1, 2026-11-05: nothing was stored). A sweep only
+        // needs a non-increasing response within 2% noise; `response_observed`
+        // still requires a 10% overall drop.
+        sweep.monotonic_ratio = 1.02;
         Ok(sweep)
     }
     /// Guided channel test: 100/70/50% with the same supervision as calibration.
