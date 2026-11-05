@@ -198,7 +198,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `CryorigH7QuadLumiController` | ported | `691cae0` | 1 | Direct mode fully ported: 10 LEDs in two 5-LED zones (Logo, Underglow), two 65-byte packets per frame with GRB ordering, 0x02/0x4C header and channel bytes. Firmware request and effect modes omitted. |
 | `MSIOptixController` | ported | `3b03ba3` | 1 | Direct mode fully ported: 12-LED Backside strip, 168-byte feature report (report ID 0x72), duplicated header and colors at offset 95, fixed brightness 0x64. Effect modes omitted. |
 | `AcerNitroHidLed` | ported | `85e97f4` | 1 | Direct-mode keeper for the single LED: 11-byte feature report 0xA4, device id 0x65, mode 0x02, brightness 100, zone select 1. Effects omitted. |
-| `RoccatBurstProAirController` | ported | pending | 1 | Direct mode fully ported: 4-LED mouse, 30-byte feature report report ID 0x06, RGB per LED with marker values 0xFF; effects, SetModeValues and reads omitted. |
+| `RoccatBurstProAirController` | ported | `080488d` | 1 | Direct mode fully ported: 4-LED mouse, 30-byte feature report report ID 0x06, RGB per LED with marker values 0xFF; effects, SetModeValues and reads omitted. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
