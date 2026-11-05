@@ -2195,6 +2195,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-lenovo-motherboard-led"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-lexip-mouse"
 version = "0.1.0"
 dependencies = [
