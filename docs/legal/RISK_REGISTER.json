@@ -1,0 +1,1072 @@
+{
+  "date": "2026-11-05",
+  "baseline": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+  "findings": [
+    {
+      "id": "FR-001",
+      "severity": "HOCH",
+      "title": "Fehlgeschlagene Rückgabe löscht Wiederherstellungsbedarf",
+      "component": "crates/freergb-daemon/src/gpu_cooling.rs",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/gpu_cooling.rs",
+          "line": 241,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/gpu_cooling.rs#L241"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/gpu_cooling.rs",
+          "line": 151,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/gpu_cooling.rs#L151"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/hwmon.rs",
+          "line": 599,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/hwmon.rs#L599"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/hwmon.rs",
+          "line": 1048,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/hwmon.rs#L1048"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main"
+      ],
+      "description": "GPU release entfernt den aktiven Eintrag vor dem Backend-Aufruf; auch bei Rückgabefehler wird das verkleinerte Journal geschrieben. GPU tick und beide Start-Recoverys verwerfen ebenfalls fehlgeschlagene Rückgaben. hwmon release/fault zeigen denselben Verlust; hwmon shutdown erhält das Journal bei Fehler dagegen teilweise korrekt.",
+      "entry_conditions": "Manueller Kanal aktiv; Auto-/Firmware-Rückgabe schlägt fehl oder Gerät ist beim Neustart vorübergehend nicht erreichbar.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S03"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Ungeklärter manueller Hardwarezustand kann ohne erneuten Wiederherstellungsversuch fortbestehen; Überhitzung ist ein mögliches, nicht nachgewiesenes Folgerisiko.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Ungeklärter manueller Hardwarezustand kann ohne erneuten Wiederherstellungsversuch fortbestehen; Überhitzung ist ein mögliches, nicht nachgewiesenes Folgerisiko.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Journal, Rückgabefunktionen und Fehlermeldungen vorhanden; Windows JournaledNativeControl räumt erst nach erfolgreicher Rückgabe auf.",
+      "missing_controls": "Dauerhafte unresolved-Liste, erneuter Versuch, nachgewiesene Rückgabe als Löschvoraussetzung.",
+      "recommendation": "Einträge bis zum belegten Erfolg behalten, neue Übernahmen bei ungelöstem Zustand sperren; Recoveryfehler sichtbar melden.",
+      "priority": "P0",
+      "acceptance": "Mock-Fault-Injection: release-Fehler, fehlendes Gerät, Schreibfehler, Neustart und späterer erfolgreicher Retry; Eintrag bleibt bis zum Erfolg. Zwei GPU-Regressionen in repro/gpu_recovery.rs vorbereitet, hier nicht ausgeführt.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-002",
+      "severity": "HOCH",
+      "title": "Journalfehler verhindern Hardwareübernahme nicht",
+      "component": "crates/freergb-daemon/src/gpu_cooling.rs",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/gpu_cooling.rs",
+          "line": 117,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/gpu_cooling.rs#L117"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/gpu_cooling.rs",
+          "line": 216,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/gpu_cooling.rs#L216"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/hwmon.rs",
+          "line": 1021,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/hwmon.rs#L1021"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/hwmon.rs",
+          "line": 574,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/hwmon.rs#L574"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main"
+      ],
+      "description": "Die Journalfunktionen liefern keinen Fehler an den aufrufenden Übernahmepfad zurück. Nach fehlgeschlagener Speicherung werden take_control beziehungsweise sysfs-Manual-Schreibvorgänge weiter ausgeführt. Atomic rename allein belegt zudem keine crashfeste Persistenz.",
+      "entry_conditions": "Unbeschreibbares/fehlendes Zustandsverzeichnis, voller Datenträger oder Rename-/Persistenzfehler vor der Übernahme.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S03"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Hardware kann manuell gestellt sein, obwohl kein gültiger Recoverydatensatz existiert.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Hardware kann manuell gestellt sein, obwohl kein gültiger Recoverydatensatz existiert.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Schreiben vor dem nominellen I/O-Aufruf und temporäre Dateien sind vorhanden.",
+      "missing_controls": "Erfolgsabhängige Aufnahme, persistente Reservierung, ausdrückliche Policy für --no-state.",
+      "recommendation": "Journal als fehlbares Transaktionsergebnis behandeln und Übernahme ohne haltbaren Nachweis verweigern.",
+      "priority": "P0",
+      "acceptance": "Simuliertes ENOSPC/EACCES/fehlender Pfad: kein take_control und kein Wechsel in Manual; anschließend Recoverytest.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-003",
+      "severity": "HOCH",
+      "title": "Linux-/GPU-Notregelung überlebt nicht jeden Daemon- oder Treiberfehler",
+      "component": "crates/freergb-daemon/src/hwmon.rs",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/hwmon.rs",
+          "line": 453,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/hwmon.rs#L453"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/gpu_cooling.rs",
+          "line": 283,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/gpu_cooling.rs#L283"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/engine.rs",
+          "line": 938,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/engine.rs#L938"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "providers/mainboard/NativeSessionTransport.cs",
+          "line": 69,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/providers/mainboard/NativeSessionTransport.cs#L69"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main"
+      ],
+      "description": "hwmon besitzt einen Thread im Daemon; GPU-Fan-I/O läuft synchron in Engine::tick. SIGKILL/Abbruch führt keine Drop-Rückgabe aus. Ein Journal wirkt erst beim nächsten Start. Das Windows-Lease-Watchdog ist ein vorhandener Schutz, teilt jedoch Prozess-/Treiberabhängigkeiten und ausdrücklich keine unabhängige Driver-Recovery.",
+      "entry_conditions": "Abrupter Prozessverlust, blockierter NVML-/sysfs-/Treiberaufruf, Suspend oder OS-Ausfall bei reduzierter Drehzahl.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S03"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Letzter manueller Stellwert kann länger anliegen; Hardwarethermalschutz ist geräteabhängig und hier nicht als sichere Barriere nachgewiesen.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Letzter manueller Stellwert kann länger anliegen; Hardwarethermalschutz ist geräteabhängig und hier nicht als sichere Barriere nachgewiesen.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "1-s-Regelschritt, Fallbackwerte, Drop, Neustartjournal, systemd Restart; Windows geschützter Worker mit Telemetrie und Lease.",
+      "missing_controls": "Für jeden Backendtyp getesteter Ausfallpfad außerhalb der ausgefallenen Komponente und sichere Begrenzung seiner Wirkungszeit.",
+      "recommendation": "Backendabhängiges Sicherheitskonzept und unterstützte Betriebsgrenzen festlegen; Crashgarantien bis zum Nachweis korrigieren; riskante Freigaben begrenzen.",
+      "priority": "P0",
+      "acceptance": "In Simulator/VM Hung-call, SIGKILL, Suspend/Resume, Workerverlust testen; reale Rückgabe separat kontrolliert abnehmen. Kein Test an realer Hardware durch dieses Audit.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-004",
+      "severity": "HOCH",
+      "title": "Feste Drehzahl hat keinen obligatorischen Temperatur-Notpfad",
+      "component": "crates/freergb-daemon/src/gpu_cooling.rs",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/gpu_cooling.rs",
+          "line": 292,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/gpu_cooling.rs#L292"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/hwmon.rs",
+          "line": 937,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/hwmon.rs#L937"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/gpu_cooling.rs",
+          "line": 23,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/gpu_cooling.rs#L23"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main"
+      ],
+      "description": "Bei Manual wird ein konstanter Sollwert innerhalb des Floors geschrieben. GPU-Backendinterface liefert keine Temperatur/RPM-Notüberwachung; hwmon bestimmt die Temperatur nur für Curve. Der 40%-Floor ist kein Nachweis ausreichender Kühlung unter jeder Last.",
+      "entry_conditions": "Nutzer wählt eine formal gültige feste Drehzahl, Kühlbedarf steigt oder physische Kanalzuordnung ist falsch.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S03"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Thermisch unzureichende Regelung trotz gültiger Parameter; tatsächliche Schadensmöglichkeit hängt von Hardware, BIOS und eigener Abschaltung ab.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Thermisch unzureichende Regelung trotz gültiger Parameter; tatsächliche Schadensmöglichkeit hängt von Hardware, BIOS und eigener Abschaltung ab.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Floor, Wertevalidierung, bei hwmon Stallprüfung für gepaarten Tachometer; Pumpenstandard 100% sofern korrekt als Pump zugeordnet.",
+      "missing_controls": "Temperaturunabhängige Notregelung in jedem Modus, sichere Identifikation und geprüfte Grenzwerte.",
+      "recommendation": "Feste Stellwerte nur unter fortlaufendem Notpfad zulassen; Pumpenrolle und Sensorbindung bestätigen.",
+      "priority": "P0",
+      "acceptance": "Bei 40%-Manual und steigender kritischer Testtemperatur springt jeder unterstützte Backendtyp unabhängig von einer Kurve auf einen sicheren Zustand.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-005",
+      "severity": "HOCH",
+      "title": "Setup verspricht universelle Wiederherstellung, die der Code nicht belegt",
+      "component": "apps/desktop/src/features/onboarding/safety.ts",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "apps/desktop/src/features/onboarding/safety.ts",
+          "line": 36,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/apps/desktop/src/features/onboarding/safety.ts#L36"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "providers/mainboard/NativeControlSession.cs",
+          "line": 170,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/providers/mainboard/NativeControlSession.cs#L170"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "docs/COOLING_SAFETY.md",
+          "line": 96,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/docs/COOLING_SAFETY.md#L96"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "docs/SECURITY.md",
+          "line": 8,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/docs/SECURITY.md#L8"
+        }
+      ],
+      "identical_anchor_refs": [
+        "claude/adoring-hopper-p5zi8e",
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main",
+        "refs/tags/v0.1.0-beta.1",
+        "refs/tags/v0.1.0-beta.2",
+        "refs/tags/v0.1.0-beta.3",
+        "refs/tags/v0.1.0-beta.4"
+      ],
+      "description": "Der Wizard behauptet Firmware-Rückgabe bei Crash und Sensorverlust für jeden Kanal. Die untersuchten Pfade unterscheiden sich: GPU/Linux siehe FR-001–004; der verified Windows-Notfall kann absichtlich 100% halten und eine Reservierung behalten. Alte Sicherheitsdokumente behaupten zugleich keine reale Fansteuerung. Auch das pauschale unsafe-forbid trifft die NVML-FFI-Ausnahme nicht.",
+      "entry_conditions": "Nutzer entscheidet über Freigabe/Überwachung auf Grundlage dieser Aussagen.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S02",
+        "S23"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Falsche Sicherheitsentscheidung, unzureichende Instruktion und bei Geschäftstätigkeit mögliche Irreführung; Checkbox heilt die Diskrepanz nicht.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Falsche Sicherheitsentscheidung, unzureichende Instruktion und bei Geschäftstätigkeit mögliche Irreführung; Checkbox heilt die Diskrepanz nicht.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Konkrete Warnung vor Schäden/Brand; zwingende Haftung ist im Disclaimer ausdrücklich ausgenommen.",
+      "missing_controls": "Konsistente, versions- und backendbezogene Sicherheitsinformationen.",
+      "recommendation": "Absolute Rückgabebehauptung ersetzen; Notfall-100%, Firmware-Rückgabe und ungeklärte Recovery getrennt beschreiben; bei wesentlicher Änderung Textversion erhöhen.",
+      "priority": "P0",
+      "acceptance": "Jede Aussage ist einem getesteten Pfad zugeordnet; keine Zusage für Prozess-/Kernelabsturz ohne Nachweis; juristische Prüfung des Gesamttexts.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-006",
+      "severity": "HOCH",
+      "title": "Cloud-Downloadzählung und pseudonyme Konten sind nicht ausreichend transparent",
+      "component": "crates/freergb-effect-host/src/ratings.rs",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-effect-host/src/ratings.rs",
+          "line": 203,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-effect-host/src/ratings.rs#L203"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-effect-host/src/marketplace.rs",
+          "line": 613,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-effect-host/src/marketplace.rs#L613"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "appwrite/community/src/main.js",
+          "line": 85,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/appwrite/community/src/main.js#L85"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "docs/WEBSITE_CONTENT.md",
+          "line": 25,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/docs/WEBSITE_CONTENT.md#L25"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "appwrite/community/src/cleanup.js",
+          "line": 3,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/appwrite/community/src/cleanup.js#L3"
+        }
+      ],
+      "identical_anchor_refs": [
+        "claude/adoring-hopper-p5zi8e",
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main",
+        "refs/tags/v0.1.0-beta.2",
+        "refs/tags/v0.1.0-beta.3",
+        "refs/tags/v0.1.0-beta.4"
+      ],
+      "description": "Normale Konfiguration enthält einen Appwrite-Endpunkt. Nach erfolgreichem Effektdownload werden Identität/Downloaddatensätze erzeugt bzw. übertragen; Server speichert user_id bei Ratings/Downloads/Submissions. Cleanup betrifft quota_slots. In untersuchten Web-/GUI-Dateien fand sich keine vollständige Art.-13-Information oder Löschregelung; die Angabe No cloud or telemetry widerspricht diesem Datenfluss. Der Livebetrieb wurde nicht aufgerufen.",
+      "entry_conditions": "Standard-Communitykonfiguration und tatsächliche Nutzung des Online-Marketplace; Zuständigkeit und laufender Betrieb noch festzustellen.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S20",
+        "S21",
+        "S23"
+      ],
+      "claimants": "Betroffene Nutzer, Datenschutzaufsicht; gegebenenfalls klagebefugte Verbände",
+      "consequences": "DSGVO-Informations-/Rechtsgrundlagen-/Speicherbegrenzungsrisiko; mögliche Betroffenenansprüche/Aufsicht. Zufallskennung und Hash sind nicht automatisch Anonymisierung.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "DSGVO-Informations-/Rechtsgrundlagen-/Speicherbegrenzungsrisiko; mögliche Betroffenenansprüche/Aufsicht. Zufallskennung und Hash sind nicht automatisch Anonymisierung.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Identität serverseitig überprüft; private Tabellen; Reports brauchen explizite Bestätigung; lokale Dev-Quelle sendet keine Zählungen.",
+      "missing_controls": "Verantwortlicher, Zwecke/Rechtsgrundlage, Empfänger/AVV, Aufbewahrung/Löschung, Onlinewahl und konsistente Angaben.",
+      "recommendation": "Datenfluss offenlegen, Zählung getrennt steuerbar machen, datensparsame Aufbewahrung/Betroffenenabläufe definieren; §25 TDDDG je Speichervorgang prüfen, keine pauschale Einwilligungspflicht behaupten.",
+      "priority": "P0",
+      "acceptance": "Vor Onlinebetrieb dokumentierte Art.-13-Information, konfigurierte Löschung einschließlich Konten/Reports und nachvollziehbare Datenflussprüfung; DPA/Drittlandprüfung sofern erforderlich.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-007",
+      "severity": "HOCH",
+      "title": "Vollständige Lizenznachweise für das ausgelieferte Produkt fehlen",
+      "component": "packaging/windows/freergb.iss",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "packaging/windows/freergb.iss",
+          "line": 77,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/packaging/windows/freergb.iss#L77"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "apps/desktop/package.json",
+          "line": 16,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/apps/desktop/package.json#L16"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "packaging/windows/mainboard-packages.json",
+          "line": 8,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/packaging/windows/mainboard-packages.json#L8"
+        }
+      ],
+      "identical_anchor_refs": [
+        "claude/adoring-hopper-p5zi8e",
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main",
+        "refs/tags/v0.1.0-beta.2",
+        "refs/tags/v0.1.0-beta.3",
+        "refs/tags/v0.1.0-beta.4"
+      ],
+      "description": "Installer-Skript bindet Projektlizenzen, GLib-Nachweise und LHM-Notices ein, aber keinen nachweisbar vollständigen Rust-/Frontend-/Font-/Systembibliotheks-Nachweissatz. Desktop-Lock deklariert u.a. Inter als OFL-1.1, React als MIT und Lucide als ISC. Ob konkrete Lizenztexte im fertigen EXE-Payload vorhanden sind, wurde ohne Binärextraktion nicht geprüft. Daher Nachweislücke, keine pauschale Feststellung einer bereits erfolgten Verletzung.",
+      "entry_conditions": "Weitergabe eines Binärprodukts mit einschlägigen Fremdkomponenten.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S14",
+        "S18"
+      ],
+      "claimants": "Rechteinhaber der tatsächlich enthaltenen Crates, Fonts, Icons und Laufzeitbibliotheken",
+      "consequences": "Bei tatsächlich fehlenden Pflichttexten Unterlassungs-/Nachlizenzierungs-/Kostenrisiken gegenüber jeweiligen Rechteinhabern.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Bei tatsächlich fehlenden Pflichttexten Unterlassungs-/Nachlizenzierungs-/Kostenrisiken gegenüber jeweiligen Rechteinhabern.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Projektlizenztexte, LHM/PawnIO-Notices und GLib-Backportnachweis vorhanden.",
+      "missing_controls": "Vollständiger artefaktbezogener Lizenzgraph und installierter Notice-/Fontlizenzsatz, Prüfung nativer LGPL-Komponenten auf Linux.",
+      "recommendation": "Aus aufgelöstem Zielplattformgraph vollständige Notices erzeugen und Installer/Pakete extrahieren und abgleichen; SBOM mit derzeitigen NOASSERTION-Einträgen vervollständigen.",
+      "priority": "P0",
+      "acceptance": "Jede tatsächlich gelieferte Komponente hat geprüften Lizenztext, erforderliche Attribution/Quellcodezugang und passenden Artefaktnachweis.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-008",
+      "severity": "MITTEL",
+      "title": "Anwendungsupdates und Effekte teilen den Online-Vertrauensanker",
+      "component": "crates/freergb-update/src/lib.rs",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-update/src/lib.rs",
+          "line": 119,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-update/src/lib.rs#L119"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-update/src/lib.rs",
+          "line": 310,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-update/src/lib.rs#L310"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-effect-host/src/marketplace.rs",
+          "line": 2,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-effect-host/src/marketplace.rs#L2"
+        }
+      ],
+      "identical_anchor_refs": [
+        "claude/adoring-hopper-p5zi8e",
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main",
+        "refs/tags/v0.1.0-beta.2",
+        "refs/tags/v0.1.0-beta.3",
+        "refs/tags/v0.1.0-beta.4"
+      ],
+      "description": "Der Anwendungsinstaller wird gegen einen GitHub-Assetdigest geprüft und später erhöht gestartet. Eine zusätzliche Entwickler-Signaturprüfung ist im untersuchten Pfad nicht implementiert. Effekte nutzen ebenfalls TLS und Kataloghashes; Hardwaremodule haben dagegen eine eigene Ed25519-Kette. Ein Hash beweist Byteintegrität gegenüber Metadaten, nicht Unabhängigkeit von kompromittiertem Repositorykonto.",
+      "entry_conditions": "Repository-/Releasekonto oder dessen Auslieferung wird kompromittiert. Kein solcher Vorfall nachgewiesen.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S08",
+        "S01"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Manipulierte Software könnte als legitim erscheinen; bei Installer hohe lokale Rechte.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Manipulierte Software könnte als legitim erscheinen; bei Installer hohe lokale Rechte.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "HTTPS, fester Repositorypfad, Größen-/Hashprüfung, neu exklusiv angelegte Stagingdatei, Verifyhandle vor UAC; WASM-Limits.",
+      "missing_controls": "Zusätzliche Publisher-/Offlinesignatur und dokumentiertes Revocation-/Incidentverfahren.",
+      "recommendation": "Signierte Anwendungsmanifeste/Authenticode mit überprüftem Publisher sowie Schlüsselwechsel und Wiederherstellung planen.",
+      "priority": "P1",
+      "acceptance": "Manipuliertes Paket und manipulierte Onlinehash-Metadaten ohne gültigen unabhängigen Signaturschlüssel werden verworfen.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-009",
+      "severity": "MITTEL",
+      "title": "Native Module sind ausführbarer Code mit Benutzerrechten",
+      "component": "crates/freergb-modules/src/host.rs",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-modules/src/host.rs",
+          "line": 54,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-modules/src/host.rs#L54"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-modules/src/host.rs",
+          "line": 57,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-modules/src/host.rs#L57"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "docs/SECURITY.md",
+          "line": 25,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/docs/SECURITY.md#L25"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/sensors-gpu",
+        "main"
+      ],
+      "description": "Prozessisolation, Brokerregeln und Signaturen beschränken den IPC-Verkehr, sind aber keine OS-Sandbox des nativen Programms. Es kann grundsätzlich Benutzerdateien/Netzwerk nutzen und eigene Kindprozesse starten. Die Risiken gelten auch für die neuen Coolingplugins; diese als untrusted zu bezeichnen schafft keine technische Eindämmung.",
+      "entry_conditions": "Vertrauenswürdiger Signaturschlüssel gibt bösartigen/fehlerhaften Code frei oder lokaler Programmkontext ist kompromittiert.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S08"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Nutzerdateien/Onlinezugang und Hardware im Rahmen verfügbarer Rechte betroffen.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Nutzerdateien/Onlinezugang und Hardware im Rahmen verfügbarer Rechte betroffen.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Ed25519-Katalog, Hashes, Prozesszeitlimits und begrenzte Brokeraufrufe; WASM-Effekte sind separat ohne Hostimports beschränkt.",
+      "missing_controls": "Explizite Publishervertrauensentscheidung oder echte OS-Sandbox und Kindprozessbegrenzung.",
+      "recommendation": "Vertrauensmodell klar dokumentieren; falls bösartige native Erweiterungen abgefangen werden sollen, AppContainer/seccomp bzw. vergleichbare passende Isolation entwerfen.",
+      "priority": "P1",
+      "acceptance": "Sicherheitsbeschreibung unterscheidet Crashisolation von Sandbox; adversariales Testprogramm kann definierte verbotene Ressourcen nicht erreichen, wenn eine Sandbox zugesagt wird.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-010",
+      "severity": "MITTEL",
+      "title": "39 von 42 Modul-Herkunftsnachweisen sind knapp",
+      "component": "modules/corsair-hydro-platinum/PROVENANCE.md",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "modules/corsair-hydro-platinum/PROVENANCE.md",
+          "line": 4,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/modules/corsair-hydro-platinum/PROVENANCE.md#L4"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "modules/razer-chroma/PROVENANCE.md",
+          "line": 21,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/modules/razer-chroma/PROVENANCE.md#L21"
+        }
+      ],
+      "identical_anchor_refs": [
+        "claude/adoring-hopper-p5zi8e",
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main",
+        "refs/tags/v0.1.0-beta.2",
+        "refs/tags/v0.1.0-beta.3",
+        "refs/tags/v0.1.0-beta.4"
+      ],
+      "description": "42 main-Module tragen GPL-Lizenzmetadaten und COPYING. 39 PROVENANCE-Dateien haben unter 15 Zeilen, oft nur Familie und Commit. Das ist deutlich schwächer als der Razer-Nachweis mit Datei-/Autor-/Änderungszuordnung. Der Razer-Upstreamheader wurde unabhängig gegengeprüft; nicht jeder verwendete Header der übrigen Familien.",
+      "entry_conditions": "Veröffentlichung/Weitergabe von weiteren Modulbinärdateien oder Streit über Umfang/Lizenz einer Übernahme.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S14",
+        "S15"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Herkunfts- und Lizenzbeweis kann unzureichend sein; ein kurzer Nachweis allein beweist noch keine Rechtsverletzung.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Herkunfts- und Lizenzbeweis kann unzureichend sein; ein kurzer Nachweis allein beweist noch keine Rechtsverletzung.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "GPL-Kennzeichnung, COPYING, gepinnter Ursprungscommit, Generatoren, eigener Quellcode verfügbar.",
+      "missing_controls": "Datei-/Autor-/Lizenzzuordnung und Änderungen je Familie sowie tatsächliche Source-Artefakte.",
+      "recommendation": "Für jedes Modul Fremdquelle, Header, Autoren, Übernahmen und Änderungen dokumentieren; Originalhinweise in angemessener Form erhalten.",
+      "priority": "P1",
+      "acceptance": "Jede Ursprungsdatei ist am konkreten Commit geprüft und jedem ausgelieferten Modul eindeutig zugeordnet.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-011",
+      "severity": "MITTEL",
+      "title": "Modulworkflow blockiert alle IDs außer razer-chroma",
+      "component": ".github/workflows/modules.yml",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": ".github/workflows/modules.yml",
+          "line": 42,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/.github/workflows/modules.yml#L42"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": ".github/workflows/modules.yml",
+          "line": 266,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/.github/workflows/modules.yml#L266"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main"
+      ],
+      "description": "Build und Sourcejob haben weiterhin einen exklusiven Razer-ID-Guard, obwohl nachfolgende Generatorzweige viele andere Familien kennen. Deshalb ist der gezeigte Releaseweg kein Nachweis einer vollständigen Auslieferung aller 42 Module. In den vier gefundenen Releases liegt kein modules-Katalog.",
+      "entry_conditions": "Geplante Veröffentlichung weiterer Module oder manuelle Umgehung dieses Workflows.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S14"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Fehlende Verfügbarkeit oder außerhalb des geprüften Prozesses gebaute Binär-/Quellcodepaare; keine bereits belegte GPL-Verletzung.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Fehlende Verfügbarkeit oder außerhalb des geprüften Prozesses gebaute Binär-/Quellcodepaare; keine bereits belegte GPL-Verletzung.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Bei Razer: Paket, Sourcearchive, eigenständiger Sourcebuild, signierter Katalog; Publikation manuell/draft.",
+      "missing_controls": "Generischer oder bewusst begrenzter und entsprechend deklarierter Releaseumfang.",
+      "recommendation": "Erlaubte Module überprüfbar aus einer Freigabeliste bauen und für jedes die Sourceprüfung ausführen; Dokumentationsversprechen daran ausrichten.",
+      "priority": "P1",
+      "acceptance": "Für jede freigegebene ID sind Binärpaket und passendes Quellarchiv gemeinsam erzeugt, geprüft und für Empfänger erreichbar.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-012",
+      "severity": "MITTEL",
+      "title": "Widerruf der Sicherheitsbestätigung stoppt laufende Kontrolle nicht",
+      "component": "crates/freergb-daemon/src/api.rs",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/api.rs",
+          "line": 506,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/api.rs#L506"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/onboarding.rs",
+          "line": 82,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/onboarding.rs#L82"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/hwmon.rs",
+          "line": 438,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/hwmon.rs#L438"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-daemon/src/main.rs",
+          "line": 240,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-daemon/src/main.rs#L240"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/sensors-gpu",
+        "main"
+      ],
+      "description": "safety.revoke ändert nur Bestätigungsstatus. Es ruft keinen Stop-/Releasepfad auf. Der Linuxstart lädt gespeicherte Assignments direkt über assign, ohne die API-Sicherheitsabfrage. Das ist für die Erklärung Fan control locks again unvollständig; automatische Wiederaufnahme kann trotz widerrufener Bestätigung stattfinden.",
+      "entry_conditions": "Nutzer widerruft bei aktivem Kanal bzw. gespeicherten Linux-Assignments und startet später erneut.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S02"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Weiterlaufende/wiederaufgenommene Kontrolle trotz erwarteter Sperre; Erwartungs- und Bedienrisiko.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Weiterlaufende/wiederaufgenommene Kontrolle trotz erwarteter Sperre; Erwartungs- und Bedienrisiko.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Neue API-Assignments prüfen require_safety; Versionierung und Zeitstempel vorhanden.",
+      "missing_controls": "Backendübergreifender Stop bei Widerruf und erneute Zulassung vor automatischer Wiederaufnahme.",
+      "recommendation": "Widerruf als kontrollierten Stop/Drain gestalten; Startpfad derselben Freigabelogik unterwerfen; Fehlerzustände nicht als erfolgreichen Stop melden.",
+      "priority": "P1",
+      "acceptance": "Revoke während aktiver Mock-Kanäle stoppt sie mit Rückgabenachweis; Neustart ohne aktuelle Zustimmung übernimmt keine gespeicherten Kanäle.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-013",
+      "severity": "MITTEL",
+      "title": "udev-Regel erteilt Schreibrechte für weitere PWM-Attribute",
+      "component": "packaging/linux/60-freergb.rules",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "packaging/linux/60-freergb.rules",
+          "line": 40,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/packaging/linux/60-freergb.rules#L40"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main",
+        "refs/tags/v0.1.0-beta.3",
+        "refs/tags/v0.1.0-beta.4"
+      ],
+      "description": "Der Shellglob pwm[0-9]* erfasst nicht nur pwmN und pwmN_enable, sondern je Treiber auch pwmN_mode, pwmN_freq und automatische Kurvenattribute. Die Regelbeschreibung nennt nur die beiden nötigen Attribute.",
+      "entry_conditions": "Gruppe freergb wird installiert und hwmon-Gerät bietet zusätzliche PWM-Dateien.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Größere als beschriebene Konfigurations-/Schadensfläche für ohnehin autorisierte Gruppenmitglieder; kein belegter Fremdzugriff auf nicht autorisierte Konten.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Größere als beschriebene Konfigurations-/Schadensfläche für ohnehin autorisierte Gruppenmitglieder; kein belegter Fremdzugriff auf nicht autorisierte Konten.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Explizite Gruppe und begrenzte Treibernamensliste.",
+      "missing_controls": "Exakte Attributfreigabe und Prüfung jeder tatsächlich benötigten Eigenschaft.",
+      "recommendation": "Nur exakt benötigte pwmN-/pwmN_enable-Dateinamen freigeben und dokumentieren; sonstige Attribute nicht automatisch chmoden.",
+      "priority": "P1",
+      "acceptance": "Fixture mit pwm1, pwm1_enable, pwm1_mode, pwm1_freq, pwm1_auto_point1_pwm: nur die ausdrücklich freigegebenen Dateien erhalten Gruppenrechte.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-014",
+      "severity": "HOCH",
+      "title": "Neue Coolingplugins zählen kurze Fail-safe-Schreibvorgänge als Erfolg",
+      "component": "crates/freergb-modules/src/cooling_host.rs",
+      "evidence": [
+        {
+          "ref": "cooling/plugins",
+          "commit": "26588ad52d16fff0cdaeeee131ec877bcee96b05",
+          "path": "crates/freergb-modules/src/cooling_host.rs",
+          "line": 466,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/26588ad52d16fff0cdaeeee131ec877bcee96b05/crates/freergb-modules/src/cooling_host.rs#L466"
+        },
+        {
+          "ref": "cooling/plugins",
+          "commit": "26588ad52d16fff0cdaeeee131ec877bcee96b05",
+          "path": "crates/freergb-modules/src/cooling_host.rs",
+          "line": 232,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/26588ad52d16fff0cdaeeee131ec877bcee96b05/crates/freergb-modules/src/cooling_host.rs#L232"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/service-profiles"
+      ],
+      "description": "Im Fail-safe zählt jeder Ok-Rückgabewert als erfolgreich geschriebener Report. Die erwartete Reportlänge wird nicht mit der zurückgegebenen Bytezahl verglichen. Ein kurzer Transfer kann dadurch als erfolgreicher Recoveryreport erscheinen. Der IPC-Deadline begrenzt zudem keine bereits im selben Hostthread blockierte native write/send_feature-Operation.",
+      "entry_conditions": "Nur neue API-3-Coolingpfade in cooling/plugins, cooling/service-profiles und cooling/gui-parity; Transport liefert kurzen erfolgreichen Count oder blockiert im Treiber.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S08"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Überbewerteter Fail-safe-Nachweis; tatsächlicher Hardwarezustand bleibt ungeklärt. Kein realer Fehlertransfer ausgeführt.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Überbewerteter Fail-safe-Nachweis; tatsächlicher Hardwarezustand bleibt ungeklärt. Kein realer Fehlertransfer ausgeführt.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Signierte Fail-safe-Policy, Prozessbeendigung vor eigener Rückgabe, Lease-/Freshness-Prüfung und Ergebnisfeld errors vorhanden.",
+      "missing_controls": "Vollständige Transferprüfung, expliziter ungeklärter Recoveryzustand und Treiber-Livenessnachweis.",
+      "recommendation": "Counts exakt prüfen, kurze Transfers als Fehler führen; neue Pluginpfade erst nach Mock-Fault-Injection und eigener Hardwarefreigabe zusammenführen.",
+      "priority": "P0",
+      "acceptance": "Mocktransport Ok(0), Ok(len-1), Err und blockierter Aufruf; kein kurzer Transfer erhöht written oder erlaubt erfolgreichen Recoverystatus.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-015",
+      "severity": "UNGEKLÄRT",
+      "title": "GPL-Grenze und frühere Protokollableitungen benötigen Rechteprüfung",
+      "component": "docs/REVERSE_ENGINEERING.md",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "docs/REVERSE_ENGINEERING.md",
+          "line": 19,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/docs/REVERSE_ENGINEERING.md#L19"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-protocols/src/corsair_bragi/mod.rs",
+          "line": 4,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-protocols/src/corsair_bragi/mod.rs#L4"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "docs/HARDWARE_MODULES.md",
+          "line": 45,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/docs/HARDWARE_MODULES.md#L45"
+        }
+      ],
+      "identical_anchor_refs": [
+        "backup/modules-integration-remote",
+        "backup/modules-integration-wip",
+        "backup/tauri-gui",
+        "backup/website-live-demo",
+        "claude/adoring-hopper-p5zi8e",
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main",
+        "module/mountain-keyboard",
+        "module/thingm-blink",
+        "modules/integration",
+        "refs/tags/prerelease-broad-fan-support-1",
+        "refs/tags/v0.1.0-beta.1",
+        "refs/tags/v0.1.0-beta.2",
+        "refs/tags/v0.1.0-beta.3",
+        "refs/tags/v0.1.0-beta.4"
+      ],
+      "description": "OpenRGB-Module sind ausdrücklich abgeleitete Werke. Ob die konkrete enge Brokerkommunikation getrennte Programme oder ein rechtlich einheitliches Werk bildet, ist keine allein durch Prozessgrenzen entschiedene Frage. In-tree-Protokolle berufen sich auf unabhängig formulierte Funktionsfakten nach Quelltexteinsicht; ein unabhängiges Clean-Room-Verfahren ist damit nicht belegt. Kein unerlaubtes Kopieren von SignalRGB-/FanControl-Code hier nachgewiesen.",
+      "entry_conditions": "Weitergabe von Modul/Host-Kombination oder Beanstandung von konkreter Ausdrucksübernahme/Vertragsverstoß.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S11",
+        "S12",
+        "S13",
+        "S14",
+        "S16",
+        "S17",
+        "S30"
+      ],
+      "claimants": "Jeweilige OpenRGB-Autoren; bei konkret belegter Übernahme SignalRGB-Rechteinhaber; FanControl-Rechteinhaber nur bei tatsächlich betroffener Rechtsposition",
+      "consequences": "Je nach Tatsachen/Einordnung Lizenzänderungsbedarf, Entfernung einzelner Übernahmen, Unterlassung oder Kosten; keine konkrete Anspruchswahrscheinlichkeit bestimmbar.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Je nach Tatsachen/Einordnung Lizenzänderungsbedarf, Entfernung einzelner Übernahmen, Unterlassung oder Kosten; keine konkrete Anspruchswahrscheinlichkeit bestimmbar.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Bewusste GPL-Trennung, eigene Protokollbeschreibungen, offengelegte Herkunft, keine FanControl-Abhängigkeit gefunden.",
+      "missing_controls": "Dateigenaue Vergleichsprüfung, Verträge der tatsächlich genutzten Referenzversion und juristische Einordnung der Kommunikation.",
+      "recommendation": "Fachanwalt mit konkreten Dateien/Historieständen prüfen lassen; Funktionen/Fakten von schutzfähigen Tabellen/Strukturen trennen. Keine nachträgliche Clean-Room-Behauptung.",
+      "priority": "Klärung",
+      "acceptance": "Begründete, schriftliche Lizenzgrenzen-/Herkunftsbewertung und Beseitigung konkret festgestellter Übernahmen; jeder Sourceempfänger erhält die nötigen Rechte.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-016",
+      "severity": "UNGEKLÄRT",
+      "title": "Geschäftsmodell, FOSS-Status und regulatorische Einordnung sind offen",
+      "component": "README.md",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "README.md",
+          "line": 179,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/README.md#L179"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "crates/freergb-effect-host/src/ratings.rs",
+          "line": 204,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/crates/freergb-effect-host/src/ratings.rs#L204"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/sensors-gpu",
+        "main"
+      ],
+      "description": "Repo ist beim Audit privat; Empfängerkreis und tatsächlich offengelegter Quellcode, Monetarisierung, Sponsoring/Gegenleistungen, Betreiberrechtsträger, Zielmärkte und tatsächlicher Onlinebetrieb sind nicht aus dem Code feststellbar. Das entscheidet über CRA/FOSS-Ausnahmen, Produkthaftungsreform und Dienstepflichten. Privates Repository allein beweist weder Verstoß noch anwendbare FOSS-Ausnahme.",
+      "entry_conditions": "Öffentliche Abgabe, kommerzielle Angebote oder Verarbeitung fremder Daten.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "S10",
+        "S22",
+        "S26"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Je nach Sachverhalt zusätzliche Melde-, Sicherheits-, Informations-, Haftungs- oder Verbraucherpflichten.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Je nach Sachverhalt zusätzliche Melde-, Sicherheits-, Informations-, Haftungs- oder Verbraucherpflichten.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Quelllizenz und Sicherheitsdokumentation vorhanden.",
+      "missing_controls": "Dokumentierter Betreiber-/Vertriebs-/Finanzierungssachverhalt und darauf bezogene Rechtsbewertung.",
+      "recommendation": "Anwendbarkeit vor Freigabe schriftlich entscheiden, CRA-Art.-14-Datum nicht erst auf 2027 verschieben; neue deutsche Produkthaftungsfassung im Original nachprüfen.",
+      "priority": "Klärung",
+      "acceptance": "LAWYER_REVIEW.md Sachverhaltsfragen beantwortet; Anwendbarkeitsmatrix mit Stichtagen freigegeben.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-017",
+      "severity": "UNGEKLÄRT",
+      "title": "Marken, Patente und Assetrechte sind nicht abschließend geklärt",
+      "component": "assets/ASSETS.md",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "assets/ASSETS.md",
+          "line": 7,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/assets/ASSETS.md#L7"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "README.md",
+          "line": 2,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/README.md#L2"
+        }
+      ],
+      "identical_anchor_refs": [
+        "backup/modules-integration-remote",
+        "backup/modules-integration-wip",
+        "backup/website-live-demo",
+        "claude/adoring-hopper-p5zi8e",
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main",
+        "module/mountain-keyboard",
+        "module/thingm-blink",
+        "modules/integration",
+        "refs/tags/prerelease-broad-fan-support-1",
+        "refs/tags/v0.1.0-beta.1",
+        "refs/tags/v0.1.0-beta.2",
+        "refs/tags/v0.1.0-beta.3",
+        "refs/tags/v0.1.0-beta.4"
+      ],
+      "description": "Figma-Export ist ein Herkunftshinweis, kein Beleg sämtlicher Rechte an Logo, Schrift und zugelieferten Elementen. Es erfolgte keine systematische DPMA/EUIPO/WIPO-/Patentfamilienrecherche. Kein konkretes entgegenstehendes Schutzrecht und keine tatsächliche Verletzung festgestellt.",
+      "entry_conditions": "Veröffentlichung/Verwendung des Namens, Designs oder einer fremd geschützten technischen Lehre.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S28"
+      ],
+      "claimants": "Nur konkret festzustellende Urheber, Kennzeichen- oder Patentinhaber",
+      "consequences": "Unbekannt; keine erfundenen Markeninhaber oder Patentansprüche.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Unbekannt; keine erfundenen Markeninhaber oder Patentansprüche.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Eigene SVGs und dokumentierte Exportquelle; Fonts in Paketmetadaten auffindbar.",
+      "missing_controls": "Rechtekette der Assets, Schriftbedingungen, Kennzeichen-/gegebenenfalls Patentclearance.",
+      "recommendation": "Assetherkunft bestätigen und bei relevantem Marktauftritt Kennzeichenrecherche; Patentprüfung anhand konkret implementierter Funktionen statt pauschalem Internettreffer.",
+      "priority": "Klärung",
+      "acceptance": "Registrierte/benutzte Kennzeichen und relevante Patentansprüche fachlich abgeglichen; Autoren-/Lizenzzuordnung dokumentiert.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    },
+    {
+      "id": "FR-018",
+      "severity": "HOCH",
+      "title": "Freigabenachweise sind unvollständig und nicht auf alle Branches übertragbar",
+      "component": ".github/workflows/package.yml",
+      "evidence": [
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": ".github/workflows/package.yml",
+          "line": 49,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/.github/workflows/package.yml#L49"
+        },
+        {
+          "ref": "main",
+          "commit": "fb1a0af8f762104e017f0b56341415ee609e5d40",
+          "path": "docs/BETA_READINESS_AUDIT.md",
+          "line": 156,
+          "url": "https://github.com/leotrax3d/FreeRGB/blob/fb1a0af8f762104e017f0b56341415ee609e5d40/docs/BETA_READINESS_AUDIT.md#L156"
+        }
+      ],
+      "identical_anchor_refs": [
+        "cooling/controller-features",
+        "cooling/gui-parity",
+        "cooling/plugins",
+        "cooling/sensors-gpu",
+        "cooling/service-profiles",
+        "main"
+      ],
+      "description": "Die Umgebung hat kein cargo/rustc, dotnet oder Windows. Installer-/WASM-/Bildbinärdateien sind nicht extrahiert/verifiziert. Vollständige Fremdpaket-Lizenztexte und aktuelle Advisoryscans fehlen. 2087 eindeutige UTF-8-Blobs wurden hashgeprüft; das ist keine manuelle Vollprüfung jeder Zeile. Historienmetadaten wurden vollständig erfasst, ausgewählte Änderungen gelesen, nicht alle 530 Diffs. Das frühere Audit ersetzt diese offenen Nachweise nicht.",
+      "entry_conditions": "Freigabe ohne Nachholen der fehlenden Tests/Artefakt- und Lizenzprüfung.",
+      "jurisdiction": "Deutschland/EU; ausländische Anspruchsgrundlagen separat zu prüfen",
+      "legal_sources": [
+        "S01",
+        "S08",
+        "S29"
+      ],
+      "claimants": "Geschädigte Nutzer/Eigentümer; bei versicherten Schäden gegebenenfalls übergegangene Ansprüche von Versicherern",
+      "consequences": "Unberechtigte Sicherheits-/Compliancefreigabe bei verbleibenden hohen Befunden und ungeklärten Komponenten.",
+      "likelihood": "Nicht quantifiziert; an konkrete Fehlerbedingungen gebunden",
+      "impact": "Unberechtigte Sicherheits-/Compliancefreigabe bei verbleibenden hohen Befunden und ungeklärten Komponenten.",
+      "uncertainty": "Codebefund sicher; physische Wirkung und konkrete Rechtsfolge nicht experimentell bestätigt",
+      "existing_controls": "Drei am main-SHA erfolgreiche CI-Workflowstatus, vorhandene Simulationssuite; hier 1 Node-Integrationsszenario, 2 Python-Tests und GLib-Integritätsprüfung bestanden.",
+      "missing_controls": "Neue Fehlerregressionen, vollständige Zielplattformgraphen/Lizenztexte, Binärinhaltsprüfung und kontrollierte Hardwareabnahme.",
+      "recommendation": "Als begrenztes Audit dokumentieren; keine Zertifizierung. Fehler beheben und an exakt zu veröffentlichendem Commit Prüfungen/Artefakte zusammenführen.",
+      "priority": "P0",
+      "acceptance": "Alle P0-Abnahmekriterien erfüllt, vollständiger Testbericht je freigegebenem Branch/Release; SBOM-Lücken geschlossen oder klar fachlich akzeptiert.",
+      "required_review": "Technische Korrektur und Nachweis; rechtliche Bewertung bei Veröffentlichung mit Fachanwalt abstimmen",
+      "status": "Offen; keine Produktkorrektur in diesem Audit",
+      "evidence_level": "Statische Code-/Konfigurationsprüfung; keine Schadensbestätigung"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# Persönliche Verantwortung
+
+Ohne festgestellten Rechtsträger ist nicht geklärt, wer Anbieter, Vertragspartner, Hersteller oder Verantwortlicher des Onlineangebots ist. Eine Privatperson kann für eigene schuldhafte Rechtsgutverletzungen persönlich einstehen müssen. Eine Gesellschaft kann bestimmte vertragliche/organisatorische Risiken begrenzen; sie beseitigt nicht automatisch eigene deliktische Verantwortlichkeit, Strafrecht oder Organpflichten. Mitwirkende haften nicht automatisch gemeinsam für jede Repositoryzeile: ihr eigener Beitrag, Verantwortungsbereich, Fehler, Verschulden und Kausalität sind zu prüfen.
+
+Kostenlose Verteilung kann die Vertragsqualifikation und spezialgesetzliche Ausnahmen beeinflussen. Sie beseitigt nicht automatisch sämtliche Sorgfalts- oder Warnpflichten. Spenden, Sponsoring, vergütete Integrationen, Support, Daten als Gegenleistung und Verkauf unterscheiden sich; insbesondere CRA-Leitlinien behandeln bloße Unterstützung nicht automatisch als Monetarisierung. Eine pauschale Aussage jede Spende macht dich gewerblich wäre falsch.
+
+Praktische Schritte: hohe technische Befunde schließen; klarer Anbieter und Verantwortungsumfang; Freigabelisten je Gerät/Commit; dokumentierte Fehlerannahme und Warn-/Abhilfefristen; Schlüssel-/Releasekontrolle; passende Beiträge-/Lizenzherkunft; zielgerichtete rechtliche Prüfung. Versicherung ausdrücklich auf Softwaresteuerung physischer Hardware, Sach-/Personenfolgeschäden, Open-Source-/unentgeltliche Verteilung, internationale Ansprüche und vereinbarte Ausschlüsse prüfen. Eine Privathaftpflicht- oder Cyberpolice ist nicht ohne Prüfung als ausreichend anzusehen.
+
+Ist der tatsächlich verantwortliche Entwickler minderjährig oder stammen Beiträge aus Arbeits-/Auftragsverhältnissen, sind Geschäftsfähigkeit, deliktische Verantwortlichkeit und Rechtezuordnung mit konkretem Sachverhalt zu prüfen. Dieses Audit unterstellt weder ein Alter noch eine bestimmte Rechtsform und begründet keine persönliche Rechtsentscheidung.
+
+Nicht jede Klagedrohung ist ein begründeter Anspruch. Umgekehrt braucht ein Berechtigter keinen bereits eingetretenen Hardwareschaden, um z.B. urheberrechtliche Unterlassung zu verlangen. Für Brand-/Verletzungsszenarien gelten die Beweis- und Kausalitätsanforderungen in `HARDWARE_DAMAGE_LIABILITY.md`. Keine belastbare prozentuale Klagewahrscheinlichkeit verfügbar.

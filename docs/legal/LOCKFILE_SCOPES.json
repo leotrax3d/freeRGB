@@ -1,0 +1,518 @@
+[
+  {
+    "ref": "backup/modules-integration-remote",
+    "path": "Cargo.lock",
+    "blob": "0a545d4012be5a733ffaf1056d63a4deda2b5311",
+    "scope_id": "L001"
+  },
+  {
+    "ref": "backup/modules-integration-remote",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "backup/modules-integration-remote",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "4437455a150bd6b3892fb05b402cb7b8642d5cb0",
+    "scope_id": "L009"
+  },
+  {
+    "ref": "backup/modules-integration-remote",
+    "path": "website/package-lock.json",
+    "blob": "5b41fc1b092ebe1dfeda21482eb30d7394eacf87",
+    "scope_id": "L011"
+  },
+  {
+    "ref": "backup/modules-integration-wip",
+    "path": "Cargo.lock",
+    "blob": "fafaeff150e55948db1631772977c9271eaf3b1b",
+    "scope_id": "L029"
+  },
+  {
+    "ref": "backup/modules-integration-wip",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "backup/modules-integration-wip",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "4437455a150bd6b3892fb05b402cb7b8642d5cb0",
+    "scope_id": "L009"
+  },
+  {
+    "ref": "backup/modules-integration-wip",
+    "path": "website/package-lock.json",
+    "blob": "5b41fc1b092ebe1dfeda21482eb30d7394eacf87",
+    "scope_id": "L011"
+  },
+  {
+    "ref": "backup/tauri-gui",
+    "path": "Cargo.lock",
+    "blob": "990f771d33c73b1a6830cb10f2f0e4794309e0b0",
+    "scope_id": "L019"
+  },
+  {
+    "ref": "backup/tauri-gui",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "backup/tauri-gui",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "4437455a150bd6b3892fb05b402cb7b8642d5cb0",
+    "scope_id": "L009"
+  },
+  {
+    "ref": "backup/tauri-gui",
+    "path": "website/package-lock.json",
+    "blob": "386b96d52e48f0561fd511b0603ff1100ac59b7c",
+    "scope_id": "L008"
+  },
+  {
+    "ref": "backup/website-live-demo",
+    "path": "Cargo.lock",
+    "blob": "894d2a564fd05cd8a6d3a4b6b7e64f27b4c017d5",
+    "scope_id": "L018"
+  },
+  {
+    "ref": "backup/website-live-demo",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "backup/website-live-demo",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "4437455a150bd6b3892fb05b402cb7b8642d5cb0",
+    "scope_id": "L009"
+  },
+  {
+    "ref": "backup/website-live-demo",
+    "path": "website/package-lock.json",
+    "blob": "5b41fc1b092ebe1dfeda21482eb30d7394eacf87",
+    "scope_id": "L011"
+  },
+  {
+    "ref": "claude/adoring-hopper-p5zi8e",
+    "path": "Cargo.lock",
+    "blob": "d532aadf4346344be714a77a3f793c43ea9fd14a",
+    "scope_id": "L026"
+  },
+  {
+    "ref": "claude/adoring-hopper-p5zi8e",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "claude/adoring-hopper-p5zi8e",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "c8587ebfbb756d257fdff013d6c7bd8d45401aba",
+    "scope_id": "L025"
+  },
+  {
+    "ref": "claude/adoring-hopper-p5zi8e",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "a7cb5c6e95afb6536fe8d5ad79c646591877b72b",
+    "scope_id": "L023"
+  },
+  {
+    "ref": "claude/adoring-hopper-p5zi8e",
+    "path": "website/package-lock.json",
+    "blob": "49ad8a5e8655a766e98f735cdda7169c0e4edf19",
+    "scope_id": "L010"
+  },
+  {
+    "ref": "cooling/controller-features",
+    "path": "Cargo.lock",
+    "blob": "dfa9cb6182b422552417cf037b59713fb024f6af",
+    "scope_id": "L027"
+  },
+  {
+    "ref": "cooling/controller-features",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "cooling/controller-features",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "23590bfecfc28b61839628a11c44a8b3f239b350",
+    "scope_id": "L005"
+  },
+  {
+    "ref": "cooling/controller-features",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "6a9624744bc8d1231643d8a1ce75f61fb2e88e94",
+    "scope_id": "L012"
+  },
+  {
+    "ref": "cooling/controller-features",
+    "path": "website/package-lock.json",
+    "blob": "6db622d648c2252214e91fae8676f04f0151161a",
+    "scope_id": "L013"
+  },
+  {
+    "ref": "cooling/gui-parity",
+    "path": "Cargo.lock",
+    "blob": "8505b0a4d3ca6aa1731fa6530f80b88db315ac5f",
+    "scope_id": "L017"
+  },
+  {
+    "ref": "cooling/gui-parity",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "cooling/gui-parity",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "23590bfecfc28b61839628a11c44a8b3f239b350",
+    "scope_id": "L005"
+  },
+  {
+    "ref": "cooling/gui-parity",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "6a9624744bc8d1231643d8a1ce75f61fb2e88e94",
+    "scope_id": "L012"
+  },
+  {
+    "ref": "cooling/gui-parity",
+    "path": "website/package-lock.json",
+    "blob": "6db622d648c2252214e91fae8676f04f0151161a",
+    "scope_id": "L013"
+  },
+  {
+    "ref": "cooling/plugins",
+    "path": "Cargo.lock",
+    "blob": "8505b0a4d3ca6aa1731fa6530f80b88db315ac5f",
+    "scope_id": "L017"
+  },
+  {
+    "ref": "cooling/plugins",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "cooling/plugins",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "23590bfecfc28b61839628a11c44a8b3f239b350",
+    "scope_id": "L005"
+  },
+  {
+    "ref": "cooling/plugins",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "6a9624744bc8d1231643d8a1ce75f61fb2e88e94",
+    "scope_id": "L012"
+  },
+  {
+    "ref": "cooling/plugins",
+    "path": "website/package-lock.json",
+    "blob": "6db622d648c2252214e91fae8676f04f0151161a",
+    "scope_id": "L013"
+  },
+  {
+    "ref": "cooling/sensors-gpu",
+    "path": "Cargo.lock",
+    "blob": "dfa9cb6182b422552417cf037b59713fb024f6af",
+    "scope_id": "L027"
+  },
+  {
+    "ref": "cooling/sensors-gpu",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "cooling/sensors-gpu",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "23590bfecfc28b61839628a11c44a8b3f239b350",
+    "scope_id": "L005"
+  },
+  {
+    "ref": "cooling/sensors-gpu",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "6a9624744bc8d1231643d8a1ce75f61fb2e88e94",
+    "scope_id": "L012"
+  },
+  {
+    "ref": "cooling/sensors-gpu",
+    "path": "website/package-lock.json",
+    "blob": "6db622d648c2252214e91fae8676f04f0151161a",
+    "scope_id": "L013"
+  },
+  {
+    "ref": "cooling/service-profiles",
+    "path": "Cargo.lock",
+    "blob": "8505b0a4d3ca6aa1731fa6530f80b88db315ac5f",
+    "scope_id": "L017"
+  },
+  {
+    "ref": "cooling/service-profiles",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "cooling/service-profiles",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "23590bfecfc28b61839628a11c44a8b3f239b350",
+    "scope_id": "L005"
+  },
+  {
+    "ref": "cooling/service-profiles",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "6a9624744bc8d1231643d8a1ce75f61fb2e88e94",
+    "scope_id": "L012"
+  },
+  {
+    "ref": "cooling/service-profiles",
+    "path": "website/package-lock.json",
+    "blob": "6db622d648c2252214e91fae8676f04f0151161a",
+    "scope_id": "L013"
+  },
+  {
+    "ref": "main",
+    "path": "Cargo.lock",
+    "blob": "dfa9cb6182b422552417cf037b59713fb024f6af",
+    "scope_id": "L027"
+  },
+  {
+    "ref": "main",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "main",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "23590bfecfc28b61839628a11c44a8b3f239b350",
+    "scope_id": "L005"
+  },
+  {
+    "ref": "main",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "6a9624744bc8d1231643d8a1ce75f61fb2e88e94",
+    "scope_id": "L012"
+  },
+  {
+    "ref": "main",
+    "path": "website/package-lock.json",
+    "blob": "6db622d648c2252214e91fae8676f04f0151161a",
+    "scope_id": "L013"
+  },
+  {
+    "ref": "module/mountain-keyboard",
+    "path": "Cargo.lock",
+    "blob": "122676eee49695834e82a70428b6a18081b50662",
+    "scope_id": "L003"
+  },
+  {
+    "ref": "module/mountain-keyboard",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "module/mountain-keyboard",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "4437455a150bd6b3892fb05b402cb7b8642d5cb0",
+    "scope_id": "L009"
+  },
+  {
+    "ref": "module/mountain-keyboard",
+    "path": "website/package-lock.json",
+    "blob": "5b41fc1b092ebe1dfeda21482eb30d7394eacf87",
+    "scope_id": "L011"
+  },
+  {
+    "ref": "module/thingm-blink",
+    "path": "Cargo.lock",
+    "blob": "9a509ba8bf21b1772f259d9ba37b9cbd55b09a63",
+    "scope_id": "L021"
+  },
+  {
+    "ref": "module/thingm-blink",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "module/thingm-blink",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "4437455a150bd6b3892fb05b402cb7b8642d5cb0",
+    "scope_id": "L009"
+  },
+  {
+    "ref": "module/thingm-blink",
+    "path": "website/package-lock.json",
+    "blob": "5b41fc1b092ebe1dfeda21482eb30d7394eacf87",
+    "scope_id": "L011"
+  },
+  {
+    "ref": "modules/integration",
+    "path": "Cargo.lock",
+    "blob": "7dfb0dfe040789719d391ca11b981b527d9e91d2",
+    "scope_id": "L015"
+  },
+  {
+    "ref": "modules/integration",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "modules/integration",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "4437455a150bd6b3892fb05b402cb7b8642d5cb0",
+    "scope_id": "L009"
+  },
+  {
+    "ref": "modules/integration",
+    "path": "website/package-lock.json",
+    "blob": "5b41fc1b092ebe1dfeda21482eb30d7394eacf87",
+    "scope_id": "L011"
+  },
+  {
+    "ref": "refs/tags/prerelease-broad-fan-support-1",
+    "path": "Cargo.lock",
+    "blob": "810d1ff027a2b7496635cb944808c082151d4c12",
+    "scope_id": "L016"
+  },
+  {
+    "ref": "refs/tags/prerelease-broad-fan-support-1",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "refs/tags/prerelease-broad-fan-support-1",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "30dbae910c2f8fd68e0b2b50b12c4d23f00a917e",
+    "scope_id": "L006"
+  },
+  {
+    "ref": "refs/tags/prerelease-broad-fan-support-1",
+    "path": "website/package-lock.json",
+    "blob": "386b96d52e48f0561fd511b0603ff1100ac59b7c",
+    "scope_id": "L008"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.1",
+    "path": "Cargo.lock",
+    "blob": "0f773b25659875c4fb957c4c775d4b830f4cf063",
+    "scope_id": "L002"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.1",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "9bb39826be29d94b8d7410f28be09464b1be0c6d",
+    "scope_id": "L022"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.1",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "9a25ad35a9e840728177069402495e9c6104e591",
+    "scope_id": "L020"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.1",
+    "path": "website/package-lock.json",
+    "blob": "5b41fc1b092ebe1dfeda21482eb30d7394eacf87",
+    "scope_id": "L011"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.2",
+    "path": "Cargo.lock",
+    "blob": "d532aadf4346344be714a77a3f793c43ea9fd14a",
+    "scope_id": "L026"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.2",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.2",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "c8587ebfbb756d257fdff013d6c7bd8d45401aba",
+    "scope_id": "L025"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.2",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "a7cb5c6e95afb6536fe8d5ad79c646591877b72b",
+    "scope_id": "L023"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.2",
+    "path": "website/package-lock.json",
+    "blob": "49ad8a5e8655a766e98f735cdda7169c0e4edf19",
+    "scope_id": "L010"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.3",
+    "path": "Cargo.lock",
+    "blob": "c786f31b9a36bd1a02c27da9a678eb1b9cdcd640",
+    "scope_id": "L024"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.3",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.3",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "33155c40fa23d58926f5f35df97281a5fb073f8e",
+    "scope_id": "L007"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.3",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "17f67a340671839e716edc66619bbc155ecffcab",
+    "scope_id": "L004"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.3",
+    "path": "website/package-lock.json",
+    "blob": "49ad8a5e8655a766e98f735cdda7169c0e4edf19",
+    "scope_id": "L010"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.4",
+    "path": "Cargo.lock",
+    "blob": "79abfc659bc7a2ed8e63906fb488c0d726354a18",
+    "scope_id": "L014"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.4",
+    "path": "apps/admin/package-lock.json",
+    "blob": "ef11347d8a9607e97d6a5008a72bf8fd7658547d",
+    "scope_id": "L028"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.4",
+    "path": "apps/desktop/package-lock.json",
+    "blob": "23590bfecfc28b61839628a11c44a8b3f239b350",
+    "scope_id": "L005"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.4",
+    "path": "apps/desktop/src-tauri/Cargo.lock",
+    "blob": "6a9624744bc8d1231643d8a1ce75f61fb2e88e94",
+    "scope_id": "L012"
+  },
+  {
+    "ref": "refs/tags/v0.1.0-beta.4",
+    "path": "website/package-lock.json",
+    "blob": "49ad8a5e8655a766e98f735cdda7169c0e4edf19",
+    "scope_id": "L010"
+  }
+]
