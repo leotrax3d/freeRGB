@@ -38,6 +38,9 @@ WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes
+; Only one setup at a time: a second installer started while the first waits
+; behind UAC exits with "Setup is already running" (acceptance 2026-11-05).
+SetupMutex=freeRGBSetup,Global\freeRGBSetup
 SetupIconFile=..\..\assets\icons\freergb.ico
 ; Current brand mark (assets/ASSETS.md) in the wizard header.
 WizardSmallImageFile=..\..\assets\icons\freergb-64.png

@@ -111,3 +111,20 @@ throughout block A; no hardware writes.
 | A1 pump safety | `79c2972` | pass | Policy: channels with role `pump` or no role have a 100 % floor (only an explicit unrestricted unlock plus a typed `PUMP` confirmation lifts it; unrestricted is off). Owner confirmed `control/1`/`fan/1` as the AIO pump; bindings saved: `control/1` pump "AIO_PUMP (Fan #2)", `control/2` fan "CHA_FAN2". Not automatically detected: guided setup must ask for it. |
 | B1 fine sweep | `79c2972` | **fail** | `mode:calibration` + `sweep:{step_percent:5,lowest_percent:40}` on CHA_FAN2 (Tctl source, critical 80 °C) completed after ~10 s with `minimum_applied_percent: 95`, `calibration: null`, no fault/warning; nothing stored (`cooling-fan-support.json` absent, `rpm_range` null). Return to firmware verified by register readback; pump untouched (1749 rpm). Jobs 1–4 (two curves, two calibrations, all 100 %) existed before the first request of this session; origin unknown (desktop GUI open). |
 | B2–G | — | not run | Stopped: owner away; every session needs an interactive UAC authorization by design. |
+
+### Fixes for the 2026-11-05 findings (prompt 08, simulated; owner re-test in prompt 07 block R)
+
+| Finding | Fix commit | Test |
+|---|---|---|
+| Reader stuck at "starting" | `44781c2`, `8503a70` | `BrokerTests.SilentWorkerTests` (silent worker -> "reader failed") |
+| Provider never retried | `79c2972`, `8503a70` | `helper_transport...` scenario `denied_then_ready` |
+| Broker pipe busy after setup | `8503a70` | `BrokerTests` stuck-client case (5 s deadline, next client served) |
+| B1 sweep stored nothing | `fc31782` | `fine_sweep_runs_all_thirteen_steps...`, `plain_calibration_completes...`; abort reason now in `report.fault` |
+| Unexplained jobs | `984c041` | `every_job_reports_who_started_it` (`origin`) |
+| Pump not detected | `a3f677b` | `setupModel.test.ts` role gate |
+| Second installer | this PR | `SetupMutex` in `freergb.iss` (owner step R1) |
+
+B1 root cause in simulation: a fan that saturates near 100 % failed the
+1 %-per-step monotonic rule, so the result was dropped. The owner run also
+ended after the 95 % step with `calibration: null`; the abort reason was not
+reported then and is now. If R5 still ends early, its `report.fault` names why.
