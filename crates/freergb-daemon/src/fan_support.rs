@@ -47,6 +47,11 @@ pub struct TestRecord {
     pub passed: bool,
     pub tested: Vec<TestedDuty>,
     pub recorded_unix: u64,
+    /// Stall and start duty from a stall sweep (unrestricted channels only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stall_percent: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_percent: Option<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -155,6 +160,8 @@ impl FanSupport {
                 tested: result.tested.clone(),
                 identity,
                 recorded_unix: now_unix(),
+                stall_percent: result.stall_percent,
+                start_percent: result.start_percent,
             },
         );
         self.save()
@@ -176,9 +183,20 @@ impl FanSupport {
                 tested: result.tested.clone(),
                 identity,
                 recorded_unix: now_unix(),
+                stall_percent: result.stall_percent,
+                start_percent: result.start_percent,
             },
         );
         self.save()
+    }
+
+    /// Stall/start duties of the current identity's latest calibration.
+    pub fn thresholds(&self, identity: &ChannelIdentity) -> (Option<u8>, Option<u8>) {
+        self.config
+            .calibrations
+            .get(&identity.control_id)
+            .filter(|c| &c.identity == identity)
+            .map_or((None, None), |c| (c.stall_percent, c.start_percent))
     }
 
     /// Duty/RPM map from the current identity's calibration, else its passed
@@ -290,6 +308,8 @@ impl FanSupport {
             },
             "tested": test.filter(|t| current(&t.identity)).map(|t| &t.tested),
             "rpm_range": rpm_range,
+            "stall_percent": identity.and_then(|i| self.thresholds(i).0),
+            "start_percent": identity.and_then(|i| self.thresholds(i).1),
             "unlock": match unlock {
                 None => "none",
                 Some(u) if !current(&u.identity) => "stale",
@@ -345,6 +365,8 @@ mod tests {
                 .map(|(duty_percent, rpm)| TestedDuty { duty_percent, rpm })
                 .collect(),
             monotonic_response: rpm[1] <= rpm[0] * 0.95 && rpm[2] <= rpm[1] * 0.95,
+            stall_percent: None,
+            start_percent: None,
         }
     }
 

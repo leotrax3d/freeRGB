@@ -518,6 +518,53 @@ critical-temperature override to 100%, refusal of foreign software mode.
 (no curve, optional `critical_c`, default 80): a flat curve with the same floors
 (40% unless unrestricted), critical-temperature override and supervision.
 
+## Controller, curve and calibration parameters (additive, 2026-11-04)
+
+All fields are optional and additive to `cooling.sessions.start`; requests
+without them behave as before. Unknown fields are still rejected. Every mode
+keeps lease, tier floor, critical-temperature override and fail-safe return.
+
+* `mode:"linear"` with `linear:{min_c,max_c,min_percent,max_percent,critical_c,hysteresis_c?}`
+  runs a FanControl linear curve as a validated two-point graph (`mode:"curve"`
+  rules and floors). Remembered like curves.
+* Curves (`curve`, background channels, composite `graph` nodes) accept 2..64
+  points and `interpolation:"linear"|"step"` (omitted = linear; `step` holds the
+  lower point's duty up to the next point).
+* `mode:"rpm"` with `closed_loop:true` (optional `pi:{kp,ki,max_correction_percent}`,
+  defaults 0.01 / 0.02 / 20): PI correction on top of the measured duty/RPM map.
+  The integral is bounded and does not wind up against 0/100 %. Missing, stale
+  (>1.5 s) or stalled RPM telemetry runs open loop (map duty) and clears the
+  integral; a stale or critical temperature gives 100 %. Without `closed_loop` the
+  previous open-loop behavior is unchanged.
+* `mode:"calibration"` with `sweep:{step_percent:2..20,lowest_percent,probe_stall?}`
+  runs 100 % down to `lowest_percent` in fixed steps (2 s settle, 5 samples each).
+  `lowest_percent` below 40 requires `probe_stall:true`, which is accepted only on
+  unrestricted fan channels: a stopped fan is recorded as `stall_percent` and the
+  sweep probes upwards (at most five steps) for `start_percent`. The report's
+  calibration result carries `stall_percent`/`start_percent`; they are stored with
+  the channel identity in `cooling-fan-support.json` (`calibrations`) and shown in
+  `cooling.support.get` channels. Never on pumps; restore to 100 % before completion.
+* `shaping` (curve, manual, linear, composite and RPM modes; refused for
+  identify, channel test and calibration):
+  `{offset_percent, min_percent, max_percent, response_delay_ms (≤60000),
+  hysteresis_up_percent, hysteresis_down_percent (0..50), avoid:[{from,to,unit?}],
+  stop_below_percent (1..50), spin_up:{percent,ms (≤10000)}}`. Order: fail-safe
+  input → 100 % (no other step); offset, then min/max; hysteresis (a change of at
+  least the threshold is a candidate) and delay (a candidate applies after being one
+  continuously for the delay, elapsed `>=` delay); fan stop below the threshold
+  (only unrestricted fans, never pumps); tier floor; resonance avoidance (an output
+  strictly inside a range moves to the nearer boundary, ties and boundaries below the
+  floor go up; overlapping ranges merge); spin-up boost when leaving 0 % or the
+  stored stall duty. `unit:"rpm"` ranges are converted with the channel's measured
+  map at start; without one the request is refused.
+* Composite curve sets accept `linear` nodes (`sensor,min_c,max_c,min_percent,
+  max_percent,critical_c`) and `equilibrium` nodes (`sensor,target_c,critical_c,
+  min_percent,max_percent,gain_percent_per_c=1,max_change_percent_per_s=2,trend_s=10`):
+  duty changes by `gain*(T - target + trend_s*dT/dt)` per second, bounded by the
+  change rate, starting at `max_percent`; a missing/stale/critical sensor fails safe
+  and restarts at `max_percent`. Both are cycle-checked and propagate fail-safe like
+  other nodes.
+
 ## Cooling profiles (additive, 2026-10-22)
 
 Named, switchable sets of background channel curves (per-user config

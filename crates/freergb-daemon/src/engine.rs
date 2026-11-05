@@ -1072,10 +1072,28 @@ impl Engine {
 
     /// Translates `mode:"rpm"` into a duty from this channel's current
     /// calibration or channel-test measurements (recomputed on every start).
+    /// Also attaches the map for closed-loop targets, converts RPM resonance
+    /// ranges to duty and adds the stored stall duty to output shaping.
     fn resolve_rpm_target(
         &self,
         request: &mut crate::cooling_sessions::StartRequest,
     ) -> Result<(), String> {
+        if let Some(shaping) = request.shaping.as_mut() {
+            let identity = self.channel_identity(&request.control_id);
+            if let Some(identity) = &identity {
+                shaping.stall_percent = self.fan_support.thresholds(identity).0.map(f32::from);
+            }
+            if shaping
+                .avoid
+                .iter()
+                .any(|r| r.unit == freergb_control::shaping::AvoidUnit::Rpm)
+            {
+                let identity = identity
+                    .ok_or("Unknown channel identity; RPM ranges need a measured channel")?;
+                let map = self.fan_support.rpm_map(&identity)?;
+                shaping.resolve_rpm(|rpm| map.duty_for(rpm))?;
+            }
+        }
         if request.mode != "rpm" {
             return Ok(());
         }
@@ -1083,10 +1101,11 @@ impl Engine {
         let identity = self
             .channel_identity(&request.control_id)
             .ok_or("Unknown channel identity; RPM targets need a measured channel")?;
-        let duty = self
-            .fan_support
-            .rpm_map(&identity)?
-            .duty_for(target as f32)?;
+        let map = self.fan_support.rpm_map(&identity)?;
+        let duty = map.duty_for(target as f32)?;
+        if request.closed_loop {
+            request.rpm_map = Some(map);
+        }
         request.rpm_duty = Some(duty.ceil().clamp(0.0, 100.0) as u8);
         Ok(())
     }
@@ -1098,6 +1117,8 @@ impl Engine {
         mut request: crate::cooling_sessions::StartRequest,
     ) -> Result<u64, String> {
         request.composite_feed = Some(self.controls.composite_feed.clone());
+        // Remember what the user asked for (RPM ranges stay RPM), not the resolution.
+        let asked = request.clone();
         self.resolve_rpm_target(&mut request)?;
         let policy = self.cooling_policy(&request.control_id)?;
         if request.mode == "composite"
@@ -1111,7 +1132,7 @@ impl Engine {
             );
         }
         let remembered = crate::cooling_assignments::persistable(&request)
-            .then(|| (request.clone(), self.cooling_identity(&request.control_id)));
+            .then(|| (asked, self.cooling_identity(&request.control_id)));
         let job = self.cooling_sessions.start(request, &policy)?;
         if let Some((request, Some(identity))) = remembered {
             self.cooling_assignments.remember(request, identity);

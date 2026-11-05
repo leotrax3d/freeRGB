@@ -220,6 +220,9 @@ export interface ChannelEvidenceView {
   tested: { duty_percent: number; rpm: number }[] | null;
   /** Measured speed range for RPM targets (calibration or passed channel test). */
   rpm_range?: { min_rpm: number; max_rpm: number } | null;
+  /** Stall/start duty from a stall sweep (unrestricted fans only). */
+  stall_percent?: number | null;
+  start_percent?: number | null;
   unlock: "none" | "stale" | "disabled" | "unlocked" | "unlocked_pump";
   /** Chip row of docs/FAN_COVERAGE.md; display only. */
   coverage?: ChannelCoverage | null;

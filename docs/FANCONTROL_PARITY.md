@@ -38,23 +38,23 @@ columns describe freeRGB independently. `Preview` is never a hardware-control pa
 |---|---|---|---|
 | Setup | Guided discovery | Inventory | Guided channel identification |
 | Pairing | Manual/automatic tachometer pairing | Candidate LINK map | Physical correlation |
-| Calibration | Duty/RPM characterization | Calibration and channel-test duty/RPM pairs stored per channel identity | Finer duty steps; hardware acceptance |
-| Calibration | Startup/stall thresholds | Missing | Per-channel verified limits |
-| Calibration | Avoid resonance ranges | Missing | Validated avoidance policy |
-| Control | Manual percentage | Missing | Supervised hardware writes |
-| Control | Curve/channel assignment | Preview | Stable identity bindings |
-| Control | RPM targets | Open-loop `mode:rpm` from stored calibration/channel-test map, live panel input | Closed-loop correction; hardware acceptance |
-| Control | Duty floor/offset | Basic curve floor | Per-device constraints |
-| Control | Startup/stop behavior | Missing | Pump-safe policy |
-| Control | Rise/fall limits | Missing | Timed controller |
-| Control | Hysteresis/delay | Basic hysteresis | Delay/boundary behavior |
-| Curves | Linear | Graph preview supports two points | Native binding |
-| Curves | Graph | Preview/editor | Broader shape support |
+| Calibration | Duty/RPM characterization | Implemented (simulated): channel test, 100/80/60/40 calibration and fine sweeps (2..20 % steps) stored per channel identity; chip-family simulator sweeps | Owner-board fine sweep (prompt 07) |
+| Calibration | Startup/stall thresholds | Implemented (simulated): unrestricted-only stall sweep records stall and start duty per channel identity; never on pumps or below 40 % otherwise | Per-channel verified limits on owner board (prompt 07) |
+| Calibration | Avoid resonance ranges | Implemented (simulated): `shaping.avoid` duty or RPM ranges (RPM via measured map), deterministic nearest-boundary skip, floor-aware | Validated ranges on real fans (prompt 07) |
+| Control | Manual percentage | Implemented (simulated): `mode:manual` supervised flat curve, tier floors, critical override; shaping applies | Supervised hardware writes (prompt 07) |
+| Control | Curve/channel assignment | Implemented (simulated): live assignments (curve, manual, linear, composite, RPM incl. shaping) remembered per hardware identity (chip, control, saved binding) and resumed only when unchanged | Owner-board resume acceptance (prompt 07) |
+| Control | RPM targets | Implemented (simulated): open-loop map plus `closed_loop` PI correction with bounded integral/anti-windup and open-loop fallback on bad RPM telemetry; simulators per chip family | Closed-loop hardware acceptance (prompt 07) |
+| Control | Duty floor/offset | Implemented (simulated): `shaping` offset and per-device min/max on any curve, then tier floor | Hardware acceptance |
+| Control | Startup/stop behavior | Implemented (simulated): spin-up boost leaving 0 % or the stored stall duty; fan stop threshold only on unrestricted fans, never pumps | Pump-safe policy verified on owner board (prompt 07) |
+| Control | Rise/fall limits | Implemented (simulated): curve `max_rise/fall_percent_per_s` timed controller; fail-safe bypasses limits | Hardware acceptance |
+| Control | Hysteresis/delay | Implemented (simulated): temperature hysteresis on curves plus `shaping` response delay and up/down duty hysteresis with defined inclusive boundaries | Hardware acceptance |
+| Curves | Linear | Implemented (simulated): `mode:linear` natively bound as a two-point curve; composite `linear` node | Hardware acceptance |
+| Curves | Graph | Implemented (simulated): 2..64 points, linear or step interpolation, natively bound via `mode:curve` | Hardware acceptance |
 | Curves | Constant | Evaluator, daemon storage + live preview API, Tauri editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
 | Curves | Combination | Mix (max/min/avg/sum), fail-safe propagation, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
 | Curves | Two-threshold switching | Trigger with hold time, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
 | Curves | Following another output | Follow, cycle-checked, preview API, editor, live sessions (`mode:composite`) | Hardware acceptance; boot-time service |
-| Curves | Adaptive equilibrium | Missing | Trend controller/validation |
+| Curves | Adaptive equilibrium | Implemented (simulated): composite `equilibrium` trend controller (target, gain, max change rate, look-ahead), cycle-checked, fail-safe restart at max | Hardware acceptance; boot-time service |
 | Sensors | Combinations | Daemon evaluation/editor/storage | Hardware source acceptance |
 | Sensors | Correction | Daemon evaluation/editor/storage | Native binding |
 | Sensors | Rolling average | Daemon evaluation/editor/storage | Live acceptance |
@@ -95,3 +95,35 @@ storage, missing-data behavior, tests and appropriate hardware acceptance.
 ## Status update 2026-10-24
 
 Motherboard fan control (up to 16 concurrent live channels, stop all, resume after restart with identity check) and motherboard RGB (ASUS Aura USB all motherboard PIDs, Gigabyte RGB Fusion 2 USB, GUI header configuration, on by default) are no longer experimental; safety mechanisms are unchanged. ASRock Polychrome USB is driven too; MSI Mystic Light is identified only (separate MSI work); SMBus-only boards are not supported. Hardware validation: mock-tested only except CHA_FAN2 single-channel; see `MAINBOARD_RGB.md` and `COOLING_RUNTIME.md`.
+
+## Status update 2026-11-04 (prompt 02, controller features)
+
+Calibration, Control and Curves rows are implemented as pure policies in
+`freergb-control` (`shaping`, `rpm::RpmPi`, `curves` linear/equilibrium nodes,
+`FanCurve::interpolation`, `Calibration::sweep`) with daemon integration
+(`ControlMode::{Shaped,Rpm,Sweep}`) and the chip-family simulators of
+`crates/freergb-control/tests/chip_families.rs`. All of it is **simulated only**;
+no row is hardware-accepted. API: [LOCAL_API.md](LOCAL_API.md#controller-curve-and-calibration-parameters-additive-2026-11-04).
+
+Owner hardware steps for prompt 07 (ASUS PRIME X870-P WIFI, NCT6701D, owner
+present, CPU below 60 °C, stop-all button ready):
+
+1. Fine sweep: CHA_FAN2, Calibrate with "every 5 %". Expect 13 steps 100→40 %,
+   restore to 100 %, then BIOS control; stored `tested` in `cooling-fan-support.json`.
+2. Stall sweep: unlock CHA_FAN2 (unrestricted), "every 5 %" + "Find stall and start
+   speed". Watch the fan stop and restart; compare `stall_percent`/`start_percent`
+   with a stopwatch/visual check; confirm the sweep refuses on a pump-bound header.
+3. Closed-loop RPM: target ~60 % of the measured range, `closed_loop` on; after
+   30 s RPM within ±3 %; unplug nothing — instead pause the LHM provider to make
+   RPM stale and confirm open-loop duty, then fault return on sensor loss.
+4. Shaping on a curve: offset +10 %, max 80 %, delay 5 s, hysteresis 3/5 %, one
+   avoided range around an audible resonance; verify with the live duty readout
+   that duties never sit inside the range and changes wait for the delay.
+5. Spin-up and fan stop (unrestricted only): stop below 20 %, spin-up 70 % / 1 s;
+   confirm the fan restarts reliably from standstill; confirm fan stop is refused
+   on a non-unlocked channel and on a pump.
+6. Linear and step-graph curves via `mode:linear` / a step curve; equilibrium node
+   holding 65 °C under a CPU load generator in a composite session; then a
+   temperature source loss must give 100 % and the BIOS return.
+7. Restart the daemon with a remembered linear/shaped assignment and confirm it
+   resumes only with an unchanged identity.

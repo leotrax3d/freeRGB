@@ -18,6 +18,8 @@ export interface FanCurve {
   /** Optional step limits in %/s; never delay the critical-temperature override. */
   max_rise_percent_per_s?: number;
   max_fall_percent_per_s?: number;
+  /** Between points; omitted means linear. `step` holds the lower point. */
+  interpolation?: "linear" | "step";
 }
 
 export const DEFAULT_CURVE: FanCurve = {
@@ -33,7 +35,7 @@ export const DEFAULT_CURVE: FanCurve = {
 
 /** Mirrors `FanCurve::validate`. */
 export function curveProblem(c: FanCurve): string | null {
-  if (c.points.length < 2 || c.points.length > 16) return "A curve needs 2 to 16 points.";
+  if (c.points.length < 2 || c.points.length > 64) return "A curve needs 2 to 64 points.";
   // Mirrors FanCurve::validate. Native execution still enforces each channel's
   // tier floor (40 % unless the channel is unlocked as unrestricted).
   if (!Number.isFinite(c.minimum_percent) || c.minimum_percent < 0 || c.minimum_percent > 100) return "Minimum duty must be 0–100 %.";
@@ -153,7 +155,9 @@ export type CurveNode =
   | { type: "constant"; percent: number }
   | { type: "trigger"; sensor: string; idle_c: number; load_c: number; idle_percent: number; load_percent: number; critical_c: number; hold_ms: number }
   | { type: "mix"; sources: string[]; function: CurveMixFunction }
-  | { type: "follow"; source: string; scale: number; offset_percent: number };
+  | { type: "follow"; source: string; scale: number; offset_percent: number }
+  | { type: "linear"; sensor: string; min_c: number; max_c: number; min_percent: number; max_percent: number; critical_c: number }
+  | { type: "equilibrium"; sensor: string; target_c: number; critical_c: number; min_percent: number; max_percent: number; gain_percent_per_c: number; max_change_percent_per_s: number; trend_s: number };
 
 export interface CurveSet {
   nodes: Record<string, CurveNode>;
@@ -178,6 +182,12 @@ export function curveSetProblem(set: CurveSet): string | null {
     }
     if (n.type === "mix" && (n.sources.length === 0 || n.sources.some((s) => !names.includes(s)))) return at + "choose 1–16 existing curves.";
     if (n.type === "follow" && !names.includes(n.source)) return at + "choose a curve to follow.";
+    if (n.type === "linear" && !(n.min_c < n.max_c && n.max_c <= n.critical_c && pct(n.min_percent) && pct(n.max_percent) && n.min_percent <= n.max_percent)) return at + "needs min < max ≤ critical temperature and min ≤ max duty.";
+    if (n.type === "equilibrium") {
+      if (!(n.target_c >= 20 && n.target_c < n.critical_c && n.critical_c <= 110)) return at + "needs 20 ≤ target < critical ≤ 110 °C.";
+      if (!pct(n.min_percent) || !pct(n.max_percent) || n.min_percent > n.max_percent) return at + "min duty must not exceed max duty.";
+      if (!(n.gain_percent_per_c >= 0.1 && n.gain_percent_per_c <= 20 && n.max_change_percent_per_s >= 0.1 && n.max_change_percent_per_s <= 50 && n.trend_s >= 0 && n.trend_s <= 120)) return at + "gain 0.1–20, change 0.1–50 %/s, trend 0–120 s.";
+    }
   }
   const state: Record<string, 1 | 2> = {};
   const visit = (name: string): boolean => {

@@ -7,6 +7,30 @@ const DUTIES: [u8; 4] = [100, 80, 60, 40];
 /// Guided channel test (COOLING_BROAD_SUPPORT_PLAN.md, safeguard 1): never below 40%.
 pub const CHANNEL_TEST_DUTIES: [u8; 3] = [100, 70, 50];
 
+/// Parameters of a fine calibration sweep.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SweepOptions {
+    pub step_percent: u8,
+    pub lowest_percent: u8,
+    #[serde(default)]
+    pub probe_stall: bool,
+}
+impl SweepOptions {
+    pub fn validate(&self) -> Result<(), String> {
+        if !(2..=20).contains(&self.step_percent) {
+            return Err("Calibration step must be 2..20 percent".into());
+        }
+        if self.lowest_percent >= 100 || (self.lowest_percent < SWEEP_FLOOR && !self.probe_stall) {
+            return Err(
+                "Calibration below 40% needs a stall sweep on an unrestricted channel".into(),
+            );
+        }
+        Ok(())
+    }
+}
+const SWEEP_FLOOR: u8 = 40;
+
 /// Mean RPM measured at one tested duty.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TestedDuty {
@@ -79,6 +103,12 @@ pub struct CalibrationResult {
     pub tested: Vec<TestedDuty>,
     /// Every lower duty produced at least 5% lower RPM (monotonic, plausible).
     pub monotonic_response: bool,
+    /// Highest duty at which the fan stopped (stall sweep only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stall_percent: Option<u8>,
+    /// Lowest duty that restarted the fan from standstill (stall sweep only).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_percent: Option<u8>,
 }
 impl CalibrationResult {
     /// Guided channel test verdict: plausible, monotonic response at 100/70/50%.
@@ -109,21 +139,59 @@ pub struct Calibration {
     means: Vec<f32>,
     critical_c: f32,
     pending_result: Option<CalibrationResult>,
-    duties: &'static [u8],
+    duties: Vec<u8>,
+    probe_stall: bool,
+    /// Number of descending stages (the rest probe the start duty upwards).
+    descending: usize,
+    stall_percent: Option<u8>,
+    start_percent: Option<u8>,
+    timeout_ms: u64,
+    /// Each lower duty must give at most this fraction of the previous RPM.
+    monotonic_ratio: f32,
 }
 impl Calibration {
     pub fn new(role: ChannelRole, critical_c: f32, now_ms: u64) -> Result<Self, String> {
-        Self::with_duties(role, critical_c, now_ms, &DUTIES)
+        Self::with_duties(role, critical_c, now_ms, DUTIES.to_vec(), false)
+    }
+    /// Fine calibration: 100% down to `lowest_percent` in `step_percent` steps.
+    /// Below the 40% safety floor only with `probe_stall`, which the caller
+    /// sets only for unrestricted channels: a stopped fan is then recorded as
+    /// the stall duty and the sweep probes upwards for the start duty.
+    pub fn sweep(
+        role: ChannelRole,
+        critical_c: f32,
+        now_ms: u64,
+        options: SweepOptions,
+    ) -> Result<Self, String> {
+        options.validate()?;
+        let mut duties = Vec::new();
+        let mut duty = 100u8;
+        while duty > options.lowest_percent {
+            duties.push(duty);
+            duty = duty.saturating_sub(options.step_percent);
+        }
+        duties.push(options.lowest_percent);
+        let mut sweep = Self::with_duties(role, critical_c, now_ms, duties, options.probe_stall)?;
+        // Fine steps change the speed less: require a 1% drop per step.
+        sweep.monotonic_ratio = 0.99;
+        Ok(sweep)
     }
     /// Guided channel test: 100/70/50% with the same supervision as calibration.
     pub fn channel_test(role: ChannelRole, critical_c: f32, now_ms: u64) -> Result<Self, String> {
-        Self::with_duties(role, critical_c, now_ms, &CHANNEL_TEST_DUTIES)
+        Self::with_duties(
+            role,
+            critical_c,
+            now_ms,
+            CHANNEL_TEST_DUTIES.to_vec(),
+            false,
+        )
     }
     fn with_duties(
         role: ChannelRole,
         critical_c: f32,
         now_ms: u64,
-        duties: &'static [u8],
+        duties: Vec<u8>,
+        probe_stall: bool,
     ) -> Result<Self, String> {
         if role != ChannelRole::Fan {
             return Err("Automatic duty-reduction calibration excludes pumps".into());
@@ -132,7 +200,7 @@ impl Calibration {
             return Err("Critical temperature must be 40..100 Celsius".into());
         }
         now_ms
-            .checked_add(60_000)
+            .checked_add(1_000_000)
             .ok_or("Calibration clock overflow")?;
         Ok(Self {
             output: CalibrationOutput {
@@ -152,7 +220,13 @@ impl Calibration {
             means: Vec::new(),
             critical_c,
             pending_result: None,
+            descending: duties.len(),
+            timeout_ms: 60_000.max(4_000 * 2 * duties.len() as u64 + 10_000),
             duties,
+            probe_stall,
+            monotonic_ratio: 0.95,
+            stall_percent: None,
+            start_percent: None,
         })
     }
     pub fn output(&self) -> CalibrationOutput {
@@ -200,13 +274,22 @@ impl Calibration {
             return self.output();
         }
         self.last_now = now;
-        let rpm = sample
-            .rpm
-            .filter(|r| r.is_finite() && (100.0..=100_000.0).contains(r));
+        // A stall sweep (unrestricted channels only) counts a stopped fan as
+        // 0 RPM instead of a fault, but never while restoring full speed.
+        let stall_ok = self.probe_stall && self.output.phase != Restoring;
+        let rpm = sample.rpm.filter(|r| r.is_finite()).and_then(|r| {
+            if (100.0..=100_000.0).contains(&r) {
+                Some(r)
+            } else if stall_ok && (0.0..100.0).contains(&r) {
+                Some(0.0)
+            } else {
+                None
+            }
+        });
         let temp = sample
             .temperature_c
             .filter(|t| t.is_finite() && (-20.0..=150.0).contains(t));
-        let fault = if now - self.began > 60_000 {
+        let fault = if now - self.began > self.timeout_ms {
             Some("session_timeout")
         } else if sample.rpm_age_ms > 1500
             || sample.temperature_age_ms > 1500
@@ -287,26 +370,77 @@ impl Calibration {
         if self.readings.len() < 5 {
             return self.output();
         }
+        let duty = self.duties[self.stage];
+        let rising = self.stage >= self.descending;
         let minimum = self.readings.iter().copied().fold(f32::INFINITY, f32::min);
         let maximum = self.readings.iter().copied().fold(0.0, f32::max);
-        if minimum < maximum * 0.8 {
+        // A stall stage must end stopped: spinning down or up is not a verdict.
+        let stalled = minimum == 0.0 && self.readings.last() == Some(&0.0);
+        if (minimum == 0.0 && !stalled) || (!stalled && minimum < maximum * 0.8) {
             self.restore(now, Some("unstable_rpm"));
             return self.output();
         }
         let mean = self.readings.iter().sum::<f32>() / self.readings.len() as f32;
-        if self.means.last().is_some_and(|prior| mean > prior * 1.1) {
-            self.restore(now, Some("inconsistent_response"));
-            return self.output();
+        let mut finished = false;
+        if stalled {
+            if !rising {
+                // Stall found: probe upwards from here to the last running duty.
+                self.stall_percent = Some(duty);
+                let running = self.stage.checked_sub(1).map(|s| self.duties[s]);
+                self.duties.truncate(self.stage + 1);
+                self.descending = self.stage;
+                if let Some(running) = running {
+                    // At most five probes between the stall and the last running duty.
+                    let step = ((running - duty) / 5).max(1);
+                    let mut next = duty.saturating_add(step);
+                    while next < running {
+                        self.duties.push(next);
+                        next = next.saturating_add(step);
+                    }
+                    self.duties.push(running);
+                }
+            }
+        } else if rising {
+            self.start_percent = Some(duty);
+            finished = true;
+        } else {
+            if self.means.last().is_some_and(|prior| mean > prior * 1.1) {
+                self.restore(now, Some("inconsistent_response"));
+                return self.output();
+            }
+            self.means.push(mean);
         }
-        self.means.push(mean);
         self.stage += 1;
-        if self.stage == self.duties.len() {
-            let response = mean <= self.means[0] * 0.9;
-            let lowest = *self.duties.last().expect("non-empty duties");
+        if self.stage == self.duties.len() || finished {
+            if self.stall_percent.is_some() && self.start_percent.is_none() && stalled {
+                // Never restarted below the last running duty: use that one.
+                self.start_percent = self
+                    .descending
+                    .checked_sub(1)
+                    .and_then(|i| self.duties.get(i))
+                    .copied();
+            }
+            let response = self
+                .means
+                .last()
+                .is_some_and(|last| *last <= self.means[0] * 0.9)
+                || self.stall_percent.is_some();
+            let lowest = self
+                .duties
+                .get(self.means.len().saturating_sub(1))
+                .copied()
+                .unwrap_or(100);
+            let suggested = if self.probe_stall {
+                self.start_percent
+                    .map(|start| start.max(self.stall_percent.unwrap_or(0).saturating_add(1)))
+                    .or(response.then_some(lowest))
+            } else {
+                response.then_some(lowest.max(50))
+            };
             self.pending_result = Some(CalibrationResult {
                 response_observed: response,
                 lowest_tested_percent: lowest,
-                suggested_floor_percent: response.then_some(lowest.max(50)),
+                suggested_floor_percent: suggested,
                 hardware_verified: false,
                 tested: self
                     .duties
@@ -314,7 +448,13 @@ impl Calibration {
                     .zip(&self.means)
                     .map(|(&duty_percent, &rpm)| TestedDuty { duty_percent, rpm })
                     .collect(),
-                monotonic_response: self.means.windows(2).all(|w| w[1] <= w[0] * 0.95),
+                monotonic_response: self.means.len() >= 2
+                    && self
+                        .means
+                        .windows(2)
+                        .all(|w| w[1] <= w[0] * self.monotonic_ratio),
+                stall_percent: self.stall_percent,
+                start_percent: self.start_percent,
             });
             self.restore(now, None);
         } else {
@@ -517,5 +657,122 @@ mod tests {
         assert_eq!(out.reason.as_deref(), Some("critical_temperature"));
         assert!(out.result.is_none());
         assert_eq!(out.duty_percent, 100);
+    }
+}
+
+#[cfg(test)]
+mod sweep_tests {
+    use super::*;
+
+    /// Runs a sweep against a simulated fan with hysteresis: it stops below
+    /// `stall`, and once stopped needs at least `start` to spin up again.
+    fn simulate(options: SweepOptions, stall: u8, start: u8) -> CalibrationOutput {
+        let mut c = Calibration::sweep(ChannelRole::Fan, 85.0, 0, options).unwrap();
+        let mut stopped = false;
+        let mut now = 0;
+        for _ in 0..200 {
+            let out = c.output();
+            if matches!(
+                out.phase,
+                CalibrationPhase::Completed | CalibrationPhase::Aborted
+            ) {
+                return out;
+            }
+            let duty = out.duty_percent;
+            stopped = if stopped { duty < start } else { duty < stall };
+            let rpm = if stopped { 0.0 } else { f32::from(duty) * 20.0 };
+            let s = |at| CalibrationSample {
+                at_ms: at,
+                applied_sequence: Some(out.sequence),
+                rpm: Some(rpm),
+                rpm_age_ms: 0,
+                temperature_c: Some(40.0),
+                temperature_age_ms: 0,
+            };
+            if out.phase == CalibrationPhase::Restoring {
+                c.update(s(now));
+                continue;
+            }
+            c.update(s(now));
+            if c.output().sequence != out.sequence {
+                continue;
+            }
+            now += 2000;
+            for _ in 0..5 {
+                if c.output().sequence != out.sequence {
+                    break;
+                }
+                c.update(s(now));
+                now += 250;
+            }
+        }
+        panic!("sweep did not finish: {:?}", c.output());
+    }
+
+    #[test]
+    fn fine_sweep_records_every_step_and_never_goes_below_floor() {
+        let options = SweepOptions {
+            step_percent: 5,
+            lowest_percent: 40,
+            probe_stall: false,
+        };
+        let c = Calibration::sweep(ChannelRole::Fan, 85.0, 0, options).unwrap();
+        assert_eq!(c.duties.len(), 13);
+        let out = simulate(options, 0, 0);
+        assert_eq!(out.phase, CalibrationPhase::Completed);
+        let result = out.result.unwrap();
+        assert_eq!(result.tested.len(), 13);
+        assert!(result.tested.iter().all(|t| t.duty_percent >= 40));
+        assert!(result.monotonic_response);
+        assert_eq!(result.stall_percent, None);
+        assert!(Calibration::sweep(ChannelRole::Pump, 85.0, 0, options).is_err());
+        for bad in [
+            SweepOptions {
+                step_percent: 1,
+                ..options
+            },
+            SweepOptions {
+                lowest_percent: 20,
+                ..options
+            },
+        ] {
+            assert!(bad.validate().is_err());
+        }
+    }
+
+    #[test]
+    fn stall_sweep_finds_stall_and_start_thresholds() {
+        let options = SweepOptions {
+            step_percent: 5,
+            lowest_percent: 0,
+            probe_stall: true,
+        };
+        // Stops below 22%, restarts only at >= 30%.
+        let out = simulate(options, 22, 30);
+        assert_eq!(out.phase, CalibrationPhase::Completed, "{:?}", out.reason);
+        let result = out.result.unwrap();
+        assert_eq!(result.stall_percent, Some(20));
+        // Probe upwards from 20 in 1% steps up to the last running 25%:
+        // 21..24 stay stopped, 25 is the fallback (never restarted below it).
+        assert_eq!(result.start_percent, Some(25));
+        assert_eq!(result.suggested_floor_percent, Some(25));
+        assert!(result.tested.iter().all(|t| t.rpm >= 100.0));
+        assert_eq!(result.tested.last().unwrap().duty_percent, 25);
+        // A fan that restarts within the probe range reports that duty.
+        let out = simulate(options, 22, 23);
+        assert_eq!(out.result.unwrap().start_percent, Some(23));
+        assert_eq!(out.duty_percent, 100);
+    }
+
+    #[test]
+    fn stall_in_a_normal_sweep_is_a_fault() {
+        let options = SweepOptions {
+            step_percent: 10,
+            lowest_percent: 40,
+            probe_stall: false,
+        };
+        let out = simulate(options, 55, 60);
+        assert_eq!(out.phase, CalibrationPhase::Aborted);
+        assert_eq!(out.reason.as_deref(), Some("missing_or_stalled_rpm"));
     }
 }

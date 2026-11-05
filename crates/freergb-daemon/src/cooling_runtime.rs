@@ -2,10 +2,12 @@
 //! process elevation or automatic hardware activation is performed here.
 use crate::native_session::{NativeObservation, NativeSessionClient, Receipt, SessionState};
 use freergb_control::calibration::{
-    Calibration, CalibrationPhase, CalibrationResult, CalibrationSample,
+    Calibration, CalibrationPhase, CalibrationResult, CalibrationSample, SweepOptions,
 };
 use freergb_control::channels::ChannelRole;
 use freergb_control::cooling_safety::{DutyLease, GuardState, SupervisedControl};
+use freergb_control::rpm::{PiGains, RpmMap, RpmPi};
+use freergb_control::shaping::{ChannelLimits, OutputShaper, OutputShaping};
 use freergb_control::telemetry_guard::{Reading, TelemetryGuard};
 use freergb_control::{CurveController, FanCurve};
 use std::time::{Duration, Instant};
@@ -51,6 +53,26 @@ pub enum ControlMode {
     /// Guided channel test (100/70/50%), same supervision as calibration.
     ChannelTest {
         critical_c: f32,
+    },
+    /// Fine calibration sweep; below 40% only with a stall probe, which needs
+    /// unrestricted limits (`allow_stop`).
+    Sweep {
+        critical_c: f32,
+        options: SweepOptions,
+    },
+    /// Closed-loop RPM target: PI correction on the measured duty/RPM map;
+    /// bad RPM telemetry runs open loop, bad temperature means 100%.
+    Rpm {
+        map: RpmMap,
+        target_rpm: f32,
+        gains: PiGains,
+        critical_c: f32,
+    },
+    /// Any duty mode with per-channel output shaping
+    /// (`freergb_control::shaping`) applied before the floor.
+    Shaped {
+        inner: Box<ControlMode>,
+        shaping: OutputShaping,
     },
 }
 /// Duty limits for this execution, derived from the channel's support tier
@@ -212,6 +234,37 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
     // Lower tiers return to their captured firmware mode on any supervision fault
     // (explicit close); legacy verified workers keep holding 100% for recovery.
     let graceful = tier.is_some();
+    let (mode, shaping) = match mode {
+        ControlMode::Shaped { inner, shaping } => {
+            if matches!(
+                *inner,
+                ControlMode::Shaped { .. }
+                    | ControlMode::Calibration { .. }
+                    | ControlMode::ChannelTest { .. }
+                    | ControlMode::Sweep { .. }
+            ) {
+                return Err("Output shaping applies to curve, composite and RPM modes only".into());
+            }
+            shaping.validate_for(limits.allow_stop, false)?;
+            (*inner, Some(shaping))
+        }
+        mode => (mode, None),
+    };
+    if let ControlMode::Sweep { options, .. } = &mode {
+        options.validate()?;
+        if options.probe_stall && !limits.allow_stop {
+            return Err("Stall sweeps need an unrestricted channel".into());
+        }
+    }
+    if let ControlMode::Rpm {
+        gains, target_rpm, ..
+    } = &mode
+    {
+        gains.validate()?;
+        if !target_rpm.is_finite() || *target_rpm <= 0.0 {
+            return Err("RPM target must be positive".into());
+        }
+    }
     let critical = match &mode {
         ControlMode::Curve(curve) => {
             curve.validate()?;
@@ -225,12 +278,15 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
         }
         ControlMode::Calibration { critical_c }
         | ControlMode::ChannelTest { critical_c }
+        | ControlMode::Sweep { critical_c, .. }
+        | ControlMode::Rpm { critical_c, .. }
         | ControlMode::Composite { critical_c, .. } => {
             if !(40.0..=100.0).contains(critical_c) {
                 return Err("Critical temperature must be 40..100 C".into());
             }
             *critical_c
         }
+        ControlMode::Shaped { .. } => unreachable!("unwrapped above"),
     };
     let mut telemetry = TelemetryGuard::new("temperature".into(), "rpm".into(), critical)?;
     if limits.allow_stop {
@@ -293,6 +349,8 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
         }
     }));
     let mut curve_controller = CurveController::default();
+    let mut shaper = OutputShaper::default();
+    let mut rpm_loop = RpmPi::default();
     let mut calibration = match mode {
         ControlMode::Calibration { critical_c } => {
             Some(Calibration::new(ChannelRole::Fan, critical_c, at)?)
@@ -300,6 +358,15 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
         ControlMode::ChannelTest { critical_c } => {
             Some(Calibration::channel_test(ChannelRole::Fan, critical_c, at)?)
         }
+        ControlMode::Sweep {
+            critical_c,
+            options,
+        } => Some(Calibration::sweep(
+            ChannelRole::Fan,
+            critical_c,
+            at,
+            options,
+        )?),
         _ => None,
     };
     let mut frame = initial;
@@ -412,33 +479,72 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
             }
             calibration_sequence = Some(output.sequence);
             output.duty_percent
-        } else if let ControlMode::Curve(curve) = &mode {
-            curve_controller
-                .update_at(
-                    curve,
-                    Some(frame.temperature_c),
-                    at.saturating_sub(frame.temperature_at_ms),
+        } else {
+            let temperature_age = at.saturating_sub(frame.temperature_at_ms);
+            // (duty, fail-safe): fail-safe outputs bypass every shaping step.
+            let (raw, failsafe) = match &mode {
+                ControlMode::Curve(curve) => {
+                    let duty = curve_controller.update_at(
+                        curve,
+                        Some(frame.temperature_c),
+                        temperature_age,
+                        at,
+                    );
+                    let hot = frame.temperature_c >= curve.critical_c || temperature_age > 3000;
+                    (duty, hot)
+                }
+                ControlMode::Composite {
+                    output,
+                    critical_c,
+                    feed,
+                } => {
+                    // The session's own temperature still forces 100% at critical.
+                    let hot = frame.temperature_c >= *critical_c || temperature_age > 3000;
+                    let duty = if hot {
+                        100.0
+                    } else {
+                        feed.duty(output, Instant::now())
+                    };
+                    // The feed reports untrusted outputs as 100%.
+                    (duty, hot || duty >= 100.0)
+                }
+                ControlMode::Rpm {
+                    map,
+                    target_rpm,
+                    gains,
+                    critical_c,
+                } => {
+                    let hot = frame.temperature_c >= *critical_c || temperature_age > 3000;
+                    let out = rpm_loop.update(
+                        map,
+                        *gains,
+                        *target_rpm,
+                        Some(frame.rpm),
+                        at.saturating_sub(frame.rpm_at_ms),
+                        at,
+                    );
+                    if hot {
+                        (100.0, true)
+                    } else {
+                        (out.duty_percent, false)
+                    }
+                }
+                _ => return Err("Missing cooling mode".into()),
+            };
+            let duty = match &shaping {
+                Some(shaping) => shaper.apply(
+                    shaping,
+                    raw,
+                    failsafe,
+                    ChannelLimits {
+                        floor_percent: f32::from(limits.floor_percent),
+                        allow_stop: limits.allow_stop,
+                    },
                     at,
-                )
-                .ceil()
-                .clamp(f32::from(limits.floor_percent), 100.0) as u8
-        } else if let ControlMode::Composite {
-            output,
-            critical_c,
-            feed,
-        } = &mode
-        {
-            // The session's own temperature still forces 100% at critical.
-            let hot = frame.temperature_c >= *critical_c
-                || at.saturating_sub(frame.temperature_at_ms) > 3000;
-            let duty = if hot {
-                100.0
-            } else {
-                feed.duty(output, Instant::now())
+                ),
+                None => raw,
             };
             duty.ceil().clamp(f32::from(limits.floor_percent), 100.0) as u8
-        } else {
-            return Err("Missing cooling mode".into());
         };
         sequence += 1;
         if !closing {
@@ -726,6 +832,84 @@ mod tests {
             .collect();
         let first_full = duties.iter().position(|d| *d == 100).unwrap();
         assert!(first_full > 0 && duties[..first_full].iter().all(|d| *d == 55));
+        sampler.abort();
+    }
+
+    #[tokio::test]
+    async fn shaped_closed_loop_rpm_corrects_skips_resonance_and_caps() {
+        use freergb_control::calibration::TestedDuty;
+        use freergb_control::shaping::{AvoidRange, AvoidUnit};
+        let (transport, worker) = tokio::io::duplex(4096);
+        let peer = tiered_peer(worker, "lhm_supported");
+        let client = NativeSessionClient::from_authenticated_transport(transport)
+            .await
+            .unwrap();
+        let epoch = Instant::now();
+        let (samples, rx) = mpsc::channel(4);
+        let (stop, stop_rx) = oneshot::channel();
+        // The fan stays at 900 RPM: the PI term keeps pushing above open loop.
+        let sampler = feed(samples, epoch, 900.0, false);
+        let map = RpmMap::from_tested(&[
+            TestedDuty {
+                duty_percent: 100,
+                rpm: 1800.0,
+            },
+            TestedDuty {
+                duty_percent: 40,
+                rpm: 900.0,
+            },
+        ])
+        .unwrap();
+        let runtime = tokio::spawn(run_with_limits(
+            client,
+            ControlMode::Shaped {
+                inner: Box::new(ControlMode::Rpm {
+                    map,
+                    target_rpm: 1300.0,
+                    gains: PiGains::default(),
+                    critical_c: 80.0,
+                }),
+                shaping: OutputShaping {
+                    max_percent: 80.0,
+                    avoid: vec![AvoidRange {
+                        from: 60.0,
+                        to: 70.0,
+                        unit: AvoidUnit::Percent,
+                    }],
+                    ..OutputShaping::default()
+                },
+            },
+            RuntimeLimits::default(),
+            SamplerFrame {
+                temperature_c: 30.0,
+                temperature_at_ms: 0,
+                rpm: 900.0,
+                rpm_at_ms: 0,
+            },
+            rx,
+            stop_rx,
+            epoch,
+        ));
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        stop.send(()).unwrap();
+        let report = tokio::time::timeout(Duration::from_secs(2), runtime)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(report.fault.is_none(), "{:?}", report.fault);
+        let duties: Vec<u64> = peer
+            .await
+            .unwrap()
+            .iter()
+            .filter_map(|r| r["duty_percent"].as_u64())
+            .collect();
+        assert!(duties.len() > 3, "{duties:?}");
+        assert!(
+            duties.iter().all(|d| (70..=80).contains(d)),
+            "open loop 66.7% snaps to 70, PI raises it, max caps at 80: {duties:?}"
+        );
+        assert!(duties.iter().any(|d| *d > 70), "{duties:?}");
         sampler.abort();
     }
 

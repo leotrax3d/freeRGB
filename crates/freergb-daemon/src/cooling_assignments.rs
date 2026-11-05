@@ -50,7 +50,7 @@ pub struct Assignments {
 pub fn persistable(request: &StartRequest) -> bool {
     matches!(
         request.mode.as_str(),
-        "curve" | "manual" | "composite" | "rpm"
+        "curve" | "manual" | "composite" | "rpm" | "linear"
     )
 }
 

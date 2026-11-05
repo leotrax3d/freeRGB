@@ -217,8 +217,20 @@ fn firmware_restored(chip: &SimChip, ch: usize) -> bool {
 
 /// Runs the guided channel test on `ch` and returns the calibration output.
 fn channel_test(chip: &mut SimChip, ch: usize) -> freergb_control::calibration::CalibrationOutput {
+    measure(
+        chip,
+        ch,
+        Calibration::channel_test(ChannelRole::Fan, 85.0, 0).unwrap(),
+    )
+}
+
+/// Drives any measurement (channel test, calibration, sweep) to its end.
+fn measure(
+    chip: &mut SimChip,
+    ch: usize,
+    mut test: Calibration,
+) -> freergb_control::calibration::CalibrationOutput {
     let session = Session::take(chip, ch).unwrap();
-    let mut test = Calibration::channel_test(ChannelRole::Fan, 85.0, 0).unwrap();
     let mut applied = None;
     let mut now = 0;
     loop {
@@ -246,7 +258,7 @@ fn channel_test(chip: &mut SimChip, ch: usize) -> freergb_control::calibration::
             temperature_c: Some(40.0),
             temperature_age_ms: 0,
         });
-        assert!(now < 70_000, "channel test did not finish");
+        assert!(now < 300_000, "measurement did not finish");
     }
 }
 
@@ -546,5 +558,113 @@ fn verified_families_detect_a_write_that_does_not_stick() {
         let raw = SimChip::encode(&chip.quirks, 70);
         assert_ne!(chip.readback(0), Some(raw), "{}", family.id);
         session.release(&mut chip);
+    }
+}
+
+fn responsive(family: &Family, ch: usize) -> bool {
+    !family.quirks.ignored_channels.contains(&ch) && !family.quirks.inverted
+}
+
+#[test]
+fn fine_stall_sweep_finds_thresholds_on_every_family() {
+    use freergb_control::calibration::SweepOptions;
+    let options = SweepOptions {
+        step_percent: 5,
+        lowest_percent: 0,
+        probe_stall: true,
+    };
+    for family in controllable() {
+        let mut chip = SimChip::new(&family);
+        for ch in (0..family.controls).filter(|&ch| responsive(&family, ch)) {
+            let label = format!("{} ch{ch}", family.id);
+            let sweep = Calibration::sweep(ChannelRole::Fan, 85.0, 0, options).unwrap();
+            let out = measure(&mut chip, ch, sweep);
+            assert!(firmware_restored(&chip, ch), "{label}: firmware mode");
+            assert_eq!(out.phase, CalibrationPhase::Completed, "{label}: {out:?}");
+            let result = out.result.unwrap();
+            assert!(result.tested.iter().all(|t| t.rpm >= 100.0), "{label}");
+            if family.quirks.min_effective_percent >= 15 {
+                // The chip never lets the fan stop: no stall threshold.
+                assert_eq!(result.stall_percent, None, "{label}");
+            } else {
+                // The simulated fan stops below 15%.
+                assert_eq!(result.stall_percent, Some(10), "{label}: {result:?}");
+                assert_eq!(result.start_percent, Some(15), "{label}");
+                assert_eq!(result.suggested_floor_percent, Some(15), "{label}");
+                assert!(result.monotonic_response, "{label}");
+                assert_eq!(result.tested.len(), 18, "{label}: {result:?}"); // 100..15 in 5% steps
+            }
+        }
+    }
+}
+
+#[test]
+fn shaped_closed_loop_rpm_target_converges_on_every_family() {
+    use freergb_control::calibration::TestedDuty;
+    use freergb_control::rpm::{PiGains, RpmMap, RpmPi};
+    use freergb_control::shaping::{
+        AvoidRange, AvoidUnit, ChannelLimits, OutputShaper, OutputShaping,
+    };
+    for family in controllable() {
+        let mut chip = SimChip::new(&family);
+        for ch in (0..family.controls).filter(|&ch| responsive(&family, ch)) {
+            let label = format!("{} ch{ch}", family.id);
+            // A map measured when the fan was 10% faster (dust, wear, voltage).
+            let tested: Vec<TestedDuty> = [100u8, 80, 60, 40]
+                .into_iter()
+                .map(|d| TestedDuty {
+                    duty_percent: d,
+                    rpm: SimChip::fan_rpm(d.max(family.quirks.min_effective_percent)) as f32 * 1.1,
+                })
+                .collect();
+            let map = RpmMap::from_tested(&tested).unwrap();
+            let shaping = OutputShaping {
+                avoid: vec![AvoidRange {
+                    from: 85.0,
+                    to: 95.0,
+                    unit: AvoidUnit::Percent,
+                }],
+                hysteresis_up_percent: 0.5,
+                hysteresis_down_percent: 0.5,
+                ..OutputShaping::default()
+            };
+            let limits = ChannelLimits {
+                floor_percent: f32::from(SAFE_FAN_FLOOR),
+                allow_stop: false,
+            };
+            let session = Session::take(&mut chip, ch).unwrap();
+            let (mut pi, mut shaper) = (RpmPi::default(), OutputShaper::default());
+            let target = 1200.0;
+            let mut now = 0;
+            for _ in 0..400 {
+                now += STEP_MS;
+                chip.advance(now);
+                let raw = pi
+                    .update(
+                        &map,
+                        PiGains::default(),
+                        target,
+                        Some(chip.rpm[ch] as f32),
+                        0,
+                        now,
+                    )
+                    .duty_percent;
+                let duty = shaper.apply(&shaping, raw, false, limits, now).ceil() as u8;
+                assert!(duty >= SAFE_FAN_FLOOR, "{label}");
+                assert!(
+                    !(86..95).contains(&duty),
+                    "{label}: duty {duty} in avoided range"
+                );
+                session.write(&mut chip, duty).unwrap();
+            }
+            let rpm = chip.rpm[ch] as f32;
+            assert!((rpm - target).abs() < target * 0.03, "{label}: {rpm} RPM");
+            // Lost telemetry: open loop again (the map's duty, not the PI duty).
+            let open = pi.update(&map, PiGains::default(), target, None, 0, now + STEP_MS);
+            assert!(!open.closed_loop, "{label}");
+            assert_eq!(open.duty_percent, map.duty_for(target).unwrap(), "{label}");
+            session.fail_safe(&mut chip);
+            assert!(firmware_restored(&chip, ch), "{label}");
+        }
     }
 }

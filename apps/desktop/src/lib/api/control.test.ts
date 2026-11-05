@@ -16,7 +16,7 @@ describe("fan curve rules (mirror FanCurve::validate)", () => {
     expect(curveProblem({ ...DEFAULT_CURVE, points: [pts[0]!, { temperature_c: 50, duty_percent: 29 }] })).toMatch(/not decrease/);
     expect(curveProblem({ ...DEFAULT_CURVE, points: [pts[1]!, pts[0]!] })).toMatch(/increase/);
     expect(curveProblem({ ...DEFAULT_CURVE, critical_c: 70 })).toMatch(/critical/);
-    expect(curveProblem({ ...DEFAULT_CURVE, points: [pts[0]!] })).toMatch(/2 to 16/);
+    expect(curveProblem({ ...DEFAULT_CURVE, points: [pts[0]!] })).toMatch(/2 to 64/);
     expect(curveProblem({ ...DEFAULT_CURVE, minimum_percent: 40 })).toMatch(/between the minimum/);
   });
 });

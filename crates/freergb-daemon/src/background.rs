@@ -51,6 +51,12 @@ pub fn protected_entry(
         composite_feed: None,
         target_rpm: None,
         rpm_duty: None,
+        closed_loop: false,
+        pi: None,
+        linear: None,
+        sweep: None,
+        shaping: None,
+        rpm_map: None,
     }
     .plan(policy)?;
     let mut entry = json!({

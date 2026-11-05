@@ -19,6 +19,8 @@ const TYPES: { type: CurveNode["type"]; label: string }[] = [
   { type: "trigger", label: "Two-threshold trigger" },
   { type: "mix", label: "Mix" },
   { type: "follow", label: "Follow" },
+  { type: "linear", label: "Linear" },
+  { type: "equilibrium", label: "Adaptive equilibrium" },
 ];
 const MIX: { fn: CurveMixFunction; label: string }[] = [
   { fn: "maximum", label: "Maximum" },
@@ -39,6 +41,10 @@ function blank(type: CurveNode["type"], sensor: string, other: string): CurveNod
       return { type, sources: other ? [other] : [], function: "maximum" };
     case "follow":
       return { type, source: other, scale: 1, offset_percent: 0 };
+    case "linear":
+      return { type, sensor, min_c: 35, max_c: 75, min_percent: 30, max_percent: 100, critical_c: 85 };
+    case "equilibrium":
+      return { type, sensor, target_c: 65, critical_c: 90, min_percent: 30, max_percent: 100, gain_percent_per_c: 1, max_change_percent_per_s: 2, trend_s: 10 };
   }
 }
 
@@ -104,6 +110,30 @@ function NodeFields({ node, others, sensors, onChange }: { node: CurveNode; othe
           <Select label="Curve" value={others.includes(node.source) ? node.source : ""} onChange={(source) => onChange({ ...node, source })} options={others.map((n) => ({ value: n, label: n }))} />
           <Num label="×" step={0.05} value={node.scale} onChange={(scale) => onChange({ ...node, scale })} />
           <Num label="+" unit="%" value={node.offset_percent} onChange={(offset_percent) => onChange({ ...node, offset_percent })} />
+        </div>
+      );
+    case "linear":
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          {sensorSelect(node.sensor, (sensor) => onChange({ ...node, sensor }))}
+          <Num label="From" unit="°C" value={node.min_c} onChange={(min_c) => onChange({ ...node, min_c })} />
+          <Num label="at" unit="%" value={node.min_percent} onChange={(min_percent) => onChange({ ...node, min_percent })} />
+          <Num label="to" unit="°C" value={node.max_c} onChange={(max_c) => onChange({ ...node, max_c })} />
+          <Num label="at" unit="%" value={node.max_percent} onChange={(max_percent) => onChange({ ...node, max_percent })} />
+          <Num label="Critical" unit="°C" value={node.critical_c} onChange={(critical_c) => onChange({ ...node, critical_c })} />
+        </div>
+      );
+    case "equilibrium":
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          {sensorSelect(node.sensor, (sensor) => onChange({ ...node, sensor }))}
+          <Num label="Hold" unit="°C" value={node.target_c} onChange={(target_c) => onChange({ ...node, target_c })} />
+          <Num label="Critical" unit="°C" value={node.critical_c} onChange={(critical_c) => onChange({ ...node, critical_c })} />
+          <Num label="Min" unit="%" value={node.min_percent} onChange={(min_percent) => onChange({ ...node, min_percent })} />
+          <Num label="Max" unit="%" value={node.max_percent} onChange={(max_percent) => onChange({ ...node, max_percent })} />
+          <Num label="Gain" unit="%/°C" step={0.1} value={node.gain_percent_per_c} onChange={(gain_percent_per_c) => onChange({ ...node, gain_percent_per_c })} />
+          <Num label="Max change" unit="%/s" step={0.1} value={node.max_change_percent_per_s} onChange={(max_change_percent_per_s) => onChange({ ...node, max_change_percent_per_s })} />
+          <Num label="Look-ahead" unit="s" value={node.trend_s} onChange={(trend_s) => onChange({ ...node, trend_s })} />
         </div>
       );
   }
