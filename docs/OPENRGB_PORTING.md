@@ -196,7 +196,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `NvidiaESAController` | ported | `4b56674` | 1 | Direct mode fully ported: 5 zones (Front Drive Bays, Front USB, Rear, Internal, Front Audio), 4-byte output reports `0x42+zone` with inverted 4-bit channels. Init/shutdown/effect modes and serial reads omitted. |
 | `HPOmen30LController` | ported | `4a40489` | 1 | Direct mode fully ported: 7 zones, 58-byte packets per zone (version 0x12, zone 1..7, brightness 0x64, color at `0x08+zone*4`). Effect modes, set-zone-mode controls and shutdown omitted. |
 | `CryorigH7QuadLumiController` | ported | `691cae0` | 1 | Direct mode fully ported: 10 LEDs in two 5-LED zones (Logo, Underglow), two 65-byte packets per frame with GRB ordering, 0x02/0x4C header and channel bytes. Firmware request and effect modes omitted. |
-| `MSIOptixController` | ported | pending | 1 | Direct mode fully ported: 12-LED Backside strip, 168-byte feature report (report ID 0x72), duplicated header and colors at offset 95, fixed brightness 0x64. Effect modes omitted. |
+| `MSIOptixController` | ported | `3b03ba3` | 1 | Direct mode fully ported: 12-LED Backside strip, 168-byte feature report (report ID 0x72), duplicated header and colors at offset 95, fixed brightness 0x64. Effect modes omitted. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
