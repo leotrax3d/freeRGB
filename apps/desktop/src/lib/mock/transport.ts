@@ -2,6 +2,7 @@
 // (design work via `npm run dev`). The desktop app never loads this module
 // unless it is opened outside Tauri. Values are illustrative, not measurements.
 
+import { MockMacroSupport } from "../../features/macros/mockRecording";
 import type { SliceListener, Transport } from "../api/transport";
 import { RpcError } from "../api/transport";
 import { DEFAULT_CURVE, type CurveSet, type FanCurve, type MacroDefinition, type SensorGraph } from "../api/control";
@@ -95,6 +96,7 @@ export function mockTransport(): Transport {
   const custom = new Map<string, EffectSpec>();
   const sorted = (m: Map<string, unknown>) => [...m.keys()].sort();
   const curves: Record<string, FanCurve> = { Quiet: DEFAULT_CURVE };
+  const macroSupport = new MockMacroSupport();
   const macros: Record<string, MacroDefinition> = {
     Flash: { repeat: 2, steps: [{ type: "color", color: { r: 255, g: 0, b: 0 } }, { type: "delay", ms: 300 }, { type: "brightness", value: 0.7 }] },
   };
@@ -301,6 +303,14 @@ export function mockTransport(): Transport {
           delete curves[p.name as string];
           emit("curves");
           return true as T;
+        case "macros.record.start":
+        case "macros.record.stop":
+        case "macros.record.status":
+        case "macros.record.event":
+        case "macros.device_keys.get":
+        case "macros.device_keys.save":
+        case "macros.device_keys.enable":
+          return macroSupport.call(method, p, Object.keys(macros)) as T;
         case "macros.save":
           macros[p.name as string] = p.definition as MacroDefinition;
           emit("macros");

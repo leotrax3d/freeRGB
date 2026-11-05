@@ -306,6 +306,7 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
             "daemon_version": env!("CARGO_PKG_VERSION"),
         })),
         "devices.list" => Ok(json!(lock(engine).devices())),
+        "macros.device_keys.get" | "macros.device_keys.save" | "macros.device_keys.enable" => lock(engine).device_macro_call(method, &params).map_err(invalid_params),
         "keyboard.reactive.get" => Ok(lock(engine).keyboard_reactive()),
         "keyboard.reactive.disable" => Ok(lock(engine).keyboard.disable()),
         "keyboard.reactive.configure" => serde_json::from_value(params["config"].clone())
@@ -763,6 +764,10 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         | "cooling.curves.delete"
         | "cooling.preview"
         | "cooling.calibration.preview"
+        | "macros.record.start"
+        | "macros.record.stop"
+        | "macros.record.status"
+        | "macros.record.event"
         | "macros.list"
         | "macros.save"
         | "macros.delete"
@@ -1130,6 +1135,65 @@ mod tests {
         );
         assert_eq!(lock(&e).keyboard.status()["state"], "disabled");
         assert_eq!(lock(&e).effect(), &EffectSpec::Solid { color: Rgb::BLUE });
+    }
+
+    #[test]
+    fn recording_api_is_explicit_volatile_and_validated() {
+        let e = Arc::new(Mutex::new(Engine::new(
+            EffectSpec::Solid { color: Rgb::BLACK },
+            30,
+        )));
+        let rpc = |method, params| {
+            call(
+                &e,
+                &json!({"id":1,"method":method,"params":params}).to_string(),
+            )
+        };
+        assert_eq!(
+            rpc("macros.record.start", json!({}))["error"]["code"],
+            -32602
+        );
+        assert_eq!(
+            rpc("macros.record.start", json!({"session":"fixture"}))["result"],
+            true
+        );
+        assert_eq!(
+            rpc("macros.record.start", json!({"session":"other"}))["error"]["code"],
+            -32602
+        );
+        assert_eq!(rpc("macros.status", json!({}))["result"]["recording"], true);
+        rpc(
+            "macros.record.event",
+            json!({"session":"fixture","event":{"type":"text","text":"private fixture"}}),
+        );
+        assert_eq!(rpc("macros.list", json!({}))["result"], json!({}));
+        let status = rpc("macros.record.status", json!({}));
+        assert!(!status.to_string().contains("private fixture"));
+        assert_eq!(
+            rpc(
+                "macros.record.stop",
+                json!({"session":"fixture","discard":"bad"})
+            )["error"]["code"],
+            -32602
+        );
+        assert_eq!(
+            rpc(
+                "macros.record.stop",
+                json!({"session":"fixture","discard":true})
+            )["result"],
+            Value::Null
+        );
+        assert_eq!(
+            rpc(
+                "macros.device_keys.save",
+                json!({"bindings":[{"device_id":"missing","usage":63,"macro_name":"Missing"}]})
+            )["error"]["code"],
+            -32602
+        );
+        assert_eq!(
+            rpc("macros.device_keys.get", json!({}))["result"]["enabled"],
+            false
+        );
     }
 
     #[test]

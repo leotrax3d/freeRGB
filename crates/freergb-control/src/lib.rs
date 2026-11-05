@@ -340,6 +340,8 @@ pub enum MacroStep {
     Effect { effect: EffectSpec },
     Text { text: String },
     Key { key: String },
+    KeyDown { key: String },
+    KeyUp { key: String },
     Chord { keys: Vec<String> },
 }
 
@@ -356,8 +358,24 @@ impl MacroDefinition {
             return Err("macro needs 1..128 steps and 1..20 repeats".into());
         }
         let mut delay = 0u64;
+        let mut held = std::collections::BTreeSet::new();
         for step in &self.steps {
             match step {
+                MacroStep::KeyDown { key } => {
+                    if !macro_key(key) || !held.insert(key) {
+                        return Err("unsupported or already held macro key".into());
+                    }
+                }
+                MacroStep::KeyUp { key } => {
+                    if !held.remove(key) {
+                        return Err("macro key release without press".into());
+                    }
+                }
+                MacroStep::Text { .. } | MacroStep::Key { .. } | MacroStep::Chord { .. }
+                    if !held.is_empty() =>
+                {
+                    return Err("release held keys before text, key or chord steps".into())
+                }
                 MacroStep::Delay { ms } => {
                     if *ms > 10_000 {
                         return Err("step delay exceeds 10 seconds".into());
@@ -397,6 +415,9 @@ impl MacroDefinition {
                 _ => {}
             }
         }
+        if !held.is_empty() {
+            return Err("macro must release every held key".into());
+        }
         if delay * u64::from(self.repeat) > 60_000 {
             return Err("macro delay exceeds one minute".into());
         }
@@ -406,10 +427,38 @@ impl MacroDefinition {
         self.steps.iter().any(|s| {
             matches!(
                 s,
-                MacroStep::Text { .. } | MacroStep::Key { .. } | MacroStep::Chord { .. }
+                MacroStep::Text { .. }
+                    | MacroStep::Key { .. }
+                    | MacroStep::Chord { .. }
+                    | MacroStep::KeyDown { .. }
+                    | MacroStep::KeyUp { .. }
             )
         })
     }
+}
+
+/// Bounded portable key vocabulary for recorded press/release pairs.
+pub fn macro_key(key: &str) -> bool {
+    (key.len() == 1
+        && key
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()))
+        || [
+            "ctrl",
+            "alt",
+            "shift",
+            "meta",
+            "enter",
+            "escape",
+            "tab",
+            "space",
+            "backspace",
+            "up",
+            "down",
+            "left",
+            "right",
+        ]
+        .contains(&key)
 }
 
 /// Canonical modifier-first chord. Exactly one ordinary key; no raw OS key codes.
@@ -489,6 +538,33 @@ pub fn execute_chord(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recorded_keys_require_balanced_portable_pairs() {
+        let valid = MacroDefinition {
+            repeat: 1,
+            steps: vec![
+                MacroStep::KeyDown { key: "ctrl".into() },
+                MacroStep::KeyDown { key: "a".into() },
+                MacroStep::KeyUp { key: "a".into() },
+                MacroStep::KeyUp { key: "ctrl".into() },
+            ],
+        };
+        assert!(valid.validate().is_ok() && valid.needs_input());
+        for steps in [
+            vec![MacroStep::KeyDown { key: "a".into() }],
+            vec![MacroStep::KeyUp { key: "a".into() }],
+            vec![MacroStep::KeyDown {
+                key: "raw:42".into(),
+            }],
+            vec![
+                MacroStep::KeyDown { key: "ctrl".into() },
+                MacroStep::Text { text: "x".into() },
+                MacroStep::KeyUp { key: "ctrl".into() },
+            ],
+        ] {
+            assert!(MacroDefinition { repeat: 1, steps }.validate().is_err());
+        }
+    }
     #[test]
     fn reversed_clock_bypasses_rate_limits_and_recovers_from_full_speed() {
         let curve = FanCurve {

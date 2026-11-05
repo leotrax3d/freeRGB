@@ -6,6 +6,14 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::time::Instant;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InputEvent {
+    pub usage: u16,
+    pub age_ms: u64,
+    pub pressed: bool,
+    pub device_id: Option<String>,
+}
+
 #[derive(Default)]
 pub struct KeyboardReactive {
     pub config: ReactiveConfig,
@@ -14,6 +22,7 @@ pub struct KeyboardReactive {
     path: Option<PathBuf>,
     error: Option<String>,
     pub capture_allowed: bool,
+    pub macro_capture: bool,
     capture: Option<capture::Capture>,
     epoch: Option<Instant>,
 }
@@ -90,8 +99,11 @@ impl KeyboardReactive {
         self.preview.press(usage, now);
         Ok(())
     }
-    pub fn tick(&mut self, has_target: bool) {
-        let wanted = self.config.enabled && self.capture_allowed && has_target && cfg!(windows);
+    pub fn tick(&mut self, has_target: bool) -> Vec<InputEvent> {
+        let wanted = (self.config.enabled || self.macro_capture)
+            && self.capture_allowed
+            && has_target
+            && cfg!(windows);
         if wanted && self.capture.is_none() {
             self.capture = Some(capture::Capture::start());
         }
@@ -100,20 +112,23 @@ impl KeyboardReactive {
             self.pulses.clear();
         }
         let now = self.now();
+        let mut captured = Vec::new();
         if let Some(capture) = &self.capture {
             let events = capture.drain();
             if capture.status().0 != "listening" {
                 self.pulses.clear();
             } else {
-                for (usage, age) in events {
-                    if let Some(at) = now.checked_sub(age) {
-                        self.pulses.press(usage, at);
+                for event in &events {
+                    if let Some(at) = now.checked_sub(event.age_ms).filter(|_| event.pressed) {
+                        self.pulses.press(event.usage, at);
                     }
                 }
+                captured = events;
             }
         }
         self.pulses.expire(now, self.config.fade_ms);
         self.preview.expire(now, self.config.fade_ms);
+        captured
     }
     pub fn apply(
         &self,
@@ -199,6 +214,7 @@ mod tests {
 }
 
 mod capture {
+    use super::InputEvent;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc::{self, Receiver};
     use std::sync::{Arc, Mutex};
@@ -219,7 +235,15 @@ mod capture {
             extended: bool,
             age_ms: u64,
             observed_unix_ms: u64,
+            #[serde(default = "default_pressed")]
+            pressed: bool,
+            #[serde(default)]
+            device_id: Option<String>,
         },
+    }
+    #[cfg(any(windows, test))]
+    fn default_pressed() -> bool {
+        true
     }
     #[cfg(any(windows, test))]
     #[derive(Default)]
@@ -228,7 +252,7 @@ mod capture {
     }
     #[cfg(any(windows, test))]
     impl Protocol {
-        fn read(&mut self, bytes: &[u8], now_unix_ms: u64) -> Result<Option<(u16, u64)>, String> {
+        fn read(&mut self, bytes: &[u8], now_unix_ms: u64) -> Result<Option<InputEvent>, String> {
             if bytes.len() > 512 || bytes.last() != Some(&b'\n') {
                 return Err("Invalid keyboard helper message length".into());
             }
@@ -246,7 +270,14 @@ mod capture {
                     extended,
                     age_ms,
                     observed_unix_ms,
-                } if self.ready && (1..=255).contains(&scan_code) => {
+                    pressed,
+                    device_id,
+                } if self.ready
+                    && (1..=255).contains(&scan_code)
+                    && device_id
+                        .as_ref()
+                        .is_none_or(|id| !id.is_empty() && id.len() <= 512) =>
+                {
                     // Include time buffered in the pipe. Future timestamps after a
                     // clock adjustment are discarded instead of replaying input.
                     let Some(transit_age) = now_unix_ms.checked_sub(observed_unix_ms) else {
@@ -255,8 +286,14 @@ mod capture {
                     let age_ms = age_ms.max(transit_age);
                     Ok((age_ms <= 250)
                         .then(|| {
-                            freergb_effects::keyboard::scan_to_usage(scan_code, extended)
-                                .map(|u| (u, age_ms))
+                            freergb_effects::keyboard::scan_to_usage(scan_code, extended).map(
+                                |usage| InputEvent {
+                                    usage,
+                                    age_ms,
+                                    pressed,
+                                    device_id,
+                                },
+                            )
                         })
                         .flatten())
                 }
@@ -267,7 +304,7 @@ mod capture {
     pub struct Capture {
         stop: Arc<AtomicBool>,
         status: Arc<Mutex<(String, Option<String>)>>,
-        receiver: Receiver<(u16, u64, Instant)>,
+        receiver: Receiver<(InputEvent, Instant)>,
     }
     impl Capture {
         pub fn status(&self) -> (String, Option<String>) {
@@ -276,19 +313,17 @@ mod capture {
                 .unwrap_or_else(|e| e.into_inner())
                 .clone()
         }
-        pub fn drain(&self) -> Vec<(u16, u64)> {
+        pub fn drain(&self) -> Vec<InputEvent> {
             self.receiver
                 .try_iter()
                 .take(256)
-                .map(|(usage, age, received)| {
-                    (
-                        usage,
-                        age.saturating_add(
-                            received.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
-                        ),
-                    )
+                .map(|(mut event, received)| {
+                    event.age_ms = event.age_ms.saturating_add(
+                        received.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
+                    );
+                    event
                 })
-                .filter(|(_, age)| *age <= 250)
+                .filter(|event| event.age_ms <= 250)
                 .collect()
         }
         pub fn start() -> Self {
@@ -329,7 +364,7 @@ mod capture {
     fn run(
         _: &AtomicBool,
         _: &Mutex<(String, Option<String>)>,
-        _: mpsc::SyncSender<(u16, u64, Instant)>,
+        _: mpsc::SyncSender<(InputEvent, Instant)>,
     ) -> Result<(), String> {
         Err("Keyboard capture currently supports Windows only".into())
     }
@@ -337,7 +372,7 @@ mod capture {
     fn run(
         stop: &AtomicBool,
         status: &Mutex<(String, Option<String>)>,
-        sender: mpsc::SyncSender<(u16, u64, Instant)>,
+        sender: mpsc::SyncSender<(InputEvent, Instant)>,
     ) -> Result<(), String> {
         use std::time::Duration;
         use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -372,7 +407,7 @@ mod capture {
                     if read == 0 || bytes.len() > 512 || bytes.last() != Some(&b'\n') { return Err("Keyboard helper closed or sent an invalid message".into()); }
                     let now_unix_ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
                         .map_err(|_| "Keyboard input clock unavailable")?.as_millis().min(u64::MAX as u128) as u64;
-                    if let Some((usage,age_ms)) = protocol.read(&bytes, now_unix_ms)? { let _ = sender.try_send((usage,age_ms,Instant::now())); }
+                    if let Some(event) = protocol.read(&bytes, now_unix_ms)? { let _ = sender.try_send((event,Instant::now())); }
                     *status.lock().unwrap_or_else(|e|e.into_inner()) = ("listening".into(),None);
                 }
             }.await;
@@ -394,10 +429,26 @@ mod capture {
                     .unwrap(),
                 None
             );
-            assert_eq!(p.read(press, 1000).unwrap(), Some((4, 0)));
+            assert_eq!(
+                p.read(press, 1000).unwrap(),
+                Some(InputEvent {
+                    usage: 4,
+                    age_ms: 0,
+                    pressed: true,
+                    device_id: None
+                })
+            );
             assert_eq!(p.read(press, 1251).unwrap(), None);
             assert_eq!(p.read(press, 999).unwrap(), None);
-            assert_eq!(p.read(press, 1100).unwrap(), Some((4, 100)));
+            assert_eq!(
+                p.read(press, 1100).unwrap(),
+                Some(InputEvent {
+                    usage: 4,
+                    age_ms: 100,
+                    pressed: true,
+                    device_id: None
+                })
+            );
             assert_eq!(p.read(b"{\"kind\":\"press\",\"version\":1,\"scan_code\":30,\"extended\":false,\"age_ms\":251,\"observed_unix_ms\":1000}\n", 1000).unwrap(),None);
             for bad in [
                 b"{\"kind\":\"ready\",\"version\":1}\n".as_slice(),
@@ -408,6 +459,17 @@ mod capture {
                 assert!(p.read(bad, 1000).is_err());
             }
             assert!(p.read(&[b'x'; 513], 1000).is_err());
+        }
+
+        #[test]
+        fn identified_release_is_optional_and_preserved_without_guessing_a_source() {
+            let mut p = Protocol::default();
+            p.read(b"{\"kind\":\"ready\",\"version\":1}\n", 1000)
+                .unwrap();
+            let event = p.read(b"{\"kind\":\"press\",\"version\":1,\"scan_code\":30,\"extended\":false,\"age_ms\":0,\"observed_unix_ms\":1000,\"pressed\":false,\"device_id\":\"fixture:keyboard\"}\n",1000).unwrap().unwrap();
+            assert_eq!(event.device_id.as_deref(), Some("fixture:keyboard"));
+            assert!(!event.pressed);
+            assert_eq!(event.usage, 4);
         }
     }
 }

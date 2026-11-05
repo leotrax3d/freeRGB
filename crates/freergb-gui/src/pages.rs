@@ -41,6 +41,9 @@ pub struct Panels {
     curve_drag: Option<usize>,
     temperature: f32,
     macro_name: String,
+    recording: super::macro_recording::Recording,
+    recorded_revision: u64,
+    macro_device_keys: super::macro_device_keys::DeviceKeys,
     macro_json: String,
     updates: Arc<Mutex<UpdateView>>,
     update_tx: mpsc::Sender<UpdateCommand>,
@@ -186,7 +189,7 @@ impl Default for Panels {
             }
         });
         Self { mainboard_cooling:Default::default(),mainboard_rgb:Default::default(),hwmon:Default::default(),channel_bindings:Default::default(),custom_sensors:Default::default(),composite_curves:Default::default(),alerts:Default::default(),hotkeys:Default::default(),history:Default::default(),history_generation:0,last_snapshot_s:0.0,history_started:std::time::Instant::now(),page: 0, curve: FanCurve::default(), curve_name: "Balanced".into(), curve_drag: None, temperature: 40.0,
-            macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
+            macro_device_keys: Default::default(), recording: Default::default(), recorded_revision: 0, macro_name: "RGB demo".into(), macro_json: "{\n  \"repeat\": 1,\n  \"steps\": [\n    {\"type\": \"color\", \"color\": {\"r\": 255, \"g\": 0, \"b\": 0}},\n    {\"type\": \"delay\", \"ms\": 1000},\n    {\"type\": \"color\", \"color\": {\"r\": 0, \"g\": 100, \"b\": 255}}\n  ]\n}".into(), updates: state, update_tx: tx, message: None }
     }
 }
 
@@ -200,7 +203,22 @@ impl Panels {
     pub fn hotkeys_active(&self) -> bool {
         self.hotkeys.active()
     }
+    pub fn poll_recording(
+        &mut self,
+        ctx: &egui::Context,
+        tx: &mpsc::Sender<Command>,
+        snapshot: &Snapshot,
+    ) {
+        self.recording.poll(ctx, tx, snapshot, self.page);
+    }
     pub fn observe(&mut self, snapshot: &Snapshot) {
+        if let Some((revision, draft)) = &snapshot.recorded_draft {
+            if *revision != self.recorded_revision {
+                self.recorded_revision = *revision;
+                self.macro_json = serde_json::to_string_pretty(draft).unwrap_or_default();
+                self.macro_name = "Recorded macro".into();
+            }
+        }
         self.custom_sensors.observe(snapshot);
         self.composite_curves.observe(snapshot);
         let now = self.history_started.elapsed().as_secs_f64();
@@ -301,6 +319,8 @@ impl Panels {
                 }
                 2 => {
                     ui.heading("Macros");
+                    self.recording.ui(ui,tx);
+                    self.macro_device_keys.ui(ui,tx,snapshot,&self.macro_name);
                     self.hotkeys.ui(ui,snapshot);
                     let running = &snapshot.control["macro_status"];
                     ui.label(format!("Running: {}", running["running"].as_str().unwrap_or("none")));

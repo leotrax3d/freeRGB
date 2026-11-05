@@ -64,6 +64,9 @@ function Fields({ step, onChange }: { step: MacroStep; onChange: (s: MacroStep) 
           onChange={(e) => onChange({ ...step, text: e.target.value })}
         />
       );
+    case "key_down":
+    case "key_up":
+      return <input aria-label="Recorded key" className={field} value={step.key} onChange={(e) => onChange({ ...step, key: e.target.value })} />;
     case "key":
       return (
         <Select label="Key" className="w-40" value={step.key} onChange={(key) => onChange({ ...step, key })} options={SINGLE_KEYS.map((k) => ({ value: k as string, label: KEY_LABELS[k] ?? k }))} />

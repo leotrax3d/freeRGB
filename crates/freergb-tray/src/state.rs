@@ -4,6 +4,7 @@ use serde_json::Value;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TrayState {
     pub connected: bool,
+    pub recording: bool,
     pub lighting_paused: bool,
     pub brightness: Option<f64>,
     pub profiles: Vec<String>,
@@ -125,6 +126,7 @@ impl TrayState {
         let cooling = cooling_profiles.unwrap_or(Value::Null);
         Self {
             connected: true,
+            recording: false,
             lighting_paused: lighting.is_some_and(|l| l["paused"] == true),
             brightness: diagnostics.and_then(|d| d["brightness"].as_f64()),
             profiles: profiles.as_ref().map(names).unwrap_or_default(),
@@ -175,7 +177,16 @@ impl TrayState {
     }
 
     pub fn tooltip(&self) -> String {
-        format!("freeRGB — {}\n{}", self.status_line(), self.fan_line())
+        let recording = if self.recording {
+            "\nRecording macro (unsaved)"
+        } else {
+            ""
+        };
+        format!(
+            "freeRGB — {}\n{}{recording}",
+            self.status_line(),
+            self.fan_line()
+        )
     }
 
     /// Dimmed icon when nothing is actively controlled.
@@ -188,6 +199,16 @@ impl TrayState {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn recording_is_visible_without_exposing_recorded_content() {
+        let state = TrayState {
+            connected: true,
+            recording: true,
+            ..Default::default()
+        };
+        assert!(state.tooltip().contains("Recording macro (unsaved)"));
+    }
 
     #[test]
     fn counts_only_sessions_that_still_hold_a_channel() {

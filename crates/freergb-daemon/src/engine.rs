@@ -133,6 +133,7 @@ pub struct Engine {
     recorded_test_job: Option<u64>,
     pub channel_bindings: crate::channel_bindings::Bindings,
     pub keyboard: crate::keyboard::KeyboardReactive,
+    pub device_macros: crate::device_macros::DeviceMacros,
     pub controls: crate::control::Controls,
     pub mainboard: crate::mainboard::MainboardProvider,
     /// Linux kernel hwmon fan headers (not started on other platforms).
@@ -324,6 +325,7 @@ impl Engine {
             runtime_fallback_error: None,
             channel_bindings: Default::default(),
             keyboard: Default::default(),
+            device_macros: Default::default(),
             controls: Default::default(),
             mainboard: Default::default(),
             hwmon: Default::default(),
@@ -683,6 +685,8 @@ impl Engine {
         if let Some(parent) = path.parent() {
             self.controls =
                 crate::control::Controls::default().with_file(parent.join("control.json"));
+            self.device_macros = std::mem::take(&mut self.device_macros)
+                .with_file(parent.join("device-macros.json"));
             self.keyboard =
                 std::mem::take(&mut self.keyboard).with_file(parent.join("keyboard-reactive.json"));
             self.channel_bindings = std::mem::take(&mut self.channel_bindings)
@@ -951,9 +955,31 @@ impl Engine {
                 view.status == DeviceStatus::Connected
                     && view.info.kind == freergb_device_api::DeviceKind::Keyboard
                     && !view.key_map.is_empty()
-                    && self.keyboard.config.devices.contains(&w.id.0)
+                    && (self.keyboard.config.devices.contains(&w.id.0)
+                        || self.device_macros.enabled)
             });
-        self.keyboard.tick(has_keyboard);
+        self.keyboard.macro_capture = self.device_macros.enabled;
+        let events = self.keyboard.tick(has_keyboard);
+        if !self.conflicts.is_empty() {
+            self.device_macros.disable();
+        }
+        if self.device_macros.enabled && !events.is_empty() {
+            let devices = self.keyboard_reactive()["devices"].clone();
+            let macros = self
+                .controls
+                .call("macros.list", &serde_json::Value::Null)
+                .unwrap_or_default();
+            for event in events {
+                if let Some(name) = self.device_macros.dispatch(&event, now, &devices, &macros) {
+                    if let Err(error) = self
+                        .controls
+                        .call("macros.run", &serde_json::json!({"name":name}))
+                    {
+                        tracing::warn!("Device macro was refused: {error}");
+                    }
+                }
+            }
+        }
         if self
             .sensor_refresh_at
             .is_none_or(|at| now.saturating_duration_since(at) >= Duration::from_secs(1))
@@ -984,8 +1010,12 @@ impl Engine {
                 MacroStep::Color { color } => self.set_effect(EffectSpec::Solid { color }),
                 MacroStep::Brightness { value } => self.set_brightness(value),
                 MacroStep::Effect { effect } => self.set_effect(effect),
-                MacroStep::Text { .. } | MacroStep::Key { .. } | MacroStep::Chord { .. } => {
-                    if let Err(error) = crate::control::input(&step) {
+                MacroStep::Text { .. }
+                | MacroStep::Key { .. }
+                | MacroStep::Chord { .. }
+                | MacroStep::KeyDown { .. }
+                | MacroStep::KeyUp { .. } => {
+                    if let Err(error) = self.controls.execute_input(&step) {
                         self.controls.fail(error);
                     }
                 }
@@ -1139,6 +1169,47 @@ impl Engine {
                 }
             })
             .collect()
+    }
+
+    pub fn device_macro_call(
+        &mut self,
+        method: &str,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let devices = self.keyboard_reactive()["devices"].clone();
+        let macros = self
+            .controls
+            .call("macros.list", &serde_json::Value::Null)?;
+        match method {
+            "macros.device_keys.get" => Ok(
+                serde_json::json!({"bindings":self.device_macros.bindings,"enabled":self.device_macros.enabled,"devices":devices,"physical_identity_pending":true}),
+            ),
+            "macros.device_keys.save" => {
+                let bindings = serde_json::from_value(params["bindings"].clone())
+                    .map_err(|e| e.to_string())?;
+                self.device_macros.save(bindings, &devices, &macros)?;
+                Ok(serde_json::json!(true))
+            }
+            "macros.device_keys.enable" => {
+                let enabled = params["enabled"]
+                    .as_bool()
+                    .ok_or("expected enabled boolean")?;
+                self.device_macros.disable();
+                if enabled {
+                    crate::device_macros::DeviceMacros::validate(
+                        &self.device_macros.bindings,
+                        &devices,
+                        &macros,
+                    )?;
+                    if !self.keyboard.capture_allowed {
+                        return Err("device input disabled in no-hardware mode".into());
+                    }
+                    self.device_macros.enabled = true;
+                }
+                Ok(serde_json::json!(true))
+            }
+            _ => Err("unknown device macro method".into()),
+        }
     }
 
     pub fn keyboard_reactive(&self) -> serde_json::Value {
@@ -1678,6 +1749,10 @@ impl Engine {
     /// Stops every worker; each releases its device back to hardware mode.
     /// Waits until all workers have finished.
     pub fn shutdown(&mut self) {
+        let _ = self
+            .controls
+            .call("macros.cancel", &serde_json::Value::Null);
+        self.device_macros.disable();
         self.keyboard.stop();
         self.hwmon.shutdown();
         for w in &self.workers {

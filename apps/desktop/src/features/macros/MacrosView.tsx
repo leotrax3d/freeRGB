@@ -11,6 +11,8 @@ import { approxEqual } from "@/lib/store/approxEqual";
 import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
 import { cn } from "@/lib/utils";
+import { DeviceKeysPanel } from "./DeviceKeysPanel";
+import { RecordingPanel } from "./RecordingPanel";
 import { ShortcutsPanel } from "./ShortcutsPanel";
 import { StepRow } from "./StepEditor";
 import { STEP_TYPES, blankStep, moveStep } from "./steps";
@@ -62,10 +64,14 @@ export default function MacrosView() {
         }
       />
       {tab === "shortcuts" ? (
-        <ShortcutsPanel />
+        <>
+          <ShortcutsPanel />
+          <DeviceKeysPanel names={Object.keys(macros ?? {})} />
+        </>
       ) : (
       <>
 
+      <RecordingPanel onDraft={(definition) => { setName(null); setDraft(definition); }} />
       {running && (
         <Banner tone="info">
           <Zap className="size-4" /> Running “{running}”

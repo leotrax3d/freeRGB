@@ -21,7 +21,7 @@ fn read_state() -> TrayState {
     if version.is_none() {
         return TrayState::default();
     }
-    TrayState::from_replies(
+    let mut state = TrayState::from_replies(
         version,
         call("lighting.status", Value::Null),
         call("diagnostics.get", Value::Null),
@@ -30,7 +30,10 @@ fn read_state() -> TrayState {
         call("cooling.background.get", Value::Null),
         call("cooling.profiles.list", Value::Null),
         call("cooling.sessions.status", Value::Null),
-    )
+    );
+    state.recording =
+        call("macros.record.status", Value::Null).is_some_and(|v| v["recording"] == true);
+    state
 }
 
 fn sibling(name: &str) -> PathBuf {
@@ -47,7 +50,7 @@ fn spawn(name: &str, args: &[&str]) {
 }
 
 /// RGBA from the bundled brand icon; the dimmed variant is greyscale and faded.
-fn icon(dimmed: bool) -> Option<Icon> {
+fn icon(dimmed: bool, recording: bool) -> Option<Icon> {
     let decoder = png::Decoder::new(std::io::Cursor::new(ICON_PNG));
     let mut reader = decoder.read_info().ok()?;
     let mut buffer = vec![0; reader.output_buffer_size()?];
@@ -64,6 +67,20 @@ fn icon(dimmed: bool) -> Option<Icon> {
             pixel[1] = grey;
             pixel[2] = grey;
             pixel[3] /= 2;
+        }
+    }
+    if recording {
+        for (index, pixel) in buffer.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+            let x = index as i64 % i64::from(info.width) - (i64::from(info.width) - 7);
+            let y = index as i64 / i64::from(info.width) - 6;
+            let distance = x * x + y * y;
+            if distance <= 36 {
+                *pixel = if distance <= 25 {
+                    [240, 64, 64, 255]
+                } else {
+                    [255, 255, 255, 255]
+                };
+            }
         }
     }
     Icon::from_rgba(buffer, info.width, info.height).ok()
@@ -101,6 +118,9 @@ fn build_menu(state: &TrayState) -> Menus {
         actions.push((id, action));
     }
     let _ = menu.append(&MenuItem::new(state.status_line(), false, None));
+    if state.recording {
+        let _ = menu.append(&MenuItem::new("Recording macro (unsaved)", false, None));
+    }
     let _ = menu.append(&MenuItem::new(state.fan_line(), false, None));
     let _ = menu.append(&PredefinedMenuItem::separator());
     let open = MenuItem::new("Open freeRGB", true, None);
@@ -294,7 +314,7 @@ pub fn run() {
         .with_menu(Box::new(menus.menu.clone()))
         .with_tooltip(state.tooltip())
         .with_icon(
-            icon(state.dimmed())
+            icon(state.dimmed(), state.recording)
                 .unwrap_or_else(|| Icon::from_rgba(vec![0; 4], 1, 1).expect("1x1 icon")),
         )
         .build()
@@ -338,7 +358,7 @@ pub fn run() {
                 menus = build_menu(&state);
                 tray.set_menu(Some(Box::new(menus.menu.clone())));
                 let _ = tray.set_tooltip(Some(state.tooltip()));
-                let _ = tray.set_icon(icon(state.dimmed()));
+                let _ = tray.set_icon(icon(state.dimmed(), state.recording));
             }
             next_poll = Instant::now() + POLL;
         }

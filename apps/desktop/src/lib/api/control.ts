@@ -61,6 +61,8 @@ export type MacroStep =
   | { type: "effect"; effect: EffectSpec }
   | { type: "text"; text: string }
   | { type: "key"; key: string }
+  | { type: "key_down"; key: string }
+  | { type: "key_up"; key: string }
   | { type: "chord"; keys: string[] };
 
 export interface MacroDefinition {
@@ -82,7 +84,7 @@ export const MODIFIERS = ["ctrl", "alt", "shift", "meta"] as const;
 const CHORD_KEYS = /^([a-z0-9]|enter|escape|tab|space|backspace|up|down|left|right)$/;
 
 export function needsInput(step: MacroStep): boolean {
-  return step.type === "text" || step.type === "key" || step.type === "chord";
+  return step.type === "text" || step.type === "key" || step.type === "chord" || step.type === "key_down" || step.type === "key_up";
 }
 
 /** Mirrors `chord_plan`: 1–4 distinct modifiers plus exactly one ordinary key. */
@@ -99,8 +101,15 @@ export function macroProblem(m: MacroDefinition): string | null {
   if (m.steps.length < 1 || m.steps.length > 128) return "A macro needs 1 to 128 steps.";
   if (!Number.isInteger(m.repeat) || m.repeat < 1 || m.repeat > 20) return "Repeat must be 1–20.";
   let delay = 0;
+  const held = new Set<string>();
   for (const [i, s] of m.steps.entries()) {
     const at = `Step ${i + 1}: `;
+    if (s.type === "key_down") {
+      if ((!CHORD_KEYS.test(s.key) && !(MODIFIERS as readonly string[]).includes(s.key)) || held.has(s.key)) return at + "unsupported or already held key.";
+      held.add(s.key);
+    }
+    if (s.type === "key_up" && !held.delete(s.key)) return at + "release without press.";
+    if (["text", "key", "chord"].includes(s.type) && held.size) return at + "release held keys first.";
     if (s.type === "delay") {
       if (!Number.isInteger(s.ms) || s.ms < 0 || s.ms > 10_000) return at + "a delay must be a whole number from 0 to 10 s.";
       delay += s.ms;
@@ -113,6 +122,7 @@ export function macroProblem(m: MacroDefinition): string | null {
       if (p) return at + p;
     }
   }
+  if (held.size) return "Release every held key.";
   if (delay * m.repeat > 60_000) return "All delays together (times repeat) must stay within 60 s.";
   return null;
 }
