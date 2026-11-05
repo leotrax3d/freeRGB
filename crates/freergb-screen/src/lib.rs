@@ -141,7 +141,7 @@ impl ScreenInput {
         #[cfg(target_os = "linux")]
         match self.capture_state.load(Ordering::SeqCst) {
             0 => return "Waiting for screen capture / portal consent (up to 60s)",
-            2 => return "Screen capture denied, unavailable or stopped; reselect effect to retry",
+            2 => return "Screen capture unavailable; switch to a non-screen effect, then back to retry",
             _ => {}
         }
         &self.monitor_name

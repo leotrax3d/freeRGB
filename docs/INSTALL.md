@@ -155,7 +155,7 @@ source-install path below.
 Audio-reactive effects capture `<default-playback-sink>.monitor` using `parec`
 at 48 kHz stereo, then downmix/analyze in memory. They never select a microphone
 or change the default source. A missing monitor/server/tool is an error. After
-changing the default output, reselect the effect to open the new sink. Capture
+changing the default output, switch to a non-audio effect and back to open the new sink. Capture
 stops when no audio effect is active; server loss clears the published features.
 
 X11 uses the primary monitor (first monitor fallback). Wayland uses xcap's
@@ -168,7 +168,8 @@ selected output is authoritative. Do not repeatedly retry a denied request.
 Initial permission/capture can wait up to 60 seconds in the background, without
 blocking daemon API/render work. Missing/denied capture leaves
 the effect dark; existing screen diagnostics show waiting/unavailable status.
-Reselect the effect after correcting missing dependencies or denying consent. Switching away
+After correcting dependencies or denying consent, switch to a non-screen effect
+and back to retry. Switching away
 from a screen effect terminates/reaps the helper, closing the portal connection.
 Only downscaled 64 x 36 RGBA frames leave the helper; nothing is saved to disk.
 

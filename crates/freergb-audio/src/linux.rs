@@ -19,7 +19,9 @@ impl Decoder {
         self.pending.extend_from_slice(bytes);
         let complete = self.pending.len() / 8 * 8;
         let samples = self.pending[..complete]
-            .chunks_exact(8)
+            .as_chunks::<8>()
+            .0
+            .iter()
             .map(|pair| {
                 let left = f32::from_le_bytes(pair[..4].try_into().unwrap());
                 let right = f32::from_le_bytes(pair[4..].try_into().unwrap());
