@@ -72,6 +72,7 @@ members = [
     "modules/gamesir",
     "modules/roccat-burst-core",
     "modules/aoc-mousemat",
+    "modules/lego-dimensions-toypad",
     "modules/ionico",
     "modules/ionico",
     "modules/madcatz-cyborg",
