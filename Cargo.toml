@@ -75,6 +75,7 @@ members = [
     "modules/skydimo-hid",
     "modules/roccat-burst-core",
     "modules/aoc-mousemat",
+    "modules/aoc-mouse",
     "modules/lego-dimensions-toypad",
     "modules/coolermaster-mm712",
     "modules/ionico",

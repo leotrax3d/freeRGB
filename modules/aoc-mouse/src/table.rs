@@ -5,11 +5,15 @@ pub const PID: u16 = 0x1179;
 pub const USAGE_PAGE: u16 = 0xFF19;
 pub const USAGE: u16 = 0xFF19;
 pub fn identify(i: &InterfaceInfo) -> Identification {
-    let supported = i.vid == VID && i.pid == PID && i.usage_page == USAGE_PAGE && i.usage == USAGE;
+    let supported = i.vid == VID
+        && i.pid == PID
+        && i.usage_page == USAGE_PAGE
+        && i.usage == USAGE
+        && i.interface == 1;
     Identification {
         supported,
         model: supported.then(|| "AOC GM500".into()),
         kind: supported.then_some(DeviceKind::Mouse),
-        reason: (!supported).then(|| "no AOC mouse detector for this interface".into()),
+        reason: (!supported).then(|| "no AOC GM500 mouse detector for this interface".into()),
     }
 }

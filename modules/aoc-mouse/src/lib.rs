@@ -73,7 +73,7 @@ impl Module for AocMouse {
     }
     fn frame(&mut self, colors: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
         if !self.active || colors.len() != 2 {
-            return Err(err("invalid AOC mouse frame"));
+            return Err(err("invalid frame"));
         }
         h.send_feature(&report::direct(colors[0], colors[1]))
             .map_err(err)?;

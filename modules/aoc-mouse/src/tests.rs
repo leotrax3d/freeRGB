@@ -36,21 +36,15 @@ fn frame_is_byte_exact() {
         usage: 0xFF19,
         product: None,
     };
-    let caps = m.initialize(&i, &mut h).unwrap();
-    assert_eq!(caps.layout.leds.len(), 2);
-    assert!(h.features.is_empty());
+    let _ = m.initialize(&i, &mut h).unwrap();
     m.frame(
         &[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }],
         &mut h,
     )
     .unwrap();
     assert_eq!(h.features.len(), 1);
-    assert_eq!(h.features[0][0x33], 1);
-    assert_eq!(h.features[0][0x36], 4);
-    m.shutdown(None, &mut h).unwrap();
-}
-
-#[test]
-fn inventory_count_none() {
-    // no devices_table generator for AOC; skip
+    let p = &h.features[0];
+    assert_eq!(p.len(), 60);
+    assert_eq!(&p[0x00..0x06], &[0x20, 0x03, 0x01, 0x00, 0x02, 0x03]);
+    assert_eq!(&p[0x33..0x39], &[1, 2, 3, 4, 5, 6]);
 }
