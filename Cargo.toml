@@ -69,6 +69,7 @@ members = [
     "modules/corsair-k65-mini",
     "modules/aoc-mouse",
     "modules/gamesir",
+    "modules/madcatz-cyborg",
     "modules/lexip-mouse",
     "modules/patriot-viper-mouse",
     "modules/mountain-keyboard",
