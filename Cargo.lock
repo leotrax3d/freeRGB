@@ -2314,6 +2314,7 @@ dependencies = [
  "freergb-modules",
  "hex",
  "rand 0.8.8",
+ "serde",
  "serde_json",
  "sha2",
  "zip",

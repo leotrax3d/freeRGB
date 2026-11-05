@@ -222,6 +222,62 @@ $T verify --pubkey <hex> --dir out
 freergbd --module-source out --module-dev-key <hex>     # test against the local directory
 ```
 
+### One-command local release
+
+`freergb-module-tool release --plan release-plan.json --out out/modules --key <owner-key-path>`
+builds locked release targets, packs binaries and corresponding source, updates
+the catalog, signs it, verifies hashes and package contents, and writes
+`RELEASE_NOTES.md`. It never uploads or publishes. The owner-provided signing key
+must be outside the source root and must never be committed.
+
+Use `--dry-run` without `--key` in CI to parse and validate the plan and print
+build commands; this does not build, read a key or write output. The plan is
+trusted release-maintainer input. Paths resolve from the invoking working
+directory; binary/source inputs resolve within the canonical `root`. Source
+archive paths must be relative without parent components or symlinks.
+
+Example plan (replace synthetic names and versions with reviewed release inputs):
+
+```json
+{
+  "root": ".",
+  "builds": [{"package": "fixture-module", "target": "x86_64-pc-windows-msvc"}],
+  "notes": "Describe changes and hardware acceptance limits here.",
+  "steps": [
+    {"command":"pack", "id":"fixture", "version":"0.2.0", "family":"fixture", "license":"MIT", "target":"x86_64-pc-windows-msvc", "executable":"target/x86_64-pc-windows-msvc/release/fixture-module.exe", "devices":"devices.json", "cooling_policy":null, "files":["COPYING","PROVENANCE.md"], "out":"fixture-0.2.0.zip"},
+    {"command":"source", "root":".", "paths":["Cargo.lock","crates/fixture-module"], "manifest":"source-workspace.toml", "out":"fixture-source.zip"},
+    {"command":"add", "catalog":"catalog.json", "name":"Fixture module", "packages":["fixture-0.2.0.zip"], "source_package":"fixture-source.zip", "origin_project":"Fixture", "origin_url":"https://example.invalid/fixture", "origin_commit":"abcdef0", "vendors":[]}
+  ]
+}
+```
+
+Repeat pack per target and add per module. JSON field names use underscores;
+`vendors` contains `[numeric_vid, "Name"]` pairs. All output asset names must be
+flat and unique, and every produced asset must be consumed by an add step.
+Optionally set `previous` to a local complete release directory and
+`previous_pubkey` to its trusted hex public key: the tool verifies and carries
+forward its catalog and assets before updating entries. Catalog sequence advances
+per add; set `FREERGB_CATALOG_DATE` to the reviewed release date.
+
+The destination must not exist. A sibling `.release-staging` directory is reserved
+exclusively, and becomes the final directory only after successful verification.
+Failures retain staging for diagnosis; inspect and remove it manually before
+retrying. A dry run validates plan structure, not file availability, compilation,
+licenses or hardware behavior. Unit tests use synthetic package bytes, a fake
+builder and a public deterministic test key, including tamper and build failure.
+
+### Owner acceptance steps for local releases
+
+1. Review source provenance, complete corresponding source and license notices;
+   capture device metadata through the existing approved process.
+2. Run dry-run, then the local command with an offline owner key outside the tree.
+   Build all required target toolchains on appropriate hosts.
+3. Independently verify with the trusted public key; review catalog sequence,
+   asset hashes and generated release notes. Build the source archive standalone.
+4. Perform explicit hardware acceptance separately and record unsupported cases.
+5. Upload the verified directory to the `modules` draft through the established
+   owner workflow; review before publishing. WS4 performs no publication.
+
 ### GPL obligations for modules
 
 Every binary package is listed together with its source archive in the signed

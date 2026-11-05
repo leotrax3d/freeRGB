@@ -1,5 +1,7 @@
 //! `freergb-module-tool`: release side of the hardware module system.
 //! See docs/HARDWARE_MODULES.md ("Build, sign and release").
+mod release;
+
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use ed25519_dalek::SigningKey;
@@ -17,8 +19,20 @@ struct Args {
     command: Cmd,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, serde::Deserialize)]
+#[serde(tag = "command", rename_all = "kebab-case", deny_unknown_fields)]
 enum Cmd {
+    /// Builds, packs, signs and verifies a local release; never publishes.
+    Release {
+        #[arg(long)]
+        plan: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        key: Option<PathBuf>,
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Creates a new Ed25519 signing key (hex) and prints its public key.
     Keygen {
         #[arg(long)]
@@ -139,9 +153,19 @@ fn read_manifest(path: &Path) -> Result<PackageManifest> {
 }
 
 fn collect(root: &Path, rel: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    if rel.is_absolute()
+        || rel
+            .components()
+            .any(|c| !matches!(c, std::path::Component::Normal(_)))
+    {
+        bail!("source paths must be relative, without parent components");
+    }
     let path = root.join(rel);
+    if std::fs::symlink_metadata(&path)?.file_type().is_symlink() {
+        bail!("source archives cannot contain symlinks");
+    }
     if path.is_dir() {
-        let mut entries: Vec<_> = std::fs::read_dir(&path)?.flatten().collect();
+        let mut entries: Vec<_> = std::fs::read_dir(&path)?.collect::<std::io::Result<_>>()?;
         entries.sort_by_key(|e| e.file_name());
         for entry in entries {
             let name = entry.file_name();
@@ -160,7 +184,17 @@ fn collect(root: &Path, rel: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    match Args::parse().command {
+    run(Args::parse().command)
+}
+
+fn run(command: Cmd) -> Result<()> {
+    match command {
+        Cmd::Release {
+            plan,
+            out,
+            key,
+            dry_run,
+        } => release::run(&plan, &out, key.as_deref(), dry_run)?,
         Cmd::Keygen { out } => {
             if out.exists() {
                 bail!("{} exists; refusing to overwrite a key", out.display());
@@ -277,12 +311,36 @@ fn main() -> Result<()> {
             let first = packages.first().context("at least one --package")?;
             let manifest = read_manifest(first)?;
             let mut artifacts = Vec::new();
+            let mut targets = std::collections::BTreeSet::new();
             for p in &packages {
                 let m = read_manifest(p)?;
                 if (m.id.as_str(), m.version.as_str())
                     != (manifest.id.as_str(), manifest.version.as_str())
                 {
                     bail!("packages belong to different modules");
+                }
+                m.check_against(
+                    &ModuleEntry {
+                        id: manifest.id.clone(),
+                        version: manifest.version.clone(),
+                        family: manifest.family.clone(),
+                        name: name.clone(),
+                        api: manifest.api.clone(),
+                        license: manifest.license.clone(),
+                        devices: manifest.devices.clone(),
+                        origin: Origin {
+                            project: String::new(),
+                            url: String::new(),
+                            commit: String::new(),
+                        },
+                        artifacts: vec![],
+                        source: artifact(&source_package, "source")?,
+                        requires: vec![],
+                    },
+                    &m.target,
+                )?;
+                if !targets.insert(m.target.clone()) {
+                    bail!("duplicate package target");
                 }
                 artifacts.push(artifact(p, &m.target)?);
             }
@@ -315,7 +373,10 @@ fn main() -> Result<()> {
                     doc.relevant_vendors.push(Vendor { vid, name });
                 }
             }
-            doc.sequence += 1;
+            doc.sequence = doc
+                .sequence
+                .checked_add(1)
+                .context("catalog sequence exhausted")?;
             doc.generated = std::env::var("FREERGB_CATALOG_DATE").unwrap_or_default();
             doc.validate()?;
             std::fs::write(&catalog, serde_json::to_vec_pretty(&doc)?)?;
@@ -337,6 +398,9 @@ fn main() -> Result<()> {
             let catalog = Catalog::verify(&bytes, &sig, &keys)?;
             for m in &catalog.modules {
                 for a in m.artifacts.iter().chain([&m.source]) {
+                    if !package::safe_name(&a.url) {
+                        bail!("verification requires local flat asset names");
+                    }
                     let actual = artifact(&dir.join(&a.url), &a.target)?;
                     if actual.sha256 != a.sha256 || actual.size != a.size {
                         bail!("{} does not match the catalog", a.url);

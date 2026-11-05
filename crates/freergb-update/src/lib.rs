@@ -195,50 +195,71 @@ pub fn download(update: &Update, directory: &Path) -> Result<PathBuf, String> {
     }
     std::fs::create_dir_all(directory).map_err(|e| e.to_string())?;
     let destination = directory.join(format!("freeRGB-{}-setup.exe", update.version));
-    let (temporary, file) = temporary_installer(&destination)?;
+    let client = client()?;
+    let response = request(
+        &client,
+        format!("{API}/releases/assets/{}", update.asset_id),
+        "application/octet-stream",
+    )
+    .send()
+    .map_err(|e| e.to_string())?
+    .error_for_status()
+    .map_err(|e| e.to_string())?;
+    stage_verified(response, update, &destination)
+}
+
+fn stage_verified(
+    reader: impl Read,
+    update: &Update,
+    destination: &Path,
+) -> Result<PathBuf, String> {
+    stage_transfer(destination, |file| copy_verified(reader, file, update))
+}
+
+fn stage_transfer(
+    destination: &Path,
+    transfer: impl FnOnce(&mut std::fs::File) -> Result<(), String>,
+) -> Result<PathBuf, String> {
+    let (temporary, file) = temporary_installer(destination)?;
     let result = (|| {
         let mut file = file;
-        let client = client()?;
-        let response = request(
-            &client,
-            format!("{API}/releases/assets/{}", update.asset_id),
-            "application/octet-stream",
-        )
-        .send()
-        .map_err(|e| e.to_string())?
-        .error_for_status()
-        .map_err(|e| e.to_string())?;
-        let mut reader = response.take(update.size + 1);
-        let mut digest = Sha256::new();
-        let mut size = 0u64;
-        let mut buffer = [0u8; 64 * 1024];
-        loop {
-            let count = reader.read(&mut buffer).map_err(|e| e.to_string())?;
-            if count == 0 {
-                break;
-            }
-            size += count as u64;
-            if size > update.size {
-                return Err("download exceeds expected size".into());
-            }
-            file.write_all(&buffer[..count])
-                .map_err(|e| e.to_string())?;
-            digest.update(&buffer[..count]);
-        }
-        if size != update.size
-            || format!("{:x}", digest.finalize()) != update.sha256.to_ascii_lowercase()
-        {
-            return Err("installer checksum/size mismatch".into());
-        }
+        transfer(&mut file)?;
         file.sync_all().map_err(|e| e.to_string())?;
         drop(file);
-        std::fs::rename(&temporary, &destination).map_err(|e| e.to_string())?;
-        Ok(destination)
+        std::fs::rename(&temporary, destination).map_err(|e| e.to_string())?;
+        Ok(destination.to_path_buf())
     })();
     if result.is_err() {
         let _ = std::fs::remove_file(temporary);
     }
     result
+}
+
+// The network path and deterministic I/O fault tests share this verification.
+fn copy_verified(reader: impl Read, file: &mut impl Write, update: &Update) -> Result<(), String> {
+    let mut reader = reader.take(update.size + 1);
+    let mut digest = Sha256::new();
+    let mut size = 0u64;
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let count = reader.read(&mut buffer).map_err(|e| e.to_string())?;
+        if count == 0 {
+            break;
+        }
+        size += count as u64;
+        if size > update.size {
+            return Err("download exceeds expected size".into());
+        }
+        file.write_all(&buffer[..count])
+            .map_err(|e| e.to_string())?;
+        digest.update(&buffer[..count]);
+    }
+    if size != update.size
+        || format!("{:x}", digest.finalize()) != update.sha256.to_ascii_lowercase()
+    {
+        return Err("installer checksum/size mismatch".into());
+    }
+    Ok(())
 }
 
 pub fn verify(path: &Path, update: &Update) -> Result<(), String> {
@@ -481,3 +502,6 @@ mod tests {
         std::fs::remove_file(path).unwrap();
     }
 }
+
+#[cfg(test)]
+mod recovery_tests;
