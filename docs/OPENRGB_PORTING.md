@@ -195,6 +195,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `ThingMController` | ported | `4d550e6` | 1 | Direct mode fully ported for blink(1) mk2: two-LED layout (LED A/B), 9-byte feature report `[1, 0x63, R, G, B, 0, 0, led, 0]`, interface usage page 0xFF00 / usage 0x01. Off/Fade modes and serial/product reads omitted by module policy. |
 | `NvidiaESAController` | ported | `4b56674` | 1 | Direct mode fully ported: 5 zones (Front Drive Bays, Front USB, Rear, Internal, Front Audio), 4-byte output reports `0x42+zone` with inverted 4-bit channels. Init/shutdown/effect modes and serial reads omitted. |
 | `HPOmen30LController` | ported | `4a40489` | 1 | Direct mode fully ported: 7 zones, 58-byte packets per zone (version 0x12, zone 1..7, brightness 0x64, color at `0x08+zone*4`). Effect modes, set-zone-mode controls and shutdown omitted. |
+| `CryorigH7QuadLumiController` | ported | pending | 1 | Direct mode fully ported: 10 LEDs in two 5-LED zones (Logo, Underglow), two 65-byte packets per frame with GRB ordering, 0x02/0x4C header and channel bytes. Firmware request and effect modes omitted. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
@@ -217,6 +218,7 @@ LED layouts use the optional initialize `zones` parameter documented in
 - [x] Dream Cheeky
 - [x] Nvidia ESA (5 zones)
 - [x] HP Omen 30L (7 zones)
+- [x] Cryorig H7 Quad Lumi (10 LEDs)
 - [x] Clevo Lightbar
 - [x] Tecknet M008
 - [x] MSI 3‑Zone
