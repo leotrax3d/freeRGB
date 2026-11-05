@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DeviceSummary } from "@/lib/api/types";
-import { controllerKey, mainboardControllers, presetLeds, withHeader, type MainboardRgbSettings } from "./mainboardRgbModel";
+import { controllerKey, mainboardControllers, parseSettings, presetLeds, withHeader, type MainboardRgbSettings } from "./mainboardRgbModel";
 
 const device = (vid: number, pid: number) => ({ info: { id: `hid:${controllerKey(vid, pid)}:x`, name: "", vendor: "", kind: "LightingController", usb_vid: vid, usb_pid: pid, serial: null, firmware: null } }) as unknown as DeviceSummary;
 
@@ -22,5 +22,16 @@ describe("motherboard RGB settings", () => {
     expect(s.controllers["0b05:19af"]![2]).toEqual({ leds: 0 });
     expect(presetLeds(16, 3)).toBe(48);
     expect(presetLeds(8, 0)).toBe(8);
+  });
+});
+
+describe("motherboard RGB import/export", () => {
+  it("round-trips order and fallback and rejects bad files", () => {
+    const s: MainboardRgbSettings = { enabled: true, controllers: { "0b05:19af": [{ leds: 8, order: "grb", fallback: { mode: "static", color: "#ff8800" } }, { leds: 0 }] } };
+    expect(parseSettings(JSON.stringify(s))).toEqual(s);
+    expect(parseSettings(JSON.stringify({ enabled: true, controllers: { "0b05:19af": [{ leds: 4, order: "rgb", fallback: { mode: "spectrum" } }] } }))).toEqual({ enabled: true, controllers: { "0b05:19af": [{ leds: 4 }] } });
+    for (const bad of ["nope", "[]", '{"enabled":true,"controllers":{"0B05:19AF":[]}}', '{"enabled":true,"controllers":{"0b05:19af":[{"leds":600}]}}', '{"enabled":true,"controllers":{"0b05:19af":[{"leds":1,"order":"xyz"}]}}', '{"enabled":true,"controllers":{"0b05:19af":[{"leds":1,"fallback":{"mode":"static","color":"red"}}]}}']) {
+      expect(parseSettings(bad)).toBeNull();
+    }
   });
 });

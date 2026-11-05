@@ -3,6 +3,7 @@
 //! addressable header. Per-user config file `mainboard-rgb.json`, edited from
 //! both GUIs over RPC. The daemon's `--enable-asus-aura`/`--asus-argb-leds`
 //! flags remain as a test override.
+use freergb_protocols::mainboard_headers::{ColorOrder, Fallback, HeaderReport, ReportCell};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -24,6 +25,15 @@ pub struct Header {
     pub leds: u16,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Colour byte order of the attached strip (ASUS Aura only).
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub order: ColorOrder,
+    /// What the header shows once freeRGB releases it (ASUS Aura only).
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub fallback: Fallback,
+}
+fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,6 +108,22 @@ impl Settings {
         }
         (leds, names)
     }
+    /// Colour order and release fallback for `N` headers (missing = defaults).
+    pub fn header_options<const N: usize>(
+        &self,
+        vid: u16,
+        pid: u16,
+    ) -> ([ColorOrder; N], [Fallback; N]) {
+        let mut orders = [ColorOrder::default(); N];
+        let mut fallbacks = [Fallback::default(); N];
+        if let Some(headers) = self.controllers.get(&key(vid, pid)) {
+            for (index, header) in headers.iter().take(N).enumerate() {
+                orders[index] = header.order;
+                fallbacks[index] = header.fallback;
+            }
+        }
+        (orders, fallbacks)
+    }
 }
 
 #[derive(Default)]
@@ -107,6 +133,8 @@ pub struct MainboardRgb {
     error: Option<String>,
     /// Running vendor software last seen by the hardware scan.
     vendor_software: Vec<&'static str>,
+    /// Header tables the adapters read on their last connect, by controller key.
+    reports: BTreeMap<String, ReportCell>,
 }
 
 impl MainboardRgb {
@@ -132,8 +160,19 @@ impl MainboardRgb {
     pub fn vendor_software(&self) -> &[&'static str] {
         &self.vendor_software
     }
+    /// Slot an adapter fills with what its controller reports (shown as "detected").
+    pub fn report_cell(&mut self, vid: u16, pid: u16) -> ReportCell {
+        self.reports.entry(key(vid, pid)).or_default().clone()
+    }
+    fn detected(&self) -> BTreeMap<String, HeaderReport> {
+        self.reports
+            .iter()
+            .filter_map(|(key, cell)| Some((key.clone(), cell.lock().ok()?.clone()?)))
+            .collect()
+    }
     pub fn view(&self) -> Value {
         json!({
+            "detected": self.detected(),
             "settings": self.settings,
             "max_headers": MAX_HEADERS,
             "max_leds": MAX_LEDS,
@@ -178,6 +217,8 @@ mod tests {
                 Header {
                     leds: 16,
                     name: Some("Front fans".into()),
+                    order: ColorOrder::Grb,
+                    fallback: Fallback::Off,
                 },
                 Header::default(),
             ],
@@ -188,6 +229,14 @@ mod tests {
         let (leds, names) = loaded.settings().headers::<2>(0x0b05, 0x19af);
         assert_eq!(leds, [16, 0]);
         assert_eq!(names[0].as_deref(), Some("Front fans"));
+        let (orders, fallbacks) = loaded.settings().header_options::<2>(0x0b05, 0x19af);
+        assert_eq!(orders, [ColorOrder::Grb, ColorOrder::Rgb]);
+        assert_eq!(fallbacks, [Fallback::Off, Fallback::Spectrum]);
+        let old: Header = serde_json::from_str(r#"{"leds":8}"#).unwrap();
+        assert_eq!(
+            (old.order, old.fallback),
+            (ColorOrder::Rgb, Fallback::Spectrum)
+        );
         let legacy: Settings = serde_json::from_str("{}").unwrap();
         assert!(legacy.enabled);
         let _ = std::fs::remove_dir_all(&dir);
@@ -204,6 +253,7 @@ mod tests {
                 vec![Header {
                     leds: 513,
                     name: None,
+                    ..Default::default()
                 }],
             ),
             ("0b05:19af", vec![Header::default(); 5]),
@@ -212,6 +262,7 @@ mod tests {
                 vec![Header {
                     leds: 1,
                     name: Some(" ".into()),
+                    ..Default::default()
                 }],
             ),
             (
@@ -219,6 +270,7 @@ mod tests {
                 vec![Header {
                     leds: 1,
                     name: Some("x\n".into()),
+                    ..Default::default()
                 }],
             ),
         ] {

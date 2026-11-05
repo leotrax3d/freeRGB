@@ -2359,6 +2359,7 @@ dependencies = [
  "freergb-core",
  "freergb-device-api",
  "serde",
+ "serde_json",
  "thiserror 1.0.69",
  "toml 1.1.8+spec-1.1.0",
  "tracing",

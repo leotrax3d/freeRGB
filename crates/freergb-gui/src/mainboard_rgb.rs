@@ -80,10 +80,48 @@ pub fn set_header(settings: &mut Value, key: &str, index: usize, leds: u16, name
         list.push(json!({"leds": 0}));
     }
     let name: String = name.trim().chars().take(40).collect();
-    list[index] = if name.is_empty() {
-        json!({"leds": leds.min(max)})
+    let mut header = json!({"leds": leds.min(max)});
+    if !name.is_empty() {
+        header["name"] = json!(name);
+    }
+    // Keep the colour order and fallback of the header being edited.
+    for field in ["order", "fallback"] {
+        if let Some(value) = list[index].get(field) {
+            header[field] = value.clone();
+        }
+    }
+    list[index] = header;
+}
+
+pub const ORDERS: [&str; 6] = ["rgb", "rbg", "grb", "gbr", "brg", "bgr"];
+
+/// Sets colour order (`rgb` = default) and release fallback of an existing
+/// header: `spectrum` (default), `off`, or `#rrggbb` for a static colour.
+/// Defaults are removed so saved files stay minimal.
+pub fn set_header_options(
+    settings: &mut Value,
+    key: &str,
+    index: usize,
+    order: &str,
+    fallback: &str,
+) {
+    let Some(header) = settings["controllers"][key]
+        .get_mut(index)
+        .and_then(Value::as_object_mut)
+    else {
+        return;
+    };
+    if order == "rgb" || !ORDERS.contains(&order) {
+        header.remove("order");
     } else {
-        json!({"leds": leds.min(max), "name": name})
+        header.insert("order".into(), json!(order));
+    }
+    match fallback {
+        "off" => header.insert("fallback".into(), json!({"mode": "off"})),
+        c if c.starts_with('#') && c.len() == 7 => {
+            header.insert("fallback".into(), json!({"mode": "static", "color": c}))
+        }
+        _ => header.remove("fallback"),
     };
 }
 
@@ -161,6 +199,16 @@ impl MainboardRgbPanel {
                         let header = &draft["controllers"][&key][index];
                         let mut leds = header["leds"].as_u64().unwrap_or(0) as u16;
                         let mut name = header["name"].as_str().unwrap_or("").to_owned();
+                        let mut order = header["order"].as_str().unwrap_or("rgb").to_owned();
+                        let mut fallback = match header["fallback"]["mode"].as_str() {
+                            Some("off") => "off".to_owned(),
+                            Some("static") => header["fallback"]["color"]
+                                .as_str()
+                                .unwrap_or("#ffffff")
+                                .to_owned(),
+                            _ => "spectrum".to_owned(),
+                        };
+                        let mut options_changed = false;
                         let mut changed = false;
                         ui.horizontal(|ui| {
                             ui.label(format!("ARGB {}", index + 1));
@@ -196,9 +244,70 @@ impl MainboardRgbPanel {
                                     changed = true;
                                 }
                             }
+                            if key.starts_with("0b05:") {
+                                egui::ComboBox::from_id_salt(("order", &key, index))
+                                    .selected_text(order.to_uppercase())
+                                    .show_ui(ui, |ui| {
+                                        for o in ORDERS {
+                                            options_changed |= ui
+                                                .selectable_value(
+                                                    &mut order,
+                                                    o.to_owned(),
+                                                    o.to_uppercase(),
+                                                )
+                                                .changed();
+                                        }
+                                    });
+                                let kind = match fallback.as_str() {
+                                    "spectrum" | "off" => fallback.clone(),
+                                    _ => "static".to_owned(),
+                                };
+                                egui::ComboBox::from_id_salt(("fallback", &key, index))
+                                    .selected_text(match kind.as_str() {
+                                        "off" => "Off on stop",
+                                        "static" => "Static on stop",
+                                        _ => "Spectrum on stop",
+                                    })
+                                    .show_ui(ui, |ui| {
+                                        for (value, text) in [
+                                            ("spectrum", "Firmware spectrum"),
+                                            ("off", "Off"),
+                                            ("static", "Static colour"),
+                                        ] {
+                                            if ui.selectable_label(kind == value, text).clicked()
+                                                && kind != value
+                                            {
+                                                fallback = if value == "static" {
+                                                    "#ffffff".to_owned()
+                                                } else {
+                                                    value.to_owned()
+                                                };
+                                                options_changed = true;
+                                            }
+                                        }
+                                    });
+                                if kind == "static" {
+                                    let mut rgb = [255u8; 3];
+                                    for (i, v) in rgb.iter_mut().enumerate() {
+                                        *v = u8::from_str_radix(
+                                            fallback.get(1 + i * 2..3 + i * 2).unwrap_or("ff"),
+                                            16,
+                                        )
+                                        .unwrap_or(255);
+                                    }
+                                    if ui.color_edit_button_srgb(&mut rgb).changed() {
+                                        fallback =
+                                            format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2]);
+                                        options_changed = true;
+                                    }
+                                }
+                            }
                         });
-                        if changed {
+                        if changed || options_changed {
                             set_header(draft, &key, index, leds, &name, max);
+                            if options_changed {
+                                set_header_options(draft, &key, index, &order, &fallback);
+                            }
                             self.dirty = true;
                         }
                     }
@@ -254,5 +363,28 @@ mod tests {
         );
         set_header(&mut settings, "0b05:19af", 2, 8, " ", 512);
         assert_eq!(settings["controllers"]["0b05:19af"][2], json!({"leds": 8}));
+    }
+
+    #[test]
+    fn header_options_are_kept_across_edits_and_defaults_dropped() {
+        let mut s = json!({"enabled": true, "controllers": {"0b05:19af": [{"leds": 8}]}});
+        set_header_options(&mut s, "0b05:19af", 0, "grb", "#ff8800");
+        assert_eq!(
+            s["controllers"]["0b05:19af"][0],
+            json!({"leds": 8, "order": "grb", "fallback": {"mode": "static", "color": "#ff8800"}})
+        );
+        set_header(&mut s, "0b05:19af", 0, 12, "Fans", 512);
+        assert_eq!(s["controllers"]["0b05:19af"][0]["order"], "grb");
+        set_header_options(&mut s, "0b05:19af", 0, "rgb", "spectrum");
+        assert_eq!(
+            s["controllers"]["0b05:19af"][0],
+            json!({"leds": 12, "name": "Fans"})
+        );
+        set_header_options(&mut s, "0b05:19af", 0, "xyz", "off");
+        assert_eq!(
+            s["controllers"]["0b05:19af"][0]["fallback"],
+            json!({"mode": "off"})
+        );
+        assert!(s["controllers"]["0b05:19af"][0].get("order").is_none());
     }
 }

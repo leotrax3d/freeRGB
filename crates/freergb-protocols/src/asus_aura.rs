@@ -1,11 +1,23 @@
 //! Independently implemented ASUS Aura motherboard USB protocol (all mainboard
 //! PIDs listed in docs/MAINBOARD_RGB.md).
 //! Wire facts and limits: docs/MAINBOARD_RGB.md. No fan-power commands or flash commit.
+use crate::mainboard_headers::{
+    publish, ColorOrder, DetectedHeader, Fallback, HeaderReport, ReportCell,
+};
 use freergb_core::{Frame, LedLayout, Rgb};
 use freergb_device_api::{
     check_frame, DeviceError, DeviceId, DeviceInfo, DeviceKind, DeviceStatus, HidTransport,
     RgbDevice,
 };
+
+/// Addressable 5 V headers (direct channels 0..3).
+pub const HEADERS: usize = 4;
+/// Largest LED count per addressable header.
+pub const MAX_LEDS: u16 = 512;
+/// Firmware effect numbers used by this adapter (`ec 35 … mode`).
+const MODE_OFF: u8 = 0x00;
+const MODE_SPECTRUM: u8 = 0x04;
+const MODE_DIRECT: u8 = 0xff;
 
 fn invalid(message: impl Into<String>) -> DeviceError {
     DeviceError::Protocol(message.into())
@@ -38,15 +50,24 @@ impl Capabilities {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Zone {
     effect: u8,
     direct: u8,
     count: usize,
+    /// Addressable header index (`None` for the fixed onboard/12 V channel).
+    header: Option<usize>,
+    order: ColorOrder,
+    fallback: Fallback,
 }
 
-fn direct_packets(channel: u8, colors: &[Rgb]) -> Result<Vec<[u8; 65]>, DeviceError> {
-    if channel > 4 || colors.is_empty() || colors.len() > 512 {
+/// Direct colour reports (`ec 40`) for one channel, bytes in `order`.
+pub fn direct_packets(
+    channel: u8,
+    colors: &[Rgb],
+    order: ColorOrder,
+) -> Result<Vec<[u8; 65]>, DeviceError> {
+    if channel > 4 || colors.is_empty() || colors.len() > usize::from(MAX_LEDS) {
         return Err(invalid("Aura direct channel/count out of range"));
     }
     let mut packets = Vec::new();
@@ -67,14 +88,15 @@ fn direct_packets(channel: u8, colors: &[Rgb]) -> Result<Vec<[u8; 65]>, DeviceEr
             chunk.len() as u8,
         ]);
         for (index, color) in chunk.iter().enumerate() {
-            packet[5 + index * 3..8 + index * 3].copy_from_slice(&color.to_array());
+            packet[5 + index * 3..8 + index * 3].copy_from_slice(&order.bytes(*color));
         }
         packets.push(packet);
     }
     Ok(packets)
 }
 
-fn effect_packet(channel: u8, mode: u8) -> [u8; 65] {
+/// Effect report (`ec 35 channel 00 00 mode`), volatile (shutdown flag 0).
+pub fn effect_packet(channel: u8, mode: u8) -> [u8; 65] {
     let mut packet = [0; 65];
     packet[..6].copy_from_slice(&[0xec, 0x35, channel, 0, 0, mode]);
     packet
@@ -84,10 +106,14 @@ pub struct AuraDevice<T: HidTransport> {
     transport: T,
     info: DeviceInfo,
     layout: LedLayout,
-    argb_leds: [u16; 4],
-    names: [Option<String>; 4],
+    argb_leds: [u16; HEADERS],
+    names: [Option<String>; HEADERS],
+    orders: [ColorOrder; HEADERS],
+    fallbacks: [Fallback; HEADERS],
+    report: Option<ReportCell>,
     zones: Vec<Zone>,
-    owned: Vec<u8>,
+    /// Effect channels in direct mode, returned to their fallback on release.
+    owned: Vec<Zone>,
     status: DeviceStatus,
 }
 
@@ -111,14 +137,32 @@ impl<T: HidTransport> AuraDevice<T> {
             layout: LedLayout::strip(0),
             argb_leds,
             names: Default::default(),
+            orders: [ColorOrder::Rgb; HEADERS],
+            fallbacks: [Fallback::Spectrum; HEADERS],
+            report: None,
             zones: Vec::new(),
             owned: Vec::new(),
             status: DeviceStatus::Disconnected,
         }
     }
     /// User names for the ARGB headers (shown on the layout canvas).
-    pub fn with_names(mut self, names: [Option<String>; 4]) -> Self {
+    pub fn with_names(mut self, names: [Option<String>; HEADERS]) -> Self {
         self.names = names;
+        self
+    }
+    /// Per ARGB header: colour byte order of the strip and what it shows on release.
+    pub fn with_header_options(
+        mut self,
+        orders: [ColorOrder; HEADERS],
+        fallbacks: [Fallback; HEADERS],
+    ) -> Self {
+        self.orders = orders;
+        self.fallbacks = fallbacks;
+        self
+    }
+    /// Slot that receives the header table read on every connect attempt.
+    pub fn with_report(mut self, cell: ReportCell) -> Self {
+        self.report = Some(cell);
         self
     }
     fn write(&mut self, packet: &[u8; 65]) -> Result<(), DeviceError> {
@@ -152,6 +196,18 @@ impl<T: HidTransport> AuraDevice<T> {
             return Err(invalid("oversized Aura input report"));
         }
         let capabilities = Capabilities::decode(&reply[..count])?;
+        let mut report = HeaderReport {
+            fixed_leds: u16::from(capabilities.fixed_leds),
+            headers: (0..HEADERS)
+                .map(|header| DetectedHeader {
+                    present: header < usize::from(capabilities.argb_headers),
+                    max_leds: MAX_LEDS,
+                    ..Default::default()
+                })
+                .collect(),
+        };
+        // The table names headers only; attached LED counts are not reported.
+        publish(&self.report, &report);
         if self.argb_leds[usize::from(capabilities.argb_headers)..]
             .iter()
             .any(|count| *count != 0)
@@ -164,15 +220,22 @@ impl<T: HidTransport> AuraDevice<T> {
                 effect: 0,
                 direct: 4,
                 count: usize::from(capabilities.fixed_leds),
+                header: None,
+                order: ColorOrder::Rgb,
+                fallback: Fallback::Spectrum,
             });
         }
         for header in 0..capabilities.argb_headers {
-            let count = usize::from(self.argb_leds[usize::from(header)]);
+            let index = usize::from(header);
+            let count = usize::from(self.argb_leds[index]);
             if count > 0 {
                 zones.push(Zone {
                     effect: header + u8::from(capabilities.fixed_leds > 0),
                     direct: header,
                     count,
+                    header: Some(index),
+                    order: self.orders[index],
+                    fallback: self.fallbacks[index],
                 });
             }
         }
@@ -185,6 +248,10 @@ impl<T: HidTransport> AuraDevice<T> {
         let mut layout = LedLayout::strip(total as u16);
         let mut index = 0;
         for zone in &zones {
+            if let Some(header) = zone.header {
+                report.headers[header].start = Some(index);
+                report.headers[header].count = zone.count;
+            }
             for led in 0..zone.count {
                 layout.leds[index].name = if zone.direct == 4 {
                     let onboard = usize::from(capabilities.fixed_leds - capabilities.rgb_headers);
@@ -202,6 +269,7 @@ impl<T: HidTransport> AuraDevice<T> {
                 index += 1;
             }
         }
+        publish(&self.report, &report);
         self.zones = zones;
         self.layout = layout;
         if self.zones.iter().any(|zone| zone.direct != 4) {
@@ -211,15 +279,28 @@ impl<T: HidTransport> AuraDevice<T> {
             self.write(&gen1)?;
         }
         for zone in self.zones.clone() {
-            self.owned.push(zone.effect);
-            self.write(&effect_packet(zone.effect, 0xff))?;
+            self.owned.push(zone.clone());
+            self.write(&effect_packet(zone.effect, MODE_DIRECT))?;
         }
         Ok(())
     }
+    /// Reports that return one owned effect channel to its fallback.
+    fn fallback_packets(zone: &Zone) -> Result<Vec<[u8; 65]>, DeviceError> {
+        Ok(match zone.fallback {
+            // Known volatile firmware effect; the prior effect cannot be read.
+            Fallback::Spectrum => vec![effect_packet(zone.effect, MODE_SPECTRUM)],
+            Fallback::Off => vec![effect_packet(zone.effect, MODE_OFF)],
+            // Last direct frame; the channel stays in direct mode (no effect write).
+            Fallback::Static { color } => {
+                direct_packets(zone.direct, &vec![color; zone.count], zone.order)?
+            }
+        })
+    }
     fn release(&mut self) -> Result<(), DeviceError> {
-        // Known volatile firmware spectrum effect; prior effect cannot be read.
-        while let Some(&effect) = self.owned.last() {
-            self.write(&effect_packet(effect, 4))?;
+        while let Some(zone) = self.owned.last() {
+            for packet in Self::fallback_packets(zone)? {
+                self.write(&packet)?;
+            }
             self.owned.pop();
         }
         Ok(())
@@ -254,8 +335,8 @@ impl<T: HidTransport> RgbDevice for AuraDevice<T> {
         check_frame(&self.layout, frame)?;
         let mut offset = 0;
         for zone in self.zones.clone() {
-            for packet in direct_packets(zone.direct, &frame.colors()[offset..offset + zone.count])?
-            {
+            let colors = &frame.colors()[offset..offset + zone.count];
+            for packet in direct_packets(zone.direct, colors, zone.order)? {
                 if let Err(error) = self.write(&packet) {
                     self.status = DeviceStatus::Faulted(error.to_string());
                     return Err(error);
@@ -350,7 +431,10 @@ mod tests {
                 .count(),
             queries
         );
-        assert_eq!(device.owned, vec![0]);
+        assert_eq!(
+            device.owned.iter().map(|z| z.effect).collect::<Vec<_>>(),
+            vec![0]
+        );
         device.transport.fail = false;
         device.disconnect(None).unwrap();
         assert!(device.owned.is_empty());
@@ -398,7 +482,7 @@ mod tests {
     #[test]
     fn packets_apply_only_last_chunk_and_handle_ninth_offset_bit() {
         let colors = vec![Rgb::new(1, 2, 3); 512];
-        let packets = direct_packets(2, &colors).unwrap();
+        let packets = direct_packets(2, &colors, ColorOrder::Rgb).unwrap();
         assert_eq!(packets.len(), 26);
         for (index, packet) in packets.iter().enumerate() {
             assert_eq!(packet[2] & 0x80, if index == 25 { 0x80 } else { 0 });
@@ -406,8 +490,8 @@ mod tests {
             assert_eq!(packet[3], (index * 20) as u8);
             assert_eq!(&packet[5..8], &[1, 2, 3]);
         }
-        assert!(direct_packets(5, &colors).is_err());
-        assert!(direct_packets(0, &[]).is_err());
+        assert!(direct_packets(5, &colors, ColorOrder::Rgb).is_err());
+        assert!(direct_packets(0, &[], ColorOrder::Rgb).is_err());
     }
     #[test]
     fn selected_headers_have_names_and_volatile_fallback_without_flash_or_fan_packets() {
@@ -433,6 +517,73 @@ mod tests {
             .all(|p| [0xb0, 0x52, 0x35, 0x40].contains(&p[1])));
         let last = device.transport.written().last().unwrap();
         assert_eq!(&last[..6], &[0xec, 0x35, 0, 0, 0, 4]);
+        assert!(device.owned.is_empty());
+    }
+
+    fn grb_device(fallback: Fallback) -> AuraDevice<MockTransport> {
+        let transport = MockTransport::new(65, 65, |packet| {
+            if packet[1] == 0xb0 {
+                vec![reply()]
+            } else {
+                Vec::new()
+            }
+        });
+        AuraDevice::new(transport, 0x19af, None, [0, 2, 0, 0]).with_header_options(
+            [
+                ColorOrder::Rgb,
+                ColorOrder::Grb,
+                ColorOrder::Rgb,
+                ColorOrder::Rgb,
+            ],
+            [
+                Fallback::Spectrum,
+                fallback,
+                Fallback::Spectrum,
+                Fallback::Spectrum,
+            ],
+        )
+    }
+
+    #[test]
+    fn header_color_order_reorders_only_that_headers_bytes() {
+        let mut device = grb_device(Fallback::Off);
+        device.connect().unwrap();
+        device
+            .push_frame(&Frame::solid(6, Rgb::new(1, 2, 3)))
+            .unwrap();
+        let direct: Vec<_> = device
+            .transport
+            .written()
+            .iter()
+            .filter(|p| p[1] == 0x40)
+            .collect();
+        // Fixed channel stays rgb; header 2 (direct channel 1) is sent g, r, b.
+        assert_eq!(&direct[0][5..8], &[1, 2, 3]);
+        assert_eq!(&direct[1][5..11], &[2, 1, 3, 2, 1, 3]);
+    }
+
+    #[test]
+    fn header_fallback_off_and_static_are_byte_exact() {
+        let mut device = grb_device(Fallback::Off);
+        device.connect().unwrap();
+        device.disconnect(None).unwrap();
+        let written = device.transport.written();
+        let tail: Vec<_> = written[written.len() - 2..]
+            .iter()
+            .map(|p| p[..6].to_vec())
+            .collect();
+        // Release runs in reverse zone order: header 2 (effect channel 2) first.
+        assert_eq!(tail[0], vec![0xec, 0x35, 2, 0, 0, 0]);
+        assert_eq!(tail[1], vec![0xec, 0x35, 0, 0, 0, 4]);
+
+        let mut device = grb_device(Fallback::Static {
+            color: Rgb::new(9, 8, 7),
+        });
+        device.connect().unwrap();
+        device.disconnect(None).unwrap();
+        let written = device.transport.written();
+        let last_direct = written.iter().rev().find(|p| p[1] == 0x40).unwrap();
+        assert_eq!(&last_direct[5..11], &[8, 9, 7, 8, 9, 7]);
         assert!(device.owned.is_empty());
     }
 }
