@@ -10,6 +10,7 @@ import { UnrestrictedSection } from "./UnrestrictedSection";
 import { CoolingActions, FanOverview } from "./FanOverview";
 import { HwmonSection } from "./HwmonSection";
 import { GpuFansSection, SourcesSection } from "./SourcesSection";
+import { PluginChannelsSection } from "./PluginsSection";
 
 /** Fans first: what each header does now and one place to change it. */
 export default function CoolingView() {
@@ -21,6 +22,7 @@ export default function CoolingView() {
         <FanOverview />
         <HwmonSection />
         <GpuFansSection />
+        <PluginChannelsSection />
         <LiveSession />
         <CurvesSection />
         <details className="group flex flex-col gap-6 rounded-card border border-border px-4 py-3">

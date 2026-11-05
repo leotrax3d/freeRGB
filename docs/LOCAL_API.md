@@ -113,7 +113,7 @@ keys to display labels. Keys are JSON-encoded `[device_id,sensor_id]` strings.
 Only connected cached Celsius sources are included; presence does not guarantee
 a fresh value. It performs no synchronous hardware reads.
 
-`cooling.sensors.catalog`, `cooling.file_sensors.get|save` and `cooling.gpu.list|set|release`
+`cooling.sensors.catalog`, `cooling.file_sensors.get|save` and `cooling.gpu.list|set|release`; cooling plugins: `cooling.plugins.list|install|enable|set|release` ([COOLING_PLUGINS.md](COOLING_PLUGINS.md))
 are documented in `COOLING_SOURCES_GPU.md`.
 
 `cooling.sensors.values` (no parameters) returns `{now_ms,values:{name:reading}}`.

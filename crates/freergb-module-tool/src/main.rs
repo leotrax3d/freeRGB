@@ -44,8 +44,11 @@ enum Cmd {
         #[arg(long)]
         executable: PathBuf,
         /// JSON array of device matches (e.g. from `<module> --list-devices`).
-        #[arg(long)]
-        devices: PathBuf,
+        #[arg(long, required_unless_present = "cooling_policy")]
+        devices: Option<PathBuf>,
+        /// API 3 cooling plugin policy JSON (schema-3 package, no device matches).
+        #[arg(long, conflicts_with = "devices")]
+        cooling_policy: Option<PathBuf>,
         /// Extra files (license text, PROVENANCE.md, NOTICE...).
         #[arg(long = "file")]
         files: Vec<PathBuf>,
@@ -180,10 +183,18 @@ fn main() -> Result<()> {
             target,
             executable,
             devices,
+            cooling_policy,
             files,
             out,
         } => {
-            let devices: Vec<DeviceMatch> = serde_json::from_slice(&std::fs::read(&devices)?)?;
+            let devices: Vec<DeviceMatch> = match &devices {
+                Some(path) => serde_json::from_slice(&std::fs::read(path)?)?,
+                None => Vec::new(),
+            };
+            let cooling: Option<freergb_module_api::cooling::Policy> = match &cooling_policy {
+                Some(path) => Some(serde_json::from_slice(&std::fs::read(path)?)?),
+                None => None,
+            };
             let exe_name = executable
                 .file_name()
                 .unwrap()
@@ -197,16 +208,21 @@ fn main() -> Result<()> {
                 ));
             }
             let manifest = PackageManifest {
-                schema: 1,
+                schema: if cooling.is_some() { 3 } else { 1 },
                 id,
                 version,
                 family,
-                api: vec![freergb_module_api::MODULE_API],
+                api: vec![if cooling.is_some() {
+                    freergb_module_api::cooling::API
+                } else {
+                    freergb_module_api::MODULE_API
+                }],
                 target,
                 executable: exe_name,
                 license,
                 devices,
                 bus: None,
+                cooling,
                 files: Default::default(),
             };
             package::build(manifest, &contents, &out)?;
@@ -269,6 +285,11 @@ fn main() -> Result<()> {
                     bail!("packages belong to different modules");
                 }
                 artifacts.push(artifact(p, &m.target)?);
+            }
+            if manifest.api == [freergb_module_api::cooling::API] {
+                doc.schema = doc
+                    .schema
+                    .max(freergb_modules::catalog::COOLING_CATALOG_SCHEMA);
             }
             let entry = ModuleEntry {
                 id: manifest.id.clone(),

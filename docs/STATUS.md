@@ -57,6 +57,8 @@ infer completion from a build, simulator, detected device or old pending CI note
 - [ ] Public daemon cooling methods and both GUI integrations after acceptance. Additive session API and Classic dialog implemented; public-path interactive acceptance and modern-GUI live-session parity remain. Evidence: [API](LOCAL_API.md), [acceptance record](COOLING_ACCEPTANCE.md).
 - [ ] Multiple native channels and additional validated motherboard backends. Tiered LHM support (verified/LHM-supported/unrestricted), multi-channel journal, background control, guided channel test, unrestricted unlock, manual duty, step limits and cooling profiles are implemented on `main` with synthetic tests; nothing is hardware-confirmed yet. Per-chip coverage matrix with family simulators and community report import exists; only NCT6701D/CHA_FAN2 has hardware evidence. Evidence: [broad support plan](COOLING_BROAD_SUPPORT_PLAN.md), [fan coverage](FAN_COVERAGE.md).
 - [ ] Remaining controller types, RPM operation, guided setup and cooling profiles/plugins. Controller, curve and calibration features (shaping, closed-loop RPM, stall sweep, linear/step/equilibrium) are implemented and simulated only; hardware acceptance is prompt 07. Evidence: [FanControl target](FANCONTROL_PARITY.md).
+- [x] Cooling plugin contract (API 3) with policy-enforcing host, crash/hang/malformed/violation process tests and reference plugins (simulated only). Evidence: [cooling plugins](COOLING_PLUGINS.md); iCUE LINK plugin hardware acceptance remains (prompt 07).
+- [ ] Cooling plugin hardware acceptance (iCUE LINK reference plugin on owner hardware). Evidence: [cooling plugins](COOLING_PLUGINS.md), [acceptance record](COOLING_ACCEPTANCE.md).
 
 ## Distribution and platforms
 

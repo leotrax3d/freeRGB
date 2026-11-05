@@ -267,6 +267,15 @@ fn main() -> Result<()> {
     }
     engine.cooling_service.headless = args.cooling_service;
     let health = engine.cooling_service.health.clone();
+    if let Some(manager) = &engine.modules {
+        // Cooling plugins (API 3) live in the module store; enabling is explicit.
+        let state_dir = (!args.no_state)
+            .then(state::default_path)
+            .flatten()
+            .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+        let root = manager.store().root().to_path_buf();
+        engine.cooling_plugins.start(root, state_dir);
+    }
     let engine: SharedEngine = Arc::new(Mutex::new(engine));
     if args.cooling_service {
         let watched = engine.clone();

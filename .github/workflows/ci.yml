@@ -94,6 +94,11 @@ jobs:
       - name: Signed SMBus module process tests (register model only)
         run: cargo test -p freergb-daemon --features bus-fixture --test bus_process --locked
 
+      - name: Cooling plugin reference e2e (virtual plugin, no hardware)
+        run: |
+          cargo build -p freergb-cooling-virtual --locked
+          cargo test -p freergb-modules --test cooling_e2e --locked -- --ignored
+
       - name: Windows optional motherboard helper (no hardware access)
         if: runner.os == 'Windows'
         shell: pwsh
