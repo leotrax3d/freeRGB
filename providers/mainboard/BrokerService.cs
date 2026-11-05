@@ -158,7 +158,11 @@ internal sealed class BrokerService : ServiceBase
                         {
                             long began = BrokerCache.Now;
                             child.StandardInput.WriteLine("snapshot"); child.StandardInput.Flush();
-                            cache.Store(BrokerTransport.ReadReply(child.StandardOutput.BaseStream, first ? 10000 : 3000), began);
+                            int timeout = first ? 10000 : 3000;
+                            // Redirected stdout is a synchronous handle, so the read timeout
+                            // alone may never fire; killing the worker ends the read (EOF).
+                            using (new Timer(delegate { try { child.Kill(); } catch (InvalidOperationException) { } catch (System.ComponentModel.Win32Exception) { } }, null, timeout + 2000, Timeout.Infinite))
+                                cache.Store(BrokerTransport.ReadReply(child.StandardOutput.BaseStream, timeout), began);
 #if BROKER_FIXTURE_CLIENT_AUTH
                             if (first)
                             {

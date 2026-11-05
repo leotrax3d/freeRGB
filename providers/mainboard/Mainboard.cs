@@ -97,11 +97,11 @@ internal static class Mainboard
         // are loaded. Motherboard/SuperIO is the only control group; USB is never
         // enabled. Session control ids are restricted to /lpc/ (cooling_sessions.rs).
         computer.GetType().GetProperty("IsMotherboardEnabled").SetValue(computer, true, null);
-        // CPU, GPU and storage (NVMe/SATA SMART) temperatures, read-only, as curve sources.
+        // CPU and GPU temperatures, read-only, as curve sources. Storage stays off:
+        // LHM storage enumeration blocked the first snapshot on the owner board
+        // (COOLING_ACCEPTANCE.md, 2026-11-05) and would starve fan telemetry.
         computer.GetType().GetProperty("IsCpuEnabled").SetValue(computer, true, null);
         computer.GetType().GetProperty("IsGpuEnabled").SetValue(computer, true, null);
-        var storage = computer.GetType().GetProperty("IsStorageEnabled");
-        if (storage != null) storage.SetValue(computer, true, null);
         Invoke(computer, "Open");
         return null;
     }
