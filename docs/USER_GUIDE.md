@@ -1,7 +1,7 @@
 # freeRGB user guide
 
-This guide covers everyday use of freeRGB on Windows. Features that are not
-finished yet are marked **planned**; the authoritative status is
+This guide covers everyday use of freeRGB on Windows. Features that are only
+verified with simulations or fixtures say so; the authoritative status is
 [STATUS.md](STATUS.md). Technical background lives in the other documents in
 this folder and is linked where relevant.
 
@@ -74,14 +74,38 @@ Profiles live in `%APPDATA%\freeRGB\profiles\`. Copy the folder to back it up.
   needs the daemon option `--enable-input-macros` and goes to whichever window
   has focus, so add a delay that lets you switch windows. Global shortcuts are
   opt-in per session. See [MACROS.md](MACROS.md).
-- **Recording macros and per-device macro keys** are **planned**.
-- **Effect plugins** with install and hot reload are **planned**. Declarative
-  device descriptions and downloadable signed hardware modules exist
+- **Recording macros** (available, simulated verification only): choose
+  **Record** on a macro page and type into its pad to capture key presses with
+  timing, or reviewed text as one step. Review the draft before saving; drafts
+  are not kept across restarts. Mouse recording is not enabled. See
+  [MACROS.md](MACROS.md#focused-recording).
+- **Per-device macro keys** (available, fixture-tested): assign saved macros to
+  F6-F10 on supported keyboards. Physical device attribution still needs owner
+  acceptance on real hardware ([MACROS.md](MACROS.md)).
+- **Effect plugins** (available, owner acceptance pending): install sandboxed
+  WASM effects from the marketplace or collections, enable, disable or remove
+  them, and hot-reload a local development effect. Official catalogs must carry
+  a valid signature. See [EFFECT_PLUGINS.md](EFFECT_PLUGINS.md). Declarative
+  device descriptions and downloadable signed hardware modules also exist
   ([PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md), [HARDWARE_MODULES.md](HARDWARE_MODULES.md)).
-- **Linux**: the core, udev rules and a systemd user service exist, but Linux
-  hardware, audio and screen capture are not yet validated. Packages
-  (`.deb`, `.rpm`, AppImage/Flatpak) are **planned**. See the Linux section of
-  [INSTALL.md](INSTALL.md).
+- **Motherboard RGB headers** (available for supported USB controllers): ASUS
+  Aura, Gigabyte RGB Fusion 2 and ASRock Polychrome headers can be configured
+  with LED counts and colour order, with a safe fallback when a controller is
+  not driven. Boards using SMBus are not supported. See
+  [MAINBOARD_RGB.md](MAINBOARD_RGB.md).
+- **Updates**: the visible updater checks hashes before launching an installer;
+  nothing is published or installed automatically. Cross-version upgrade and
+  rollback on real systems are still owner acceptance items
+  ([UPDATES.md](UPDATES.md)).
+- **Linux**: the daemon, CLI, capture helper (audio, screen, evdev keyboard),
+  udev rules and a systemd user service exist, and .deb, .rpm and AppImage
+  packages can be built with `packaging/linux/build.sh`. Everything is verified
+  with fixtures and CI only; real Linux hardware and package installation
+  acceptance remain open. See the Linux section of [INSTALL.md](INSTALL.md).
+
+- **Language**: the modern GUI is available in English and German. Switch it
+  under **Settings → Language**; the choice applies immediately and is
+  remembered. Untranslated text falls back to English. See [I18N.md](I18N.md).
 
 ## 6. Fan control basics and safety
 
