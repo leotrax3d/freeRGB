@@ -1862,6 +1862,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-clevo-lightbar"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-coolermaster"
 version = "0.1.0"
 dependencies = [
@@ -1917,6 +1926,15 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-das-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-dream-cheeky"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2051,6 +2069,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-mountain-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-msi-3-zone"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-msi-keyboard"
 version = "0.1.0"
 dependencies = [
@@ -2160,7 +2196,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-tecknet"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-thermaltake-riing"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-thingm-blink"
 version = "0.1.0"
 dependencies = [
  "freergb-core",

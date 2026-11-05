@@ -2,7 +2,7 @@
 use freergb_core::Rgb;
 /// upstream: DreamCheekyController.cpp constructor init packets.
 pub const REPORT_LEN: usize = 9;
-pub fn init_packets() -> [ [u8; REPORT_LEN]; 4 ] {
+pub fn init_packets() -> [[u8; REPORT_LEN]; 4] {
     [
         [0x00, 0x1F, 0x02, 0x00, 0x5F, 0x00, 0x00, 0x1F, 0x03],
         [0x00, 0x00, 0x02, 0x00, 0x5F, 0x00, 0x00, 0x1F, 0x04],

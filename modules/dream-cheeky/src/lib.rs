@@ -45,7 +45,9 @@ impl Module for DreamCheeky {
         }
         self.active = true;
         Ok(Capabilities {
-            name: id.model.unwrap_or_else(|| "Dream Cheeky Webmail Notifier".into()),
+            name: id
+                .model
+                .unwrap_or_else(|| "Dream Cheeky Webmail Notifier".into()),
             kind: DeviceKind::Accessory,
             layout: LedLayout {
                 width: 1,

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-
 fn main() {
     if std::env::args().nth(1).as_deref() == Some("--list-devices") {
         let devices = vec![serde_json::json!({

@@ -48,17 +48,35 @@ impl Module for Msi3Zone {
                 width: 4,
                 height: 1,
                 leds: vec![
-                    Led { name: "Keyboard Left".into(), pos: (0, 0) },
-                    Led { name: "Keyboard Middle".into(), pos: (1, 0) },
-                    Led { name: "Keyboard Right".into(), pos: (2, 0) },
-                    Led { name: "Aux".into(), pos: (3, 0) },
+                    Led {
+                        name: "Keyboard Left".into(),
+                        pos: (0, 0),
+                    },
+                    Led {
+                        name: "Keyboard Middle".into(),
+                        pos: (1, 0),
+                    },
+                    Led {
+                        name: "Keyboard Right".into(),
+                        pos: (2, 0),
+                    },
+                    Led {
+                        name: "Aux".into(),
+                        pos: (3, 0),
+                    },
                 ],
             },
             firmware: None,
             restore: Restore::LastFrame,
             zones: vec![
-                Zone { name: "Keyboard".into(), leds: 3 },
-                Zone { name: "Aux".into(), leds: 1 },
+                Zone {
+                    name: "Keyboard".into(),
+                    leds: 3,
+                },
+                Zone {
+                    name: "Aux".into(),
+                    leds: 1,
+                },
             ],
         })
     }
