@@ -1794,6 +1794,7 @@ dependencies = [
  "freergb-device-api",
  "freergb-effect-host",
  "freergb-effects",
+ "freergb-gpu-nvml",
  "freergb-hid",
  "freergb-module-api",
  "freergb-modules",
@@ -1844,6 +1845,13 @@ dependencies = [
  "freergb-core",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "freergb-gpu-nvml"
+version = "0.1.0-beta.4"
+dependencies = [
+ "libloading 0.8.9",
 ]
 
 [[package]]

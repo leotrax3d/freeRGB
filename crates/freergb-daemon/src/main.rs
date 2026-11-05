@@ -208,6 +208,19 @@ fn main() -> Result<()> {
             engine = engine.with_state_file(path);
         }
     }
+    if !args.no_hardware {
+        // GPU fans: discovery is read-only; a fan is written only after
+        // cooling.gpu.set. Journaled fans from a crash return to driver auto.
+        let state_dir = (!args.no_state)
+            .then(state::default_path)
+            .flatten()
+            .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+        engine.gpu = freergb_daemon::gpu_cooling::GpuCooling::new(
+            freergb_daemon::gpu_cooling::GpuCooling::platform_backends(),
+            state_dir,
+        );
+        engine.gpu.start();
+    }
     #[cfg(target_os = "linux")]
     if !args.no_hardware && !args.no_hwmon {
         // Kernel hwmon: reading is passive; headers are written only after an

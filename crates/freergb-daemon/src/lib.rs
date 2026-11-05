@@ -19,6 +19,7 @@ pub mod custom_effects;
 pub mod engine;
 pub mod fan_coverage;
 pub mod fan_support;
+pub mod gpu_cooling;
 pub mod hardware;
 pub mod hwmon;
 pub mod ipc;

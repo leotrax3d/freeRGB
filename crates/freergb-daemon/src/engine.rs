@@ -124,6 +124,8 @@ pub struct Engine {
     pub mainboard: crate::mainboard::MainboardProvider,
     /// Linux kernel hwmon fan headers (not started on other platforms).
     pub hwmon: crate::hwmon::HwmonProvider,
+    /// GPU fans (NVML); started only with hardware access.
+    pub gpu: crate::gpu_cooling::GpuCooling,
     sensor_refresh_at: Option<Instant>,
     plugins: std::collections::BTreeMap<String, PluginEntry>,
     /// Hardware module setup service (absent with --no-modules).
@@ -309,6 +311,7 @@ impl Engine {
             controls: Default::default(),
             mainboard: Default::default(),
             hwmon: Default::default(),
+            gpu: Default::default(),
             cooling_sessions: Default::default(),
             background: Default::default(),
             fan_support: Default::default(),
@@ -919,12 +922,20 @@ impl Engine {
         {
             self.sensor_refresh_at = Some(now);
             let mut devices = serde_json::json!(self.devices());
-            for entry in self.mainboard.sensors() {
+            // LHM (CPU/GPU/board/storage) and Linux hwmon (k10temp, coretemp,
+            // amdgpu, nvme, drivetemp, SuperIO) all feed curves and custom sensors.
+            for entry in self
+                .mainboard
+                .sensors()
+                .into_iter()
+                .chain(self.hwmon.sensors())
+            {
                 devices.as_array_mut().unwrap().push(serde_json::json!({
-                    "status":"Connected", "info":{"id":entry.device_id,"name":entry.device_name}, "sensors":[entry.sensor]
+                    "status":"Connected", "provider":entry.provider, "info":{"id":entry.device_id,"name":entry.device_name}, "sensors":[entry.sensor]
                 }));
             }
             self.controls.refresh_sensors(&devices);
+            self.gpu.tick(&self.controls.composite_feed, now);
         }
         if let Some(step) = self.controls.tick(now) {
             use freergb_control::MacroStep;

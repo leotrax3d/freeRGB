@@ -94,11 +94,14 @@ internal static class Mainboard
             return Empty("missing_library", "This provider requires the verified LibreHardwareMonitor " + LhmPin.Version + " runtime.");
         computer = Activator.CreateInstance(assembly.GetType("LibreHardwareMonitor.Hardware.Computer", true));
         // Default Computer settings are memory-only. No persisted control settings
-        // are loaded. Only motherboard/SuperIO groups are enabled, never USB/GPU.
+        // are loaded. Motherboard/SuperIO is the only control group; USB is never
+        // enabled. Session control ids are restricted to /lpc/ (cooling_sessions.rs).
         computer.GetType().GetProperty("IsMotherboardEnabled").SetValue(computer, true, null);
-        // CPU and GPU temperatures (read-only) as fan-curve sources.
+        // CPU, GPU and storage (NVMe/SATA SMART) temperatures, read-only, as curve sources.
         computer.GetType().GetProperty("IsCpuEnabled").SetValue(computer, true, null);
         computer.GetType().GetProperty("IsGpuEnabled").SetValue(computer, true, null);
+        var storage = computer.GetType().GetProperty("IsStorageEnabled");
+        if (storage != null) storage.SetValue(computer, true, null);
         Invoke(computer, "Open");
         return null;
     }
