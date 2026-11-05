@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-//! DeepRGB inventory module.
-//!
-//! The 33 upstream detectors and the device matrix are inventoried, but the
-//! audit found byte-level defects in every Direct-mode path (V4 chunking/LowCount,
-//! V1/V3 commit markers and packet accounting, V2 payload offset) and the 500 ms
-//! keepalive that sustains colors is not ported. Nothing is claimed as supported
-//! and initialize fails closed without touching the device.
 pub mod devices_table;
+pub mod report;
 pub mod table;
-use freergb_module_api::sdk::Hid;
+use freergb_core::{Led, LedLayout, Rgb};
+use freergb_module_api::sdk::{Hid, Module};
 use freergb_module_api::{
-    Capabilities, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo, MODULE_API,
+    Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
+    Restore, Zone, MODULE_API,
 };
 pub const MODULE_ID: &str = "drgb";
+#[derive(Default)]
+pub struct Drgb {
+    channel_counts: Vec<usize>,
+}
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
 }
-#[derive(Default)]
-pub struct Drgb;
-impl freergb_module_api::sdk::Module for Drgb {
+impl Module for Drgb {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
             id: MODULE_ID.into(),
@@ -32,13 +30,56 @@ impl freergb_module_api::sdk::Module for Drgb {
     }
     fn initialize_with_zones(
         &mut self,
-        _: &InterfaceInfo,
-        _: Option<&[freergb_module_api::Zone]>,
+        i: &InterfaceInfo,
+        zones: Option<&[Zone]>,
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        Err(err(
-            "the DeepRGB protocol path for this device is not ported",
-        ))
+        let dev = crate::devices_table::DEVICES
+            .iter()
+            .find(|d| d.pid == i.pid)
+            .ok_or_else(|| err("no DeepRGB detector"))?;
+        if dev.version != 1 {
+            return Err(err("DeepRGB version is not ported yet"));
+        }
+        let channel_counts = match zones {
+            Some(z) if !z.is_empty() => z.iter().map(|z| z.leds).collect(),
+            _ => vec![dev.leds_per_channel; dev.channels],
+        };
+        let total: usize = channel_counts.iter().sum();
+        if total > 1800 {
+            return Err(err("DeepRGB frame exceeds 1800 LED Direct-mode limit"));
+        }
+        let leds = (0..total)
+            .map(|n| Led {
+                name: format!("LED {}", n),
+                pos: ((n % 30) as u16, (n / 30) as u16),
+            })
+            .collect::<Vec<_>>();
+        let zones_out = if zones.map_or(true, |z| z.is_empty()) {
+            channel_counts
+                .iter()
+                .enumerate()
+                .map(|(i, &c)| Zone {
+                    name: format!("Channel {}", i + 1),
+                    leds: c,
+                })
+                .collect()
+        } else {
+            zones.unwrap().to_vec()
+        };
+        self.channel_counts = channel_counts;
+        Ok(Capabilities {
+            name: "DRGB".into(),
+            kind: DeviceKind::LightingController,
+            layout: LedLayout {
+                width: total as u16,
+                height: 1,
+                leds,
+            },
+            firmware: None,
+            restore: Restore::LastFrame,
+            zones: zones_out,
+        })
     }
     fn initialize(
         &mut self,
@@ -47,14 +88,20 @@ impl freergb_module_api::sdk::Module for Drgb {
     ) -> Result<Capabilities, ModuleError> {
         self.initialize_with_zones(i, None, h)
     }
-    fn frame(&mut self, _: &[freergb_core::Rgb], _: &mut dyn Hid) -> Result<(), ModuleError> {
-        Err(err("DeepRGB module is not initialized"))
+    fn frame(&mut self, colors: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
+        if self.channel_counts.is_empty() {
+            return Err(err("DeepRGB module is not initialized"));
+        }
+        let total: usize = self.channel_counts.iter().sum();
+        if colors.len() != total {
+            return Err(err("invalid DeepRGB frame length"));
+        }
+        for packet in report::frames(&self.channel_counts, colors) {
+            h.write(&packet).map_err(err)?;
+        }
+        Ok(())
     }
-    fn shutdown(
-        &mut self,
-        _: Option<freergb_core::Rgb>,
-        _: &mut dyn Hid,
-    ) -> Result<(), ModuleError> {
+    fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
         Ok(())
     }
 }

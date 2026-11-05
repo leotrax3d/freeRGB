@@ -30,5 +30,5 @@ fn main() {
         println!("{}", serde_json::to_string_pretty(&devices).unwrap());
         return;
     }
-    freergb_module_api::sdk::run(freergb_module_drgb::Drgb);
+    freergb_module_api::sdk::run(freergb_module_drgb::Drgb::default());
 }
