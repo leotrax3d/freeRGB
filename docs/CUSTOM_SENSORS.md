@@ -17,7 +17,8 @@ persisted. Both GUIs consume the same readings through JSON-RPC.
 
 Native source identifiers encode the device/sensor pair as a JSON array string
 to avoid ambiguous concatenation. The source list contains only connected cached
-Celsius sensors. Actual CPU/GPU providers and file readers are separate work.
+Celsius sensors, including LHM/hwmon CPU, GPU, board and storage readings and
+`file:<name>` text-file sensors (`COOLING_SOURCES_GPU.md`).
 
 Definitions:
 
