@@ -99,6 +99,7 @@ members = [
     "modules/thermaltake-poseidon-z-rgb",
     "modules/lenovo-motherboard-led",
     "modules/xpg-summoner-keyboard",
+    "modules/intel-arc-a770-le",
 ]
 
 [workspace.package]

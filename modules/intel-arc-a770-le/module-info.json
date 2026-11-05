@@ -1,0 +1,1 @@
+{"id":"intel-arc-a770-le","name":"Intel Arc A770 Limited Edition USB HID Controller","version":"0.1.0","license":"GPL-2.0-or-later","vendors":["Cooler Master","Intel"],"devices":1,"detectors":1,"origin":{"project":"OpenRGB","commit":"bbc77470a7cba56af60989e54ba910d5ac66a3ac"}}
