@@ -12,6 +12,7 @@ pub const MODULE_ID: &str = "drgb";
 #[derive(Default)]
 pub struct Drgb {
     channel_counts: Vec<usize>,
+    version: u8,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
@@ -38,7 +39,7 @@ impl Module for Drgb {
             .iter()
             .find(|d| d.pid == i.pid)
             .ok_or_else(|| err("no DeepRGB detector"))?;
-        if dev.version != 1 {
+        if dev.version != 1 && dev.version != 2 {
             return Err(err("DeepRGB version is not ported yet"));
         }
         let channel_counts = match zones {
@@ -68,6 +69,7 @@ impl Module for Drgb {
             zones.unwrap().to_vec()
         };
         self.channel_counts = channel_counts;
+        self.version = dev.version;
         Ok(Capabilities {
             name: "DRGB".into(),
             kind: DeviceKind::LightingController,
@@ -96,7 +98,7 @@ impl Module for Drgb {
         if colors.len() != total {
             return Err(err("invalid DeepRGB frame length"));
         }
-        for packet in report::frames(&self.channel_counts, colors) {
+        for packet in report::frames(self.version, &self.channel_counts, colors) {
             h.write(&packet).map_err(err)?;
         }
         Ok(())

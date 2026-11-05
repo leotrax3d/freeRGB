@@ -18,7 +18,7 @@ pub struct Device {
 pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = DETECTORS.iter().find(|d| d.vid == i.vid && d.pid == i.pid);
     let dev = DEVICES.iter().find(|d| d.pid == i.pid);
-    let supported = dev.is_some_and(|d| d.version == 1);
+    let supported = dev.is_some_and(|d| d.version == 1 || d.version == 2);
     Identification {
         supported,
         model: d.map(|x| x.name.into()),
