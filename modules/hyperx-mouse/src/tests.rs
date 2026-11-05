@@ -45,7 +45,7 @@ fn only_ported_devices_are_claimed() {
         let id = crate::table::identify(&i);
         assert_eq!(
             id.supported,
-            dev.protocol == "surge" || dev.protocol == "fps"
+            dev.protocol == "surge" || dev.protocol == "fps" || dev.protocol == "raid"
         );
     }
 }
@@ -179,6 +179,44 @@ fn fps_full_sequence_is_byte_exact() {
     // upstream: SendDirect [07 0A r g b .. 0xA0@0x08]
     assert_eq!(p.len(), 264);
     assert_eq!(&p[0..9], &[0x07, 0x0A, 10, 20, 30, 0, 0, 0, 0xA0]);
+    assert!(p[9..].iter().all(|b| *b == 0));
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.features.len(), 1);
+}
+
+#[test]
+fn raid_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingFeature::new();
+    // Raid row: interface 1, usage page 0xFF01, usage 1
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler.contains("Raid"))
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: d.interface as i32,
+        usage_page: d.usage_page,
+        usage: d.usage,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: Scroll Wheel + Logo zones
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert_eq!(caps.layout.leds[0].name, "Scroll Wheel");
+    assert_eq!(caps.layout.leds[1].name, "Logo");
+    assert!(h.features.is_empty());
+    m.frame(
+        &[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }],
+        &mut h,
+    )
+    .unwrap();
+    assert_eq!(h.features.len(), 1);
+    let p = &h.features[0];
+    // upstream: SendColors [07 0A rgb rgb 0xA0@8]
+    assert_eq!(p.len(), 264);
+    assert_eq!(&p[0..9], &[0x07, 0x0A, 1, 2, 3, 4, 5, 6, 0xA0]);
     assert!(p[9..].iter().all(|b| *b == 0));
     m.shutdown(None, &mut h).unwrap();
     assert_eq!(h.features.len(), 1);

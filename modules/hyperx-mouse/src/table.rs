@@ -39,7 +39,10 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
     let ported = d.and_then(|d| {
         crate::devices_table::DEVICES
             .iter()
-            .find(|dev| dev.pid == d.pid && (dev.protocol == "surge" || dev.protocol == "fps"))
+            .find(|dev| {
+                dev.pid == d.pid
+                    && (dev.protocol == "surge" || dev.protocol == "fps" || dev.protocol == "raid")
+            })
             .map(|dev| (dev.protocol, dev.leds))
     });
     if let (Some(d), Some(_)) = (d, ported) {

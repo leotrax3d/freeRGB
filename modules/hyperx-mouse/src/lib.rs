@@ -21,6 +21,7 @@ pub struct HyperX {
     active: bool,
     leds: usize,
     fps: bool,
+    raid: bool,
     leds_vec: Vec<Led>,
 }
 impl freergb_module_api::sdk::Module for HyperX {
@@ -44,13 +45,17 @@ impl freergb_module_api::sdk::Module for HyperX {
         let d = table::detector(i).ok_or_else(|| err("no HyperX mouse detector"))?;
         let dev = crate::devices_table::DEVICES
             .iter()
-            .find(|dev| dev.pid == d.pid && (dev.protocol == "surge" || dev.protocol == "fps"))
+            .find(|dev| {
+                dev.pid == d.pid
+                    && (dev.protocol == "surge" || dev.protocol == "fps" || dev.protocol == "raid")
+            })
             .ok_or_else(|| err("HyperX mouse controller path not ported"))?;
         // upstream: RGBController_HyperXPulsefireSurge.cpp SetupZones()
         // (Surge: LED Strip 32 + Logo 1; FPS Pro: single "Logo" LED;
         // constructors send nothing)
         self.leds = dev.leds;
         self.fps = dev.protocol == "fps";
+        self.raid = dev.protocol == "raid";
         self.active = true;
         let count = self.leds;
         let (zones, leds): (Vec<Zone>, Vec<Led>) = if self.fps {
@@ -63,6 +68,30 @@ impl freergb_module_api::sdk::Module for HyperX {
                     name: "Logo".into(),
                     pos: (0, 0),
                 }],
+            )
+        } else if self.raid {
+            // upstream: RGBController_HyperXPulsefireRaid.cpp SetupZones()
+            (
+                vec![
+                    Zone {
+                        name: "Scroll Wheel".into(),
+                        leds: 1,
+                    },
+                    Zone {
+                        name: "Logo".into(),
+                        leds: 1,
+                    },
+                ],
+                vec![
+                    Led {
+                        name: "Scroll Wheel".into(),
+                        pos: (0, 0),
+                    },
+                    Led {
+                        name: "Logo".into(),
+                        pos: (1, 0),
+                    },
+                ],
             )
         } else {
             (
@@ -119,9 +148,12 @@ impl freergb_module_api::sdk::Module for HyperX {
             return Err(err("invalid HyperX frame"));
         }
         // upstream: DeviceUpdateLEDs() -> SendDirect(): one 264-byte feature
-        // report per frame (Surge RGB planes / FPS Pro logo packet)
+        // report per frame (Surge RGB planes / FPS Pro logo / Raid two LEDs)
         if self.fps {
             h.send_feature(&report::fps_direct(c[0])).map_err(err)?;
+        } else if self.raid {
+            h.send_feature(&report::raid_direct(c[0], c[1]))
+                .map_err(err)?;
         } else {
             h.send_feature(&report::surge_direct(c)).map_err(err)?;
         }

@@ -45,7 +45,7 @@ fully ported; the remaining rows stay unsupported:
 | DetectHyperXPulsefireSurgeControllers | portiert | 2 |
 | DetectHyperXPulsefireFPSProControllers | portiert | 3 |
 | DetectHyperXPulsefireDartControllers | nicht portiert (audit) | 4 |
-| DetectHyperXPulsefireRaidControllers | nicht portiert (audit) | 1 |
+| DetectHyperXPulsefireRaidControllers | portiert | 1 |
 | DetectHyperXPulsefireHasteControllers | nicht portiert (audit) | 4 |
 
 ## Changes

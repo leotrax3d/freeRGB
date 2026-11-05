@@ -40,6 +40,22 @@ pub fn fps_direct(c: freergb_core::Rgb) -> Vec<u8> {
     p[0x08] = 0xA0;
     p
 }
+/// upstream: HyperXPulsefireRaidController.cpp SendColors()
+/// 264-byte feature report `[07 0A rgb rgb 0xA0@8]` for the two RAID LEDs
+/// (Scroll Wheel, Logo).
+pub fn raid_direct(c0: freergb_core::Rgb, c1: freergb_core::Rgb) -> Vec<u8> {
+    let mut p = vec![0u8; PACKET_LEN];
+    p[0] = 0x07;
+    p[1] = 0x0A;
+    p[2] = c0.r;
+    p[3] = c0.g;
+    p[4] = c0.b;
+    p[5] = c1.r;
+    p[6] = c1.g;
+    p[7] = c1.b;
+    p[8] = 0xA0;
+    p
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,6 +87,14 @@ mod tests {
         let p = fps_direct(A);
         assert_eq!(p.len(), 264);
         assert_eq!(&p[0..9], &[0x07, 0x0A, 1, 2, 3, 0, 0, 0, 0xA0]);
+        assert!(p[9..].iter().all(|b| *b == 0));
+    }
+    // upstream: HyperXPulsefireRaidController.cpp SendColors
+    #[test]
+    fn raid_direct_is_byte_exact() {
+        let p = raid_direct(A, L);
+        assert_eq!(p.len(), 264);
+        assert_eq!(&p[0..9], &[0x07, 0x0A, 1, 2, 3, 4, 5, 6, 0xA0]);
         assert!(p[9..].iter().all(|b| *b == 0));
     }
 }
