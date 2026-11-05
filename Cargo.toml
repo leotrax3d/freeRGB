@@ -95,6 +95,7 @@ members = [
     "modules/roccat-burst-pro-air",
     "modules/amd-wraith-prism",
     "modules/creative-soundblaster-xg6",
+    "modules/hyperx-microphone-v2",
 ]
 
 [workspace.package]

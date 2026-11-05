@@ -201,6 +201,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AcerNitroHidKeyboard` | ported | `e771dc1` | 4 | Direct-mode adapter: 4 backlight zones, each an 11-byte feature report with device id 0x21, mode 0x02, brightness 100 and zone select `1<<zone`. Effects omitted. |
 | `RoccatBurstProAirController` | ported | `080488d` | 1 | Direct mode fully ported: 4-LED mouse, 30-byte feature report report ID 0x06, RGB per LED with marker values 0xFF; effects, SetModeValues and reads omitted. |
 | `AMDWraithPrismController` | ported | `a99a4bb` | 1 | Direct mode fully ported: 17 LEDs (Logo, Fan, Ring×15), enable/apply plus two color packets (2+15 LEDs) with hardware ID ordering; effects, firmware read, Save and brightness parameters omitted. |
+| `HyperXMicrophoneV2Controller` | ported | pending | 1 | Direct mode fully ported: 108-LED 12x9 matrix, 64-byte header + 6 color packets (20 LEDs, final 8), 108 report bytes firm. Save/keepalive omitted. |
 | `CreativeController` (XG6) | ported | `a454574` | 1 | Direct mode fully ported: single Logo LED, three 64-byte output reports with report ID 0, color order BGR at bytes 10-12, fixed brightness 0xFF. Effects and Save omitted. |
 
 
