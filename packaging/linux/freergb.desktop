@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=freeRGB Classic
+Comment=Configure freeRGB lighting
+Exec=freergb-gui
+Icon=freergb
+Categories=Settings;HardwareSettings;
+Terminal=false

@@ -3,6 +3,8 @@
 
 pub mod analysis;
 pub mod capture;
+#[cfg(any(target_os = "linux", test))]
+mod linux;
 
 pub use analysis::{Analyzer, AudioFeatures, BANDS};
 pub use capture::{AudioInput, CaptureError};

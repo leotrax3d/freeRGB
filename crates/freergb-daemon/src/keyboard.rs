@@ -13,6 +13,9 @@ pub struct InputEvent {
     pub pressed: bool,
     pub device_id: Option<String>,
 }
+#[cfg(any(target_os = "linux", test))]
+#[path = "keyboard_linux.rs"]
+mod linux;
 
 #[derive(Default)]
 pub struct KeyboardReactive {
@@ -76,7 +79,7 @@ impl KeyboardReactive {
             "no_targets"
         } else if !self.capture_allowed {
             "blocked_no_hardware"
-        } else if !cfg!(windows) {
+        } else if !cfg!(any(windows, target_os = "linux")) {
             "unsupported_platform"
         } else {
             "waiting_for_keyboard"
@@ -103,7 +106,7 @@ impl KeyboardReactive {
         let wanted = (self.config.enabled || self.macro_capture)
             && self.capture_allowed
             && has_target
-            && cfg!(windows);
+            && cfg!(any(windows, target_os = "linux"));
         if wanted && self.capture.is_none() {
             self.capture = Some(capture::Capture::start());
         }
@@ -360,14 +363,16 @@ mod capture {
         }
     }
 
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     fn run(
         _: &AtomicBool,
         _: &Mutex<(String, Option<String>)>,
         _: mpsc::SyncSender<(InputEvent, Instant)>,
     ) -> Result<(), String> {
-        Err("Keyboard capture currently supports Windows only".into())
+        Err("Keyboard capture supports Windows and Linux".into())
     }
+    #[cfg(target_os = "linux")]
+    use super::linux::run;
     #[cfg(windows)]
     fn run(
         stop: &AtomicBool,
