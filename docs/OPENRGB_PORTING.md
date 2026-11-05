@@ -198,6 +198,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `CryorigH7QuadLumiController` | ported | `691cae0` | 1 | Direct mode fully ported: 10 LEDs in two 5-LED zones (Logo, Underglow), two 65-byte packets per frame with GRB ordering, 0x02/0x4C header and channel bytes. Firmware request and effect modes omitted. |
 | `MSIOptixController` | ported | `3b03ba3` | 1 | Direct mode fully ported: 12-LED Backside strip, 168-byte feature report (report ID 0x72), duplicated header and colors at offset 95, fixed brightness 0x64. Effect modes omitted. |
 | `AcerNitroHidLed` | ported | `85e97f4` | 1 | Direct-mode keeper for the single LED: 11-byte feature report 0xA4, device id 0x65, mode 0x02, brightness 100, zone select 1. Effects omitted. |
+| `AcerNitroHidKeyboard` | ported | pending | 4 | Direct-mode adapter: 4 backlight zones, each an 11-byte feature report with device id 0x21, mode 0x02, brightness 100 and zone select `1<<zone`. Effects omitted. |
 | `RoccatBurstProAirController` | ported | `080488d` | 1 | Direct mode fully ported: 4-LED mouse, 30-byte feature report report ID 0x06, RGB per LED with marker values 0xFF; effects, SetModeValues and reads omitted. |
 | `AMDWraithPrismController` | ported | `a99a4bb` | 1 | Direct mode fully ported: 17 LEDs (Logo, Fan, Ring×15), enable/apply plus two color packets (2+15 LEDs) with hardware ID ordering; effects, firmware read, Save and brightness parameters omitted. |
 | `CreativeController` (XG6) | ported | `a454574` | 1 | Direct mode fully ported: single Logo LED, three 64-byte output reports with report ID 0, color order BGR at bytes 10-12, fixed brightness 0xFF. Effects and Save omitted. |
@@ -226,6 +227,7 @@ LED layouts use the optional initialize `zones` parameter documented in
 - [x] Cryorig H7 Quad Lumi (10 LEDs)
 - [x] MSI Optix (12 LEDs)
 - [x] Acer Nitro HID LED (1 LED)
+- [x] Acer Nitro HID Keyboard (4 zones)
 - [x] Roccat Burst Pro Air (4 LEDs)
 - [x] AMD Wraith Prism (17 LEDs)
 - [x] Creative SoundBlasterX G6 (1 LED)

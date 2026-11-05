@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+use freergb_module_acer_nitro_hid_keyboard::devices_table::DETECTORS;
+use freergb_module_acer_nitro_hid_keyboard::table;
+
+fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--list-devices") {
+        let devices: Vec<_> = DETECTORS.iter().filter_map(|d| {
+            let i = freergb_module_api::InterfaceInfo { vid: d.vid, pid: d.pid, interface: d.interface, usage_page: d.usage_page, usage: d.usage, product: None };
+            let id = table::identify(&i);
+            id.supported.then(|| serde_json::json!({"name": d.name, "kind": id.kind.unwrap(), "vid": d.vid, "pid": d.pid}))
+        }).collect();
+        println!("{}", serde_json::to_string_pretty(&devices).unwrap());
+        return;
+    }
+    freergb_module_api::sdk::run(
+        freergb_module_acer_nitro_hid_keyboard::AcerNitroHidKeyboard::default(),
+    );
+}
