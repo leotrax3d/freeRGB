@@ -184,7 +184,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `EVGAUSBController` | partial | `131e74d` | 0 | 7 detector rows audited; fabricated packets removed. Direct mode needs keyboard packet_map feature reports (two controller-ID sizes, Z20 extra keys), mouse single-LED SetLed with feature queries and wireless delays, and the X12 read/state machine |
 | `GaiZongGaiKeyboardController` | partial | `c41713d` | 0 | 9 detector rows audited; fabricated packets removed. Direct mode needs per-PID packet layouts (0x10/0x11/0x12/0x13 with fixed offsets 0/21/42/68/85 and sizes 63/60/51), flash reads for LightBoard/HUB counts and the FF restore packet |
 | `AnnePro2Controller` | ported | `72525ea` | 5 | Direct mode fully ported: 5-packet 64-byte stream with upstream 51-byte payload layout, real frame index mapping with the 9 gap triplets (LED_REAL_COUNT 70), upstream 5x14 key names, interface 1 matching |
-| `DarkProject` | ported | TBD | 1 | Direct mode fully ported: 87 LEDs, two 256-byte feature reports (RG: R@+5 of `packet_map`, G@+107; B@+5 of second report). Brokered `send_feature`; serial reads omitted; only Direct. |
+| `DarkProject` | ported | `5288f3d` | 1 | Direct mode fully ported: 87 LEDs, two 256-byte feature reports (RG: R@+5 of `packet_map`, G@+107; B@+5 of second report). Brokered `send_feature`; serial reads omitted; only Direct. |
 | `MSI3ZoneController` | ported | `5fed4db` | 1 | Direct mode fully ported: 4 LEDs ("Keyboard Left/Middle/Right" + "Aux"), 7 feature reports of 8 bytes: zones 1-4 carry RGB, zones 5-7 repeat the last colour. Brokered `send_feature`; no save. |
 | `TecknetController` | ported | `9e2a147` | 1 | Direct mode fully ported: single "Logo" LED, 16-byte feature report with RGB inverted (255-R/G/B), brightness 0x03, speed 0x00. Brokered `send_feature`; serial/name reads omitted. |
 | `DreamCheekyController` | ported | `44633f2` | 1 | Direct mode fully ported: four 9-byte init packets, one LED, 9-byte colour write with 0..255 to 0..64 scaling (>> 2 plus +1 at 255). Brokered `write`; serial/product reads omitted; device has no Save path. |
@@ -205,6 +205,7 @@ workflow. A family may be marked blocked only for an actual non-HID transport,
 unclear upstream licensing or missing upstream hardware information. User-sized
 LED layouts use the optional initialize `zones` parameter documented in
 `docs/HARDWARE_MODULES.md`.
+
 
 
 
