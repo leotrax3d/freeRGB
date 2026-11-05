@@ -3,6 +3,16 @@ import { createRoot } from "react-dom/client";
 import { Shell } from "./app/Shell";
 import { DemoBoundary, DemoFailure } from "./app/DemoBoundary";
 import { startDaemonSync } from "./lib/store/daemon";
+import { t, useLocale } from "./lib/i18n";
+
+function DemoNote() {
+  useLocale((s) => s.locale); // re-render when the language changes
+  return (
+    <div role="note" className="relative z-[100] shrink-0 border-b border-border bg-surface px-4 py-2 text-small text-text-muted">
+      {t("demo.banner")}
+    </div>
+  );
+}
 import "./styles/globals.css";
 
 const root = createRoot(document.getElementById("root")!);
@@ -14,10 +24,7 @@ void startDaemonSync().catch((error: unknown) => {
 root.render(
   <StrictMode>
     {__WEB_DEMO__ ? <DemoBoundary><div className="flex h-full min-w-[960px] flex-col">
-      <div role="note" className="relative z-[100] shrink-0 border-b border-border bg-surface px-4 py-2 text-small text-text-muted">
-        Browser demo · Virtual devices only · Downloads and readings are simulated.
-        No hardware, microphone or screen access. Changes reset when reloaded.
-      </div>
+      <DemoNote />
       <div className="min-h-0 flex-1"><Shell /></div>
     </div></DemoBoundary> : <Shell />}
   </StrictMode>,

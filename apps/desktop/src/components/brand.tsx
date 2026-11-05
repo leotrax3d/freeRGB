@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import ring from "@brand/ring-dark.svg";
 import wordmark from "@brand/wordmark-dark.svg";
@@ -14,7 +15,7 @@ export function BrandWordmark({ height = 28, className }: { height?: number; cla
 }
 
 /** Looping Ring → f → Ring animation; static Ring for reduced motion (built into the SVG). */
-export function BrandLoader({ size = 96, className, label = "Loading" }: { size?: number; className?: string; label?: string }) {
+export function BrandLoader({ size = 96, className, label = t("common.loading") }: { size?: number; className?: string; label?: string }) {
   return <img src={loader} width={size} height={size} alt={label} className={cn("shrink-0", className)} />;
 }
 

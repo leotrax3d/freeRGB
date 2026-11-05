@@ -1,8 +1,10 @@
 import { Bookmark, CornerDownLeft, Search, Sparkles, Wand2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { create } from "zustand";
-import { EFFECTS } from "@/lib/api/effects";
+import { EFFECTS, effectLabel } from "@/lib/api/effects";
 import type { EffectSpec } from "@/lib/api/types";
+import { useFocusTrap } from "@/lib/a11y";
+import { t } from "@/lib/i18n";
 import { requireSlices, rpc, useDaemon } from "@/lib/store/daemon";
 import { toast } from "@/components/toast";
 import { cn } from "@/lib/utils";
@@ -51,41 +53,41 @@ function useItems(): Item[] {
   const profiles = useDaemon((s) => s.profiles);
   const custom = useDaemon((s) => s.custom_effects);
   return useMemo(() => {
-    const items: Item[] = VIEWS.map((v) => ({ id: `view:${v.id}`, section: "Go to", label: v.label, hint: v.hint, icon: v.icon, run: () => go(v.id) }));
+    const items: Item[] = VIEWS.map((v) => ({ id: `view:${v.id}`, section: t("palette.goTo"), label: t(v.label), hint: t(v.hint), icon: v.icon, run: () => go(v.id) }));
     for (const e of EFFECTS.filter((e) => e.name !== "layers")) {
       items.push({
         id: `effect:${e.name}`,
-        section: "Effects",
-        label: e.label,
+        section: t("palette.effects"),
+        label: effectLabel(e.name),
         icon: Sparkles,
         run: async () => {
           await rpc("effects.set", await rpc<EffectSpec>("effects.default", { name: e.name }));
-          toast(`${e.label} is running`);
+          toast(t("palette.running", { name: effectLabel(e.name) }));
         },
       });
     }
     for (const name of custom ?? []) {
       items.push({
         id: `custom:${name}`,
-        section: "Custom effects",
+        section: t("palette.custom"),
         label: name,
         icon: Wand2,
         run: async () => {
           await rpc("effects.set", await rpc<EffectSpec>("custom_effects.get", { name }));
-          toast(`${name} is running`);
+          toast(t("palette.running", { name }));
         },
       });
     }
     for (const name of profiles ?? []) {
       items.push({
         id: `profile:${name}`,
-        section: "Profiles",
+        section: t("palette.profiles"),
         label: name,
         icon: Bookmark,
         run: async () => {
           await rpc("profiles.load", { name });
           await markLoaded(name);
-          toast(`Profile ${name} loaded`);
+          toast(t("profiles.loaded", { name }));
         },
       });
     }
@@ -100,6 +102,8 @@ function Palette() {
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialog);
   const items = filterItems(all, query);
 
   useEffect(() => requireSlices(["profiles", "custom_effects"]), []);
@@ -133,9 +137,10 @@ function Palette() {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[12vh] animate-[fade-in_var(--duration-fast)_var(--ease-out)]" onMouseDown={close}>
       <div
+        ref={dialog}
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t("palette.title")}
         onMouseDown={(e) => e.stopPropagation()}
         className="flex w-full max-w-lg flex-col overflow-hidden rounded-panel bg-surface-raised shadow-popover animate-[pop-in_var(--duration-base)_var(--ease-out)]"
       >
@@ -147,15 +152,19 @@ function Palette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Jump to a view, apply an effect, load a profile…"
+            placeholder={t("palette.placeholder")}
+            role="combobox"
+            aria-expanded="true"
+            aria-autocomplete="list"
+            aria-label={t("palette.placeholder")}
             aria-controls="palette-list"
             aria-activedescendant={items[active] ? `palette-${items[active].id}` : undefined}
             className="h-12 flex-1 bg-transparent text-body text-text outline-none placeholder:text-text-subtle"
           />
-          <kbd className="rounded-chip bg-surface px-1.5 text-caption text-text-subtle">Esc</kbd>
+          <kbd className="rounded-chip bg-surface px-1.5 text-caption text-text-subtle" aria-hidden>Esc</kbd>
         </div>
-        <ul ref={list} id="palette-list" role="listbox" className="max-h-[50vh] overflow-y-auto p-2">
-          {items.length === 0 && <li className="px-3 py-6 text-center text-small text-text-subtle">Nothing found</li>}
+        <ul ref={list} id="palette-list" role="listbox" aria-label={t("palette.title")} className="max-h-[50vh] overflow-y-auto p-2">
+          {items.length === 0 && <li role="presentation" className="px-3 py-6 text-center text-small text-text-subtle">{t("palette.empty")}</li>}
           {items.map((item, i) => {
             const header = item.section !== section ? (section = item.section) : null;
             const Icon = item.icon;

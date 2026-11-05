@@ -1,5 +1,6 @@
 import * as S from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export interface Option<T extends string> {
@@ -17,7 +18,7 @@ export function Select<T extends string>({
   options,
   onChange,
   label,
-  placeholder = "Choose…",
+  placeholder = t("common.choose"),
   className,
 }: {
   value: T | "";

@@ -1,5 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Region } from "@/lib/api/types";
+import { t } from "@/lib/i18n";
 import { moved, nudged, resized } from "@/lib/region";
 import { cn } from "@/lib/utils";
 
@@ -100,7 +101,7 @@ export function RegionCanvas({
             key={item.id}
             role="button"
             tabIndex={0}
-            aria-label={`${item.label}: ${Math.round(x * 100)}% from left, ${Math.round(y * 100)}% from top, ${Math.round(w * 100)}% wide, ${Math.round(h * 100)}% high. Arrow keys move, Alt with arrows resizes.`}
+            aria-label={t("canvas.item", { label: item.label, x: Math.round(x * 100), y: Math.round(y * 100), w: Math.round(w * 100), h: Math.round(h * 100) })}
             aria-pressed={active}
             onPointerDown={(e) => begin(e, item, "move")}
             onPointerMove={(e) => gesture.current?.mode === "move" && apply(e, false)}

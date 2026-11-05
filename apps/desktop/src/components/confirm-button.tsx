@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { t } from "@/lib/i18n";
 
 /**
  * Two-step destructive button: the first click arms it, the second confirms.
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
  */
 export function ConfirmButton({
   label,
-  confirmLabel = "Delete?",
+  confirmLabel = t("common.deleteConfirm"),
   icon,
   disabled,
   onConfirm,

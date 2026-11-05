@@ -1,10 +1,17 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { Rgb } from "@/lib/api/types";
+import { hasMessage, t, type MessageKey } from "@/lib/i18n";
 import { hsvToRgb, parseHex, PRESETS, rgbToHsv, sameRgb, toHex, type Hsv } from "@/lib/color";
 import { cn } from "@/lib/utils";
 
 const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+
+/** Preset names come from lib/color (English); show them in the UI language. */
+const presetName = (name: string) => {
+  const key = `color.preset.${name.toLowerCase()}` as MessageKey;
+  return hasMessage(key) ? t(key) : name;
+};
 
 /** Pointer drag helper: reports the position inside `el` as 0..1 fractions. */
 function useDrag(onMove: (x: number, y: number) => void, onEnd: () => void) {
@@ -85,8 +92,11 @@ export function ColorPicker({
         {...area}
         role="slider"
         tabIndex={0}
-        aria-label="Saturation and brightness"
-        aria-valuetext={`saturation ${Math.round(hsv.s * 100)}%, brightness ${Math.round(hsv.v * 100)}%`}
+        aria-label={t("color.area")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(hsv.s * 100)}
+        aria-valuetext={t("color.areaValue", { s: Math.round(hsv.s * 100), v: Math.round(hsv.v * 100) })}
         onKeyDown={areaKeys}
         className="relative h-36 cursor-crosshair touch-none rounded-control"
         style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${pure})` }}
@@ -100,7 +110,7 @@ export function ColorPicker({
         {...hue}
         role="slider"
         tabIndex={0}
-        aria-label="Hue"
+        aria-label={t("color.hue")}
         aria-valuemin={0}
         aria-valuemax={360}
         aria-valuenow={Math.round(hsv.h)}
@@ -116,7 +126,7 @@ export function ColorPicker({
       <div className="flex items-center gap-2">
         <span className="size-8 shrink-0 rounded-chip border border-border-strong" style={{ background: hex }} />
         <input
-          aria-label="Hex colour"
+          aria-label={t("color.hex")}
           value={hex}
           spellCheck={false}
           onChange={(e) => {
@@ -131,13 +141,14 @@ export function ColorPicker({
           className="h-8 min-w-0 flex-1 rounded-chip border border-border-strong bg-surface-sunken px-2 font-mono text-small uppercase text-text outline-none focus-visible:border-info"
         />
       </div>
-      <div className="flex gap-1.5" role="group" aria-label="Preset colours">
+      <div className="flex gap-1.5" role="group" aria-label={t("color.presets")}>
         {PRESETS.map((p) => (
           <button
             key={p.name}
             type="button"
-            title={p.name}
-            aria-label={p.name}
+            title={presetName(p.name)}
+            aria-label={presetName(p.name)}
+            aria-pressed={sameRgb(p.rgb, hsvToRgb(hsv))}
             onClick={() => apply(rgbToHsv(p.rgb), true)}
             className={cn(
               "size-6 rounded-chip border border-border-strong transition-transform duration-(--duration-fast) hover:scale-110",
@@ -168,6 +179,7 @@ export function ColorField({
       <Popover.Trigger asChild>
         <button
           type="button"
+          aria-label={`${label}: ${toHex(value)}`}
           className="flex h-10 w-full items-center gap-3 rounded-control px-2 text-left transition-colors duration-(--duration-fast) hover:bg-surface-raised data-[state=open]:bg-surface-raised"
         >
           <span className="size-6 shrink-0 rounded-chip border border-border-strong" style={{ background: toHex(value) }} />
