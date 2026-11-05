@@ -72,6 +72,7 @@ members = [
     "modules/madcatz-cyborg",
     "modules/lexip-mouse",
     "modules/gigabyte-aorus-mouse",
+    "modules/n5312a",
     "modules/patriot-viper-mouse",
     "modules/mountain-keyboard",
     "modules/thingm-blink",
