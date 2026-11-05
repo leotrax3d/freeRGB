@@ -35,6 +35,7 @@ pub mod onboarding;
 pub mod profiles;
 pub mod report;
 pub mod state;
+pub mod storage_temps;
 
 use std::sync::{Arc, Mutex, MutexGuard};
 

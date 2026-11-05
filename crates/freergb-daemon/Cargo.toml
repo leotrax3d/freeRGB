@@ -48,7 +48,9 @@ thiserror.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+freergb-gpu-adlx = { path = "../freergb-gpu-adlx" }
 freergb-gpu-nvml = { path = "../freergb-gpu-nvml" }
+freergb-storage-temp = { path = "../freergb-storage-temp" }
 clap = { version = "4", features = ["derive", "env"] }
 tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "signal", "sync", "time", "process"] }
 

@@ -155,12 +155,13 @@ if you want to drop profiles and settings.
 
 ## Optional sensor and GPU components
 
-Nothing here is mandatory. CPU/GPU/storage temperatures on Windows come from the
-optional LHM provider below; on Linux from the kernel hwmon drivers (`k10temp`,
+Nothing here is mandatory. CPU/GPU temperatures on Windows come from the
+optional LHM provider below and drive temperatures from a built-in unprivileged
+reader; on Linux from the kernel hwmon drivers (`k10temp`,
 `coretemp`, `amdgpu`, `nvme`, `drivetemp`). NVIDIA GPU fan control uses the NVML
 library that ships with the NVIDIA driver (no extra install) and needs
-administrator/root rights to set speeds. AMD Windows (ADLX) control is not
-available. See `COOLING_SOURCES_GPU.md`.
+administrator/root rights to set speeds. AMD GPU fan control on Windows uses
+ADLX (`amdadlx64.dll`, installed with AMD Software; no extra install). See `COOLING_SOURCES_GPU.md`.
 
 ## Optional motherboard backend
 

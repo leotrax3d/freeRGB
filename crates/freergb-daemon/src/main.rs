@@ -226,6 +226,11 @@ fn main() -> Result<()> {
         );
         engine.gpu.start();
     }
+    #[cfg(windows)]
+    if !args.no_hardware {
+        // Read-only drive temperatures, never inside the protected fan reader.
+        engine.storage_temps.start_default();
+    }
     #[cfg(target_os = "linux")]
     if !args.no_hardware && !args.no_hwmon {
         // Kernel hwmon: reading is passive; headers are written only after an

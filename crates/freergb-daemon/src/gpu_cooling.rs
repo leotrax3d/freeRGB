@@ -2,9 +2,9 @@
 //!
 //! Backends: NVIDIA through NVML (shipped with the driver, loaded at runtime
 //! from the system directory; nothing is bundled), and a simulated backend for
-//! tests. AMD on Linux is already covered by the generic `amdgpu` hwmon
-//! headers in `hwmon.rs`; AMD ADLX on Windows and Intel Arc control are not
-//! implemented (their temperatures are read-only sources via LHM/hwmon).
+//! tests, AMD on Windows through ADLX (`freergb-gpu-adlx`, same rules). AMD on
+//! Linux is covered by the generic `amdgpu` hwmon headers in `hwmon.rs`; Intel
+//! Arc control is not implemented (read-only temperatures via LHM/hwmon).
 //!
 //! Invariants, mirroring the motherboard providers:
 //! * a fan id is journaled *before* the first write, so a crashed daemon hands
@@ -104,6 +104,12 @@ impl GpuCooling {
         match nvml::Nvml::load() {
             Ok(nvml) => out.push(Box::new(nvml)),
             Err(error) => tracing::debug!(%error, "NVML not available; no NVIDIA fan control"),
+        }
+        match adlx::Adlx::load() {
+            Ok(adlx) => out.push(Box::new(adlx)),
+            Err(error) => {
+                tracing::debug!(%error, "ADLX not available; no AMD fan control on Windows")
+            }
         }
         out
     }
@@ -459,6 +465,52 @@ mod nvml {
                 .map(|f| GpuFan {
                     id: f.id,
                     vendor: "nvidia",
+                    gpu_name: f.gpu_name,
+                    index: f.index,
+                    duty_percent: f.duty_percent,
+                    controllable: f.controllable,
+                    reason: f.reason,
+                    min_percent: f.min_percent,
+                })
+                .collect()
+        }
+        fn take_control(&mut self, id: &str) -> Result<(), String> {
+            self.0.take_control(id)
+        }
+        fn set_duty(&mut self, id: &str, percent: f32) -> Result<(), String> {
+            self.0.set_duty(id, percent)
+        }
+        fn release(&mut self, id: &str) -> Result<(), String> {
+            self.0.release(id)
+        }
+    }
+}
+
+/// AMD ADLX adapter (Windows). The FFI lives in `freergb-gpu-adlx`. ADLX is
+/// the control path for AMD GPUs; LHM `/gpu-amd/*/control` stays read-only
+/// (docs/COOLING_SOURCES_GPU.md).
+mod adlx {
+    use super::{GpuBackend, GpuFan};
+
+    pub struct Adlx(freergb_gpu_adlx::Adlx);
+
+    impl Adlx {
+        pub fn load() -> Result<Self, String> {
+            freergb_gpu_adlx::Adlx::load().map(Self)
+        }
+    }
+
+    impl GpuBackend for Adlx {
+        fn name(&self) -> &'static str {
+            "adlx"
+        }
+        fn discover(&mut self) -> Vec<GpuFan> {
+            self.0
+                .discover()
+                .into_iter()
+                .map(|f| GpuFan {
+                    id: f.id,
+                    vendor: "amd",
                     gpu_name: f.gpu_name,
                     index: f.index,
                     duty_percent: f.duty_percent,
