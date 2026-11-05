@@ -237,3 +237,52 @@ LED layouts use the optional initialize `zones` parameter documented in
 - [ ] weitere kleine Familien (Cougar, LegoDimensions, RealtekARGB, Skydimo, XPG Summoner …)
 
 Last update: DRGB all versions ported.
+## Agent-Handover (export)
+
+Last known commit: `a825d66` on branch `modules/integration`. Repo stable, tests/builds green.
+
+### Working rules reminder
+- Branch: `modules/integration` only.
+- No hardware access.
+- Only modify `modules/`, `scripts/openrgb/`, `Cargo.toml/Cargo.lock`, and `docs/OPENRGB_PORTING.md`.
+- New modules need full file set and tests; fmt/clippy/workspace tests/release build.
+
+### Operational startup
+```bash
+cd WORK/freergb
+git checkout modules/integration
+git branch --show-current
+git status --short
+git pull --ff-only origin modules/integration
+cargo test --workspace
+```
+
+### Suggested next tasks
+1. CoolerMasterController: port full or sub-interfaces (CMM711/MM720 etc).
+2. Roccat Controller: Burst Pro/Air, Kone Pro/Air/XP/Aimo, Elo, Horde, Kova, Sense, Vulcan.
+3. AsusAuraUSB controller: Mouse, Mousemat, HeadsetStand, Monitor, RyuoAIO, ROG, Keyboard, TUF, Mainboard (exclude 0b05:19af).
+4. Corsair Peripheral Generic keyboards (K55/K95/K70 Pro/K68) – remain blocked/unported in this repo current.
+5. Other small families: Cougard, LegoDimensions, NvidiaESA, RealtekARGB, A4Tech, EVGA, GaiZongGai, Sinowealth, LianLi, Gigabyte RGBFusion2, HyperX Keyboard remaining, EVision V2, Royuan, DaSKKeyboard, etc.
+
+### Immediate starting guidance
+- Pick one small or mid family that is directly supported by byte-exact reports and Start-Controller flow.
+- For existing partial modules, add support only when complete direct-path for a subset (same as done for Corsair mouse and DRGB).
+
+### Validation commands
+```bash
+cargo fmt --all
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo build --release -p freergb-module-<id>
+```
+
+### Commit/push
+```bash
+git add modules/<id> scripts/openrgb docs/OPENRGB_PORTING.md Cargo.toml Cargo.lock
+git commit -m "modules: port <family or subcontroller>"
+git push origin modules/integration
+```
+
+### Candidate next concrete small device (subagent spec available)
+- None right now from background subagent output; inspect family code directly, or launch a concise subagent that returns one exact candidate and packet bytes.
