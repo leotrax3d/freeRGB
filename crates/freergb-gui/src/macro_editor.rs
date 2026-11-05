@@ -55,6 +55,10 @@ pub fn edit(ui: &mut egui::Ui, source: &mut String) {
                         ui.label("Type text into foreground application");
                         changed |= ui.text_edit_multiline(text).changed();
                     }
+                    MacroStep::KeyDown { key } | MacroStep::KeyUp { key } => {
+                        ui.label("Recorded key press/release");
+                        changed |= ui.text_edit_singleline(key).changed();
+                    }
                     MacroStep::Key { key } => {
                         ui.label("Key");
                         egui::ComboBox::from_id_salt("key")

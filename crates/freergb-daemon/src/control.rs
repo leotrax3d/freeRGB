@@ -41,6 +41,9 @@ pub struct Controls {
     sensor_catalog: Vec<Value>,
     path: Option<PathBuf>,
     job: Option<Job>,
+    recorder: crate::macro_recorder::Recorder,
+    #[cfg(windows)]
+    output: Option<enigo::Enigo>,
     pub input_enabled: bool,
     error: Option<String>,
 }
@@ -221,6 +224,13 @@ impl Controls {
     }
 
     pub fn call(&mut self, method: &str, params: &Value) -> Result<Value, String> {
+        self.recorder.tick(Instant::now());
+        if method.starts_with("macros.record.") {
+            if method == "macros.record.start" && self.job.is_some() {
+                return Err("stop playback before recording".into());
+            }
+            return self.recorder.call(method, params, Instant::now());
+        }
         if method == "cooling.calibration.preview" {
             let request: freergb_control::calibration::CalibrationPreviewRequest =
                 serde_json::from_value(params.clone()).map_err(|e| e.to_string())?;
@@ -301,10 +311,11 @@ impl Controls {
         }
         if method == "macros.status" {
             return Ok(
-                json!({"running":self.job.as_ref().map(|j| &j.name),"input_enabled":self.input_enabled,"error":self.error}),
+                json!({"running":self.job.as_ref().map(|j| &j.name),"input_enabled":self.input_enabled,"error":self.error,"recording":self.recorder.active()}),
             );
         }
         if method == "macros.cancel" {
+            self.release_output();
             self.job = None;
             return Ok(json!(true));
         }
@@ -322,6 +333,9 @@ impl Controls {
         let name = params["name"].as_str().ok_or("expected name")?;
         crate::profiles::validate_name(name).map_err(|e| e.to_string())?;
         if method == "macros.run" {
+            if self.recorder.active() {
+                return Err("stop recording before playback".into());
+            }
             if self.job.is_some() {
                 return Err("a macro is already running; cancel it first".into());
             }
@@ -385,12 +399,14 @@ impl Controls {
     }
 
     pub fn tick(&mut self, now: Instant) -> Option<MacroStep> {
+        self.recorder.tick(now);
         let job = self.job.as_mut()?;
         if now < job.due {
             return None;
         }
         let Some(step) = job.steps.get(job.index).cloned() else {
             self.job = None;
+            self.release_output();
             return None;
         };
         job.index += 1;
@@ -401,17 +417,53 @@ impl Controls {
         Some(step)
     }
 
+    fn release_output(&mut self) {
+        // Enigo releases tracked held keys on drop, including cancel/error.
+        #[cfg(windows)]
+        {
+            self.output = None;
+        }
+    }
+
+    pub fn execute_input(&mut self, step: &MacroStep) -> Result<(), String> {
+        #[cfg(windows)]
+        {
+            if self.output.is_none() {
+                self.output = Some(
+                    enigo::Enigo::new(&enigo::Settings::default()).map_err(|e| e.to_string())?,
+                );
+            }
+            let output = self.output.as_mut().unwrap();
+            let result = input(output, step);
+            if result.is_err() {
+                // Enigo tracks only successful presses. A partially successful
+                // OS press must get an explicit release attempt before Drop
+                // cleans up the previously successful held keys.
+                if let MacroStep::KeyDown { key } = step {
+                    let _ = input(output, &MacroStep::KeyUp { key: key.clone() });
+                }
+            }
+            result
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = step;
+            Err("keyboard output is Windows-only".into())
+        }
+    }
+
     pub fn fail(&mut self, error: String) {
+        self.release_output();
         self.job = None;
         self.error = Some(error);
     }
 }
 
-pub fn input(step: &MacroStep) -> Result<(), String> {
+#[cfg(windows)]
+fn input(input: &mut enigo::Enigo, step: &MacroStep) -> Result<(), String> {
     #[cfg(windows)]
     {
-        use enigo::{Direction, Enigo, Key, Keyboard, Settings};
-        let mut input = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+        use enigo::{Direction, Key, Keyboard};
         let map_key = |key: &str| -> Result<Key, String> {
             Ok(match key {
                 "ctrl" => Key::Control,
@@ -455,6 +507,16 @@ pub fn input(step: &MacroStep) -> Result<(), String> {
                     )
                     .map_err(|e| e.to_string())
             }),
+            MacroStep::KeyDown { key } | MacroStep::KeyUp { key } => input
+                .key(
+                    map_key(key)?,
+                    if matches!(step, MacroStep::KeyDown { .. }) {
+                        Direction::Press
+                    } else {
+                        Direction::Release
+                    },
+                )
+                .map_err(|e| e.to_string()),
             MacroStep::Text { text } => input.text(text).map_err(|e| e.to_string()),
             MacroStep::Key { key } => input
                 .key(map_key(key)?, Direction::Click)
@@ -472,6 +534,39 @@ pub fn input(step: &MacroStep) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recording_never_creates_storage_until_the_returned_draft_is_saved() {
+        let directory =
+            std::env::temp_dir().join(format!("freergb-recording-{}", std::process::id()));
+        let path = directory.join("control.json");
+        let mut controls = Controls::default().with_file(path.clone());
+        controls
+            .call("macros.record.start", &json!({"session":"fixture"}))
+            .unwrap();
+        controls
+            .call(
+                "macros.record.event",
+                &json!({"session":"fixture","event":{"type":"text","text":"fixture"}}),
+            )
+            .unwrap();
+        let definition = controls
+            .call("macros.record.stop", &json!({"session":"fixture"}))
+            .unwrap();
+        assert!(!path.exists());
+        assert_eq!(
+            controls.call("macros.list", &Value::Null).unwrap(),
+            json!({})
+        );
+        controls
+            .call(
+                "macros.save",
+                &json!({"name":"Recorded","definition":definition}),
+            )
+            .unwrap();
+        assert!(path.exists());
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(directory).unwrap();
+    }
     #[test]
     fn curve_set_persists_and_previews_with_failsafe() {
         let directory =

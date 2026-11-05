@@ -23,7 +23,9 @@ mod diagnostics;
 mod hotkeys;
 mod hwmon_cooling;
 mod keyboard_reactive;
+mod macro_device_keys;
 mod macro_editor;
+mod macro_recording;
 mod mainboard_cooling;
 mod mainboard_rgb;
 mod pages;
@@ -36,6 +38,7 @@ mod toast;
 #[derive(Default)]
 struct Snapshot {
     exported_report: Option<std::path::PathBuf>,
+    recorded_draft: Option<(u64, Value)>,
     control: Value,
     connected: bool,
     error: Option<String>,
@@ -157,6 +160,16 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
                     {
                         profile_revision += 1;
                     }
+                    if c.method == "macros.record.stop" {
+                        if let Ok(value) = &result {
+                            if value.is_object() {
+                                let mut snapshot = state.lock().unwrap_or_else(|e| e.into_inner());
+                                let revision =
+                                    snapshot.recorded_draft.as_ref().map_or(1, |(r, _)| r + 1);
+                                snapshot.recorded_draft = Some((revision, value.clone()));
+                            }
+                        }
+                    }
                     if let Err(e) = result {
                         let transport_failed =
                             !matches!(e, freergb_client::ClientError::Rpc { .. });
@@ -192,6 +205,7 @@ fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, ctx: egui::Context
             "curves": get("cooling.curves.list").unwrap_or(Value::Null),
             "macros": get("macros.list").unwrap_or(Value::Null),
             "macro_status": get("macros.status").unwrap_or(Value::Null),
+            "macro_device_keys": get("macros.device_keys.get").unwrap_or(Value::Null),
             "sensor_sources": get("cooling.sensors.sources").unwrap_or(Value::Null),
             "sensor_values": get("cooling.sensors.values").unwrap_or(Value::Null),
             "sensor_graph": get("cooling.sensors.get").unwrap_or(Value::Null),
@@ -769,6 +783,7 @@ impl eframe::App for App {
         {
             let snapshot = self.state.lock().unwrap_or_else(|e| e.into_inner());
             self.panels.observe(&snapshot);
+            self.panels.poll_recording(ctx, &self.tx, &snapshot);
             self.panels.poll_hotkeys(&self.tx, &snapshot);
             self.app_profiles.poll(&self.tx, &snapshot);
         }
