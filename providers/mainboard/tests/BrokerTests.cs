@@ -173,10 +173,58 @@ internal static class BrokerTests
             }
             Assert(serving.Wait(4000), "Persistent server did not finish.");
         }
+        // A client that takes its reply but never acknowledges and never closes
+        // must not keep the single instance busy: the next client gets in.
+        using (var server = BrokerTransport.CreateServer(name, user))
+        {
+            object gate = new object();
+            Task serving = Task.Run(delegate
+            {
+                for (int i = 0; i < 2; i++) { server.WaitForConnection(); BrokerTransport.ServeClient(server, delegate { return Sample; }, gate); }
+            });
+            var stuck = BrokerTransport.Connect(name);
+            BrokerTransport.Write(stuck, Encoding.ASCII.GetBytes("snapshot\n"));
+            Assert(BrokerTransport.ReadReply(stuck, 2000) == Sample, "Stuck client got no reply.");
+            NamedPipeClientStream next = null;
+            var clock = Stopwatch.StartNew();
+            while (next == null && clock.ElapsedMilliseconds < BrokerTransport.ClientDeadlineMs + 3000)
+            {
+                try { next = BrokerTransport.Connect(name); }
+                catch (Win32Exception error) { if (error.NativeErrorCode != 231) throw; Thread.Sleep(20); }
+            }
+            Assert(next != null, "Stuck client kept the broker pipe busy.");
+            using (next)
+            {
+                BrokerTransport.Write(next, Encoding.ASCII.GetBytes("snapshot\n"));
+                Assert(BrokerTransport.ReadReply(next, 2000) == Sample, "Client after a stuck one got no reply.");
+                BrokerTransport.Write(next, new byte[] { 6 });
+            }
+            stuck.Dispose();
+            Assert(serving.Wait(4000), "Supervised server did not finish.");
+        }
     }
-    private static int Main()
+    // A protected worker that never answers must end in "reader failed", never
+    // leave the cache at "starting" (owner acceptance 2026-11-05).
+    private static void SilentWorkerTests()
     {
-        CacheTests(); RequestTests(); PipeTests();
+        var start = new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName, "--silent-worker") {
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true };
+        var cache = new BrokerCache();
+        Assert(cache.Read().Contains("starting"), "Fresh cache must report starting.");
+        using (var child = Process.Start(start))
+        {
+            var clock = Stopwatch.StartNew(); bool failed = false;
+            try { child.StandardInput.WriteLine("snapshot"); child.StandardInput.Flush(); BrokerService.ReadWorkerReply(child, 500); }
+            catch (Exception) { failed = true; cache.Store(BrokerCache.Failure("Isolated motherboard reader failed (fixture)."), BrokerCache.Now); }
+            Assert(failed && clock.ElapsedMilliseconds < 6000, "Silent worker read was not bounded.");
+            Assert(child.WaitForExit(3000), "Silent worker was not killed.");
+        }
+        Assert(cache.Read().Contains("reader failed") && !cache.Read().Contains("starting"), "Silent worker left the reader starting.");
+    }
+    private static int Main(string[] args)
+    {
+        if (args.Length == 1 && args[0] == "--silent-worker") { Thread.Sleep(30000); return 0; }
+        CacheTests(); SilentWorkerTests(); RequestTests(); PipeTests();
         Reject(delegate { BrokerService.CheckInstallation(true); }, "Unprotected worker startup accepted.");
         Reject(delegate { NativeProbeJob.Claim(); }, "Unprotected hardware diagnostic admission accepted.");
         Reject(delegate { NativeControl.CreateProtected(new object(), false); }, "Unprotected native control factory accepted.");

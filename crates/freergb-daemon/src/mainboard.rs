@@ -594,7 +594,9 @@ mod tests {
             "oversized",
             "hang",
             "cancel",
+            "denied_then_ready",
         ] {
+            let _ = std::fs::remove_file(directory.join("denied.marker"));
             std::fs::write(directory.join("scenario.txt"), scenario).unwrap();
             let mut provider = MainboardProvider::default();
             provider
@@ -616,6 +618,21 @@ mod tests {
                     shutdown.elapsed() < Duration::from_secs(2),
                     "active native request must be cancellable"
                 );
+                continue;
+            }
+            if scenario == "denied_then_ready" {
+                // The first session reports permission_denied; the 5 s retry must reach ready.
+                let deadline = Instant::now() + Duration::from_secs(15);
+                let mut saw_denied = false;
+                while provider.summary().status != "ready" && Instant::now() < deadline {
+                    saw_denied |= provider.summary().status == "permission_denied";
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                assert!(saw_denied, "first helper session must report permission_denied");
+                assert_eq!(provider.summary().status, "ready", "retry must recover");
+                assert_eq!(provider.sensors()[0].sensor.value, Some(900.0));
+                drop(provider);
+                let _ = std::fs::remove_file(directory.join("denied.marker"));
                 continue;
             }
             let deadline = Instant::now() + Duration::from_secs(12);
