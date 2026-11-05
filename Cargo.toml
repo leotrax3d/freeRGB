@@ -60,6 +60,7 @@ members = [
     "modules/sinowealth",
     "modules/lianli",
     "modules/gigabyte-rgbfusion2",
+    "modules/dream-cheeky",
     "modules/mountain-keyboard",
     "modules/thingm-blink",
 ]
