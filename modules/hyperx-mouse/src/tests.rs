@@ -49,6 +49,7 @@ fn only_ported_devices_are_claimed() {
                 || dev.protocol == "fps"
                 || dev.protocol == "raid"
                 || dev.protocol == "haste"
+                || dev.protocol == "dart"
         );
     }
 }
@@ -111,14 +112,23 @@ impl Hid for NoIo {
 }
 
 #[test]
-fn unsupported_initialize_fails_without_io() {
+fn dart_initialize_validates_frame_size() {
     let mut m = crate::HyperX::default();
     let mut h = NoIo;
-    // FPS Pro (0x16d7) uses the now-ported path; Dart (0x16e1) and Haste
-    // (0x1727) stay unported
-    assert!(m.initialize(&info_for(0x16e1), &mut h).is_err());
-    // Haste (0x1727) uses the unported "haste" path
-    assert!(m.initialize(&info_for(0x1727), &mut h).is_err());
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler.contains("Dart"))
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: d.interface as i32,
+        usage_page: d.usage_page,
+        usage: d.usage,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
     assert!(m.frame(&[], &mut h).is_err());
 }
 
@@ -253,4 +263,65 @@ fn raid_full_sequence_is_byte_exact() {
     assert!(p[9..].iter().all(|b| *b == 0));
     m.shutdown(None, &mut h).unwrap();
     assert_eq!(h.features.len(), 1);
+}
+struct RecordingWrite {
+    writes: Vec<Vec<u8>>,
+}
+impl Hid for RecordingWrite {
+    fn write(&mut self, b: &[u8]) -> Result<usize, ModuleError> {
+        self.writes.push(b.to_vec());
+        Ok(b.len())
+    }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+    fn send_feature(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        unreachable!()
+    }
+    fn get_feature(&mut self, _: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+}
+
+#[test]
+fn dart_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingWrite { writes: Vec::new() };
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler.contains("Dart"))
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: d.interface as i32,
+        usage_page: d.usage_page,
+        usage: d.usage,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert_eq!(caps.layout.leds[0].name, "Scroll Wheel");
+    assert_eq!(caps.layout.leds[1].name, "Logo");
+    assert!(h.writes.is_empty());
+    m.frame(
+        &[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }],
+        &mut h,
+    )
+    .unwrap();
+    assert_eq!(h.writes.len(), 2);
+    let p0 = &h.writes[0];
+    assert_eq!(p0.len(), 65);
+    assert_eq!(
+        &p0[0..13],
+        &[0, 0xD2, 0x10, 0x00, 0x08, 1, 2, 3, 1, 2, 3, 0x64, 0x00]
+    );
+    let p1 = &h.writes[1];
+    assert_eq!(p1.len(), 65);
+    assert_eq!(
+        &p1[0..13],
+        &[0, 0xD2, 0x00, 0x00, 0x08, 4, 5, 6, 4, 5, 6, 0x64, 0x00]
+    );
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.writes.len(), 2);
 }

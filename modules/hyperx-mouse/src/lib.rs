@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //! HyperX mouse module. The Pulsefire Surge controller path is fully ported
-//! (264-byte feature reports, 32-LED RGB planes + logo LED); the FPS Pro /
-//! Dart / Raid / Haste paths stay unsupported. The upstream 50 ms RGB update
-//! keepalive thread is not portable to the frame-driven module API.
+//! HyperX mouse module. Surge, FPS Pro/Core, Raid, Haste and Dart controller paths
+//! are fully ported in Direct mode. Hardware effect modes, Save/on-board persistence and
+//! the upstream 50 ms RGB update keepalive thread are not ported to the frame-driven module API.
 pub mod devices_table;
 pub mod report;
 pub mod table;
@@ -23,6 +23,7 @@ pub struct HyperX {
     fps: bool,
     raid: bool,
     haste: bool,
+    dart: bool,
     leds_vec: Vec<Led>,
 }
 impl freergb_module_api::sdk::Module for HyperX {
@@ -51,7 +52,8 @@ impl freergb_module_api::sdk::Module for HyperX {
                     && (dev.protocol == "surge"
                         || dev.protocol == "fps"
                         || dev.protocol == "raid"
-                        || dev.protocol == "haste")
+                        || dev.protocol == "haste"
+                        || dev.protocol == "dart")
             })
             .ok_or_else(|| err("HyperX mouse controller path not ported"))?;
         // upstream: RGBController_HyperXPulsefireSurge.cpp SetupZones()
@@ -61,6 +63,7 @@ impl freergb_module_api::sdk::Module for HyperX {
         self.fps = dev.protocol == "fps";
         self.raid = dev.protocol == "raid";
         self.haste = dev.protocol == "haste";
+        self.dart = dev.protocol == "dart";
         self.active = true;
         let count = self.leds;
         let (zones, leds): (Vec<Zone>, Vec<Led>) = if self.fps || self.haste {
@@ -74,7 +77,7 @@ impl freergb_module_api::sdk::Module for HyperX {
                     pos: (0, 0),
                 }],
             )
-        } else if self.raid {
+        } else if self.raid || self.dart {
             // upstream: RGBController_HyperXPulsefireRaid.cpp SetupZones()
             (
                 vec![
@@ -159,6 +162,9 @@ impl freergb_module_api::sdk::Module for HyperX {
         } else if self.raid {
             h.send_feature(&report::raid_direct(c[0], c[1]))
                 .map_err(err)?;
+        } else if self.dart {
+            h.write(&report::dart_direct(c[0], 0x10)).map_err(err)?;
+            h.write(&report::dart_direct(c[1], 0x00)).map_err(err)?;
         } else if self.haste {
             h.send_feature(&report::haste_setup()).map_err(err)?;
             h.send_feature(&report::haste_color(c[0])).map_err(err)?;

@@ -72,6 +72,26 @@ pub fn haste_color(c: freergb_core::Rgb) -> Vec<u8> {
     p[8] = 0x02;
     p
 }
+/// upstream: HyperXPulsefireDartController.cpp SendDirect (Direct/static mode)
+/// 65-byte HID write: `[00 D2 led 00 08 R G B R G B 0x64 00 ...]`,
+/// mode = static (0x00), duplicate RGB, brightness = 0x64 (max), speed = 0x00.
+pub fn dart_direct(c: freergb_core::Rgb, led: u8) -> Vec<u8> {
+    let mut p = vec![0u8; 65];
+    p[0] = 0x00;
+    p[1] = 0xD2;
+    p[2] = led;
+    p[3] = 0x00; // static
+    p[4] = 0x08;
+    p[5] = c.r;
+    p[6] = c.g;
+    p[7] = c.b;
+    p[8] = c.r;
+    p[9] = c.g;
+    p[10] = c.b;
+    p[11] = 0x64; // max brightness
+    p[12] = 0x00; // speed (static)
+    p
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,5 +132,16 @@ mod tests {
         assert_eq!(p.len(), 264);
         assert_eq!(&p[0..9], &[0x07, 0x0A, 1, 2, 3, 4, 5, 6, 0xA0]);
         assert!(p[9..].iter().all(|b| *b == 0));
+    }
+    // upstream: HyperXPulsefireDartController.cpp SendDirect
+    #[test]
+    fn dart_direct_is_byte_exact() {
+        let p = dart_direct(A, 0x10);
+        assert_eq!(p.len(), 65);
+        assert_eq!(
+            &p[0..13],
+            &[0x00, 0xD2, 0x10, 0x00, 0x08, 1, 2, 3, 1, 2, 3, 0x64, 0x00]
+        );
+        assert!(p[13..].iter().all(|b| *b == 0));
     }
 }

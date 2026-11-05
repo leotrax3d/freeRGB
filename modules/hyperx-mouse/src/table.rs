@@ -34,14 +34,15 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
             && (d.interface == 255 || i32::from(d.interface) == i.interface)
             && d.usage_page == i.usage_page
     });
-    // Ported so far: Surge, FPS Pro/Core, Raid, Haste. Dart stays unsupported.
+    // Ported so far: Surge, FPS Pro/Core, Raid, Haste, Dart.
     let ported = d.and_then(|d| {
         crate::devices_table::DEVICES.iter().find(|dev| {
             dev.pid == d.pid
                 && (dev.protocol == "surge"
                     || dev.protocol == "fps"
                     || dev.protocol == "raid"
-                    || dev.protocol == "haste")
+                    || dev.protocol == "haste"
+                    || dev.protocol == "dart")
         })
     });
     if let (Some(d), Some(_)) = (d, ported) {
@@ -76,6 +77,7 @@ pub fn device(i: &InterfaceInfo) -> Option<&'static Device> {
                 || dev.protocol == "fps"
                 || dev.protocol == "raid"
                 || dev.protocol == "haste"
+                || dev.protocol == "dart"
             {
                 return Some(dev);
             }
