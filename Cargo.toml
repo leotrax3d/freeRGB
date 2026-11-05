@@ -64,6 +64,7 @@ members = [
     "modules/clevo-lightbar",
     "modules/tecknet",
     "modules/msi-3-zone",
+    "modules/dark-project",
     "modules/mountain-keyboard",
     "modules/thingm-blink",
 ]
