@@ -6,6 +6,10 @@ first; the daemon also detects common conflicts. Virtual demo mode can run along
 
 ## Windows 10 / 11
 
+New to freeRGB? [USER_GUIDE.md](USER_GUIDE.md) walks through first run, profiles, fan
+control safety and troubleshooting (including a stuck motherboard reader and a busy
+daemon pipe).
+
 Installer artifact: `target/dist/freeRGB-<version>-windows-x86_64-setup.exe` after packaging.
 It installs machine-wide under Program Files with an uninstaller and an initial
 UAC prompt. Start Menu entries (including Demo) default on; the desktop shortcut

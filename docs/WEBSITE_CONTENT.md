@@ -19,9 +19,9 @@ Releases.
     "Monitoring": { "description": "Follow temperatures and speeds with history, warning rules, and diagnostics.", "details": ["Sensor history", "Warnings with hysteresis", "Redacted diagnostic export"] },
     "Audio reactive": { "description": "Turn local system audio into pulse and spectrum effects without sending it anywhere.", "details": ["Audio Pulse", "Audio Spectrum", "Windows capture"] },
     "Screen ambience": { "description": "Map the main display onto the device layout at roughly 30 frames per second.", "details": ["Local screen capture", "Shared device canvas", "Windows capture"] },
-    "Macros": { "description": "Build repeatable sequences from lighting, timing, text, and keyboard steps.", "details": ["Colour and effect steps", "Text and key combinations", "Native acceptance pending"] },
+    "Macros": { "description": "Build repeatable sequences from lighting, timing, text, and keyboard steps.", "details": ["Colour, effect, text and key steps", "Focused recording and device macro keys", "Native acceptance pending"] },
     "Local API": { "description": "Use JSON-RPC through Windows named pipes or Unix sockets for your own integrations.", "details": ["No open network port", "Structured state and events", "Local clients only"] },
-    "Plugin system": { "description": "Add hardware definitions and optional process integrations without changing the core.", "details": ["Declarative TOML devices", "Optional process plugins", "Hardware acceptance pending"] },
+    "Plugin system": { "description": "Add hardware definitions and optional process integrations without changing the core.", "details": ["Declarative TOML devices", "Signed WASM effect plugins with hot reload", "Hardware acceptance pending"] },
     "Safety and privacy": { "description": "Keep control on the machine with defensive hardware access and no account requirement.", "details": ["Known adapters only", "Conflict protection", "No cloud or telemetry"] }
   },
   "devices": [
@@ -91,8 +91,12 @@ Releases.
       "answer": "Support is tracked by hardware class and capability. Some integrations provide full control, while others may currently offer limited or detection-only support."
     },
     {
+      "question": "Something does not work. Where do I start?",
+      "answer": "Read the troubleshooting section of the user guide. It covers missing devices, the motherboard reader that stays in the starting state, and recovery when the daemon pipe is busy."
+    },
+    {
       "question": "Is Linux hardware access validated?",
-      "answer": "Not yet. The shared core, CI, udev rules, and systemd user unit are implemented, but real Linux hardware acceptance and capture parity remain open."
+      "answer": "Not yet. The shared core, audio/screen/evdev capture, udev rules, systemd user unit and .deb/.rpm/AppImage packaging are implemented and fixture-tested, but real Linux hardware and package installation acceptance remain open."
     }
   ]
 }
