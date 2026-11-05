@@ -214,3 +214,22 @@ LED layouts use the optional initialize `zones` parameter documented in
 
 
 
+
+## TODO / Fortschritt (freeRGB Portierung)
+
+- [x] Teil A – Aufräumen/Audit (Mountain, ThingM)
+- [x] HyperX Dart
+- [x] Dream Cheeky
+- [x] Clevo Lightbar
+- [x] Tecknet M008
+- [x] MSI 3-Zone
+- [x] Dark Project KD3B V2
+- [x] Corsair K55 RGB PRO XT
+- [ ] Corsair K65 Mini (Subagent-Analyse läuft)
+- [ ] Corsair Peripheral Generic (37)
+- [ ] DRGBController (33)
+- [ ] CoolerMasterController (38)
+- [ ] RoccatController (28)
+- [ ] AsusAuraUSB (Mouse, Mousemat, HeadsetStand, Monitor, RyuoAIO, ROG, Keyboard, TUF, Mainboard)
+
+Last update: K55 port (91546e1).
