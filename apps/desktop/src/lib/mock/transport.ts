@@ -392,7 +392,7 @@ export function mockTransport(): Transport {
                   { channel: { id: "pump", name: "Virtual pump", role: "pump", floor_percent: 100, tachometer: "pump_rpm" }, assignment: null, applied_percent: null, fault: null },
                 ],
               },
-              { id: "corsair-link-cooling", name: "CORSAIR iCUE LINK (cooling)", version: "0.1.0", family: "corsair-link", license: "MIT OR Apache-2.0", installed: false, enabled: false },
+              { id: "example-hub-cooling", name: "Example fan hub (cooling)", version: "0.1.0", family: "example-hub", license: "MIT OR Apache-2.0", installed: false, enabled: false },
             ],
           } as T;
         case "cooling.plugins.enable":
