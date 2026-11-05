@@ -68,6 +68,7 @@ members = [
     "modules/corsair-k55-pro-xt",
     "modules/corsair-k65-mini",
     "modules/aoc-mouse",
+    "modules/nzxt-mouse",
     "modules/gamesir",
     "modules/ionico",
     "modules/ionico",
