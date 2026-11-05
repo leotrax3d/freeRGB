@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+use freergb_core::Rgb;
+pub fn enable_direct() -> [u8; 6] {
+    [0x0E, 0x06, 0x01, 0x01, 0x00, 0xFF]
+}
+pub fn direct(c: Rgb) -> [u8; 11] {
+    [
+        0x0D, 0x0B, c.r, c.g, c.b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ]
+}
