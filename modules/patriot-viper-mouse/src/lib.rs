@@ -3,7 +3,10 @@ pub mod report;
 pub mod table;
 use freergb_core::{Led, LedLayout, Rgb};
 use freergb_module_api::sdk::{Hid, Module};
-use freergb_module_api::{Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo, Restore, MODULE_API};
+use freergb_module_api::{
+    Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
+    Restore, MODULE_API,
+};
 pub const MODULE_ID: &str = "patriot-viper-mouse";
 #[derive(Default)]
 pub struct PatriotViperMouse {
