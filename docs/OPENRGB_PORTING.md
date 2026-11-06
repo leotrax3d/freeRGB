@@ -269,9 +269,24 @@ LED layouts use the optional initialize `zones` parameter documented in
 Last update: DRGB all versions ported.
 ## Agent-Handover (export)
 
-Last known commit: `162fcfb` on branch `modules/integration`. Repo stable, tests/builds green.
+Last known commit: `c9133c4` on branch `modules/integration`. Repo stable, tests/builds green.
 
-### Ported in the last session (13 new/sub-controllers)
+### Ported in the latest session (4 new modules)
+| Module | Family | LEDs | Commit |
+|---|---|---:|---|
+| `nzxt-hue1` | NZXTHue1Controller | 10/8 per connected accessory, from the status packet | `ef4094e` |
+| `turtle-beach-kp7` | TurtleBeachKP7Controller | 33 | `f4bdecb` |
+| `zalman-z-sync` | ZalmanZSyncController | 8 user-sized zones (max 40 each) | `64d7c66` |
+| `msi-monitor72` | MSIMonitorController (0x72 sub-family, 27 layout rows) | 7..24 per version | `3fd4d98` |
+
+Also fixed: clippy lint sweep across all ported modules (`069479d`; a newer
+clippy now rejects `i32::from` on already-i32 fields, needless range loops,
+unused imports and manual slice copies).
+Note for the next session: after reverting unstaged work, always re-run
+`git status` before committing — a partial revert dropped workspace/docs edits
+once and they had to be re-added (`39a89bd`).
+
+### Ported in the previous session (13 new/sub-controllers)
 | Module | Family | LEDs | Commit |
 |---|---|---:|---|
 | `nvidia-esa` | NvidiaESAController | 5 | `4b56674` |
