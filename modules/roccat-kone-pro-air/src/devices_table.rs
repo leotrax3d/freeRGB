@@ -3,6 +3,20 @@
 use crate::table::Detector;
 
 pub const DETECTORS: &[Detector] = &[
-    Detector { name: "Roccat Kone Pro Air", vid: 0x1e7d, pid: 0x2c8e, interface: 2, usage_page: 0xff00, usage: 0x0001 },
-    Detector { name: "Roccat Kone Pro Air (Wired)", vid: 0x1e7d, pid: 0x2c92, interface: 1, usage_page: 0xff13, usage: 0x0001 },
+    Detector {
+        name: "Roccat Kone Pro Air",
+        vid: 0x1e7d,
+        pid: 0x2c8e,
+        interface: 2,
+        usage_page: 0xff00,
+        usage: 0x0001,
+    },
+    Detector {
+        name: "Roccat Kone Pro Air (Wired)",
+        vid: 0x1e7d,
+        pid: 0x2c92,
+        interface: 1,
+        usage_page: 0xff13,
+        usage: 0x0001,
+    },
 ];

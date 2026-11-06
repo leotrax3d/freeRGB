@@ -42,11 +42,11 @@ impl Hid for Fake {
 
 #[test]
 fn packets_are_byte_exact() {
-    let p = crate::report::direct(&[
-        Rgb { r: 1, g: 2, b: 3 },
-        Rgb { r: 4, g: 5, b: 6 },
-    ]);
-    assert_eq!(p, vec![0, 0x10, 0x10, 0x0b, 0x00, 0x09, 0x64, 0x64, 0x64, 0x0b, 1, 2, 3, 4, 5, 6]);
+    let p = crate::report::direct(&[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }]);
+    assert_eq!(
+        p,
+        vec![0, 0x10, 0x10, 0x0b, 0x00, 0x09, 0x64, 0x64, 0x64, 0x0b, 1, 2, 3, 4, 5, 6]
+    );
 }
 
 #[test]
@@ -59,7 +59,10 @@ fn initialize_frame_shutdown_sequence_is_byte_exact() {
     let colors = vec![Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }];
     m.frame(&colors, &mut h).unwrap();
     assert_eq!(h.writes.len(), 1);
-    assert_eq!(h.writes[0], vec![0, 0x10, 0x10, 0x0b, 0x00, 0x09, 0x64, 0x64, 0x64, 0x0b, 1, 2, 3, 4, 5, 6]);
+    assert_eq!(
+        h.writes[0],
+        vec![0, 0x10, 0x10, 0x0b, 0x00, 0x09, 0x64, 0x64, 0x64, 0x0b, 1, 2, 3, 4, 5, 6]
+    );
     m.shutdown(None, &mut h).unwrap();
     assert_eq!(h.writes.len(), 1);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use freergb_core::Rgb;
 use freergb_module_api::sdk::{Hid, Module};
-use freergb_module_api::{ErrorCode, InterfaceInfo, ModuleError};
+use freergb_module_api::{InterfaceInfo, ModuleError};
 #[test]
 fn inventory_is_complete() {
     assert_eq!(crate::devices_table::DETECTORS.len(), 1);
@@ -65,7 +65,7 @@ fn initialize_frame_shutdown_sequence_is_byte_exact() {
     let caps = m.initialize(&info_for(), &mut h).unwrap();
     assert_eq!(caps.layout.leds.len(), 1);
     assert_eq!(h.writes.len(), 5);
-    let mut colors = vec![Rgb { r: 1, g: 2, b: 3 }; 1];
+    let colors = vec![Rgb { r: 1, g: 2, b: 3 }; 1];
     m.frame(&colors, &mut h).unwrap();
     assert_eq!(h.writes.len(), 6);
     assert_eq!(h.writes[5][..7], [0xff, 0x04, 0, 0, 1, 2, 3]);

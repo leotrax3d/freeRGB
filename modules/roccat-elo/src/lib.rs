@@ -45,16 +45,24 @@ impl Module for E {
         }
         self.active = true;
         Ok(Capabilities {
-            name: table::identify(i).model.unwrap_or_else(|| "Roccat Elo 7.1".into()),
+            name: table::identify(i)
+                .model
+                .unwrap_or_else(|| "Roccat Elo 7.1".into()),
             kind: DeviceKind::Headset,
             layout: LedLayout {
                 width: 1,
                 height: 1,
-                leds: vec![Led { name: "Headset LED".into(), pos: (0, 0) }],
+                leds: vec![Led {
+                    name: "Headset LED".into(),
+                    pos: (0, 0),
+                }],
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![freergb_module_api::Zone { name: "Headset".into(), leds: 1 }],
+            zones: vec![freergb_module_api::Zone {
+                name: "Headset".into(),
+                leds: 1,
+            }],
         })
     }
 

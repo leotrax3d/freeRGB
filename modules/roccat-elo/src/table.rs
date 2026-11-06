@@ -18,7 +18,9 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
         supported: d.is_some(),
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::Headset),
-        reason: d.is_none().then(|| "no Roccat Elo 7.1 HID detector for this interface".into()),
+        reason: d
+            .is_none()
+            .then(|| "no Roccat Elo 7.1 HID detector for this interface".into()),
     }
 }
 

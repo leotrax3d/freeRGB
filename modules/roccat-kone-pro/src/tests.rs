@@ -46,10 +46,7 @@ fn packets_are_byte_exact() {
         crate::report::enter_direct(),
         vec![0x0e, 0x06, 0x01, 0x01, 0x00, 0xff]
     );
-    let p = crate::report::direct(&[
-        Rgb { r: 1, g: 2, b: 3 },
-        Rgb { r: 4, g: 5, b: 6 },
-    ]);
+    let p = crate::report::direct(&[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }]);
     assert_eq!(p[..11], [0x0d, 0x0b, 1, 2, 3, 4, 5, 6, 0, 0, 0]);
 }
 

@@ -36,23 +36,38 @@ impl Module for S {
     fn initialize(
         &mut self,
         i: &InterfaceInfo,
-        h: &mut dyn Hid,
+        _h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         table::device(i).ok_or_else(|| err("unsupported Roccat Sense Aimo"))?;
         // upstream: RoccatSenseAimoController ctor stores fields only; no
         // handshake. Effect modes are omitted by the module API (Direct only).
         self.active = true;
         let leds = vec![
-            Led { name: "Mousepad left led".into(), pos: (0, 0) },
-            Led { name: "Mousepad right led".into(), pos: (1, 0) },
+            Led {
+                name: "Mousepad left led".into(),
+                pos: (0, 0),
+            },
+            Led {
+                name: "Mousepad right led".into(),
+                pos: (1, 0),
+            },
         ];
         Ok(Capabilities {
-            name: table::identify(i).model.unwrap_or_else(|| "Roccat Sense Aimo".into()),
+            name: table::identify(i)
+                .model
+                .unwrap_or_else(|| "Roccat Sense Aimo".into()),
             kind: DeviceKind::Mousemat,
-            layout: LedLayout { width: 2, height: 1, leds },
+            layout: LedLayout {
+                width: 2,
+                height: 1,
+                leds,
+            },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![freergb_module_api::Zone { name: "Mousepad".into(), leds: 2 }],
+            zones: vec![freergb_module_api::Zone {
+                name: "Mousepad".into(),
+                leds: 2,
+            }],
         })
     }
 

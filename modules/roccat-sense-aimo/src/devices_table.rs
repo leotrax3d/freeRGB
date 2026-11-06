@@ -3,6 +3,20 @@
 use crate::table::Detector;
 
 pub const DETECTORS: &[Detector] = &[
-    Detector { name: "Roccat Sense Aimo Mid", vid: 0x1e7d, pid: 0x343a, interface: 0, usage_page: 0xff01, usage: 0x0001 },
-    Detector { name: "Roccat Sense Aimo XXL", vid: 0x1e7d, pid: 0x343b, interface: 0, usage_page: 0xff01, usage: 0x0001 },
+    Detector {
+        name: "Roccat Sense Aimo Mid",
+        vid: 0x1e7d,
+        pid: 0x343a,
+        interface: 0,
+        usage_page: 0xff01,
+        usage: 0x0001,
+    },
+    Detector {
+        name: "Roccat Sense Aimo XXL",
+        vid: 0x1e7d,
+        pid: 0x343b,
+        interface: 0,
+        usage_page: 0xff01,
+        usage: 0x0001,
+    },
 ];

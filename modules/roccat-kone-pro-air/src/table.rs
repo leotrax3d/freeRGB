@@ -18,7 +18,9 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
         supported: d.is_some(),
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::Mouse),
-        reason: d.is_none().then(|| "no Roccat Kone Pro Air HID detector for this interface".into()),
+        reason: d
+            .is_none()
+            .then(|| "no Roccat Kone Pro Air HID detector for this interface".into()),
     }
 }
 

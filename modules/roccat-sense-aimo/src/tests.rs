@@ -54,7 +54,11 @@ fn initialize_frame_shutdown_sequence_is_byte_exact() {
     let caps = m.initialize(&info_for(0), &mut h).unwrap();
     assert_eq!(caps.layout.leds.len(), 2);
     assert_eq!(
-        caps.layout.leds.iter().map(|l| l.name.clone()).collect::<Vec<_>>(),
+        caps.layout
+            .leds
+            .iter()
+            .map(|l| l.name.clone())
+            .collect::<Vec<_>>(),
         vec!["Mousepad left led", "Mousepad right led"]
     );
     let colors = vec![Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }];

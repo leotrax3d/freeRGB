@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+pub mod devices_table;
+pub mod report;
+pub mod table;
+use freergb_core::{Led, LedLayout, Rgb};
+use freergb_module_api::sdk::{Hid, Module};
+use freergb_module_api::{
+    Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
+    Restore, Zone, MODULE_API,
+};
+pub const MODULE_ID: &str = "roccat-kone-aimo";
+
+#[derive(Default)]
+pub struct K {
+    active: bool,
+}
+
+fn err(e: impl std::fmt::Display) -> ModuleError {
+    ModuleError::new(ErrorCode::Protocol, e.to_string())
+}
+
+impl Module for K {
+    fn info(&self) -> ModuleInfo {
+        ModuleInfo {
+            id: MODULE_ID.into(),
+            version: env!("CARGO_PKG_VERSION").into(),
+            family: "RoccatController".into(),
+            api: MODULE_API,
+        }
+    }
+
+    fn identify(&self, i: &InterfaceInfo) -> Identification {
+        table::identify(i)
+    }
+
+    fn initialize(
+        &mut self,
+        i: &InterfaceInfo,
+        h: &mut dyn Hid,
+    ) -> Result<Capabilities, ModuleError> {
+        table::device(i).ok_or_else(|| err("unsupported Roccat Kone Aimo"))?;
+        // upstream: RoccatKoneAimoController.cpp SendInit()
+        h.send_feature(&report::init()).map_err(err)?;
+        self.active = true;
+        let mut leds: Vec<Led> = Vec::with_capacity(report::LED_COUNT);
+        leds.push(Led {
+            name: "Wheel LED".into(),
+            pos: (0, 0),
+        });
+        for i in 0..4 {
+            leds.push(Led {
+                name: format!("Strip left LED {}", i + 1),
+                pos: ((1 + i) as u16, 0),
+            });
+        }
+        for i in 0..4 {
+            leds.push(Led {
+                name: format!("Strip right LED {}", i + 1),
+                pos: ((5 + i) as u16, 0),
+            });
+        }
+        leds.push(Led {
+            name: "Lower left LED".into(),
+            pos: (9, 0),
+        });
+        leds.push(Led {
+            name: "Lower right LED".into(),
+            pos: (10, 0),
+        });
+        Ok(Capabilities {
+            name: table::identify(i)
+                .model
+                .unwrap_or_else(|| "Roccat Kone Aimo".into()),
+            kind: DeviceKind::Mouse,
+            layout: LedLayout {
+                width: report::LED_COUNT as u16,
+                height: 1,
+                leds,
+            },
+            firmware: None,
+            restore: Restore::LastFrame,
+            zones: vec![
+                Zone {
+                    name: "Scroll Wheel".into(),
+                    leds: 1,
+                },
+                Zone {
+                    name: "Strip left".into(),
+                    leds: 4,
+                },
+                Zone {
+                    name: "Strip right".into(),
+                    leds: 4,
+                },
+                Zone {
+                    name: "Lower left".into(),
+                    leds: 1,
+                },
+                Zone {
+                    name: "Lower right".into(),
+                    leds: 1,
+                },
+            ],
+        })
+    }
+
+    fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
+        if !self.active || c.len() != report::LED_COUNT {
+            return Err(err("invalid Roccat Kone Aimo frame"));
+        }
+        // upstream: RGBController_RoccatKoneAimo.cpp DeviceUpdateLEDs calls
+        // SetChannelColors for every zone, then SendUpdate
+        let p = report::set_colors(c);
+        h.send_feature(&p).map_err(err)?;
+        // 3-byte get_feature read (release notes: upstream overwrites its
+        // header with returned triple; the Rust port ignores the value)
+        let buf = [0u8; 3];
+        let _ = h.get_feature(&buf, 3);
+        Ok(())
+    }
+
+    fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
+        self.active = false;
+        Ok(())
+    }
+}
+#[cfg(test)]
+mod tests;
