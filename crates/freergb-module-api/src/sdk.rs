@@ -18,6 +18,14 @@ pub trait Module {
     fn info(&self) -> ModuleInfo;
     /// Table lookup only. Must not assume an identity it cannot prove.
     fn identify(&self, interface: &InterfaceInfo) -> Identification;
+    /// Optional API-1 host metadata; old hosts omit it and old modules ignore it.
+    fn identify_with_platform(
+        &self,
+        interface: &InterfaceInfo,
+        _platform: Option<&PlatformIdentity>,
+    ) -> Identification {
+        self.identify(interface)
+    }
     fn initialize(
         &mut self,
         interface: &InterfaceInfo,
@@ -34,6 +42,15 @@ pub trait Module {
         self.initialize(interface, hid)
     }
     fn frame(&mut self, colors: &[Rgb], hid: &mut dyn Hid) -> Result<(), ModuleError>;
+    fn initialize_with_platform(
+        &mut self,
+        interface: &InterfaceInfo,
+        zones: Option<&[Zone]>,
+        _platform: Option<&PlatformIdentity>,
+        hid: &mut dyn Hid,
+    ) -> Result<Capabilities, ModuleError> {
+        self.initialize_with_zones(interface, zones, hid)
+    }
     fn status(&self) -> Status {
         Status {
             ok: true,
@@ -190,10 +207,24 @@ pub fn serve<M: Module, R: BufRead, W: Write>(module: &mut M, input: R, output: 
                 Method::Hello => {
                     serde_json::to_value(module.info()).map_err(|e| protocol(e.to_string()))
                 }
-                Method::Identify { interface } => serde_json::to_value(module.identify(interface))
-                    .map_err(|e| protocol(e.to_string())),
-                Method::Initialize { interface, zones } => module
-                    .initialize_with_zones(interface, zones.as_deref(), &mut host)
+                Method::Identify {
+                    interface,
+                    platform,
+                } => serde_json::to_value(
+                    module.identify_with_platform(interface, platform.as_ref()),
+                )
+                .map_err(|e| protocol(e.to_string())),
+                Method::Initialize {
+                    interface,
+                    zones,
+                    platform,
+                } => module
+                    .initialize_with_platform(
+                        interface,
+                        zones.as_deref(),
+                        platform.as_ref(),
+                        &mut host,
+                    )
                     .and_then(|caps| {
                         if caps.layout.leds.is_empty() || caps.layout.leds.len() > MAX_LEDS {
                             return Err(protocol("module reported an invalid layout"));
@@ -246,4 +277,121 @@ pub fn run<M: Module>(mut module: M) {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
     serve(&mut module, stdin.lock(), stdout.lock());
+}
+
+#[cfg(test)]
+mod platform_tests {
+    use super::*;
+
+    /// Deliberately implements no platform hooks, like existing API-1 modules.
+    struct Legacy;
+
+    impl Module for Legacy {
+        fn info(&self) -> ModuleInfo {
+            ModuleInfo {
+                id: "legacy".into(),
+                version: "1".into(),
+                family: "fixture".into(),
+                api: MODULE_API,
+            }
+        }
+        fn identify(&self, _: &InterfaceInfo) -> Identification {
+            Identification {
+                supported: true,
+                model: Some("Legacy".into()),
+                kind: Some(DeviceKind::Other),
+                reason: None,
+            }
+        }
+        fn initialize(
+            &mut self,
+            _: &InterfaceInfo,
+            _: &mut dyn Hid,
+        ) -> Result<Capabilities, ModuleError> {
+            Err(protocol("zone-aware default must remain in use"))
+        }
+        fn initialize_with_zones(
+            &mut self,
+            _: &InterfaceInfo,
+            zones: Option<&[Zone]>,
+            _: &mut dyn Hid,
+        ) -> Result<Capabilities, ModuleError> {
+            let zones = zones.unwrap();
+            Ok(Capabilities {
+                name: "Legacy".into(),
+                kind: DeviceKind::Other,
+                layout: freergb_core::LedLayout::strip(zones[0].leds as u16),
+                firmware: None,
+                restore: Restore::LastFrame,
+                zones: zones.to_vec(),
+            })
+        }
+        fn frame(&mut self, _: &[Rgb], _: &mut dyn Hid) -> Result<(), ModuleError> {
+            Ok(())
+        }
+        fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn old_module_hooks_keep_working_with_both_old_and_new_hosts() {
+        for platform in [
+            None,
+            Some(PlatformIdentity {
+                board_name: Some("Fixture Board".into()),
+                ..PlatformIdentity::default()
+            }),
+        ] {
+            let interface = InterfaceInfo {
+                vid: 1,
+                pid: 2,
+                interface: 0,
+                usage_page: 1,
+                usage: 2,
+                product: None,
+            };
+            let methods = [
+                Method::Identify {
+                    interface: interface.clone(),
+                    platform: platform.clone(),
+                },
+                Method::Initialize {
+                    interface,
+                    platform,
+                    zones: Some(vec![Zone {
+                        name: "Configured".into(),
+                        leds: 3,
+                    }]),
+                },
+                Method::Shutdown { final_color: None },
+            ];
+            let mut input = Vec::new();
+            for (id, method) in methods.into_iter().enumerate() {
+                serde_json::to_writer(
+                    &mut input,
+                    &Request {
+                        v: MODULE_API,
+                        id: id as u64,
+                        method,
+                    },
+                )
+                .unwrap();
+                input.push(b'\n');
+            }
+            let mut output = Vec::new();
+            serve(&mut Legacy, std::io::Cursor::new(input), &mut output);
+            let replies: Vec<Response> = output
+                .split(|b| *b == b'\n')
+                .filter(|s| !s.is_empty())
+                .map(|s| serde_json::from_slice(s).unwrap())
+                .collect();
+            assert_eq!(replies.len(), 3);
+            assert!(replies.iter().all(|r| r.error.is_none()));
+            let caps: Capabilities =
+                serde_json::from_value(replies[1].result.clone().unwrap()).unwrap();
+            assert_eq!(caps.layout.leds.len(), 3);
+            assert_eq!(caps.zones[0].name, "Configured");
+        }
+    }
 }
