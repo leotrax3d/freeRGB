@@ -1,0 +1,14 @@
+[package]
+name = "freergb-storage-temp"
+description = "Unprivileged NVMe/SATA drive temperatures on Windows (storage query IOCTL)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints.rust]
+# deny, not forbid: kernel32 storage IOCTLs are reached through documented FFI only.
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

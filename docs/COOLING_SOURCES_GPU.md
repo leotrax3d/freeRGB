@@ -19,7 +19,7 @@ Every Celsius reading the daemon caches becomes a curve/custom-sensor input in
 | CPU package/CCD/core | `IsCpuEnabled` (`/amdcpu`, `/intelcpu`) | `k10temp`, `coretemp`, `zenpower` |
 | GPU core/hotspot/memory | `IsGpuEnabled` (`/gpu-nvidia`, `/gpu-amd`, `/gpu-intel`) | `amdgpu`, `nouveau`, `i915`/`xe` |
 | Motherboard | `IsMotherboardEnabled` (`/lpc/<chip>`) | SuperIO/EC drivers |
-| Storage NVMe/SATA | not enabled in the protected reader (blocked the first snapshot on the owner board, 2026-11-05) | `nvme`, `drivetemp` |
+| Storage NVMe/SATA | Not via LHM (blocked fan telemetry, 2026-11-05): own unprivileged reader `storage_temps.rs` / `crates/freergb-storage-temp` (storage-query IOCTL, provider `storage`, ids `/storage/<N>/temperature/0`) | `nvme`, `drivetemp` |
 | Liquid | Corsair iCUE LINK telemetry (device sensors) | same |
 | File | text-file sensors below | same |
 
@@ -65,7 +65,7 @@ Backends:
 |---|---|---|
 | NVIDIA (Windows/Linux) | NVML, runtime-loaded from `%SystemRoot%\System32\nvml.dll` / `libnvidia-ml.so.1` (driver-provided, nothing bundled); FFI isolated in `crates/freergb-gpu-nvml` | Implemented, **not hardware-tested**; setting speed needs admin/root |
 | AMD Linux | `amdgpu` hwmon `pwm1`/`pwm1_enable` through the existing hwmon provider | Covered by `cooling.hwmon.*`; not hardware-tested |
-| AMD Windows | ADLX | **Not implemented** (temperatures only, via LHM) |
+| AMD Windows | ADLX manual fan tuning, runtime-loaded from `%SystemRoot%\System32\amdadlx64.dll` (driver-provided, nothing bundled); FFI isolated in `crates/freergb-gpu-adlx` | Implemented; read-only discovery checked on the owner PC (RX 9060 XT: controllable, minimum 15 %); **control not hardware-tested** |
 | Intel Arc | none | Read-only temperatures |
 
 Safety (same pattern as the motherboard providers):
@@ -78,12 +78,39 @@ Safety (same pattern as the motherboard providers):
 * composite output missing, older than 3 s or fail-safe → 100 %;
 * at most 16 assignments; unknown or non-controllable fans are refused.
 
+### AMD on Windows: ADLX, not LHM
+
+LHM also lists `/gpu-amd/*/control`, but those controls stay read-only in
+freeRGB: the vendor API is the supported path, reports the driver's own
+limits (speed range, zero-RPM) and lets the curve be restored exactly.
+ADLX tunes a fan *curve*, not a raw duty: a duty is written as a flat curve
+(every state at the same speed, temperatures unchanged), clamped to the
+driver's speed range and the 40 % floor. `take_control` captures the current
+curve and zero-RPM state and disables zero RPM while held; `release` restores
+them. After a crash (journal, no capture in the new process) `release` applies
+the driver's default curve (`IADLXManualFanTuning1`) and only without that
+interface `ResetToFactory` for that GPU's tuning. `cargo run -p
+freergb-gpu-adlx --example adlx-discover` lists fans read-only.
+
+### Storage temperatures
+
+Drive temperatures come from `StorageDeviceTemperatureProperty` on
+`\\.\PhysicalDriveN` opened with no access rights (works for every user, no
+LHM). Each poll (5 s) runs on its own thread with a 3 s timeout; a hung
+storage driver only marks the readings stale, never delays a fan snapshot,
+and never starts a second query. Readings older than 15 s have no value, so
+curves using them go to their fail-safe. `cargo run -p freergb-storage-temp
+--example storage-temps` prints them.
+
 Open: NVML is loaded into the daemon (it is part of the driver, not a bundled
 SDK). Writes need elevation, so in normal per-user installs NVIDIA fans list
-but `set` fails with an explanatory error. A protected elevated GPU worker (like
-the motherboard broker) and ADLX remain future work.
+but `set` fails with an explanatory error. ADLX may also need elevation for
+tuning writes on some drivers; such failures surface the same way. A protected
+elevated GPU worker (like the motherboard broker) remains future work.
 
 Tests: `gpu_cooling::tests` (take/set/release, composite fail-safe, write fault,
-pause/drop/crash-journal recovery, refusal), `sensor_sources::tests`,
+pause/drop/crash-journal recovery, refusal), `freergb-gpu-adlx` (range clamp,
+flat curve, vtable sizes, missing runtime), `storage_temps::tests` (hanging
+driver), `freergb-storage-temp` (descriptor parsing), `sensor_sources::tests`,
 `control::tests::file_sensors_feed_curves_and_invalid_files_are_missing`,
 `apps/desktop/src/features/cooling/sourceModel.test.ts`.

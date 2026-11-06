@@ -43,6 +43,17 @@ C2. Text-file sensor: write a number to a file, use it in a curve; stop
 C3. GPU fan (admin): take control, set 40 % and 70 %, compare RPM with the
     NVIDIA app; stop -> driver auto restored; kill the daemon during control ->
     driver auto restored (check with the NVIDIA app / `nvidia-smi` as admin).
+C4. AMD GPU (RX 9060 XT, ADLX; prompt 09): `cooling.gpu.list` shows
+    `adlx:768/fan0` controllable, minimum 15 %; the iGPU is listed as not
+    controllable. Take control, set 40 % and 70 %, compare RPM/fan curve with
+    AMD Software (Performance -> Tuning); stop -> the previous fan curve and
+    zero-RPM setting are back. Kill the daemon during control, restart ->
+    the default fan curve is applied (check AMD Software). Record whether
+    writes need administrator rights.
+C5. Drive temperatures: `monitoring.sensors.list` shows provider `storage`
+    for the NVMe/SATA drives (990 PRO x2, Toshiba HDD) with plausible values;
+    motherboard fan readings keep updating every second meanwhile. Use one
+    drive temperature in a curve.
 
 ### D. Service, profiles, CLI, lifecycle (~45 min, reboots) — [COOLING_SERVICE.md](../../COOLING_SERVICE.md) "Owner hardware steps"
 D1 login-mode baseline · D2 service mode boot without login · D3 profile

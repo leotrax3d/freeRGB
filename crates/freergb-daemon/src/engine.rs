@@ -138,6 +138,8 @@ pub struct Engine {
     pub mainboard: crate::mainboard::MainboardProvider,
     /// Linux kernel hwmon fan headers (not started on other platforms).
     pub hwmon: crate::hwmon::HwmonProvider,
+    /// Unprivileged drive temperatures, apart from the fan reader.
+    pub storage_temps: crate::storage_temps::StorageTemps,
     /// GPU fans (NVML); started only with hardware access.
     pub gpu: crate::gpu_cooling::GpuCooling,
     pub cooling_plugins: crate::cooling_plugins::CoolingPlugins,
@@ -329,6 +331,7 @@ impl Engine {
             controls: Default::default(),
             mainboard: Default::default(),
             hwmon: Default::default(),
+            storage_temps: Default::default(),
             gpu: Default::default(),
             cooling_plugins: Default::default(),
             cooling_sessions: Default::default(),
@@ -993,6 +996,7 @@ impl Engine {
                 .sensors()
                 .into_iter()
                 .chain(self.hwmon.sensors())
+                .chain(self.storage_temps.sensors())
                 .chain(self.cooling_plugins.sensors())
             {
                 devices.as_array_mut().unwrap().push(serde_json::json!({
@@ -1693,6 +1697,7 @@ impl Engine {
     pub fn monitoring_sensors(&self) -> Vec<crate::mainboard::SensorEntry> {
         let mut entries = self.mainboard.sensors();
         entries.extend(self.hwmon.sensors());
+        entries.extend(self.storage_temps.sensors());
         entries.extend(self.cooling_plugins.sensors());
         for device in self.devices() {
             for mut sensor in device.sensors {
