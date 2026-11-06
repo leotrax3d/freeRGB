@@ -102,8 +102,10 @@ real family end-to-end** as proof.
 A1–A3 are small (low/medium effort). A4–A7 are larger; give each its own worker.
 
 ## Phase B — port the remaining families
-Start as soon as the API a family needs is merged; families that need no new
-API can start immediately alongside phase A.
+Start as soon as the API a family needs is merged. **Families that need no new
+API (simple Direct-mode table ports) are not part of this run** — they belong to
+`docs/promts/herdr-openrgb-simple-ports.md`, a separate grunt-work run. Skip
+them here; this run only ports families that depend on A1–A7.
 1. Coordinator builds the backlog from `docs/openrgb-compatibility.json`: every
    `not-implemented` family, tagged with the API feature it needs (A1–A7 or
    "none"). Helper (opencode/beam) may draft the tagging; coordinator checks it.
@@ -121,8 +123,8 @@ API can start immediately alongside phase A.
 ## Coordinator loop
 1. `git pull` on main, read the docs above, write `target/coordinator-plan.md`
    (workstreams, file ownership, order).
-2. Create worktrees + briefs, spawn up to 4 implementers (A1, A2, A3 + one
-   "no new API" port first; then A4–A7 as slots free).
+2. Create worktrees + briefs, spawn up to 4 implementers (A1, A2, A3, A4
+   first; then A5–A7 as slots free).
 3. On each report: read the diff, run the full gate yourself on E:, have a
    Sonnet reviewer check larger PRs (read-only), merge, regenerate the matrix,
    kill + remove the worker, start the next item.
