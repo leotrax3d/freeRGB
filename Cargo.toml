@@ -48,6 +48,7 @@ members = [
     "modules/msi-monitor72",
     "modules/asus-aura-mouse",
     "modules/roccat-elo",
+    "modules/roccat-horde-aimo",
     "modules/hyperx-mouse",
     "modules/areson",
     "modules/annepro2",

@@ -193,6 +193,10 @@ jobs:
             node scripts/openrgb/port-roccat-elo-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-roccat-elo
             git diff --exit-code -- modules/roccat-elo/src/devices_table.rs
+          elif [ "$MODULE" = "roccat-horde-aimo" ]; then
+            node scripts/openrgb/port-roccat-horde-aimo-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-roccat-horde-aimo
+            git diff --exit-code -- modules/roccat-horde-aimo/src/devices_table.rs
           elif [ "$MODULE" = "hyperx-mouse" ]; then
             node scripts/openrgb/port-hyperx-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-hyperx-mouse
