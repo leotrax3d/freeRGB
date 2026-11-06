@@ -2457,6 +2457,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-roccat-kone-aimo"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-roccat-kone-pro"
 version = "0.1.0"
 dependencies = [

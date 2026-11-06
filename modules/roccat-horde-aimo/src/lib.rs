@@ -43,18 +43,26 @@ impl Module for H {
         h.send_feature(&report::init()).map_err(err)?;
         self.active = true;
         Ok(Capabilities {
-            name: table::identify(i).model.unwrap_or_else(|| "Roccat Horde Aimo".into()),
+            name: table::identify(i)
+                .model
+                .unwrap_or_else(|| "Roccat Horde Aimo".into()),
             kind: DeviceKind::Keyboard,
             layout: LedLayout {
                 width: report::LED_COUNT as u16,
                 height: 1,
                 leds: (0..report::LED_COUNT)
-                    .map(|n| Led { name: format!("LED {}", n + 1), pos: (n as u16, 0) })
+                    .map(|n| Led {
+                        name: format!("LED {}", n + 1),
+                        pos: (n as u16, 0),
+                    })
                     .collect(),
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![freergb_module_api::Zone { name: "Keyboard".into(), leds: report::LED_COUNT }],
+            zones: vec![freergb_module_api::Zone {
+                name: "Keyboard".into(),
+                leds: report::LED_COUNT,
+            }],
         })
     }
 
@@ -65,8 +73,9 @@ impl Module for H {
         // upstream: RGBController_RoccatHordeAimo.cpp DeviceUpdateLEDs() ->
         // SetColors: 24-byte feature write, then the 3-byte feature read
         h.send_feature(&report::set_colors(c)).map_err(err)?;
-        let mut r = [0u8; 3];
-        h.get_feature(&mut r, 3).map_err(err)?;
+        let r = [0u8; 3];
+        h.get_feature(&r, 3).map_err(err)?;
+
         Ok(())
     }
 

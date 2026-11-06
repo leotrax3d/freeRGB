@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use freergb_core::Rgb;
 use freergb_module_api::sdk::{Hid, Module};
-use freergb_module_api::{ErrorCode, InterfaceInfo, ModuleError};
+use freergb_module_api::{InterfaceInfo, ModuleError};
 
 #[test]
 fn inventory_is_complete() {
@@ -53,9 +53,21 @@ fn init_and_set_colors_are_byte_exact() {
         Rgb { r: 1, g: 2, b: 3 },
         Rgb { r: 4, g: 5, b: 6 },
         Rgb { r: 7, g: 8, b: 9 },
-        Rgb { r: 10, g: 11, b: 12 },
-        Rgb { r: 13, g: 14, b: 15 },
-        Rgb { r: 16, g: 17, b: 18 },
+        Rgb {
+            r: 10,
+            g: 11,
+            b: 12,
+        },
+        Rgb {
+            r: 13,
+            g: 14,
+            b: 15,
+        },
+        Rgb {
+            r: 16,
+            g: 17,
+            b: 18,
+        },
     ];
     let p = crate::report::set_colors(&colors);
     assert_eq!(p.len(), 24);
@@ -64,7 +76,10 @@ fn init_and_set_colors_are_byte_exact() {
     // crc is the (u32) sum of bytes 0..21; only the low two bytes are
     // written, so test the full accumulator truncation.
     let expected: u32 = p[..22].iter().map(|b| u32::from(*b)).sum();
-    assert_eq!(u32::from(p[22]) + (u32::from(p[23]) << 8), expected & 0xFFFF);
+    assert_eq!(
+        u32::from(p[22]) + (u32::from(p[23]) << 8),
+        expected & 0xFFFF
+    );
 }
 
 #[test]
@@ -77,8 +92,8 @@ fn initialize_frame_shutdown_sequence_is_byte_exact() {
     // one init feature report
     assert_eq!(h.features.len(), 1);
     assert_eq!(&h.features[0][..3], &[0x13, 0x08, 0x01],);
-    let colors = vec![Rgb { r: 1, g: 0, b: 0 }, Rgb { r: 0, g: 2, b: 0 }];
-    colors.iter().for_each(|_| {});
+    let colors = [Rgb { r: 1, g: 0, b: 0 }, Rgb { r: 0, g: 2, b: 0 }];
+    let _ = &colors;
     let mut six = vec![Rgb { r: 0, g: 0, b: 0 }; 6];
     six[0].r = 1;
     six[1].g = 2;
