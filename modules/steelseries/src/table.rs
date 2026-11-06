@@ -60,10 +60,51 @@ pub enum Proto {
     },
     /// Old Apex driver: upstream SteelSeriesOldApexController (0x1202/0x1206)
     OldApex,
+    /// Apex keyboard Direct path: upstream SteelSeriesApexController. The SKU/
+    /// region plumbing affects only the UI matrix; byte output is fixed by the
+    /// 112-scancode table and the packet length/packet id.
+    Apex {
+        wireless: bool,
+        direct_len: usize,
+        packet_id: u8,
+        init: bool,
+    },
+    /// Apex M750: upstream SteelSeriesApexMController (513-byte report)
+    ApexM,
 }
-/// Maps an upstream detector callback (REGISTER_HID_DETECTOR_* entry in
-/// SteelSeriesControllerDetect.cpp) to its ported protocol.
-/// upstream: SteelSeriesControllerDetect.cpp lines 489-509 (Rival handlers)
+pub fn proto_for(handler: &str, pid: u16) -> Option<Proto> {
+    if handler == "DetectSteelSeriesApex" {
+        let direct_len = if pid == 0x1634 || pid == 0x1620 {
+            513
+        } else {
+            643
+        };
+        let wireless = matches!(pid, 0x1630 | 0x1632 | 0x1644 | 0x1646);
+        let modern = matches!(
+            pid,
+            0x1634 | 0x1620 | 0x1628 | 0x1630 | 0x1632 | 0x1642 | 0x1644 | 0x1646
+        );
+        let packet_id = if modern {
+            if wireless {
+                0x61
+            } else {
+                0x40
+            }
+        } else {
+            0x3A
+        };
+        return Some(Proto::Apex {
+            wireless,
+            direct_len,
+            packet_id,
+            init: modern,
+        });
+    }
+    if handler == "DetectSteelSeriesApexM" {
+        return Some(Proto::ApexM);
+    }
+    proto_of_handler(handler)
+}
 pub fn proto_of_handler(handler: &str) -> Option<Proto> {
     match handler {
         "DetectSteelSeriesRival100" => Some(Proto::Rival100),
@@ -156,7 +197,7 @@ pub fn detector(i: &InterfaceInfo) -> Option<&'static Detector> {
 }
 pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = detector(i);
-    let ported = d.and_then(|d| proto_of_handler(d.handler));
+    let ported = d.and_then(|d| proto_for(d.handler, d.pid));
     if let (Some(d), Some(_)) = (d, ported) {
         return Identification {
             supported: true,

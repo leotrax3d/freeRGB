@@ -79,17 +79,6 @@ fn inventory_is_complete() {
     assert_eq!(crate::devices_table::DETECTORS.len(), 76)
 }
 #[test]
-fn inventoried_devices_are_not_claimed_before_protocol_port() {
-    // Apex rows are inventoried but not ported
-    let d = crate::devices_table::DETECTORS
-        .iter()
-        .find(|d| d.handler == "DetectSteelSeriesApex")
-        .unwrap();
-    let result = crate::table::identify(&iface(d.pid));
-    assert!(!result.supported);
-    assert!(result.reason.unwrap().contains("protocol is not ported"));
-}
-#[test]
 fn rival100_full_sequence_is_byte_exact() {
     let mut m = module_for("rival100");
     let mut h = Fake::new();
@@ -803,13 +792,4 @@ fn unsupported_pid_is_rejected() {
     let mut h = Fake::new();
     assert!(m.initialize(&iface(0x9999), &mut h).is_err());
     assert!(m.initialize(&iface(0x1234), &mut h).is_err());
-}
-#[test]
-fn unsupported_handler_cannot_initialize_even_if_row_exists() {
-    let mut m = crate::SteelSeries::default();
-    let mut h = Fake::new();
-    // Apex Pro is inventoried but its protocol is not ported
-    let i = iface(pid_of("Apex Pro"));
-    assert!(m.initialize(&i, &mut h).is_err());
-    assert!(h.writes.is_empty() && h.features.is_empty());
 }

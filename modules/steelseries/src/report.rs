@@ -67,6 +67,7 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         Proto::Apex3 { .. } => Vec::new(),
         // Old Apex has only its single 33-byte blast; no effect packets
         Proto::OldApex => Vec::new(),
+        Proto::Apex { .. } | Proto::ApexM => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -99,6 +100,7 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         Proto::ArctisNova3 => Vec::new(),
         // Old Apex route through oldapex_set_color() in lib.rs frame()
         Proto::OldApex => Vec::new(),
+        Proto::Apex { .. } | Proto::ApexM => Vec::new(),
         // Aerox 3 uses aerox3_set_color(); handled in lib.rs frame()
         Proto::Aerox3 => Vec::new(),
         // Aerox 5 uses aerox5_set_color(); handled in lib.rs frame()
@@ -633,6 +635,74 @@ pub fn apex3_8zone_set_brightness(brightness: u8) -> Vec<u8> {
 pub const APEX3_LED_NAMES: [&str; 10] = [
     "LED 0", "LED 1", "LED 2", "LED 3", "LED 4", "LED 5", "LED 6", "LED 7", "LED 8", "LED 9",
 ];
+/// upstream: SteelSeriesApexController.cpp keys[] scancode table.
+pub const APEX_KEYS: [u8; 112] = [
+    0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13,
+    0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23,
+    0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x32, 0x33, 0x34,
+    0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40, 0x41, 0x42, 0x43, 0x44,
+    0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x64, 0xE0,
+    0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xF0, 0x31, 0x87, 0x88, 0x89, 0x8A, 0x8B, 0x53, 0x54,
+    0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0xFB,
+];
+
+pub fn apex_init() -> Vec<u8> {
+    let mut p = vec![0u8; 65];
+    p[1] = 0x4B;
+    p
+}
+
+pub fn apex_direct(colors: &[freergb_core::Rgb], direct_len: usize, packet_id: u8) -> Vec<u8> {
+    let mut buf = vec![0u8; direct_len];
+    buf[1] = packet_id;
+    let num_keys = colors.len().min(112).min((direct_len - 3) / 4);
+    buf[2] = num_keys as u8;
+    for i in 0..num_keys {
+        let b = i * 4 + 3;
+        if b + 3 >= buf.len() {
+            break;
+        }
+        buf[b] = APEX_KEYS[i];
+        buf[b + 1] = colors[i].r;
+        buf[b + 2] = colors[i].g;
+        buf[b + 3] = colors[i].b;
+    }
+    buf
+}
+
+pub fn apex_m_enable() -> Vec<Vec<u8>> {
+    let mut first = vec![0u8; 513];
+    first[4] = 0x01;
+    first[6] = 0x85;
+    let mut second = vec![0u8; 513];
+    second[4] = 0x03;
+    second[5] = 0x01;
+    second[7] = 0xFF;
+    vec![first.clone(), second, first]
+}
+
+pub fn apex_m_direct(colors: &[freergb_core::Rgb]) -> Vec<u8> {
+    let mut buf = vec![0u8; 513];
+    buf[4] = 0x8E;
+    buf[5] = 0x01;
+    buf[6] = 0x03;
+    buf[7] = 0x06;
+    buf[8] = 0x16;
+    for i in 0..132 {
+        if i >= colors.len() {
+            break;
+        }
+        let b = 9 + i * 3;
+        if b + 2 >= buf.len() {
+            break;
+        }
+        buf[b] = colors[i].r;
+        buf[b + 1] = colors[i].g;
+        buf[b + 2] = colors[i].b;
+    }
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
