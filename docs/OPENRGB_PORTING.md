@@ -207,6 +207,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `AMDWraithPrismController` | ported | `a99a4bb` | 1 | Direct mode fully ported: 17 LEDs (Logo, Fan, Ring×15), enable/apply plus two color packets (2+15 LEDs) with hardware ID ordering; effects, firmware read, Save and brightness parameters omitted. |
 | `HyperXMicrophoneV2Controller` | ported | `2b2774d` | 1 | Direct mode fully ported: 108-LED 12x9 matrix, 64-byte header + 6 color packets (20 LEDs, final 8), 108 report bytes firm. Save/keepalive omitted. |
 | `CreativeController` (XG6) | ported | `a454574` | 1 | Direct mode fully ported: single Logo LED, three 64-byte output reports with report ID 0, color order BGR at bytes 10-12, fixed brightness 0xFF. Effects and Save omitted. |
+| `NZXTHue1Controller` | ported | `ef4094e` | 1 | Direct mode fully ported: init `01 5C` + start-reporting `01 5D`, 21-byte status read (firmware 0x0B/0x0E, accessory 0x10>>3, count 0x11; strip 10 / fan 8 LEDs per device), fixed-mode two-packet frames `02 4B ..` / `03 ..` with GRB colors split at 20. Upstream blocking read loop fails closed; >40-LED layouts rejected (upstream color_data buffer limit). Effect modes omitted. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
@@ -289,7 +290,7 @@ their commit hashes.
 ### Remaining candidates (all "complex", need dedicated handling)
 Simpler single-detector Direct-mode families are exhausted. What is left:
 - TurtleBeachKP7Controller - keepalive thread (omit the thread, port the pages) + EnterDirect init
-- NZXTHue1Controller - init reads + color-index packet structure
+- (done) NZXTHue1Controller - ported as modules/nzxt-hue1
 - ZalmanZSyncController - 30 byte reports plus state machine
 - MSIMonitorController - version query and 168-byte 0x72 double-block layout
 - MSI3Zone remaining, OKSController/OKSKeyboard - multi-zone direct with byte-exact mapping
