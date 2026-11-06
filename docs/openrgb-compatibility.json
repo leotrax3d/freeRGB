@@ -73,10 +73,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "0cf2:5130",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:acer-nitro-hid-keyboard",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Dell G Series LED Controller",
@@ -161,10 +161,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "2516:0051",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:amd-wraith-prism",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Anne Pro 2",
@@ -249,10 +249,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "3938:1179",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:aoc-mouse",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "AOC AGON AMM700",
@@ -260,10 +260,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "3938:1162",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:aoc-mousemat",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Arctic RGB controller",
@@ -1481,7 +1481,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "0b05:1891",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mousemat",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1492,7 +1492,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "0b05:1890",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mousemat",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1536,7 +1536,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1a1a",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1547,7 +1547,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1a18",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1701,7 +1701,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1a72",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1712,7 +1712,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1a70",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1767,7 +1767,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1a68",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1778,7 +1778,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1a66",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1811,7 +1811,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "0b05:19b9",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-monitor",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1899,7 +1899,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1979",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1910,7 +1910,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1979",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -1921,7 +1921,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1977",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -2075,7 +2075,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "0b05:1a88",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-mouse",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -2251,7 +2251,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "0b05:1919",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-monitor",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -2295,7 +2295,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "0b05:1968",
-   "implementation": "module:asus-aura-usb",
+   "implementation": "module:asus-aura-monitor",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -2867,10 +2867,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "048d:7001",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:clevo-lightbar",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "iGame GeForce RTX 3060 Advanced OC 12G L-V",
@@ -4154,7 +4154,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "1b1c:1ba1",
-   "implementation": "module:corsair-peripheral",
+   "implementation": "module:corsair-k55-pro-xt",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -4176,7 +4176,7 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_I",
    "ids": "1b1c:1baf",
-   "implementation": "module:corsair-peripheral",
+   "implementation": "module:corsair-k65-mini",
    "status": "implemented",
    "functions": "direct colour",
    "evidence": "simulated tests"
@@ -4704,10 +4704,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "1b1c:2b01",
-   "implementation": "module:corsair-peripheral-v2",
-   "status": "implemented",
-   "functions": "direct colour",
-   "evidence": "simulated tests"
+   "implementation": "",
+   "status": "not-implemented",
+   "functions": "",
+   "evidence": ""
   },
   {
    "name": "Corsair K70 RGB PRO",
@@ -4979,10 +4979,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_I",
    "ids": "041e:3256",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:creative-soundblaster-xg6",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Crucial Ballistix",
@@ -5001,10 +5001,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR",
    "ids": "1e71:1712",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:cryorig-h7-quad-lumi",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Dark Project KD3B V2",
@@ -5012,10 +5012,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "195d:2061",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:dark-project",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Das Keyboard Q4 RGB",
@@ -5089,10 +5089,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR",
    "ids": "1d34:0004",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:dream-cheeky",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Airgoo AG-DRGB04",
@@ -9126,10 +9126,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "3537:100f",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:gamesir",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "GameSir Nova 2 Lite (Wireless)",
@@ -9137,10 +9137,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "3537:1098",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:gamesir",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Gigabyte AORUS ATC800",
@@ -9203,10 +9203,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "1044:7a40",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:gigabyte-aorus-mouse",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Gigabyte AORUS C300 GLASS",
@@ -11810,10 +11810,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR",
    "ids": "103c:84fd",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:hp-omen-30l",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "HP Omen 4-Zone Laptop Keyboard",
@@ -12074,10 +12074,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "03f0:02b5",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:hyperx-microphone-v2",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "HyperX Pulsefire Core",
@@ -12360,10 +12360,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "2516:01b5",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:intel-arc-a770-le",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Ionico Keyboard",
@@ -12371,10 +12371,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "048d:ce00",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:ionico",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Ionico Light Bar",
@@ -12481,10 +12481,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR",
    "ids": "0e6f:0241",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:lego-dimensions-toypad",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Lenovo 5 2020",
@@ -12756,10 +12756,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "17ef:c955",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:lenovo-motherboard-led",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Np93 ALPHA - Gaming Mouse",
@@ -12767,10 +12767,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "04d8:fd0a",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:lexip-mouse",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "LG 27GN950-B Monitor",
@@ -13493,10 +13493,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR",
    "ids": "06a3:0dc5",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:madcatz-cyborg",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "MANLI GeForce RTX 4090 Gallardo",
@@ -13548,10 +13548,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "3282:0001",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:mountain-keyboard",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Mountain Everest 60",
@@ -13559,10 +13559,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "3282:0005",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:mountain-keyboard",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Mountain Everest 60",
@@ -13570,10 +13570,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "3282:0006",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:mountain-keyboard",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "MSI 3-Zone Laptop",
@@ -13581,10 +13581,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR",
    "ids": "1770:ff00",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:msi-3-zone",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "MSI Clutch GM11 controller",
@@ -15121,10 +15121,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "1462:3fa4",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:msi-monitor72",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "MSI Mystic Light Common",
@@ -16496,10 +16496,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "1462:3fa4",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:msi-monitor72",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "MSI-RGB",
@@ -16529,10 +16529,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "4e53:5406",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:n5312a",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Nanoleaf",
@@ -16727,10 +16727,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "0955:000a",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:nvidia-esa",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Nvidia NvAPI Illumination",
@@ -16749,10 +16749,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR",
    "ids": "1e71:1714",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:nzxt-hue1",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "NZXT B650E Motherboard",
@@ -17024,10 +17024,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "1e71:2100",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:nzxt-mouse",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "OKS Optical Axis RGB",
@@ -17706,10 +17706,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "0c45:7e18",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:patriot-viper-mouse",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "PATRIOT_CONTROLLER_NAME",
@@ -21270,10 +21270,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "8089:0007",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:sayo-device",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Seagate Firecuda HDD",
@@ -21413,10 +21413,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "1a86:e316",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:skydimo-hid",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Skydimo Serial",
@@ -22370,10 +22370,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "04d9:fc05",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:tecknet",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "T-Force Xtreem DDR4 DRAM",
@@ -22392,10 +22392,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IP",
    "ids": "264a:3006",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:thermaltake-poseidon-z-rgb",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Thermaltake Riing (PID 0x1FA5)",
@@ -22964,10 +22964,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_PU",
    "ids": "27b8:01ed",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:thingm-blink",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Thrustmaster Sol",
@@ -23008,10 +23008,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_I",
    "ids": "10f5:503a",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:turtle-beach-kp7",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Valkyrie VK99",
@@ -23261,10 +23261,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR_IPU",
    "ids": "125f:9418",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:xpg-summoner-keyboard",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "Yeelight",
@@ -23283,10 +23283,10 @@
    "transport": "USB HID",
    "macro": "REGISTER_HID_DETECTOR",
    "ids": "1c57:7ed0",
-   "implementation": "",
-   "status": "not-implemented",
-   "functions": "",
-   "evidence": ""
+   "implementation": "module:zalman-z-sync",
+   "status": "implemented",
+   "functions": "direct colour",
+   "evidence": "simulated tests"
   },
   {
    "name": "ZET Blade Optical",

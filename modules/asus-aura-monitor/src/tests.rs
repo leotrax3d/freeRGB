@@ -7,13 +7,18 @@ use freergb_module_api::{InterfaceInfo, ModuleError};
 fn inventory_is_complete() {
     let dets = crate::devices_table::DETECTORS;
     assert_eq!(dets.len(), 3);
-    assert!(dets.iter().all(|d| d.vid == 0x0b05 && d.usage_page == 0xffa0));
+    assert!(dets
+        .iter()
+        .all(|d| d.vid == 0x0b05 && d.usage_page == 0xffa0));
     let pids: Vec<u16> = dets.iter().map(|d| d.pid).collect();
     assert!(pids.contains(&0x1919) && pids.contains(&0x1968) && pids.contains(&0x19b9));
 }
 
 fn info_for(pid: u16) -> InterfaceInfo {
-    let d = crate::devices_table::DETECTORS.iter().find(|d| d.pid == pid).unwrap();
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.pid == pid)
+        .unwrap();
     InterfaceInfo {
         vid: d.vid,
         pid: d.pid,
@@ -29,10 +34,19 @@ struct Fake {
     features: Vec<Vec<u8>>,
 }
 impl Hid for Fake {
-    fn write(&mut self, _: &[u8]) -> Result<usize, ModuleError> { unreachable!() }
-    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> { unreachable!() }
-    fn send_feature(&mut self, b: &[u8]) -> Result<usize, ModuleError> { self.features.push(b.to_vec()); Ok(b.len()) }
-    fn get_feature(&mut self, b: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> { Ok(b.to_vec()) }
+    fn write(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        unreachable!()
+    }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+    fn send_feature(&mut self, b: &[u8]) -> Result<usize, ModuleError> {
+        self.features.push(b.to_vec());
+        Ok(b.len())
+    }
+    fn get_feature(&mut self, b: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
+        Ok(b.to_vec())
+    }
 }
 
 #[test]
@@ -51,7 +65,10 @@ fn offset_and_begin_behavior_match_upstream() {
     assert_eq!(&led0[2][..6], &[0x03, 0x02, 0xa1, 0x80, 18, 2]);
     let led0 = crate::report::update_led(0x1919, 0, Rgb { r: 1, g: 2, b: 3 });
     assert_eq!(&led0[0][4..6], &[0, 1]);
-    assert_eq!(crate::report::apply(), &[0x03, 0x02, 0xa1, 0x80, 0xa0, 0x01, 0, 0]);
+    assert_eq!(
+        crate::report::apply(),
+        &[0x03, 0x02, 0xa1, 0x80, 0xa0, 0x01, 0, 0]
+    );
 }
 
 #[test]
@@ -62,7 +79,11 @@ fn initialize_frame_shutdown_sequence_is_byte_exact() {
     assert_eq!(caps.layout.leds.len(), 3);
     assert_eq!(caps.name, "ASUS ROG PG32UQ");
     // DeviceUpdateLEDs calls BeginUpdate(2), per-led(3*3), ApplyChanges
-    let colors = vec![Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }, Rgb { r: 7, g: 8, b: 9 }];
+    let colors = vec![
+        Rgb { r: 1, g: 2, b: 3 },
+        Rgb { r: 4, g: 5, b: 6 },
+        Rgb { r: 7, g: 8, b: 9 },
+    ];
     m.frame(&colors, &mut h).unwrap();
     // 2 + 9 + 1 = 12 feature reports
     assert_eq!(h.features.len(), 12);

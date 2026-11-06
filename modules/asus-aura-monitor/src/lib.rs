@@ -49,11 +49,19 @@ impl Module for M {
             layout: LedLayout {
                 width: 3,
                 height: 1,
-                leds: (0..3).map(|n| Led { name: format!("Backlight LED {}", n + 1), pos: (n as u16, 0) }).collect(),
+                leds: (0..3)
+                    .map(|n| Led {
+                        name: format!("Backlight LED {}", n + 1),
+                        pos: (n as u16, 0),
+                    })
+                    .collect(),
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![freergb_module_api::Zone { name: "Backlight".into(), leds: 3 }],
+            zones: vec![freergb_module_api::Zone {
+                name: "Backlight".into(),
+                leds: 3,
+            }],
         })
     }
 

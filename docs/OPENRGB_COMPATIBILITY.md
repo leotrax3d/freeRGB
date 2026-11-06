@@ -10,7 +10,7 @@ Status meanings: **hardware-verified** = user-confirmed on real hardware (see DE
 have no static IDs.
 
 Total: **2142** device entries in **197** families —
-hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
+hardware-verified: 2, implemented: 1084, blocked: 1, not-implemented: 1055.
 
 ## By transport
 
@@ -19,7 +19,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | I2C/PCI (GPU) | 903 | 0 | 0 | 0 | 903 |
 | SMBus DRAM | 7 | 0 | 0 | 0 | 7 |
 | SMBus/I2C | 9 | 0 | 0 | 1 | 8 |
-| USB HID | 1175 | 2 | 1046 | 0 | 127 |
+| USB HID | 1175 | 2 | 1084 | 0 | 89 |
 | USB serial | 7 | 0 | 0 | 0 | 7 |
 | other (network/serial/OS) | 41 | 0 | 0 | 0 | 41 |
 
@@ -28,30 +28,30 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Family | Transport | Entries | Verified | Implemented | Blocked | Not implemented | freeRGB implementation |
 |---|---|---:|---:|---:|---:|---:|---|
 | `A4TechController` | USB HID | 6 | 0 | 6 | 0 | 0 | module:a4tech |
-| `AcerNitroHidKeyboardController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `AcerNitroHidKeyboardController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:acer-nitro-hid-keyboard |
 | `AlienwareController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
 | `AlienwareKeyboardController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
 | `AlienwareMonitorController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
 | `AMBXController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
-| `AMDWraithPrismController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `AMDWraithPrismController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:amd-wraith-prism |
 | `AnnePro2Controller` | USB HID | 5 | 0 | 5 | 0 | 0 | module:annepro2 |
 | `AOCKeyboardController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
-| `AOCMouseController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
-| `AOCMousematController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `AOCMouseController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:aoc-mouse |
+| `AOCMousematController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:aoc-mousemat |
 | `ArcticController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `AresonController` | USB HID | 6 | 0 | 6 | 0 | 0 | module:areson |
 | `ASRockPolychromeUSBController` | USB HID | 2 | 0 | 2 | 0 | 0 | native:asrock-polychrome |
 | `ASRockSMBusController` | SMBus/I2C, I2C/PCI (GPU) | 8 | 0 | 0 | 0 | 8 | — |
 | `AsusAuraCoreController` | USB HID | 5 | 0 | 5 | 0 | 0 | module:asus-aura-core |
 | `AsusAuraGPUController` | I2C/PCI (GPU) | 74 | 0 | 0 | 0 | 74 | — |
-| `AsusAuraUSBController` | USB HID | 101 | 0 | 101 | 0 | 0 | module:asus-aura-usb, native:asus-aura |
+| `AsusAuraUSBController` | USB HID | 101 | 0 | 101 | 0 | 0 | module:asus-aura-usb, native:asus-aura, module:asus-aura-mousemat, module:asus-aura-mouse, module:asus-aura-monitor |
 | `AsusLegacyUSBController` | USB HID | 3 | 0 | 3 | 0 | 0 | module:asus-legacy-usb |
 | `AsusMonitorController` | USB HID | 7 | 0 | 7 | 0 | 0 | module:asus-monitor |
 | `AsusTUFLaptopController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `BlinkyTapeController` | USB serial | 1 | 0 | 0 | 0 | 1 | — |
 | `CherryKeyboardController` | USB HID | 25 | 0 | 25 | 0 | 0 | module:cherry |
 | `ClevoKeyboardController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
-| `ClevoLightbarController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `ClevoLightbarController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:clevo-lightbar |
 | `ColorfulGPUController` | I2C/PCI (GPU) | 40 | 0 | 0 | 0 | 40 | — |
 | `ColorfulTuringGPUController` | I2C/PCI (GPU) | 2 | 0 | 0 | 0 | 2 | — |
 | `CoolerMasterController` | USB HID | 37 | 0 | 37 | 0 | 0 | module:coolermaster |
@@ -62,19 +62,19 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | `CorsairHydroPlatinumController` | USB HID | 13 | 0 | 13 | 0 | 0 | module:corsair-hydro-platinum |
 | `CorsairICueLinkController` | USB HID | 1 | 1 | 0 | 0 | 0 | native:icue-link |
 | `CorsairLightingNodeController` | USB HID | 7 | 0 | 7 | 0 | 0 | module:corsair-lighting-node |
-| `CorsairPeripheralController` | USB HID | 39 | 0 | 39 | 0 | 0 | module:corsair-peripheral |
-| `CorsairPeripheralV2Controller` | USB HID | 38 | 1 | 37 | 0 | 0 | module:corsair-peripheral-v2, native:bragi |
+| `CorsairPeripheralController` | USB HID | 39 | 0 | 39 | 0 | 0 | module:corsair-peripheral, module:corsair-k55-pro-xt, module:corsair-k65-mini |
+| `CorsairPeripheralV2Controller` | USB HID | 38 | 1 | 36 | 0 | 1 | module:corsair-peripheral-v2, native:bragi |
 | `CorsairVengeanceController` | SMBus DRAM | 1 | 0 | 0 | 0 | 1 | — |
 | `CougarController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
-| `CreativeController` | other (network/serial/OS), USB HID | 2 | 0 | 0 | 0 | 2 | — |
+| `CreativeController` | other (network/serial/OS), USB HID | 2 | 0 | 1 | 0 | 1 | module:creative-soundblaster-xg6 |
 | `CrucialController` | SMBus/I2C | 1 | 0 | 0 | 0 | 1 | — |
-| `CryorigH7QuadLumiController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
-| `DarkProject` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `CryorigH7QuadLumiController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:cryorig-h7-quad-lumi |
+| `DarkProject` | USB HID | 1 | 0 | 1 | 0 | 0 | module:dark-project |
 | `DasKeyboardController` | USB HID | 3 | 0 | 3 | 0 | 0 | module:das-keyboard |
 | `DDPController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `DebugController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `DMXController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
-| `DreamCheekyController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `DreamCheekyController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:dream-cheeky |
 | `DRGBController` | USB HID | 33 | 0 | 33 | 0 | 0 | module:drgb |
 | `DuckyKeyboardController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
 | `DygmaRaiseController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
@@ -98,10 +98,10 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | `FrameworkDesktopController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `GaiZongGaiKeyboardController` | USB HID | 9 | 0 | 9 | 0 | 0 | module:gaizonggai |
 | `GalaxGPUController` | I2C/PCI (GPU) | 10 | 0 | 0 | 0 | 10 | — |
-| `GameSirController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
+| `GameSirController` | USB HID | 2 | 0 | 2 | 0 | 0 | module:gamesir |
 | `GigabyteAorusCPUCoolerController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `GigabyteAorusLaptopController` | USB HID | 4 | 0 | 4 | 0 | 0 | module:gigabyte-aorus-laptop |
-| `GigabyteAorusMouseController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `GigabyteAorusMouseController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:gigabyte-aorus-mouse |
 | `GigabyteAorusPCCaseController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `GigabyteCastor3Controller` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `GigabyteRGBFusion2BlackwellGPUController` | I2C/PCI (GPU) | 32 | 0 | 0 | 0 | 32 | — |
@@ -115,20 +115,20 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | `GoveeController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `HIDLampArrayController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `HoltekController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
-| `HPOmen30LController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `HPOmen30LController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:hp-omen-30l |
 | `HPOmenLaptopController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `HyperXDRAMController` | SMBus DRAM | 1 | 0 | 0 | 0 | 1 | — |
 | `HyperXKeyboardController` | USB HID | 13 | 0 | 13 | 0 | 0 | module:hyperx-keyboard |
 | `HyperXMicrophoneController` | USB HID | 8 | 0 | 0 | 0 | 8 | — |
-| `HyperXMicrophoneV2Controller` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `HyperXMicrophoneV2Controller` | USB HID | 1 | 0 | 1 | 0 | 0 | module:hyperx-microphone-v2 |
 | `HyperXMouseController` | USB HID | 12 | 0 | 12 | 0 | 0 | module:hyperx-mouse |
 | `HyperXMousematController` | USB HID | 3 | 0 | 0 | 0 | 3 | — |
 | `HYTEKeyboardController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `HYTEMousematController` | USB serial, other (network/serial/OS) | 3 | 0 | 0 | 0 | 3 | — |
 | `HYTENexusController` | USB serial | 2 | 0 | 0 | 0 | 2 | — |
 | `InstantMouseController` | USB HID | 4 | 0 | 4 | 0 | 0 | module:instant-mouse |
-| `IntelArcA770LEController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
-| `IonicoController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
+| `IntelArcA770LEController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:intel-arc-a770-le |
+| `IonicoController` | USB HID | 2 | 0 | 1 | 0 | 1 | module:ionico |
 | `JGINYUEInternalUSBController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `JGINYUEInternalUSBV2Controller` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `KasaSmartController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
@@ -136,10 +136,10 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | `KingstonFuryDRAMController` | SMBus DRAM | 2 | 0 | 0 | 0 | 2 | — |
 | `LaviewTechnologyController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `LEDStripController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
-| `LegoDimensionsToypadBaseController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `LegoDimensionsToypadBaseController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:lego-dimensions-toypad |
 | `LenovoControllers` | USB HID | 24 | 0 | 24 | 0 | 0 | module:lenovo |
-| `LenovoMotherboardController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
-| `LexipMouseController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `LenovoMotherboardController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:lenovo-motherboard-led |
+| `LexipMouseController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:lexip-mouse |
 | `LGMonitorController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `LianLiController` | USB HID, other (network/serial/OS) | 12 | 0 | 9 | 0 | 3 | module:lianli |
 | `LIFXController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
@@ -147,35 +147,35 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | `LinuxLEDController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `LogitechController` | USB HID | 48 | 0 | 47 | 0 | 1 | module:logitech |
 | `LuxaforController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:luxafor |
-| `MadCatzCyborgController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `MadCatzCyborgController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:madcatz-cyborg |
 | `ManliGPUController` | I2C/PCI (GPU) | 1 | 0 | 0 | 0 | 1 | — |
 | `MintakaKeyboardController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `MNTKeyboardController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
-| `MountainKeyboardController` | USB HID | 3 | 0 | 0 | 0 | 3 | — |
-| `MSI3ZoneController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `MountainKeyboardController` | USB HID | 3 | 0 | 3 | 0 | 0 | module:mountain-keyboard |
+| `MSI3ZoneController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:msi-3-zone |
 | `MSIClutchController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `MSIGPUController` | I2C/PCI (GPU) | 130 | 0 | 0 | 0 | 130 | — |
 | `MSIKeyboardController` | USB HID | 4 | 0 | 4 | 0 | 0 | module:msi-keyboard |
 | `MSILaptopController` | USB HID | 4 | 0 | 4 | 0 | 0 | module:msi-laptop |
-| `MSIMonitorController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `MSIMonitorController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:msi-monitor72 |
 | `MSIMotherboardController` | USB HID | 124 | 0 | 124 | 0 | 0 | module:msi-motherboard |
-| `MSIOptixController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `MSIOptixController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:msi-monitor72 |
 | `MSIRGBController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `MSIVigorController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
-| `N5312AController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `N5312AController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:n5312a |
 | `NanoleafController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `NollieController` | USB HID | 16 | 0 | 16 | 0 | 0 | module:nollie |
-| `NvidiaESAController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `NvidiaESAController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:nvidia-esa |
 | `NVIDIAIlluminationController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
-| `NZXTHue1Controller` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `NZXTHue1Controller` | USB HID | 1 | 0 | 1 | 0 | 0 | module:nzxt-hue1 |
 | `NZXTHue2Controller` | USB HID | 21 | 0 | 21 | 0 | 0 | module:nzxt-hue2 |
 | `NZXTHuePlusController` | USB serial | 1 | 0 | 0 | 0 | 1 | — |
 | `NZXTKrakenController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
-| `NZXTMouseController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `NZXTMouseController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:nzxt-mouse |
 | `OKSController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `PalitGPUController` | I2C/PCI (GPU) | 59 | 0 | 0 | 0 | 59 | — |
 | `PatriotViperController` | SMBus DRAM | 1 | 0 | 0 | 0 | 1 | — |
-| `PatriotViperMouseController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `PatriotViperMouseController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:patriot-viper-mouse |
 | `PatriotViperSteelController` | SMBus DRAM | 1 | 0 | 0 | 0 | 1 | — |
 | `PhilipsHueController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `PhilipsWizController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
@@ -192,24 +192,24 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | `RoccatController` | USB HID | 28 | 0 | 28 | 0 | 0 | module:roccat |
 | `RoyuanKeyboardController` | USB HID | 5 | 0 | 5 | 0 | 0 | module:royuan-keyboard |
 | `SapphireGPUController` | I2C/PCI (GPU) | 33 | 0 | 0 | 0 | 33 | — |
-| `SayoDeviceController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `SayoDeviceController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:sayo-device |
 | `SeagateController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `SinowealthController` | USB HID | 11 | 0 | 11 | 0 | 0 | module:sinowealth |
-| `SkydimoHIDController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `SkydimoHIDController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:skydimo-hid |
 | `SkydimoSerialController` | USB serial | 1 | 0 | 0 | 0 | 1 | — |
 | `SkyloongController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `SonyGamepadController` | USB HID | 5 | 0 | 5 | 0 | 0 | module:sony-gamepad |
 | `SRGBmodsController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
 | `SteelSeriesController` | USB HID | 76 | 0 | 76 | 0 | 0 | module:steelseries |
 | `StreamDeckController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
-| `TecknetController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `TecknetController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:tecknet |
 | `TForceXtreemController` | SMBus DRAM | 1 | 0 | 0 | 0 | 1 | — |
-| `ThermaltakePoseidonZRGBController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `ThermaltakePoseidonZRGBController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:thermaltake-poseidon-z-rgb |
 | `ThermaltakeRiingController` | USB HID | 51 | 0 | 51 | 0 | 0 | module:thermaltake-riing |
-| `ThingMController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `ThingMController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:thingm-blink |
 | `ThrustmasterSolController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `TrustController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
-| `TurtleBeachKP7Controller` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `TurtleBeachKP7Controller` | USB HID | 1 | 0 | 1 | 0 | 0 | module:turtle-beach-kp7 |
 | `ValkyrieKeyboardController` | USB HID | 2 | 0 | 0 | 0 | 2 | — |
 | `ValveSteamMachineController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
 | `ViewSonicController` | USB HID | 3 | 0 | 0 | 0 | 3 | — |
@@ -217,9 +217,9 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | `WitmodKeyboardController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `WootingKeyboardController` | USB HID | 13 | 0 | 0 | 0 | 13 | — |
 | `WushiController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
-| `XPGSummonerKeyboardController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `XPGSummonerKeyboardController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:xpg-summoner-keyboard |
 | `YeelightController` | other (network/serial/OS) | 1 | 0 | 0 | 0 | 1 | — |
-| `ZalmanZSyncController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
+| `ZalmanZSyncController` | USB HID | 1 | 0 | 1 | 0 | 0 | module:zalman-z-sync |
 | `ZETKeyboardController` | USB HID | 1 | 0 | 0 | 0 | 1 | — |
 | `ZotacBlackwellGPUController` | I2C/PCI (GPU) | 3 | 0 | 0 | 0 | 3 | — |
 | `ZotacTuringGPUController` | I2C/PCI (GPU) | 4 | 0 | 0 | 0 | 4 | — |
@@ -235,7 +235,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Bloody W70 Max | `A4TechController` | USB HID | 09da:79ef | module:a4tech | direct colour | implemented |
 | Bloody W90 Max | `A4TechController` | USB HID | 09da:3666 | module:a4tech | direct colour | implemented |
 | Bloody W90 Pro | `A4TechController` | USB HID | 09da:39b6 | module:a4tech | direct colour | implemented |
-| AcerNitroHidKeyboardController | `AcerNitroHidKeyboardController` | USB HID | 0cf2:5130 | — | — | not-implemented |
+| AcerNitroHidKeyboardController | `AcerNitroHidKeyboardController` | USB HID | 0cf2:5130 | module:acer-nitro-hid-keyboard | direct colour | implemented |
 | Dell G Series LED Controller | `AlienwareController` | USB HID | 187c:0550 | — | — | not-implemented |
 | Dell G Series LED Controller | `AlienwareController` | USB HID | 187c:0551 | — | — | not-implemented |
 | Alienware AW410K | `AlienwareKeyboardController` | USB HID | 04f2:1968 | — | — | not-implemented |
@@ -243,7 +243,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Alienware AW3225QF | `AlienwareMonitorController` | USB HID | 187c:1013 | — | — | not-implemented |
 | Alienware AW3423DWF | `AlienwareMonitorController` | USB HID | 187c:100e | — | — | not-implemented |
 | Philips amBX | `AMBXController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
-| AMD Wraith Prism | `AMDWraithPrismController` | USB HID | 2516:0051 | — | — | not-implemented |
+| AMD Wraith Prism | `AMDWraithPrismController` | USB HID | 2516:0051 | module:amd-wraith-prism | direct colour | implemented |
 | Anne Pro 2 | `AnnePro2Controller` | USB HID | 04d9:8008 | module:annepro2 | direct colour | implemented |
 | Anne Pro 2 | `AnnePro2Controller` | USB HID | 04d9:8009 | module:annepro2 | direct colour | implemented |
 | Anne Pro 2 | `AnnePro2Controller` | USB HID | 04d9:a292 | module:annepro2 | direct colour | implemented |
@@ -251,8 +251,8 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Anne Pro 2 | `AnnePro2Controller` | USB HID | 3311:a297 | module:annepro2 | direct colour | implemented |
 | AOC GK500 | `AOCKeyboardController` | USB HID | 3938:1178 | — | — | not-implemented |
 | AOC GK500 | `AOCKeyboardController` | USB HID | 3938:1229 | — | — | not-implemented |
-| AOC GM500 | `AOCMouseController` | USB HID | 3938:1179 | — | — | not-implemented |
-| AOC AGON AMM700 | `AOCMousematController` | USB HID | 3938:1162 | — | — | not-implemented |
+| AOC GM500 | `AOCMouseController` | USB HID | 3938:1179 | module:aoc-mouse | direct colour | implemented |
+| AOC AGON AMM700 | `AOCMousematController` | USB HID | 3938:1162 | module:aoc-mousemat | direct colour | implemented |
 | Arctic RGB controller | `ArcticController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | Redragon M914 NIX | `AresonController` | USB HID | 25a7:fa7b | module:areson | direct colour | implemented |
 | Redragon M914 NIX (Wireless) | `AresonController` | USB HID | 25a7:fa7c | module:areson | direct colour | implemented |
@@ -363,13 +363,13 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | ASUS ROG AURA Terminal | `AsusAuraUSBController` | USB HID | 0b05:1889 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Azoth 2.4GHz | `AsusAuraUSBController` | USB HID | 0b05:1a85 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Azoth USB | `AsusAuraUSBController` | USB HID | 0b05:1a83 | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Balteus | `AsusAuraUSBController` | USB HID | 0b05:1891 | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Balteus Qi | `AsusAuraUSBController` | USB HID | 0b05:1890 | module:asus-aura-usb | direct colour | implemented |
+| ASUS ROG Balteus | `AsusAuraUSBController` | USB HID | 0b05:1891 | module:asus-aura-mousemat | direct colour | implemented |
+| ASUS ROG Balteus Qi | `AsusAuraUSBController` | USB HID | 0b05:1890 | module:asus-aura-mousemat | direct colour | implemented |
 | Asus ROG Chakram (Wired) | `AsusAuraUSBController` | USB HID | 0b05:18e3 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Chakram (Wireless) | `AsusAuraUSBController` | USB HID | 0b05:18e5 | module:asus-aura-usb | direct colour | implemented |
 | Asus ROG Chakram Core | `AsusAuraUSBController` | USB HID | 0b05:1958 | module:asus-aura-usb | direct colour | implemented |
-| Asus ROG Chakram X 2.4GHz | `AsusAuraUSBController` | USB HID | 0b05:1a1a | module:asus-aura-usb | direct colour | implemented |
-| Asus ROG Chakram X USB | `AsusAuraUSBController` | USB HID | 0b05:1a18 | module:asus-aura-usb | direct colour | implemented |
+| Asus ROG Chakram X 2.4GHz | `AsusAuraUSBController` | USB HID | 0b05:1a1a | module:asus-aura-mouse | direct colour | implemented |
+| Asus ROG Chakram X USB | `AsusAuraUSBController` | USB HID | 0b05:1a18 | module:asus-aura-mouse | direct colour | implemented |
 | ASUS ROG Claymore | `AsusAuraUSBController` | USB HID | 0b05:184d | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Falchion (Wired) | `AsusAuraUSBController` | USB HID | 0b05:193c | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Falchion (Wireless) | `AsusAuraUSBController` | USB HID | 0b05:193e | module:asus-aura-usb | direct colour | implemented |
@@ -383,17 +383,17 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | ASUS ROG Gladius III | `AsusAuraUSBController` | USB HID | 0b05:197b | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Gladius III Core | `AsusAuraUSBController` | USB HID | 0b05:1c8d | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Gladius III Wireless 2.4Ghz | `AsusAuraUSBController` | USB HID | 0b05:197f | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Gladius III Wireless AimPoint 2.4Ghz | `AsusAuraUSBController` | USB HID | 0b05:1a72 | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Gladius III Wireless AimPoint USB | `AsusAuraUSBController` | USB HID | 0b05:1a70 | module:asus-aura-usb | direct colour | implemented |
+| ASUS ROG Gladius III Wireless AimPoint 2.4Ghz | `AsusAuraUSBController` | USB HID | 0b05:1a72 | module:asus-aura-mouse | direct colour | implemented |
+| ASUS ROG Gladius III Wireless AimPoint USB | `AsusAuraUSBController` | USB HID | 0b05:1a70 | module:asus-aura-mouse | direct colour | implemented |
 | ASUS ROG Gladius III Wireless Bluetooth | `AsusAuraUSBController` | USB HID | 0b05:1981 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Gladius III Wireless USB | `AsusAuraUSBController` | USB HID | 0b05:197d | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Keris | `AsusAuraUSBController` | USB HID | 0b05:195c | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Keris Wireless 2.4Ghz | `AsusAuraUSBController` | USB HID | 0b05:1960 | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Keris Wireless AimPoint 2.4Ghz | `AsusAuraUSBController` | USB HID | 0b05:1a68 | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Keris Wireless AimPoint USB | `AsusAuraUSBController` | USB HID | 0b05:1a66 | module:asus-aura-usb | direct colour | implemented |
+| ASUS ROG Keris Wireless AimPoint 2.4Ghz | `AsusAuraUSBController` | USB HID | 0b05:1a68 | module:asus-aura-mouse | direct colour | implemented |
+| ASUS ROG Keris Wireless AimPoint USB | `AsusAuraUSBController` | USB HID | 0b05:1a66 | module:asus-aura-mouse | direct colour | implemented |
 | ASUS ROG Keris Wireless Bluetooth | `AsusAuraUSBController` | USB HID | 0b05:1962 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Keris Wireless USB | `AsusAuraUSBController` | USB HID | 0b05:195e | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG PG32UQ | `AsusAuraUSBController` | USB HID | 0b05:19b9 | module:asus-aura-usb | direct colour | implemented |
+| ASUS ROG PG32UQ | `AsusAuraUSBController` | USB HID | 0b05:19b9 | module:asus-aura-monitor | direct colour | implemented |
 | ASUS ROG Pugio | `AsusAuraUSBController` | USB HID | 0b05:1846 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Pugio II (Wired) | `AsusAuraUSBController` | USB HID | 0b05:1906 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Pugio II (Wireless) | `AsusAuraUSBController` | USB HID | 0b05:1908 | module:asus-aura-usb | direct colour | implemented |
@@ -401,9 +401,9 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | ASUS ROG Ryuo AIO | `AsusAuraUSBController` | USB HID | 0b05:1887 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Spatha Wired | `AsusAuraUSBController` | USB HID | 0b05:181c | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Spatha Wireless | `AsusAuraUSBController` | USB HID | 0b05:1824 | module:asus-aura-usb | direct colour | implemented |
-| Asus ROG Spatha X 2.4GHz | `AsusAuraUSBController` | USB HID | 0b05:1979 | module:asus-aura-usb | direct colour | implemented |
-| Asus ROG Spatha X Dock | `AsusAuraUSBController` | USB HID | 0b05:1979 | module:asus-aura-usb | direct colour | implemented |
-| Asus ROG Spatha X USB | `AsusAuraUSBController` | USB HID | 0b05:1977 | module:asus-aura-usb | direct colour | implemented |
+| Asus ROG Spatha X 2.4GHz | `AsusAuraUSBController` | USB HID | 0b05:1979 | module:asus-aura-mouse | direct colour | implemented |
+| Asus ROG Spatha X Dock | `AsusAuraUSBController` | USB HID | 0b05:1979 | module:asus-aura-mouse | direct colour | implemented |
+| Asus ROG Spatha X USB | `AsusAuraUSBController` | USB HID | 0b05:1977 | module:asus-aura-mouse | direct colour | implemented |
 | ASUS ROG Strix Evolve | `AsusAuraUSBController` | USB HID | 0b05:185b | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix Flare | `AsusAuraUSBController` | USB HID | 0b05:1875 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix Flare CoD Black Ops 4 Edition | `AsusAuraUSBController` | USB HID | 0b05:18af | module:asus-aura-usb | direct colour | implemented |
@@ -417,7 +417,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | ASUS ROG Strix Impact II Moonlight White | `AsusAuraUSBController` | USB HID | 0b05:19d2 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix Impact II Wireless 2.4 Ghz | `AsusAuraUSBController` | USB HID | 0b05:1949 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix Impact II Wireless USB | `AsusAuraUSBController` | USB HID | 0b05:1947 | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Strix Impact III | `AsusAuraUSBController` | USB HID | 0b05:1a88 | module:asus-aura-usb | direct colour | implemented |
+| ASUS ROG Strix Impact III | `AsusAuraUSBController` | USB HID | 0b05:1a88 | module:asus-aura-mouse | direct colour | implemented |
 | ASUS ROG Strix LC | `AsusAuraUSBController` | USB HID | 0b05:879e | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix LC III | `AsusAuraUSBController` | USB HID | 0b05:1b29 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix Scope | `AsusAuraUSBController` | USB HID | 0b05:18f8 | module:asus-aura-usb | direct colour | implemented |
@@ -433,11 +433,11 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | ASUS ROG Strix Scope RX TKL Wireless Deluxe | `AsusAuraUSBController` | USB HID | 0b05:1a05 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix Scope TKL | `AsusAuraUSBController` | USB HID | 0b05:190c | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix Scope TKL PNK LTD | `AsusAuraUSBController` | USB HID | 0b05:1954 | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Strix XG279Q | `AsusAuraUSBController` | USB HID | 0b05:1919 | module:asus-aura-usb | direct colour | implemented |
+| ASUS ROG Strix XG279Q | `AsusAuraUSBController` | USB HID | 0b05:1919 | module:asus-aura-monitor | direct colour | implemented |
 | ASUS ROG Strix XG27AQ | `AsusAuraUSBController` | USB HID | 0b05:198c | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix XG27AQM | `AsusAuraUSBController` | USB HID | 0b05:19bb | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Strix XG27W | `AsusAuraUSBController` | USB HID | 0b05:1933 | module:asus-aura-usb | direct colour | implemented |
-| ASUS ROG Strix XG32VC | `AsusAuraUSBController` | USB HID | 0b05:1968 | module:asus-aura-usb | direct colour | implemented |
+| ASUS ROG Strix XG32VC | `AsusAuraUSBController` | USB HID | 0b05:1968 | module:asus-aura-monitor | direct colour | implemented |
 | ASUS ROG Throne | `AsusAuraUSBController` | USB HID | 0b05:18d9 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Throne QI | `AsusAuraUSBController` | USB HID | 0b05:18c5 | module:asus-aura-usb | direct colour | implemented |
 | ASUS ROG Throne QI GUNDAM | `AsusAuraUSBController` | USB HID | 0b05:1994 | module:asus-aura-usb | direct colour | implemented |
@@ -489,7 +489,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Cherry Keyboard MX BOARD 8.0 TKL RGB | `CherryKeyboardController` | USB HID | 046a:00b7 | module:cherry | direct colour | implemented |
 | Clevo Keyboard (ITE 8291) | `ClevoKeyboardController` | USB HID | 048d:600b | — | — | not-implemented |
 | Clevo Keyboard (ITE 829x) | `ClevoKeyboardController` | USB HID | 048d:8910 | — | — | not-implemented |
-| CLEVO Lightbar | `ClevoLightbarController` | USB HID | 048d:7001 | — | — | not-implemented |
+| CLEVO Lightbar | `ClevoLightbarController` | USB HID | 048d:7001 | module:clevo-lightbar | direct colour | implemented |
 | iGame GeForce RTX 3060 Advanced OC 12G L-V | `ColorfulGPUController` | I2C/PCI (GPU) | 10de:2504:7377:140a | — | — | not-implemented |
 | iGame GeForce RTX 3060 Ti Advanced OC-V | `ColorfulGPUController` | I2C/PCI (GPU) | 10de:2489:7377:140a | — | — | not-implemented |
 | iGame GeForce RTX 3060 Ti Advanced OC-V | `ColorfulGPUController` | I2C/PCI (GPU) | 10de:2489:7377:1401 | — | — | not-implemented |
@@ -606,9 +606,9 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Corsair Harpoon RGB PRO | `CorsairPeripheralController` | USB HID | 1b1c:1b75 | module:corsair-peripheral | direct colour | implemented |
 | Corsair Ironclaw RGB | `CorsairPeripheralController` | USB HID | 1b1c:1b5d | module:corsair-peripheral | direct colour | implemented |
 | Corsair K55 RGB | `CorsairPeripheralController` | USB HID | 1b1c:1b3d | module:corsair-peripheral | direct colour | implemented |
-| Corsair K55 RGB PRO XT | `CorsairPeripheralController` | USB HID | 1b1c:1ba1 | module:corsair-peripheral | direct colour | implemented |
+| Corsair K55 RGB PRO XT | `CorsairPeripheralController` | USB HID | 1b1c:1ba1 | module:corsair-k55-pro-xt | direct colour | implemented |
 | Corsair K65 LUX RGB | `CorsairPeripheralController` | USB HID | 1b1c:1b37 | module:corsair-peripheral | direct colour | implemented |
-| Corsair K65 Mini | `CorsairPeripheralController` | USB HID | 1b1c:1baf | module:corsair-peripheral | direct colour | implemented |
+| Corsair K65 Mini | `CorsairPeripheralController` | USB HID | 1b1c:1baf | module:corsair-k65-mini | direct colour | implemented |
 | Corsair K65 RGB | `CorsairPeripheralController` | USB HID | 1b1c:1b17 | module:corsair-peripheral | direct colour | implemented |
 | Corsair K65 RGB RAPIDFIRE | `CorsairPeripheralController` | USB HID | 1b1c:1b39 | module:corsair-peripheral | direct colour | implemented |
 | Corsair K68 RED | `CorsairPeripheralController` | USB HID | 1b1c:1b3f | module:corsair-peripheral | direct colour | implemented |
@@ -656,7 +656,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Corsair K60 RGB PRO TKL Black | `CorsairPeripheralV2Controller` | USB HID | 1b1c:1bc7 | module:corsair-peripheral-v2 | direct colour | implemented |
 | Corsair K60 RGB PRO TKL White | `CorsairPeripheralV2Controller` | USB HID | 1b1c:1bed | module:corsair-peripheral-v2 | direct colour | implemented |
 | Corsair K70 Core RGB | `CorsairPeripheralV2Controller` | USB HID | 1b1c:1bfd | native:bragi | direct colour, per-key, hardware mode restore | hardware-verified |
-| Corsair K70 Core RGB TKL | `CorsairPeripheralV2Controller` | USB HID | 1b1c:2b01 | module:corsair-peripheral-v2 | direct colour | implemented |
+| Corsair K70 Core RGB TKL | `CorsairPeripheralV2Controller` | USB HID | 1b1c:2b01 | — | — | not-implemented |
 | Corsair K70 RGB PRO | `CorsairPeripheralV2Controller` | USB HID | 1b1c:1bc4 | module:corsair-peripheral-v2 | direct colour | implemented |
 | Corsair K70 RGB PRO V2 | `CorsairPeripheralV2Controller` | USB HID | 1b1c:1bb3 | module:corsair-peripheral-v2 | direct colour | implemented |
 | Corsair K70 RGB TKL | `CorsairPeripheralV2Controller` | USB HID | 1b1c:1b73 | module:corsair-peripheral-v2 | direct colour | implemented |
@@ -681,17 +681,17 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Cougar 700K EVO Gaming Keyboard | `CougarController` | USB HID | 060b:7010 | — | — | not-implemented |
 | Cougar Revenger ST | `CougarController` | USB HID | 12cf:0412 | — | — | not-implemented |
 | Creative SoundBlaster AE-5 | `CreativeController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
-| Creative SoundBlasterX G6 | `CreativeController` | USB HID | 041e:3256 | — | — | not-implemented |
+| Creative SoundBlasterX G6 | `CreativeController` | USB HID | 041e:3256 | module:creative-soundblaster-xg6 | direct colour | implemented |
 | Crucial Ballistix | `CrucialController` | SMBus/I2C | dynamic | — | — | not-implemented |
-| CRYORIG H7 Quad Lumi | `CryorigH7QuadLumiController` | USB HID | 1e71:1712 | — | — | not-implemented |
-| Dark Project KD3B V2 | `DarkProject` | USB HID | 195d:2061 | — | — | not-implemented |
+| CRYORIG H7 Quad Lumi | `CryorigH7QuadLumiController` | USB HID | 1e71:1712 | module:cryorig-h7-quad-lumi | direct colour | implemented |
+| Dark Project KD3B V2 | `DarkProject` | USB HID | 195d:2061 | module:dark-project | direct colour | implemented |
 | Das Keyboard Q4 RGB | `DasKeyboardController` | USB HID | 24f0:2037 | module:das-keyboard | direct colour | implemented |
 | Das Keyboard Q5 RGB | `DasKeyboardController` | USB HID | 24f0:2020 | module:das-keyboard | direct colour | implemented |
 | Das Keyboard Q5S RGB | `DasKeyboardController` | USB HID | 24f0:209a | module:das-keyboard | direct colour | implemented |
 | DDP | `DDPController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | Debug Controllers | `DebugController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | DMX | `DMXController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
-| Dream Cheeky Webmail Notifier | `DreamCheekyController` | USB HID | 1d34:0004 | — | — | not-implemented |
+| Dream Cheeky Webmail Notifier | `DreamCheekyController` | USB HID | 1d34:0004 | module:dream-cheeky | direct colour | implemented |
 | Airgoo AG-DRGB04 | `DRGBController` | USB HID | 2486:3204 | module:drgb | direct colour | implemented |
 | Airgoo AG-DRGB08 | `DRGBController` | USB HID | 2486:3f08 | module:drgb | direct colour | implemented |
 | Airgoo AG-DRGB16 | `DRGBController` | USB HID | 2486:3216 | module:drgb | direct colour | implemented |
@@ -1058,14 +1058,14 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | KFA2 GeForce RTX 2080 SUPER EX OC | `GalaxGPUController` | I2C/PCI (GPU) | 10de:1e81:10de:13a1 | — | — | not-implemented |
 | KFA2 GeForce RTX 2080 Ti EX OC | `GalaxGPUController` | I2C/PCI (GPU) | 10de:1e04:10de:1323 | — | — | not-implemented |
 | KFA2 GeForce RTX 4080 SG 1-Click OC | `GalaxGPUController` | I2C/PCI (GPU) | 10de:2704:10de:1795 | — | — | not-implemented |
-| GameSir Nova 2 Lite | `GameSirController` | USB HID | 3537:100f | — | — | not-implemented |
-| GameSir Nova 2 Lite (Wireless) | `GameSirController` | USB HID | 3537:1098 | — | — | not-implemented |
+| GameSir Nova 2 Lite | `GameSirController` | USB HID | 3537:100f | module:gamesir | direct colour | implemented |
+| GameSir Nova 2 Lite (Wireless) | `GameSirController` | USB HID | 3537:1098 | module:gamesir | direct colour | implemented |
 | Gigabyte AORUS ATC800 | `GigabyteAorusCPUCoolerController` | USB HID | 1044:7a42 | — | — | not-implemented |
 | Gigabyte Aorus 15BKF Backlight | `GigabyteAorusLaptopController` | USB HID | 0414:7a44 | module:gigabyte-aorus-laptop | direct colour | implemented |
 | Gigabyte Aorus 15BKF Keyboard | `GigabyteAorusLaptopController` | USB HID | 0414:7a43 | module:gigabyte-aorus-laptop | direct colour | implemented |
 | Gigabyte Aorus 17X Backlight | `GigabyteAorusLaptopController` | USB HID | 0414:7a42 | module:gigabyte-aorus-laptop | direct colour | implemented |
 | Gigabyte Aorus 17X Keyboard | `GigabyteAorusLaptopController` | USB HID | 0414:7a3f | module:gigabyte-aorus-laptop | direct colour | implemented |
-| Gigabyte Aorus M2 | `GigabyteAorusMouseController` | USB HID | 1044:7a40 | — | — | not-implemented |
+| Gigabyte Aorus M2 | `GigabyteAorusMouseController` | USB HID | 1044:7a40 | module:gigabyte-aorus-mouse | direct colour | implemented |
 | Gigabyte AORUS C300 GLASS | `GigabyteAorusPCCaseController` | USB HID | 1044:7a30 | — | — | not-implemented |
 | Gigabyte Aorus Waterforce X II 360 | `GigabyteCastor3Controller` | USB HID | 0414:7a5e | — | — | not-implemented |
 | Gigabyte AORUS GeForce RTX 5080 MASTER | `GigabyteRGBFusion2BlackwellGPUController` | I2C/PCI (GPU) | 10de:2c02:1458:4178 | — | — | not-implemented |
@@ -1302,7 +1302,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | HID LampArray Device | `HIDLampArrayController` | USB HID | 0059:0001 | — | — | not-implemented |
 | Holtek Mousemat | `HoltekController` | USB HID | 04d9:a1fa | — | — | not-implemented |
 | Holtek USB Gaming Mouse | `HoltekController` | USB HID | 04d9:a070 | — | — | not-implemented |
-| HP Omen 30L | `HPOmen30LController` | USB HID | 103c:84fd | — | — | not-implemented |
+| HP Omen 30L | `HPOmen30LController` | USB HID | 103c:84fd | module:hp-omen-30l | direct colour | implemented |
 | HP Omen 4-Zone Laptop Keyboard | `HPOmenLaptopController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | HyperX DRAM | `HyperXDRAMController` | SMBus DRAM | dynamic | — | — | not-implemented |
 | HyperX Alloy Elite 2 | `HyperXKeyboardController` | USB HID | 0951:1711 | module:hyperx-keyboard | direct colour | implemented |
@@ -1326,7 +1326,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | HyperX Quadcast S | `HyperXMicrophoneController` | USB HID | 03f0:028c | — | — | not-implemented |
 | HyperX Quadcast S | `HyperXMicrophoneController` | USB HID | 03f0:048c | — | — | not-implemented |
 | HyperX Quadcast S | `HyperXMicrophoneController` | USB HID | 03f0:0d8b | — | — | not-implemented |
-| HyperX QuadCast 2 S | `HyperXMicrophoneV2Controller` | USB HID | 03f0:02b5 | — | — | not-implemented |
+| HyperX QuadCast 2 S | `HyperXMicrophoneV2Controller` | USB HID | 03f0:02b5 | module:hyperx-microphone-v2 | direct colour | implemented |
 | HyperX Pulsefire Core | `HyperXMouseController` | USB HID | 0951:16de | module:hyperx-mouse | direct colour | implemented |
 | HyperX Pulsefire Core (HP) | `HyperXMouseController` | USB HID | 03f0:0d8f | module:hyperx-mouse | direct colour | implemented |
 | HyperX Pulsefire Dart (Wired) | `HyperXMouseController` | USB HID | 0951:16e2 | module:hyperx-mouse | direct colour | implemented |
@@ -1352,8 +1352,8 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Anko KM43243952 USB Gaming Mouse | `InstantMouseController` | USB HID | 30fa:1440 | module:instant-mouse | direct colour | implemented |
 | Anko KM43277483 USB Gaming Mouse | `InstantMouseController` | USB HID | 30fa:1540 | module:instant-mouse | direct colour | implemented |
 | AntEsports GM600 USB Gaming Mouse | `InstantMouseController` | USB HID | 30fa:1040 | module:instant-mouse | direct colour | implemented |
-| Intel Arc A770 Limited Edition | `IntelArcA770LEController` | USB HID | 2516:01b5 | — | — | not-implemented |
-| Ionico Keyboard | `IonicoController` | USB HID | 048d:ce00 | — | — | not-implemented |
+| Intel Arc A770 Limited Edition | `IntelArcA770LEController` | USB HID | 2516:01b5 | module:intel-arc-a770-le | direct colour | implemented |
+| Ionico Keyboard | `IonicoController` | USB HID | 048d:ce00 | module:ionico | direct colour | implemented |
 | Ionico Light Bar | `IonicoController` | USB HID | 048d:6005 | — | — | not-implemented |
 | JGINYUE Internal USB Controller | `JGINYUEInternalUSBController` | USB HID | 0416:a125 | — | — | not-implemented |
 | JGINYUE Internal USB ControllerV2 | `JGINYUEInternalUSBV2Controller` | USB HID | 1a86:e30b | — | — | not-implemented |
@@ -1363,7 +1363,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Kingston Fury DDR5 DRAM | `KingstonFuryDRAMController` | SMBus DRAM | dynamic | — | — | not-implemented |
 | Glorious Model I | `LaviewTechnologyController` | USB HID | 22d4:1503 | — | — | not-implemented |
 | LED Strip | `LEDStripController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
-| Lego Dimensions Toypad Base | `LegoDimensionsToypadBaseController` | USB HID | 0e6f:0241 | — | — | not-implemented |
+| Lego Dimensions Toypad Base | `LegoDimensionsToypadBaseController` | USB HID | 0e6f:0241 | module:lego-dimensions-toypad | direct colour | implemented |
 | Lenovo 5 2020 | `LenovoControllers` | USB HID | 048d:c955 | module:lenovo | direct colour | implemented |
 | Lenovo 5 2021 | `LenovoControllers` | USB HID | 048d:c965 | module:lenovo | direct colour | implemented |
 | Lenovo 5 2021 Ideapad | `LenovoControllers` | USB HID | 048d:c963 | module:lenovo | direct colour | implemented |
@@ -1388,8 +1388,8 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Lenovo Legion K510 Mini Pro | `LenovoControllers` | USB HID | 17ef:619a | module:lenovo | direct colour | implemented |
 | Lenovo Legion M300 | `LenovoControllers` | USB HID | 17ef:60e4 | module:lenovo | direct colour | implemented |
 | Lenovo Legion Y740 | `LenovoControllers` | USB HID | 048d:c935 | module:lenovo | direct colour | implemented |
-| Lenovo | `LenovoMotherboardController` | USB HID | 17ef:c955 | — | — | not-implemented |
-| Np93 ALPHA - Gaming Mouse | `LexipMouseController` | USB HID | 04d8:fd0a | — | — | not-implemented |
+| Lenovo | `LenovoMotherboardController` | USB HID | 17ef:c955 | module:lenovo-motherboard-led | direct colour | implemented |
+| Np93 ALPHA - Gaming Mouse | `LexipMouseController` | USB HID | 04d8:fd0a | module:lexip-mouse | direct colour | implemented |
 | LG 27GN950-B Monitor | `LGMonitorController` | USB HID | 043e:9a8a | — | — | not-implemented |
 | Lian Li GA II Trinity | `LianLiController` | USB HID | 0416:7373 | module:lianli | direct colour | implemented |
 | Lian Li GA II Trinity Performance | `LianLiController` | USB HID | 0416:7371 | module:lianli | direct colour | implemented |
@@ -1455,15 +1455,15 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Logitech X56 Rhino Hotas Joystick | `LogitechController` | USB HID | 0738:2221 | module:logitech | direct colour | implemented |
 | Logitech X56 Rhino Hotas Throttle | `LogitechController` | USB HID | 0738:a221 | module:logitech | direct colour | implemented |
 | Luxafor Flag | `LuxaforController` | USB HID | 04d8:f372 | module:luxafor | direct colour | implemented |
-| MadCatz Cyborg Gaming Light | `MadCatzCyborgController` | USB HID | 06a3:0dc5 | — | — | not-implemented |
+| MadCatz Cyborg Gaming Light | `MadCatzCyborgController` | USB HID | 06a3:0dc5 | module:madcatz-cyborg | direct colour | implemented |
 | MANLI GeForce RTX 4090 Gallardo | `ManliGPUController` | I2C/PCI (GPU) | 10de:2684:10de:167c | — | — | not-implemented |
 | VSG Mintaka | `MintakaKeyboardController` | USB HID | 05ac:0256 | — | — | not-implemented |
 | MNT Pocket Reform Keyboard | `MNTKeyboardController` | USB HID | 1209:6d06 | — | — | not-implemented |
 | MNT Reform Keyboard | `MNTKeyboardController` | USB HID | 1209:6d02 | — | — | not-implemented |
-| Mountain Everest | `MountainKeyboardController` | USB HID | 3282:0001 | — | — | not-implemented |
-| Mountain Everest 60 | `MountainKeyboardController` | USB HID | 3282:0005 | — | — | not-implemented |
-| Mountain Everest 60 | `MountainKeyboardController` | USB HID | 3282:0006 | — | — | not-implemented |
-| MSI 3-Zone Laptop | `MSI3ZoneController` | USB HID | 1770:ff00 | — | — | not-implemented |
+| Mountain Everest | `MountainKeyboardController` | USB HID | 3282:0001 | module:mountain-keyboard | direct colour | implemented |
+| Mountain Everest 60 | `MountainKeyboardController` | USB HID | 3282:0005 | module:mountain-keyboard | direct colour | implemented |
+| Mountain Everest 60 | `MountainKeyboardController` | USB HID | 3282:0006 | module:mountain-keyboard | direct colour | implemented |
+| MSI 3-Zone Laptop | `MSI3ZoneController` | USB HID | 1770:ff00 | module:msi-3-zone | direct colour | implemented |
 | MSI Clutch GM11 controller | `MSIClutchController` | USB HID | 0db0:0d11 | — | — | not-implemented |
 | MSI GeForce GTX 1070 Gaming X | `MSIGPUController` | I2C/PCI (GPU) | 10de:1b81:1462:3306 | — | — | not-implemented |
 | MSI GeForce GTX 1660 Gaming X | `MSIGPUController` | I2C/PCI (GPU) | 10de:2184:1462:3790 | — | — | not-implemented |
@@ -1603,7 +1603,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | MSI GE68HX Lightbar | `MSILaptopController` | USB HID | 1038:114b | module:msi-laptop | direct colour | implemented |
 | MSI Laptop Keyboard | `MSILaptopController` | USB HID | 1038:1122 | module:msi-laptop | direct colour | implemented |
 | MSI Laptop Lightbar | `MSILaptopController` | USB HID | 1038:1161 | module:msi-laptop | direct colour | implemented |
-| MSI Monitor (Gaming Controller) | `MSIMonitorController` | USB HID | 1462:3fa4 | — | — | not-implemented |
+| MSI Monitor (Gaming Controller) | `MSIMonitorController` | USB HID | 1462:3fa4 | module:msi-monitor72 | direct colour | implemented |
 | MSI Mystic Light Common | `MSIMotherboardController` | USB HID | 0db0:0076 | module:msi-motherboard | direct colour | implemented |
 | MSI Mystic Light MS_1720 | `MSIMotherboardController` | USB HID | 1462:1720 | module:msi-motherboard | direct colour | implemented |
 | MSI Mystic Light MS_3EA4 | `MSIMotherboardController` | USB HID | 1462:3ea4 | module:msi-motherboard | direct colour | implemented |
@@ -1728,10 +1728,10 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | MSI Mystic Light MS_905D | `MSIMotherboardController` | USB HID | 1462:905d | module:msi-motherboard | direct colour | implemented |
 | MSI Mystic Light MS_B926 | `MSIMotherboardController` | USB HID | 1462:b926 | module:msi-motherboard | direct colour | implemented |
 | MSI Mystic Light X870 | `MSIMotherboardController` | USB HID | 0db0:0076 | module:msi-motherboard | direct colour | implemented |
-| MSI Optix controller | `MSIOptixController` | USB HID | 1462:3fa4 | — | — | not-implemented |
+| MSI Optix controller | `MSIOptixController` | USB HID | 1462:3fa4 | module:msi-monitor72 | direct colour | implemented |
 | MSI-RGB | `MSIRGBController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | MSI Vigor GK30 controller | `MSIVigorController` | USB HID | 0db0:0b30 | — | — | not-implemented |
-| N5312A USB Optical Mouse | `N5312AController` | USB HID | 4e53:5406 | — | — | not-implemented |
+| N5312A USB Optical Mouse | `N5312AController` | USB HID | 4e53:5406 | module:n5312a | direct colour | implemented |
 | Nanoleaf | `NanoleafController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | Nollie 1_OS2 | `NollieController` | USB HID | 16d5:1f11 | module:nollie | direct colour | implemented |
 | Nollie 1_OS2_1 | `NollieController` | USB HID | 16d5:2a01 | module:nollie | direct colour | implemented |
@@ -1749,9 +1749,9 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Nollie 8_OS2_1 | `NollieController` | USB HID | 16d5:2a08 | module:nollie | direct colour | implemented |
 | Nollie 8CH | `NollieController` | USB HID | 16d2:1f01 | module:nollie | direct colour | implemented |
 | Prism8 8_OS2_1 | `NollieController` | USB HID | 16d5:2c08 | module:nollie | direct colour | implemented |
-| Nvidia ESA - Dell XPS 730x | `NvidiaESAController` | USB HID | 0955:000a | — | — | not-implemented |
+| Nvidia ESA - Dell XPS 730x | `NvidiaESAController` | USB HID | 0955:000a | module:nvidia-esa | direct colour | implemented |
 | Nvidia NvAPI Illumination | `NVIDIAIlluminationController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
-| NZXT Smart Device V1 | `NZXTHue1Controller` | USB HID | 1e71:1714 | — | — | not-implemented |
+| NZXT Smart Device V1 | `NZXTHue1Controller` | USB HID | 1e71:1714 | module:nzxt-hue1 | direct colour | implemented |
 | NZXT B650E Motherboard | `NZXTHue2Controller` | USB HID | 1e71:201b | module:nzxt-hue2 | direct colour | implemented |
 | NZXT Hue 2 | `NZXTHue2Controller` | USB HID | 1e71:2001 | module:nzxt-hue2 | direct colour | implemented |
 | NZXT Hue 2 Ambient | `NZXTHue2Controller` | USB HID | 1e71:2002 | module:nzxt-hue2 | direct colour | implemented |
@@ -1776,7 +1776,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | NZXT Hue+ | `NZXTHuePlusController` | USB serial | 04d8:00df | — | — | not-implemented |
 | NZXT Kraken M2 | `NZXTKrakenController` | USB HID | 1e71:1715 | — | — | not-implemented |
 | NZXT Kraken X2 | `NZXTKrakenController` | USB HID | 1e71:170e | — | — | not-implemented |
-| NZXT Lift | `NZXTMouseController` | USB HID | 1e71:2100 | — | — | not-implemented |
+| NZXT Lift | `NZXTMouseController` | USB HID | 1e71:2100 | module:nzxt-mouse | direct colour | implemented |
 | OKS Optical Axis RGB | `OKSController` | USB HID | 1c4f:ee88 | — | — | not-implemented |
 | Gainward GeForce GTX 1080 Phoenix | `PalitGPUController` | I2C/PCI (GPU) | 10de:1b80:10b0:1b80 | — | — | not-implemented |
 | Gainward GeForce GTX 1080 Ti Phoenix | `PalitGPUController` | I2C/PCI (GPU) | 10de:1b06:10b0:1b06 | — | — | not-implemented |
@@ -1838,7 +1838,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | PNY GeForce RTX 3080 XLR8 Revel EPIC-X | `PalitGPUController` | I2C/PCI (GPU) | 10de:2206:196e:136b | — | — | not-implemented |
 | PNY GeForce RTX 3090 XLR8 Revel EPIC-X | `PalitGPUController` | I2C/PCI (GPU) | 10de:2204:196e:136a | — | — | not-implemented |
 | PATRIOT_CONTROLLER_NAME | `PatriotViperController` | SMBus DRAM | dynamic | — | — | not-implemented |
-| Patriot Viper V550 | `PatriotViperMouseController` | USB HID | 0c45:7e18 | — | — | not-implemented |
+| Patriot Viper V550 | `PatriotViperMouseController` | USB HID | 0c45:7e18 | module:patriot-viper-mouse | direct colour | implemented |
 | PATRIOT_CONTROLLER_NAME | `PatriotViperSteelController` | SMBus DRAM | dynamic | — | — | not-implemented |
 | Philips Hue | `PhilipsHueController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | Philips Wiz | `PhilipsWizController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
@@ -2162,7 +2162,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Sapphire Radeon RX 9070 XT Nitro+ | `SapphireGPUController` | I2C/PCI (GPU) | 1002:7550:1da2:4892 | — | — | not-implemented |
 | Sapphire Radeon RX 9070 XT Pure | `SapphireGPUController` | I2C/PCI (GPU) | 1002:7550:1da2:3490 | — | — | not-implemented |
 | Sapphire Radeon RX Vega 56/64 Nitro+ | `SapphireGPUController` | I2C/PCI (GPU) | 1002:687f:1da2:e37f | — | — | not-implemented |
-| SayoDevice E1 | `SayoDeviceController` | USB HID | 8089:0007 | — | — | not-implemented |
+| SayoDevice E1 | `SayoDeviceController` | USB HID | 8089:0007 | module:sayo-device | direct colour | implemented |
 | Seagate Firecuda HDD | `SeagateController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | Everest GT-100 RGB | `SinowealthController` | USB HID | 258a:0029 | module:sinowealth | direct colour | implemented |
 | Genesis Thor 300 | `SinowealthController` | USB HID | 258a:0090 | module:sinowealth | direct colour | implemented |
@@ -2175,7 +2175,7 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Glorious Model O / O- Wireless | `SinowealthController` | USB HID | 258a:2011 | module:sinowealth | direct colour | implemented |
 | Sinowealth Keyboard | `SinowealthController` | USB HID | 258a:010c | module:sinowealth | direct colour | implemented |
 | ZET Fury Pro | `SinowealthController` | USB HID | 258a:1007 | module:sinowealth | direct colour | implemented |
-| Skydimo SK0902 | `SkydimoHIDController` | USB HID | 1a86:e316 | — | — | not-implemented |
+| Skydimo SK0902 | `SkydimoHIDController` | USB HID | 1a86:e316 | module:skydimo-hid | direct colour | implemented |
 | Skydimo Serial | `SkydimoSerialController` | USB serial | 1a86:7523 | — | — | not-implemented |
 | Skyloong GK104 Pro | `SkyloongController` | USB HID | 1ea7:0907 | — | — | not-implemented |
 | Sony DualSense | `SonyGamepadController` | USB HID | 054c:0ce6 | module:sony-gamepad | direct colour | implemented |
@@ -2262,9 +2262,9 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | SteelSeries Sensei TEN CS:GO Neon Rider Edition | `SteelSeriesController` | USB HID | 1038:1834 | module:steelseries | direct colour | implemented |
 | SteelSeries Siberia 350 | `SteelSeriesController` | USB HID | 1038:1229 | module:steelseries | direct colour | implemented |
 | Elgato Stream Deck MK.2 | `StreamDeckController` | USB HID | 0fd9:0080 | — | — | not-implemented |
-| Tecknet M008 | `TecknetController` | USB HID | 04d9:fc05 | — | — | not-implemented |
+| Tecknet M008 | `TecknetController` | USB HID | 04d9:fc05 | module:tecknet | direct colour | implemented |
 | T-Force Xtreem DDR4 DRAM | `TForceXtreemController` | SMBus DRAM | dynamic | — | — | not-implemented |
-| Thermaltake Poseidon Z RGB | `ThermaltakePoseidonZRGBController` | USB HID | 264a:3006 | — | — | not-implemented |
+| Thermaltake Poseidon Z RGB | `ThermaltakePoseidonZRGBController` | USB HID | 264a:3006 | module:thermaltake-poseidon-z-rgb | direct colour | implemented |
 | Thermaltake Riing (PID 0x1FA5) | `ThermaltakeRiingController` | USB HID | 264a:1fa5 | module:thermaltake-riing | direct colour | implemented |
 | Thermaltake Riing (PID 0x1FA6) | `ThermaltakeRiingController` | USB HID | 264a:1fa6 | module:thermaltake-riing | direct colour | implemented |
 | Thermaltake Riing (PID 0x1FA7) | `ThermaltakeRiingController` | USB HID | 264a:1fa7 | module:thermaltake-riing | direct colour | implemented |
@@ -2316,11 +2316,11 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Thermaltake Riing Trio (PID 0x2143) | `ThermaltakeRiingController` | USB HID | 264a:2143 | module:thermaltake-riing | direct colour | implemented |
 | Thermaltake Riing Trio (PID 0x2144) | `ThermaltakeRiingController` | USB HID | 264a:2144 | module:thermaltake-riing | direct colour | implemented |
 | Thermaltake Riing Trio (PID 0x2145) | `ThermaltakeRiingController` | USB HID | 264a:2145 | module:thermaltake-riing | direct colour | implemented |
-| ThingM blink(1) mk2 | `ThingMController` | USB HID | 27b8:01ed | — | — | not-implemented |
+| ThingM blink(1) mk2 | `ThingMController` | USB HID | 27b8:01ed | module:thingm-blink | direct colour | implemented |
 | Thrustmaster Sol | `ThrustmasterSolController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
 | Trust GXT 114 | `TrustController` | USB HID | 145f:026d | — | — | not-implemented |
 | Trust GXT 180 | `TrustController` | USB HID | 145f:0248 | — | — | not-implemented |
-| Turtle Beach Command Series KP7 | `TurtleBeachKP7Controller` | USB HID | 10f5:503a | — | — | not-implemented |
+| Turtle Beach Command Series KP7 | `TurtleBeachKP7Controller` | USB HID | 10f5:503a | module:turtle-beach-kp7 | direct colour | implemented |
 | Valkyrie VK99 | `ValkyrieKeyboardController` | USB HID | 05ac:024f | — | — | not-implemented |
 | Valkyrie VK99 Pro | `ValkyrieKeyboardController` | USB HID | 05ac:024f | — | — | not-implemented |
 | Valve Steam Machine | `ValveSteamMachineController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
@@ -2343,9 +2343,9 @@ hardware-verified: 2, implemented: 1046, blocked: 1, not-implemented: 1093.
 | Wooting Two Lekker Edition | `WootingKeyboardController` | USB HID | 31e3:1210 | — | — | not-implemented |
 | Wooting UwU RGB | `WootingKeyboardController` | USB HID | 31e3:1510 | — | — | not-implemented |
 | JSAUX RGB Docking Station | `WushiController` | USB HID | 306f:1234 | — | — | not-implemented |
-| XPG Summoner Gaming Keyboard | `XPGSummonerKeyboardController` | USB HID | 125f:9418 | — | — | not-implemented |
+| XPG Summoner Gaming Keyboard | `XPGSummonerKeyboardController` | USB HID | 125f:9418 | module:xpg-summoner-keyboard | direct colour | implemented |
 | Yeelight | `YeelightController` | other (network/serial/OS) | dynamic | — | — | not-implemented |
-| Zalman Z Sync | `ZalmanZSyncController` | USB HID | 1c57:7ed0 | — | — | not-implemented |
+| Zalman Z Sync | `ZalmanZSyncController` | USB HID | 1c57:7ed0 | module:zalman-z-sync | direct colour | implemented |
 | ZET Blade Optical | `ZETKeyboardController` | USB HID | 2ea8:2125 | — | — | not-implemented |
 | ZOTAC GAMING GeForce RTX 5080 AMP Extreme INFINITY | `ZotacBlackwellGPUController` | I2C/PCI (GPU) | 10de:2c02:19da:1762 | — | — | not-implemented |
 | ZOTAC GAMING GeForce RTX 5090 D SOLID OC | `ZotacBlackwellGPUController` | I2C/PCI (GPU) | 10de:2b87:19da:2761 | — | — | not-implemented |

@@ -2,7 +2,11 @@
 use freergb_core::Rgb;
 
 pub fn offset(pid: u16) -> u8 {
-    if pid == 0x1919 { 0 } else { 16 }
+    if pid == 0x1919 {
+        0
+    } else {
+        16
+    }
 }
 
 pub fn needs_begin(pid: u16) -> bool {
