@@ -135,6 +135,9 @@ pub struct Calibration {
     issued: u64,
     acknowledged: Option<u64>,
     last_sample: Option<u64>,
+    settling_rpm: Option<f32>,
+    settling_direction: i8,
+    sampling_began: Option<u64>,
     stage: usize,
     readings: Vec<f32>,
     means: Vec<f32>,
@@ -220,13 +223,19 @@ impl Calibration {
             issued: now_ms,
             acknowledged: None,
             last_sample: None,
+            settling_rpm: None,
+            settling_direction: 0,
+            sampling_began: None,
             stage: 0,
             readings: Vec::new(),
             means: Vec::new(),
             critical_c,
             pending_result: None,
             descending: duties.len(),
-            timeout_ms: 60_000.max(4_000 * 2 * duties.len() as u64 + 10_000),
+            // Include the bounded settling and measurement windows, duty ACKs,
+            // and up to five restart probes for a stall sweep.
+            timeout_ms: 60_000
+                .max(26_000 + 17_000 * (duties.len() as u64 - 1 + if probe_stall { 5 } else { 0 })),
             duties,
             probe_stall,
             monotonic_ratio: 0.95,
@@ -353,17 +362,17 @@ impl Calibration {
             return self.output();
         }
         let acknowledged = *self.acknowledged.get_or_insert(now);
-        if now - acknowledged > 10_000 {
+        let settle_limit = if self.stage == 0 { 15_000 } else { 8_000 };
+        if self.sampling_began.is_none() && now - acknowledged > settle_limit {
+            self.restore(now, Some("rpm_settling_timeout"));
+            return self.output();
+        }
+        if self.sampling_began.is_some_and(|start| now - start > 8000) {
             self.restore(now, Some("unstable_or_missing_samples"));
             return self.output();
         }
-        if now - acknowledged < 2000 {
-            self.output.phase = Settling;
-            return self.output();
-        }
-        self.output.phase = Sampling;
         let sampled = now - sample.rpm_age_ms;
-        if sampled < acknowledged.saturating_add(2000)
+        if sampled < acknowledged
             || self
                 .last_sample
                 .is_some_and(|last| sampled < last.saturating_add(250))
@@ -371,6 +380,36 @@ impl Calibration {
             return self.output();
         }
         self.last_sample = Some(sampled);
+        if self.sampling_began.is_none() {
+            self.output.phase = Settling;
+            let current = rpm.unwrap();
+            let prior = self.settling_rpm.replace(current);
+            let direction = prior.map_or(0, |prior| {
+                // Ignore tachometer noise, but follow an accelerating or
+                // decelerating fan before opening the measurement window.
+                let tolerance = (prior.max(current) * 0.01).max(10.0);
+                if current > prior + tolerance {
+                    1
+                } else if current < prior - tolerance {
+                    -1
+                } else {
+                    0
+                }
+            });
+            let moving = direction != 0
+                && (self.settling_direction == 0 || direction == self.settling_direction);
+            self.settling_direction = direction;
+            if sampled < acknowledged.saturating_add(2000) || prior.is_none() || moving {
+                if now - acknowledged >= settle_limit {
+                    self.restore(now, Some("rpm_settling_timeout"));
+                }
+                return self.output();
+            }
+            // A reversal is measured too: oscillation must still fail the
+            // unchanged five-sample stability check below.
+            self.sampling_began = Some(now);
+        }
+        self.output.phase = Sampling;
         self.readings.push(rpm.unwrap());
         if self.readings.len() < 5 {
             return self.output();
@@ -469,6 +508,9 @@ impl Calibration {
             self.issued = now;
             self.acknowledged = None;
             self.last_sample = None;
+            self.settling_rpm = None;
+            self.settling_direction = 0;
+            self.sampling_began = None;
             self.readings.clear();
         }
         self.output()
@@ -614,6 +656,55 @@ mod tests {
         assert_eq!(c.output().reason.as_deref(), Some("unstable_rpm"));
         assert_eq!(c.output().duty_percent, 100);
         assert!(Calibration::new(ChannelRole::Fan, 85.0, u64::MAX).is_err());
+    }
+    #[test]
+    fn slow_owner_ramp_settles_before_measuring_full_speed() {
+        let mut c = Calibration::new(ChannelRole::Fan, 85.0, 0).unwrap();
+        for at in (0..=6500).step_by(250) {
+            let rpm = 830.0 + 860.0 * (at as f32 / 5000.0).min(1.0);
+            let out = c.update(sample(at, 1, rpm));
+            assert!(out.reason.is_none(), "{out:?}");
+            if at <= 5000 {
+                assert_eq!(out.phase, CalibrationPhase::Settling);
+            }
+            if out.sequence != 1 {
+                break;
+            }
+        }
+        assert_eq!(c.output().phase, CalibrationPhase::Applying);
+        assert_eq!(c.output().duty_percent, 80);
+        assert_eq!(c.means, vec![1690.0]);
+    }
+
+    #[test]
+    fn endless_ramp_hits_settling_deadline_and_requires_restore_ack() {
+        let mut c = Calibration::new(ChannelRole::Fan, 85.0, 0).unwrap();
+        for at in (0..=15_000).step_by(250) {
+            c.update(sample(at, 1, 830.0 + at as f32 * 0.5));
+        }
+        let out = c.output();
+        assert_eq!(out.phase, CalibrationPhase::Restoring);
+        assert_eq!(out.reason.as_deref(), Some("rpm_settling_timeout"));
+        assert_eq!(out.duty_percent, 100);
+        let out = c.update(sample(15_250, out.sequence, 2000.0));
+        assert_eq!(out.phase, CalibrationPhase::Aborted);
+        assert!(out.result.is_none());
+    }
+
+    #[test]
+    fn oscillation_after_a_ramp_still_fails_measurement_stability() {
+        let mut c = Calibration::new(ChannelRole::Fan, 85.0, 0).unwrap();
+        for at in (0..=3000).step_by(250) {
+            c.update(sample(at, 1, 830.0 + at as f32 * 0.2));
+        }
+        for (i, rpm) in [1000.0, 1700.0, 1000.0, 1700.0, 1000.0]
+            .into_iter()
+            .enumerate()
+        {
+            c.update(sample(3250 + i as u64 * 250, 1, rpm));
+        }
+        assert_eq!(c.output().phase, CalibrationPhase::Restoring);
+        assert_eq!(c.output().reason.as_deref(), Some("unstable_rpm"));
     }
     #[test]
     fn constant_rpm_does_not_produce_a_floor_recommendation() {

@@ -18,6 +18,9 @@ struct Quirks {
     readback: bool,
     raw_max: u16,
     rpm_lag_ms: u64,
+    rpm_slew_per_second: Option<f64>,
+    firmware_rpm: Option<f64>,
+    max_rpm: f64,
     /// Channels whose mode bits share one register byte.
     shared_mode_groups: Vec<Vec<usize>>,
     /// Writes are accepted but the fan keeps following the firmware.
@@ -57,6 +60,9 @@ fn families() -> Vec<Family> {
                     readback: q["readback"].as_bool().unwrap(),
                     raw_max: q["raw_max"].as_u64().unwrap() as u16,
                     rpm_lag_ms: q["rpm_lag_ms"].as_u64().unwrap_or(0),
+                    rpm_slew_per_second: q["rpm_slew_per_second"].as_f64(),
+                    firmware_rpm: q["firmware_rpm"].as_f64(),
+                    max_rpm: q["max_rpm"].as_f64().unwrap_or(MAX_RPM),
                     shared_mode_groups: q["shared_mode_groups"]
                         .as_array()
                         .map(|g| g.iter().map(list).collect())
@@ -99,7 +105,13 @@ impl SimChip {
             mode: vec![0; groups.len()],
             groups,
             raw: vec![firmware_raw; family.controls],
-            rpm: vec![Self::fan_rpm(FIRMWARE_PERCENT); family.controls],
+            rpm: vec![
+                family
+                    .quirks
+                    .firmware_rpm
+                    .unwrap_or(Self::fan_rpm(&family.quirks, FIRMWARE_PERCENT));
+                family.controls
+            ],
             blocked: vec![false; family.controls],
             last_ms: 0,
             writes: Vec::new(),
@@ -118,11 +130,11 @@ impl SimChip {
         ((u32::from(raw) * 100 + u32::from(self.quirks.raw_max) / 2)
             / u32::from(self.quirks.raw_max)) as u8
     }
-    fn fan_rpm(percent: u8) -> f64 {
+    fn fan_rpm(quirks: &Quirks, percent: u8) -> f64 {
         if percent < 15 {
             0.0
         } else {
-            MAX_RPM * (0.2 + 0.8 * f64::from(percent) / 100.0)
+            quirks.max_rpm * (0.2 + 0.8 * f64::from(percent) / 100.0)
         }
     }
     fn slot(&self, ch: usize) -> (usize, u8) {
@@ -149,14 +161,27 @@ impl SimChip {
             let target = if self.blocked[ch] {
                 0.0
             } else {
-                Self::fan_rpm(self.effective(ch))
+                if !self.software(ch) {
+                    self.quirks
+                        .firmware_rpm
+                        .unwrap_or(Self::fan_rpm(&self.quirks, FIRMWARE_PERCENT))
+                } else {
+                    Self::fan_rpm(&self.quirks, self.effective(ch))
+                }
             };
             let k = if self.quirks.rpm_lag_ms == 0 {
                 1.0
             } else {
                 1.0 - (-dt / self.quirks.rpm_lag_ms as f64).exp()
             };
-            self.rpm[ch] += (target - self.rpm[ch]) * k;
+            let delta = target - self.rpm[ch];
+            self.rpm[ch] += if let Some(slew) = self.quirks.rpm_slew_per_second {
+                // R5: 830 -> 1690 RPM over five seconds; smaller duty steps
+                // settle sooner under the same acceleration limit.
+                delta.clamp(-slew * dt / 1000.0, slew * dt / 1000.0)
+            } else {
+                delta * k
+            };
         }
     }
     fn readback(&self, ch: usize) -> Option<u16> {
@@ -387,7 +412,14 @@ fn runtime_plausibility_faults_lhm_supported_and_warns_unrestricted() {
             }
             let label = format!("{} unlocked={unlocked}", family.id);
             let at = deviated.unwrap_or_else(|| panic!("{label}: no deviation at {now}"));
-            assert!((20_000..=21_500).contains(&at), "{label}: {at}");
+            // The slow owner fan also coasts down slowly after blockage;
+            // deviation starts later, with the same plausibility guard.
+            let expected = if family.quirks.rpm_slew_per_second.is_some() {
+                23_000..=24_500
+            } else {
+                20_000..=21_500
+            };
+            assert!(expected.contains(&at), "{label}: {at}");
             if l.plausibility_fatal {
                 session.fail_safe(&mut chip);
                 assert!(firmware_restored(&chip, ch), "{label}");
@@ -614,7 +646,11 @@ fn shaped_closed_loop_rpm_target_converges_on_every_family() {
                 .into_iter()
                 .map(|d| TestedDuty {
                     duty_percent: d,
-                    rpm: SimChip::fan_rpm(d.max(family.quirks.min_effective_percent)) as f32 * 1.1,
+                    rpm: SimChip::fan_rpm(
+                        &family.quirks,
+                        d.max(family.quirks.min_effective_percent),
+                    ) as f32
+                        * 1.1,
                 })
                 .collect();
             let map = RpmMap::from_tested(&tested).unwrap();
@@ -667,4 +703,52 @@ fn shaped_closed_loop_rpm_target_converges_on_every_family() {
             assert!(firmware_restored(&chip, ch), "{label}");
         }
     }
+}
+
+#[test]
+fn nct6701d_slow_owner_ramp_completes_all_thirteen_sweep_steps() {
+    use freergb_control::calibration::SweepOptions;
+    let family = families().into_iter().find(|f| f.id == "nct6701d").unwrap();
+    let mut chip = SimChip::new(&family);
+    let ch = 2;
+    assert_eq!(chip.rpm[ch], 830.0);
+    let session = Session::take(&mut chip, ch).unwrap();
+    session.write(&mut chip, 100).unwrap();
+    chip.advance(2000);
+    assert!((chip.rpm[ch] - 1174.0).abs() < 1.0);
+    chip.advance(5000);
+    assert!((chip.rpm[ch] - 1690.0).abs() < 1.0);
+    session.release(&mut chip);
+
+    let mut chip = SimChip::new(&family);
+    let sweep = Calibration::sweep(
+        ChannelRole::Fan,
+        85.0,
+        0,
+        SweepOptions {
+            step_percent: 5,
+            lowest_percent: 40,
+            probe_stall: false,
+        },
+    )
+    .unwrap();
+    let out = measure(&mut chip, ch, sweep);
+    assert_eq!(out.phase, CalibrationPhase::Completed, "{out:?}");
+    let result = out.result.unwrap();
+    assert_eq!(
+        result
+            .tested
+            .iter()
+            .map(|t| t.duty_percent)
+            .collect::<Vec<_>>(),
+        (0..13).map(|i| 100 - i * 5).collect::<Vec<u8>>()
+    );
+    assert!((result.tested[0].rpm - 1690.0).abs() < 1.0);
+    assert!(result.response_observed && result.monotonic_response);
+    assert!(firmware_restored(&chip, ch));
+    assert!(firmware_restored(&chip, 1));
+    assert!(chip
+        .writes
+        .iter()
+        .all(|&(channel, duty)| channel == ch && duty >= 40));
 }

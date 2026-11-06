@@ -25,7 +25,7 @@
       "capability": "verified",
       "chips": ["NCT6701D"],
       "controls": 7,
-      "quirks": {"readback": true, "raw_max": 255, "rpm_lag_ms": 700},
+      "quirks": {"readback": true, "raw_max": 255, "rpm_lag_ms": 700, "rpm_slew_per_second": 172, "firmware_rpm": 830, "max_rpm": 1690},
       "source": "LHM Nct677X 7-control layout; slower RPM settling as seen in the CHA_FAN2 calibration (COOLING_ACCEPTANCE.md)."
     },
     {
