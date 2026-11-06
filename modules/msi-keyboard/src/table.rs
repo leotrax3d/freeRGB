@@ -13,12 +13,17 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
         .iter()
         .find(|d| d.vid == i.vid && d.pid == i.pid);
     Identification {
-        supported: d.is_some(),
+        supported: false,
         model: d.map(|x| x.name.into()),
-        kind: d.map(|_| DeviceKind::Mouse),
-        reason: d.is_none().then(|| "no Instant mouse HID detector".into()),
+        kind: d.map(|_| DeviceKind::Keyboard),
+        reason: Some(if d.is_some() {
+            "MSI keyboard controller-specific mode, zone and packet lifecycle is not ported".into()
+        } else {
+            "no MSI keyboard HID detector".into()
+        }),
     }
 }
 pub fn device(i: &InterfaceInfo) -> Option<&'static Detector> {
-    crate::devices_table::device(i)
+    let _ = i;
+    None
 }

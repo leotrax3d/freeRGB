@@ -1,29 +1,36 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+use crate::devices_table::DETECTORS;
 use freergb_module_api::{DeviceKind, Identification, InterfaceInfo};
+#[derive(Debug)]
 pub struct Detector {
     pub name: &'static str,
+    pub handler: &'static str,
     pub vid: u16,
     pub pid: u16,
+    pub usage_page: u16,
+    pub usage: u16,
 }
-pub struct Device {
-    pub vid: u16,
-    pub pid: u16,
+fn detector(i: &InterfaceInfo) -> Option<&'static Detector> {
+    DETECTORS.iter().find(|d| {
+        d.vid == i.vid && d.pid == i.pid && d.usage_page == i.usage_page && d.usage == i.usage
+    })
 }
 pub fn identify(i: &InterfaceInfo) -> Identification {
-    let d = crate::devices_table::DETECTORS
-        .iter()
-        .find(|d| d.vid == i.vid && d.pid == i.pid);
+    let d = detector(i);
     Identification {
-        supported: d.is_some(),
+        // Detector inventory is not a protocol implementation: the IT8297
+        // protocol is an 11k-line controller with config/flash state, feature
+        // reports and per-zone registers; the audited branch version sent
+        // fabricated packets. Also, this family carries mixed "HID + other"
+        // transport detectors elsewhere in the upstream folder.
+        supported: false,
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::LightingController),
-        reason: d
-            .is_none()
-            .then(|| "no Gigabyte RGB Fusion HID detector".into()),
+        reason: Some(if d.is_some() {
+            "Gigabyte RGB Fusion 2 USB detector is inventoried but its IT8297 protocol is not ported"
+                .into()
+        } else {
+            "no Gigabyte RGB Fusion 2 USB HID detector for this interface".into()
+        }),
     }
-}
-pub fn device(i: &InterfaceInfo) -> Option<&'static Device> {
-    crate::devices_table::DEVICES
-        .iter()
-        .find(|d| d.vid == i.vid && d.pid == i.pid)
 }

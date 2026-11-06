@@ -8,15 +8,42 @@ pub struct Detector {
     pub vid: u16,
     pub pid: u16,
 }
+/// Handlers whose Direct-mode path is fully ported to Rust and audited
+/// against the upstream OpenRGB controllers. Everything else stays
+/// inventoried but unsupported.
+pub const SUPPORTED_HANDLERS: &[&str] = &[
+    "DetectLogitechKeyboardG213",
+    "DetectLogitechKeyboardG915",
+    "DetectLogitechKeyboardG915Wired",
+    "DetectLogitechMouseG203L",
+    "DetectLogitechMouseG600",
+    "DetectLogitechG933",
+    "DetectLogitechX56",
+];
 pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = DETECTORS.iter().find(|d| d.vid == i.vid && d.pid == i.pid);
-    Identification {
-        supported: d.is_some(),
-        model: d.map(|d| d.name.into()),
-        kind: d.map(|_| DeviceKind::Accessory),
-        reason: d
-            .is_none()
-            .then(|| "no Logitech HID detector for this VID/PID".into()),
+    match d {
+        Some(d) if SUPPORTED_HANDLERS.contains(&d.handler) => Identification {
+            supported: true,
+            model: Some(d.name.into()),
+            kind: Some(DeviceKind::Accessory),
+            reason: None,
+        },
+        Some(d) => Identification {
+            supported: false,
+            model: Some(d.name.into()),
+            kind: Some(DeviceKind::Accessory),
+            reason: Some(format!(
+                "Logitech detector {} is inventoried but its direct-mode protocol path is not fully ported (audit)",
+                d.handler
+            )),
+        },
+        None => Identification {
+            supported: false,
+            model: None,
+            kind: None,
+            reason: Some("no Logitech HID detector for this VID/PID".into()),
+        },
     }
 }
 pub fn handler(i: &InterfaceInfo) -> Option<&'static str> {

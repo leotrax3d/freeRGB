@@ -9,9 +9,7 @@ pub struct Detector {
     pub usage: u16,
 }
 pub fn identify(i: &InterfaceInfo) -> Identification {
-    let d = crate::devices_table::DETECTORS
-        .iter()
-        .find(|d| d.vid == i.vid && d.pid == i.pid);
+    let d = device(i);
     Identification {
         supported: d.is_some(),
         model: d.map(|x| x.name.into()),

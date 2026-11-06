@@ -1926,7 +1926,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-acer-nitro-hid-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-acer-nitro-hid-led"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-amd-wraith-prism"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-annepro2"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-aoc-mouse"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-aoc-mousemat"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -1955,6 +2000,33 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-asus-aura-core"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-asus-aura-monitor"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-asus-aura-mouse"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-asus-aura-mousemat"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -1999,7 +2071,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-clevo-lightbar"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-coolermaster"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-coolermaster-mm712"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2018,6 +2108,24 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-corsair-hydro-platinum"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-corsair-k55-pro-xt"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-corsair-k65-mini"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2053,7 +2161,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-creative-soundblaster-xg6"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-cryorig-h7-quad-lumi"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-dark-project"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-das-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-dream-cheeky"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2107,7 +2251,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-gamesir"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-gigabyte-aorus-laptop"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-gigabyte-aorus-mouse"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2125,7 +2287,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-hp-omen-30l"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-hyperx-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-hyperx-microphone-v2"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2152,7 +2332,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-intel-arc-a770-le"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-ionico"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-lego-dimensions-toypad"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-lenovo"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-lenovo-motherboard-led"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-lexip-mouse"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2188,6 +2413,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-madcatz-cyborg"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-mountain-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-msi-3-zone"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-msi-keyboard"
 version = "0.1.0"
 dependencies = [
@@ -2206,7 +2458,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-msi-monitor72"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-msi-motherboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-msi-optix"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-n5312a"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2224,7 +2503,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-nvidia-esa"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-nzxt-hue1"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-nzxt-hue2"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-nzxt-mouse"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-patriot-viper-mouse"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2261,6 +2576,87 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-roccat-burst-core"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-roccat-burst-pro-air"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-roccat-elo"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-roccat-horde-aimo"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-roccat-kone-aimo"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-roccat-kone-pro"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-roccat-kone-pro-air"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-roccat-kone-xp"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-roccat-sense-aimo"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-royuan-keyboard"
 version = "0.1.0"
 dependencies = [
@@ -2270,7 +2666,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-sayo-device"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-sinowealth"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-skydimo-hid"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2297,7 +2711,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-tecknet"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-thermaltake-poseidon-z-rgb"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-thermaltake-riing"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-thingm-blink"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
@@ -2320,6 +2761,33 @@ dependencies = [
  "serde_json",
  "sha2",
  "zip",
+]
+
+[[package]]
+name = "freergb-module-turtle-beach-kp7"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-xpg-summoner-keyboard"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
+name = "freergb-module-zalman-z-sync"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
 ]
 
 [[package]]

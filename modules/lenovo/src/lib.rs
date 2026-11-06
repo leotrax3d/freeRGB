@@ -39,6 +39,11 @@ impl Module for Lenovo {
         h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         let d = table::device(i).ok_or_else(|| err("unsupported Lenovo device"))?;
+        if !table::identify(i).supported {
+            return Err(err(
+                "Lenovo protocol path for this device is not fully ported (audit)",
+            ));
+        }
         self.protocol = d.protocol;
         self.leds = d.leds;
         self.pid = d.pid;
@@ -103,9 +108,4 @@ impl Module for Lenovo {
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog_has_all_detectors() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 24);
-    }
-}
+mod tests;

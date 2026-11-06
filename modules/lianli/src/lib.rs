@@ -1,24 +1,29 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+//! Lian Li inventory module.
+//!
+//! The nine USB-HID detector rows (Uni Hub SL/AL, SL/AL V2, SL V2 v0.5, SL
+//! Infinity, Strimer L Connect, GA II Trinity, GA II Trinity Performance) are
+//! inventoried with interface/usage-page qualifications. The generic
+//! REGISTER_DETECTOR rows (Uni Hub legacy, Universal Screen, AL10) are non-HID
+//! USB transports and blocked under freeRGB policy. Each HID row dispatches to
+//! its own controller; nothing is claimed as supported.
+//!
+//! Licensing note: the upstream LianLiUniHubSL sources carry
+//! GPL-2.0-only SPDX headers; porting those paths would constrain the module
+//! license accordingly.
 pub mod devices_table;
-pub mod report;
 pub mod table;
-use freergb_core::{Led, LedLayout, Rgb};
-use freergb_module_api::sdk::{Hid, Module};
+use freergb_module_api::sdk::Hid;
 use freergb_module_api::{
-    Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
-    Restore, MODULE_API,
+    Capabilities, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo, MODULE_API,
 };
 pub const MODULE_ID: &str = "lianli";
-#[derive(Default)]
-pub struct L {
-    pid: u16,
-    leds: usize,
-    active: bool,
-}
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
 }
-impl Module for L {
+#[derive(Default)]
+pub struct LianLi;
+impl freergb_module_api::sdk::Module for LianLi {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
             id: MODULE_ID.into(),
@@ -30,54 +35,33 @@ impl Module for L {
     fn identify(&self, i: &InterfaceInfo) -> Identification {
         table::identify(i)
     }
+    fn initialize_with_zones(
+        &mut self,
+        _: &InterfaceInfo,
+        _: Option<&[freergb_module_api::Zone]>,
+        _: &mut dyn Hid,
+    ) -> Result<Capabilities, ModuleError> {
+        Err(err(
+            "the Lian Li protocol path is not ported; this device is unsupported",
+        ))
+    }
     fn initialize(
         &mut self,
         i: &InterfaceInfo,
-        _: &mut dyn Hid,
+        h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        let d = table::device(i).ok_or_else(|| err("unsupported Lian Li HID"))?;
-        self.pid = d.pid;
-        self.leds = d.leds;
-        self.active = true;
-        Ok(Capabilities {
-            name: table::identify(i)
-                .model
-                .unwrap_or_else(|| "Lian Li HID".into()),
-            kind: DeviceKind::Keyboard,
-            layout: LedLayout {
-                width: 20,
-                height: 6,
-                leds: (0..self.leds)
-                    .map(|n| Led {
-                        name: format!("LED {n}"),
-                        pos: ((n % 20) as u16, (n / 20) as u16),
-                    })
-                    .collect(),
-            },
-            firmware: None,
-            restore: Restore::LastFrame,
-            zones: vec![],
-        })
+        self.initialize_with_zones(i, None, h)
     }
-    fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
-        if !self.active || c.len() != self.leds {
-            return Err(err("invalid Lian Li frame"));
-        }
-        let ch = if self.pid == 0xA200 { 1 } else { 0x40 };
-        for p in report::colors(ch, c) {
-            h.write(&p).map_err(err)?;
-        }
-        Ok(())
+    fn frame(&mut self, _: &[freergb_core::Rgb], _: &mut dyn Hid) -> Result<(), ModuleError> {
+        Err(err("Lian Li module is not initialized"))
     }
-    fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
-        self.active = false;
+    fn shutdown(
+        &mut self,
+        _: Option<freergb_core::Rgb>,
+        _: &mut dyn Hid,
+    ) -> Result<(), ModuleError> {
         Ok(())
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 9);
-    }
-}
+mod tests;

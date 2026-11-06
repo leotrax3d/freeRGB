@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+//! Cooler Master inventory module.
+//!
+//! The 38 upstream detector rows dispatch to 11 different controllers; the
+//! audited branch version served them with three fabricated generic packets.
+//! Nothing is claimed as supported and initialize fails closed.
 pub mod devices_table;
-pub mod report;
 pub mod table;
-use freergb_core::{Led, LedLayout, Rgb};
-use freergb_module_api::sdk::{Hid, Module};
+use freergb_module_api::sdk::Hid;
 use freergb_module_api::{
-    Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
-    Restore, Zone, MODULE_API,
+    Capabilities, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo, MODULE_API,
 };
 pub const MODULE_ID: &str = "coolermaster";
-#[derive(Default)]
-pub struct CoolerMaster {
-    active: bool,
-    leds: usize,
-    handler: &'static str,
-}
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
 }
-impl Module for CoolerMaster {
+#[derive(Default)]
+pub struct CoolerMaster;
+impl freergb_module_api::sdk::Module for CoolerMaster {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
             id: MODULE_ID.into(),
@@ -32,53 +30,13 @@ impl Module for CoolerMaster {
     }
     fn initialize_with_zones(
         &mut self,
-        i: &InterfaceInfo,
-        z: Option<&[Zone]>,
-        h: &mut dyn Hid,
+        _: &InterfaceInfo,
+        _: Option<&[freergb_module_api::Zone]>,
+        _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        let id = table::identify(i);
-        let handler =
-            table::handler(i).ok_or_else(|| err("unsupported Cooler Master HID device"))?;
-        let leds = if handler.contains("Mouse712") {
-            1
-        } else if handler.contains("Keyboard") {
-            87
-        } else if handler.contains("Mouse") {
-            2
-        } else if handler.contains("ARGB") {
-            24
-        } else {
-            20
-        };
-        if handler.contains("Keyboard") || handler.contains("ARGB") {
-            h.write(&report::keyboard(&[])).map_err(err)?;
-        }
-        self.leds = z
-            .map(|x| x.iter().map(|q| q.leds).sum())
-            .unwrap_or(leds)
-            .clamp(1, 240);
-        self.handler = handler;
-        self.active = true;
-        Ok(Capabilities {
-            name: id.model.unwrap_or_else(|| "Cooler Master".into()),
-            kind: DeviceKind::Accessory,
-            layout: LedLayout {
-                width: self.leds as u16,
-                height: 1,
-                leds: (0..self.leds)
-                    .map(|n| Led {
-                        name: format!("LED {}", n + 1),
-                        pos: (n as u16, 0),
-                    })
-                    .collect(),
-            },
-            firmware: None,
-            restore: Restore::LastFrame,
-            zones: vec![Zone {
-                name: "Cooler Master".into(),
-                leds: self.leds,
-            }],
-        })
+        Err(err(
+            "the Cooler Master protocol path is not ported; this device is unsupported",
+        ))
     }
     fn initialize(
         &mut self,
@@ -87,26 +45,14 @@ impl Module for CoolerMaster {
     ) -> Result<Capabilities, ModuleError> {
         self.initialize_with_zones(i, None, h)
     }
-    fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
-        if !self.active || c.len() != self.leds {
-            return Err(err("invalid Cooler Master frame"));
-        }
-        if self.handler.contains("Mouse712") {
-            h.write(&report::mm712_direct(c[0])).map_err(err)?;
-            return Ok(());
-        }
-        let p = if self.handler.contains("Mouse") {
-            report::mouse(c)
-        } else if self.handler.contains("Keyboard") || self.handler.contains("ARGB") {
-            report::keyboard(c)
-        } else {
-            report::direct(c)
-        };
-        h.write(&p).map_err(err)?;
-        Ok(())
+    fn frame(&mut self, _: &[freergb_core::Rgb], _: &mut dyn Hid) -> Result<(), ModuleError> {
+        Err(err("Cooler Master module is not initialized"))
     }
-    fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
-        self.active = false;
+    fn shutdown(
+        &mut self,
+        _: Option<freergb_core::Rgb>,
+        _: &mut dyn Hid,
+    ) -> Result<(), ModuleError> {
         Ok(())
     }
 }

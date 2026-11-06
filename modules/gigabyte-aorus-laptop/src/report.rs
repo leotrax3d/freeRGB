@@ -1,31 +1,34 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use freergb_core::Rgb;
-pub const REPORT_LEN: usize = 65;
-pub fn init() -> Vec<u8> {
-    vec![0, 0x90, 0, 0, 0, 0, 0, 1, 0x6f]
-}
-pub fn frames(colors: &[Rgb]) -> Vec<Vec<u8>> {
-    let mut raw = vec![0u8; 64 * 8];
-    for (n, c) in colors.iter().take(64).enumerate() {
-        let q = n * 4;
-        raw[q + 1..q + 4].copy_from_slice(&[c.r, c.g, c.b]);
+/// upstream: GigabyteAorusLaptopController.cpp SetDirect:
+/// feature report of REPORT_SIZE+1 (9) bytes: [0]=0 report id, [1]=0x08
+/// (GIGABYTE_AORUS_LAPTOP_REPORT_ID), [2]=0x01 (direct mode), RGB at 3..5,
+/// brightness at 6, byte 7 = 0, byte 8 = checksum (0 - bytes 1..7).
+pub const REPORT_LEN: usize = 9;
+pub fn direct(c: Rgb, brightness: u8) -> Vec<u8> {
+    let mut buf = vec![0u8; REPORT_LEN];
+    buf[1] = 0x08;
+    buf[2] = 0x01;
+    buf[3] = c.r;
+    buf[4] = c.g;
+    buf[5] = c.b;
+    buf[6] = brightness;
+    let mut checksum: u8 = 0;
+    for b in &buf[1..8] {
+        checksum = checksum.wrapping_sub(*b);
     }
-    (0..8)
-        .map(|n| {
-            let mut p = vec![0u8; REPORT_LEN];
-            p[1..].copy_from_slice(&raw[n * 64..(n + 1) * 64]);
-            p
-        })
-        .collect()
+    buf[8] = checksum;
+    buf
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn exact() {
-        let p = frames(&[Rgb { r: 1, g: 2, b: 3 }; 1]);
-        assert_eq!(p.len(), 8);
-        assert_eq!(&p[0][..5], [0, 0, 1, 2, 3]);
-        assert_eq!(p[7].len(), 65);
+        // upstream: GigabyteAorusLaptopController.cpp SetDirect with
+        // RGB(1,2,3), brightness 0x19 -> checksum = 0 - 0x08 - 0x01 - 1 - 2 - 3 -
+        // 0x19 = 0xD8 (wrapping).
+        let p = direct(Rgb { r: 1, g: 2, b: 3 }, 0x19);
+        assert_eq!(&p[..9], &[0, 0x08, 0x01, 1, 2, 3, 0x19, 0, 0xd8]);
     }
 }

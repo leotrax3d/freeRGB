@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-use crate::devices_table::DETECTORS;
+use crate::devices_table::{DETECTORS, DEVICES};
 use freergb_module_api::{DeviceKind, Identification, InterfaceInfo};
 #[derive(Debug)]
 pub struct Detector {
@@ -17,17 +17,27 @@ pub struct Device {
 }
 pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = DETECTORS.iter().find(|d| d.vid == i.vid && d.pid == i.pid);
+    let dev = DEVICES.iter().find(|d| d.pid == i.pid);
+    let supported = d.is_some()
+        && dev
+            .is_some_and(|d| d.version == 1 || d.version == 2 || d.version == 3 || d.version == 4);
     Identification {
-        supported: d.is_some(),
+        supported,
         model: d.map(|x| x.name.into()),
-        kind: d.map(|_| DeviceKind::Accessory),
-        reason: d
-            .is_none()
-            .then(|| "no DRGB HID detector for this VID/PID".into()),
+        kind: supported.then_some(DeviceKind::LightingController),
+        reason: (!supported).then(|| {
+            if d.is_some() {
+                "DeepRGB detector is inventoried but only version-1 Direct-mode path is pending"
+                    .into()
+            } else {
+                "no DeepRGB HID detector for this interface".into()
+            }
+        }),
     }
 }
 pub fn device(i: &InterfaceInfo) -> Option<&'static Device> {
-    crate::devices_table::DEVICES
+    (crate::devices_table::DEVICES
         .iter()
-        .find(|d| d.pid == i.pid)
+        .find(|d| d.pid == i.pid))
+    .filter(|d| d.version == 1)
 }

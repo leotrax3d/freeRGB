@@ -16,11 +16,15 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
             && (d.interface < 0 || (d.interface == i.interface && d.usage_page == i.usage_page))
     });
     Identification {
-        supported: d.is_some(),
+        // The detector list covers separate desktop and laptop upstream
+        // paths; it is not a complete protocol implementation.
+        supported: false,
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::LightingController),
-        reason: d
-            .is_none()
-            .then(|| "no ASUS Aura Core HID detector for this interface".into()),
+        reason: Some(if d.is_some() {
+            "ASUS Aura Core detector is inventoried but its complete protocol is not ported".into()
+        } else {
+            "no ASUS Aura Core HID detector for this interface".into()
+        }),
     }
 }

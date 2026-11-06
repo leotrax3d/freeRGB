@@ -1,24 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+//! GaiZhongGai inventory module.
+//!
+//! The nine upstream detectors are inventoried, but the audited branch version
+//! sent generic packets that match none of the upstream per-PID layouts; the
+//! LightBoard and RGB HUB devices additionally need flash/channel-length reads.
+//! Nothing is claimed as supported.
 pub mod devices_table;
-pub mod report;
 pub mod table;
-use freergb_core::{Led, LedLayout, Rgb};
-use freergb_module_api::sdk::{Hid, Module};
+use freergb_module_api::sdk::Hid;
 use freergb_module_api::{
-    Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
-    Restore, MODULE_API,
+    Capabilities, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo, MODULE_API,
 };
 pub const MODULE_ID: &str = "gaizonggai";
-#[derive(Default)]
-pub struct G {
-    pid: u16,
-    leds: usize,
-    active: bool,
-}
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
 }
-impl Module for G {
+#[derive(Default)]
+pub struct GaiZhongGai;
+impl freergb_module_api::sdk::Module for GaiZhongGai {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
             id: MODULE_ID.into(),
@@ -30,53 +29,33 @@ impl Module for G {
     fn identify(&self, i: &InterfaceInfo) -> Identification {
         table::identify(i)
     }
+    fn initialize_with_zones(
+        &mut self,
+        _: &InterfaceInfo,
+        _: Option<&[freergb_module_api::Zone]>,
+        _: &mut dyn Hid,
+    ) -> Result<Capabilities, ModuleError> {
+        Err(err(
+            "the GaiZhongGai protocol path is not ported; this device is unsupported",
+        ))
+    }
     fn initialize(
         &mut self,
         i: &InterfaceInfo,
-        _: &mut dyn Hid,
+        h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        let d = table::device(i).ok_or_else(|| err("unsupported GaiZhongGai"))?;
-        self.leds = d.leds;
-        self.pid = d.pid;
-        self.active = true;
-        Ok(Capabilities {
-            name: table::identify(i)
-                .model
-                .unwrap_or_else(|| "GaiZhongGai".into()),
-            kind: DeviceKind::Keyboard,
-            layout: LedLayout {
-                width: 21,
-                height: 6,
-                leds: (0..self.leds)
-                    .map(|n| Led {
-                        name: format!("LED {n}"),
-                        pos: ((n % 21) as u16, (n / 21) as u16),
-                    })
-                    .collect(),
-            },
-            firmware: None,
-            restore: Restore::LastFrame,
-            zones: vec![],
-        })
+        self.initialize_with_zones(i, None, h)
     }
-    fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
-        if !self.active || c.len() != self.leds {
-            return Err(err("invalid frame"));
-        }
-        for p in report::packets(self.pid, c) {
-            h.write(&p).map_err(err)?;
-        }
-        Ok(())
+    fn frame(&mut self, _: &[freergb_core::Rgb], _: &mut dyn Hid) -> Result<(), ModuleError> {
+        Err(err("GaiZhongGai module is not initialized"))
     }
-    fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
-        self.active = false;
+    fn shutdown(
+        &mut self,
+        _: Option<freergb_core::Rgb>,
+        _: &mut dyn Hid,
+    ) -> Result<(), ModuleError> {
         Ok(())
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 9);
-    }
-}
+mod tests;

@@ -1,26 +1,115 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
-import fs from "node:fs";
-import path from "node:path";
-const [, , root = "openrgb", commit = "unknown"] = process.argv;
-const family = path.join(root, "Controllers", "NollieController");
-const files = fs.readdirSync(family).filter((f) => /\.(cpp|h)$/.test(f)).map((f) => path.join(family, f));
-const source = files.map((f) => fs.readFileSync(f, "utf8")).join("\n");
-const values = new Map();
-for (const m of source.matchAll(/^\s*#define\s+([A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)/gm)) values.set(m[1], m[2]);
-const detectors = [];
-for (const m of source.matchAll(/REGISTER_HID_DETECTOR(?:_[A-Z]+)?\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/g)) {
-  if (values.has(m[3]) && values.has(m[4])) detectors.push({ name: m[1], handler: m[2], vid: values.get(m[3]), pid: values.get(m[4]) });
-}
-if (detectors.length !== 16) throw new Error(`expected 16 Nollie detectors, found ${detectors.length}`);
-const meta = (d) => {
-  const n = d.name;
-  if (n.includes("32")) return [32, 256, "high"];
-  if (n.includes("16")) return [16, 256, "high"];
-  if (n.includes("28 L")) return [8, 525, "fixed"];
-  if (n.includes("8")) return [8, 126, "fixed"];
-  if (n.includes("28")) return [1, 42, "fixed"];
-  return [1, 630, "fixed"];
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Generator for the Nollie module device table.
+// Usage: node scripts/openrgb/port-nollie-devices.mjs <openrgb-root> <commit>
+// Reads Controllers/NollieController/{NollieControllerDetect,NollieDevices}.cpp
+// and regenerates modules/nollie/src/devices_table.rs. Do not edit that file by hand.
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+const root = process.argv[2] ?? process.env.OPENRGB_ROOT ?? '../openrgb';
+const commit = process.argv[3] ?? 'unknown';
+const family = path.join(root, 'Controllers', 'NollieController');
+const read = (p) => fs.readFileSync(path.join(family, p), 'utf8');
+const detect = read('NollieControllerDetect.cpp');
+const devices = read('NollieDevices.cpp');
+const devicesHeader = read('NollieDevices.h');
+
+const constants = Object.fromEntries(
+  [...devicesHeader.matchAll(/#define\s+([A-Z][A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+|\d+)/g)].map((m) => [
+    m[1],
+    m[2].startsWith('0x') ? Number.parseInt(m[2], 16) : Number.parseInt(m[2], 10),
+  ]),
+);
+const n = (s) => {
+  const t = s.trim();
+  if (t in constants) return constants[t];
+  const v = t.startsWith('0x') ? Number.parseInt(t, 16) : Number.parseInt(t, 10);
+  if (!Number.isFinite(v)) throw new Error(`unresolved constant ${t}`);
+  return v;
 };
-const out = ["// SPDX-License-Identifier: GPL-2.0-or-later", `// Generated from OpenRGB ${commit}.`, "use super::table::{Detector,Device};", "pub static DETECTORS:&[Detector]= &[", ...detectors.map((d) => { const [channels, leds, protocol] = meta(d); return `    Detector{name:${JSON.stringify(d.name)},handler:${JSON.stringify(d.handler)},vid:${d.vid},pid:${d.pid},channels:${channels},leds:${leds},protocol:${JSON.stringify(protocol)}},`; }), "];", "pub static DEVICES:&[Device]= &[", ...detectors.map((d) => { const [channels, leds, protocol] = meta(d); return `    Device{vid:${d.vid},pid:${d.pid},channels:${channels},leds:${leds},protocol:${JSON.stringify(protocol)}},`; }), "];", ""];
-fs.writeFileSync("modules/nollie/src/devices_table.rs", out.join("\n"));
-console.log(`generated ${detectors.length} Nollie detectors`);
+
+// Channel index maps from NollieDevices.cpp.
+const maps = {};
+for (const m of devices.matchAll(/static const int (\w+)\[32\]\s*=\s*\{([^}]*)\}/g)) {
+  maps[m[1]] = m[2].split(',').map((v) => Number.parseInt(v.trim(), 10));
+}
+if (!maps.dflt) throw new Error('dflt channel map not found');
+
+// Device entries: static const nollie_device <name> = { VID_DEFINE, PID_DEFINE, channels, leds, map };
+const deviceEntries = {};
+for (const m of devices.matchAll(
+  /static const nollie_device (\w+)\s*=\s*\{\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*(\d+)\s*,\s*([A-Z0-9_]+|\d+)\s*,\s*(\w+)\s*\}/g,
+)) {
+  const ledVar = m[5];
+  const leds = /^\d+$/.test(ledVar) ? Number.parseInt(ledVar, 10) : n(ledVar);
+  deviceEntries[m[1]] = {
+    vid: n(m[2]),
+    pid: n(m[3]),
+    channels: Number.parseInt(m[4], 10),
+    leds,
+    map: m[6],
+  };
+}
+
+// SendPacket (1025-byte high-speed packets) applies to these PIDs; everything else
+// uses SendPacketFS (65-byte packets in 21-LED chunks) followed by SendUpdate.
+const HIGH_SPEED_PIDS = new Set([
+  n('NOLLIE32_PID'),
+  n('NOLLIE16_PID'),
+  n('NOLLIE32_OS2_1_PID'),
+  n('NOLLIE16_OS2_1_PID'),
+]);
+
+// Detectors: REGISTER_HID_DETECTOR(name, handler, VID, PID)
+//            REGISTER_HID_DETECTOR_I(name, handler, VID, PID, interface)
+// Device entries are looked up by (vid, pid) exactly like NollieController does.
+const rows = [];
+for (const m of detect.matchAll(
+  /REGISTER_HID_DETECTOR(?:_I)?\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)(?:\s*,\s*(\d+))?\s*\)/g,
+)) {
+  const [name, handler, vidDefine, pidDefine] = [m[1], m[2], m[3], m[4]];
+  const iface = m[5] != null ? Number.parseInt(m[5], 10) : 0;
+  const vid = n(vidDefine);
+  const pid = n(pidDefine);
+  const device = Object.values(deviceEntries).find((d) => d.vid === vid && d.pid === pid);
+  if (!device) throw new Error(`no nollie_device entry for ${name} (${vidDefine}:${pidDefine})`);
+  rows.push({
+    name,
+    handler,
+    vid,
+    pid,
+    interface: iface,
+    channels: device.channels,
+    leds: device.leds,
+    map: device.map,
+    protocol: HIGH_SPEED_PIDS.has(pid) ? 'high' : 'fixed',
+  });
+}
+if (rows.length === 0) throw new Error('no Nollie detectors parsed');
+
+const out = path.join(process.cwd(), 'modules', 'nollie', 'src', 'devices_table.rs');
+const lines = [
+  '// SPDX-License-Identifier: GPL-2.0-or-later',
+  `// Generated by scripts/openrgb/port-nollie-devices.mjs from OpenRGB ${commit}; do not edit.`,
+  'use crate::table::{Detector, Device};',
+  '',
+  'pub const DETECTORS: &[Detector] = &[',
+  ...rows.map(
+    (d) =>
+      `    Detector { name: ${JSON.stringify(d.name)}, handler: ${JSON.stringify(d.handler)}, vid: 0x${d.vid.toString(16).padStart(4, '0')}, pid: 0x${d.pid.toString(16).padStart(4, '0')}, interface: ${d.interface} },`,
+  ),
+  '];',
+  '',
+  'pub const DEVICES: &[Device] = &[',
+  ...rows.map(
+    (d) =>
+      `    Device { vid: 0x${d.vid.toString(16).padStart(4, '0')}, pid: 0x${d.pid.toString(16).padStart(4, '0')}, interface: ${d.interface}, channels: ${d.channels}, leds: ${d.leds}, protocol: ${JSON.stringify(d.protocol)} },`,
+  ),
+  '];',
+  '',
+];
+fs.mkdirSync(path.dirname(out), { recursive: true });
+fs.writeFileSync(out, lines.join('\n'));
+execFileSync(process.platform === 'win32' ? 'rustfmt.exe' : 'rustfmt', [out], { stdio: 'ignore' });
+console.log(`generated ${rows.length} Nollie HID detectors`);

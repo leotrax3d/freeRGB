@@ -13,10 +13,16 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
         .iter()
         .find(|d| d.vid == i.vid && d.pid == i.pid);
     Identification {
-        supported: d.is_some(),
+        // Three different upstream controllers are only inventoried here;
+        // the current Rust implementation is not a complete legacy port.
+        supported: false,
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::Mouse),
-        reason: d.is_none().then(|| "no Instant mouse HID detector".into()),
+        reason: Some(if d.is_some() {
+            "ASUS legacy detector is inventoried but its complete keyboard/mouse protocol is not ported".into()
+        } else {
+            "no ASUS legacy HID detector".into()
+        }),
     }
 }
 pub fn device(i: &InterfaceInfo) -> Option<&'static Detector> {

@@ -64,9 +64,4 @@ impl Module for A {
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 6);
-    }
-}
+mod tests;

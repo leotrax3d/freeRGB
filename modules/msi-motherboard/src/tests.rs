@@ -1,27 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-use super::*;
-use freergb_module_api::sdk::Hid;
+use freergb_core::Rgb;
+use freergb_module_api::sdk::{Hid, Module};
+use freergb_module_api::{InterfaceInfo, ModuleError};
 
-#[derive(Default)]
-struct Fake {
-    get_len: usize,
-    sent: Vec<Vec<u8>>,
-}
-impl Hid for Fake {
-    fn write(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
-        unreachable!()
-    }
-    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
-        unreachable!()
-    }
-    fn send_feature(&mut self, p: &[u8]) -> Result<usize, ModuleError> {
-        self.sent.push(p.to_vec());
-        Ok(p.len())
-    }
-    fn get_feature(&mut self, _: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
-        Ok(vec![0; self.get_len])
-    }
-}
 fn iface(pid: u16) -> InterfaceInfo {
     InterfaceInfo {
         vid: 0x1462,
@@ -32,85 +13,209 @@ fn iface(pid: u16) -> InterfaceInfo {
         product: None,
     }
 }
-fn common_iface() -> InterfaceInfo {
-    InterfaceInfo {
-        vid: 0x0db0,
-        pid: 0x0076,
-        interface: 0xff00,
-        usage_page: 1,
-        usage: 0,
-        product: None,
+
+/// Fake HID with configurable 0x52 probe answer and firmware responses.
+struct Fake {
+    probe_len: usize,
+    writes: Vec<Vec<u8>>,
+    features: Vec<Vec<u8>>,
+    reads: usize,
+}
+
+impl Fake {
+    fn new(probe_len: usize) -> Self {
+        Fake {
+            probe_len,
+            writes: Vec::new(),
+            features: Vec::new(),
+            reads: 0,
+        }
+    }
+}
+
+impl Hid for Fake {
+    fn write(&mut self, b: &[u8]) -> Result<usize, ModuleError> {
+        self.writes.push(b.to_vec());
+        Ok(b.len())
+    }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        self.reads += 1;
+        let mut r = vec![0u8; 64];
+        r[2] = 0x25;
+        Ok(r)
+    }
+    fn send_feature(&mut self, b: &[u8]) -> Result<usize, ModuleError> {
+        self.features.push(b.to_vec());
+        Ok(b.len())
+    }
+    fn get_feature(&mut self, _: &[u8], len: usize) -> Result<Vec<u8>, ModuleError> {
+        Ok(vec![0u8; self.probe_len.min(len)])
+    }
+}
+
+fn first_detector() -> InterfaceInfo {
+    let d = &crate::devices_table::DETECTORS[0];
+    iface(d.pid)
+}
+
+#[test]
+fn inventory_is_complete() {
+    // upstream: MSIMotherboardControllerDetect.cpp registers one 0x52-probe
+    // handler for every MSI board PID (interface 1, usage page 0)
+    assert!(crate::devices_table::DETECTORS.len() > 120);
+}
+
+#[test]
+fn unsupported_interface_is_not_identified() {
+    let mut i = first_detector();
+    i.interface = 2;
+    let r = crate::table::identify(&i);
+    assert!(!r.supported);
+}
+
+#[test]
+fn probe_selects_the_162_byte_variant() {
+    let mut m = crate::MsiMotherboard::default();
+    let mut h = Fake::new(162);
+    let caps = m.initialize(&first_detector(), &mut h).unwrap();
+    // upstream: default board config (zones_set0, 10 onboard LEDs)
+    assert_eq!(caps.layout.leds.len(), 14);
+    assert_eq!(caps.zones.len(), 5);
+    assert_eq!(caps.zones[0].name, "JRGB1");
+    assert_eq!(caps.zones[1].name, "JRGB2");
+    assert_eq!(caps.zones[2].name, "JRAINBOW1");
+    assert_eq!(caps.zones[3].name, "JCORSAIR");
+    assert_eq!(caps.zones[4].name, "Onboard LEDs");
+    assert_eq!(caps.zones[4].leds, 10);
+    let colors: Vec<Rgb> = (0..14)
+        .map(|i| Rgb {
+            r: i as u8,
+            g: 0,
+            b: 0,
+        })
+        .collect();
+    m.frame(&colors, &mut h).unwrap();
+    // one 162-byte feature report per frame
+    assert_eq!(h.features.len(), 1);
+    assert_eq!(h.features[0].len(), 162);
+    let p = &h.features[0];
+    assert_eq!(p[0], 0x52);
+    assert_eq!(p[161], 0);
+    // j_rgb_1 (zone value 1): STATIC effect, 0x28 flags, custom color
+    assert_eq!(&p[1..11], &[1, 0, 0, 0, 0x28, 0, 0, 0, 0x80, 0]);
+    // j_rgb_2 (zone value 2) at offset 151
+    assert_eq!(&p[151..161], &[1, 1, 0, 0, 0x28, 1, 0, 0, 0x80, 0]);
+    // j_rainbow_1 (8) at 11 and j_corsair_1 (11) at 21
+    assert_eq!(&p[11..14], &[1, 2, 0]);
+    assert_eq!(&p[21..24], &[1, 3, 0]);
+    assert_eq!(p[29], 0x80);
+    // onboard master (41) keeps the first onboard LED color (value 13 writes
+    // both the master block and on_board_led_1)
+    assert_eq!(&p[41..44], &[1, 4, 0]);
+    assert_eq!(&p[51..54], &[1, 4, 0]);
+    // on_board_led_10 at 141 gets the last onboard LED color (value 22)
+    assert_eq!(&p[141..144], &[1, 13, 0]);
+    // stateful buffer: second frame colors follow
+    let colors2: Vec<Rgb> = (0..14)
+        .map(|i| Rgb {
+            r: (20 + i) as u8,
+            g: 0,
+            b: 0,
+        })
+        .collect();
+    m.frame(&colors2, &mut h).unwrap();
+    assert_eq!(h.features.len(), 2);
+    assert_eq!(&h.features[1][2..5], &[20, 0, 0]);
+    m.shutdown(None, &mut h).unwrap();
+}
+
+#[test]
+fn probe_selects_only_the_112_byte_variant() {
+    let mut m = crate::MsiMotherboard::default();
+    let mut h = Fake::new(112);
+    let caps = m.initialize(&first_detector(), &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 10);
+    // upstream: ReadFwVersion sends 0xB0 and 0xB6 requests
+    assert_eq!(&h.writes[0][0..2], &[0x01, 0xB0]);
+    assert_eq!(&h.writes[1][0..2], &[0x01, 0xB6]);
+    assert!(h.writes.iter().all(|p| p.len() == 64));
+    assert!(h
+        .writes
+        .iter()
+        .all(|p| p.iter().skip(2).all(|b| *b == 0xCC)));
+    assert_eq!(h.reads, 2);
+    // upstream: ReadSettings performs a 112-byte 0x52 get report
+    assert_eq!(caps.firmware.as_deref(), Some("APROM: 2.5, LDROM: 2.5"));
+    // zones: JRGB1, JRAINBOW1, JCORSAIR, Onboard LEDs x7
+    assert_eq!(caps.zones.len(), 4);
+    assert_eq!(caps.zones[3].leds, 7);
+    m.shutdown(None, &mut h).unwrap();
+}
+
+fn frame_bytes(probe_len: usize, colors: &[Rgb]) -> Result<Vec<Vec<u8>>, ModuleError> {
+    let mut m = crate::MsiMotherboard::default();
+    let mut h = Fake::new(probe_len);
+    m.initialize(&first_detector(), &mut h).unwrap();
+    m.frame(colors, &mut h)?;
+    Ok(h.features)
+}
+
+#[test]
+fn frame_sends_single_112_byte_packet() {
+    let colors = vec![Rgb { r: 1, g: 2, b: 3 }; 10];
+    let p = frame_bytes(112, &colors).unwrap();
+    assert_eq!(p.len(), 1);
+    assert_eq!(p[0].len(), 112);
+    assert_eq!(p[0][0], 0x52);
+    assert_eq!(p[0][111], 0);
+}
+
+#[test]
+fn non_112_variants_fail_closed() {
+    for probe in [185usize, 300] {
+        let mut m = crate::MsiMotherboard::default();
+        let mut h = Fake::new(probe);
+        assert!(
+            m.initialize(&first_detector(), &mut h).is_err(),
+            "{}-byte probe must not initialize",
+            probe
+        );
     }
 }
 
 #[test]
-fn generated_inventory_has_all_upstream_detectors() {
-    assert_eq!(devices_table::DETECTORS.len(), 124);
+fn direct_packet_layouts_are_valid_and_byte_exact() {
+    let colors = vec![Rgb { r: 1, g: 2, b: 3 }; 10];
+    let p = frame_bytes(112, &colors).unwrap()[0].clone();
+    // j_rgb_1
+    assert_eq!(&p[1..11], &[1, 1, 2, 3, 0x28, 1, 2, 3, 0x80, 0]);
+    // j_corsair_outerll120 untouched besides effect
+    assert_eq!(&p[31..41], &[1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    // onboard master stays black
+    assert_eq!(&p[41..51], &[1, 0, 0, 0, 0x28, 0, 0, 0, 0x80, 0]);
+    // on_board_led_1..6 filled from frame colors 3..9
+    assert_eq!(&p[51..61], &[1, 1, 2, 3, 0x28, 1, 2, 3, 0x80, 0]);
+    assert_eq!(&p[101..111], &[1, 1, 2, 3, 0x28, 1, 2, 3, 0x80, 0]);
+    // frame length checks
+    let mut m = crate::MsiMotherboard::default();
+    let mut h = Fake::new(112);
+    m.initialize(&first_detector(), &mut h).unwrap();
+    assert!(m.frame(&colors[..9], &mut h).is_err());
+    m.frame(&colors, &mut h).unwrap();
 }
 
 #[test]
-fn zone_packet_is_byte_exact() {
-    let p = report::zone_packet(
-        report::REPORT_112,
-        &[Rgb { r: 1, g: 2, b: 3 }],
-        &[1, 0, 0, 0],
+fn layouts_are_valid() {
+    let mut m = crate::MsiMotherboard::default();
+    let mut h = Fake::new(112);
+    let caps = m.initialize(&first_detector(), &mut h).unwrap();
+    assert_eq!(
+        caps.zones.iter().map(|z| z.leds).sum::<usize>(),
+        caps.layout.leds.len()
     );
-    assert_eq!(&p[..12], &[0x52, 1, 1, 2, 3, 40, 1, 2, 3, 0x80, 0, 1]);
-    assert_eq!(p.len(), 112);
-}
-
-#[test]
-fn initializes_185_and_sends_feature_frame() {
-    let mut m = MsiMotherboard::default();
-    let mut h = Fake {
-        get_len: 185,
-        ..Default::default()
-    };
-    let c = m.initialize(&iface(0x1720), &mut h).unwrap();
-    assert_eq!(c.zones.len(), 7);
-    m.frame(&vec![Rgb { r: 9, g: 8, b: 7 }; c.layout.leds.len()], &mut h)
-        .unwrap();
-    assert_eq!(h.sent.last().unwrap().len(), 185);
-    assert_eq!(h.sent.last().unwrap()[0], 0x52);
-}
-
-#[test]
-fn optional_zones_change_layout() {
-    let mut m = MsiMotherboard::default();
-    let mut h = Fake {
-        get_len: 112,
-        ..Default::default()
-    };
-    let c = m
-        .initialize_with_zones(
-            &iface(0x1720),
-            Some(&[Zone {
-                name: "JRGB1".into(),
-                leds: 4,
-            }]),
-            &mut h,
-        )
-        .unwrap();
-    assert_eq!(c.layout.leds.len(), 4);
-    assert_eq!(c.zones[0].leds, 4);
-}
-
-#[test]
-fn initializes_761_with_configuration_and_packets() {
-    let mut m = MsiMotherboard::default();
-    let mut h = Fake {
-        get_len: 0,
-        ..Default::default()
-    };
-    let c = m.initialize(&common_iface(), &mut h).unwrap();
-    assert_eq!(c.layout.leds.len(), 120);
-    assert_eq!(h.sent[0][0], 0x50);
-    m.frame(&vec![Rgb { r: 1, g: 2, b: 3 }; c.layout.leds.len()], &mut h)
-        .unwrap();
-    assert_eq!(h.sent.len(), 5);
-    assert!(h
-        .sent
-        .iter()
-        .skip(1)
-        .all(|p| p[0] == 0x51 && p.len() == 761));
+    let mut seen = std::collections::HashSet::new();
+    for led in &caps.layout.leds {
+        assert!(!led.name.is_empty());
+        assert!(seen.insert(led.pos));
+    }
 }

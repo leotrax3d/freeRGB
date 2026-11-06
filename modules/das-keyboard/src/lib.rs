@@ -33,7 +33,7 @@ impl Module for A {
         i: &InterfaceInfo,
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        table::device(i).ok_or_else(|| err("unsupported Instant mouse"))?;
+        table::device(i).ok_or_else(|| err("unsupported Das Keyboard device"))?;
         self.active = true;
         Ok(Capabilities {
             name: table::identify(i)
@@ -72,7 +72,17 @@ impl Module for A {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn catalog() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 3);
+    fn inventoried_devices_are_not_claimed_before_protocol_port() {
+        let i = crate::InterfaceInfo {
+            vid: 0x24f0,
+            pid: 0x2037,
+            interface: -1,
+            usage_page: 0,
+            usage: 0,
+            product: None,
+        };
+        let result = crate::table::identify(&i);
+        assert!(!result.supported);
+        assert!(result.reason.unwrap().contains("protocol is not ported"));
     }
 }

@@ -6,18 +6,19 @@ use freergb_core::{Led, LedLayout, Rgb};
 use freergb_module_api::sdk::{Hid, Module};
 use freergb_module_api::{
     Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
-    Restore, Zone, MODULE_API,
+    Restore, MODULE_API,
 };
 pub const MODULE_ID: &str = "gigabyte-aorus-laptop";
+/// upstream: GIGABYTE_AORUS_LAPTOP_BRIGHTNESS_MAX/2 default
+pub const BRIGHTNESS_DEFAULT: u8 = 0x19;
 #[derive(Default)]
-pub struct AsusAuraUsb {
+pub struct Aorus {
     active: bool,
-    leds: usize,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
 }
-impl Module for AsusAuraUsb {
+impl Module for Aorus {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
             id: MODULE_ID.into(),
@@ -32,40 +33,30 @@ impl Module for AsusAuraUsb {
     fn initialize_with_zones(
         &mut self,
         i: &InterfaceInfo,
-        zones: Option<&[Zone]>,
-        hid: &mut dyn Hid,
+        _: Option<&[freergb_module_api::Zone]>,
+        _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         let id = table::identify(i);
         if !id.supported {
             return Err(err(id.reason.unwrap_or_else(|| "unsupported".into())));
         }
-        hid.write(&report::init()).map_err(err)?;
-        let default_leds = 64usize;
-        self.leds = zones
-            .map(|z| z.iter().map(|x| x.leds).sum())
-            .unwrap_or(default_leds)
-            .clamp(1, 240);
+        // upstream: RGBController_GigabyteAorusLaptop.cpp SetupZones exposes the
+        // whole keyboard as a single LED.
         self.active = true;
-        let leds = (0..self.leds)
-            .map(|n| Led {
-                name: format!("Aura LED {}", n + 1),
-                pos: (n as u16, 0),
-            })
-            .collect();
         Ok(Capabilities {
-            name: id.model.unwrap_or_else(|| "ASUS Aura USB".into()),
-            kind: DeviceKind::LightingController,
+            name: id.model.unwrap_or_else(|| "Gigabyte Aorus Laptop".into()),
+            kind: DeviceKind::Keyboard,
             layout: LedLayout {
-                width: self.leds as u16,
+                width: 1,
                 height: 1,
-                leds,
+                leds: vec![Led {
+                    name: "Keyboard".into(),
+                    pos: (0, 0),
+                }],
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![Zone {
-                name: "Aura".into(),
-                leds: self.leds,
-            }],
+            zones: vec![],
         })
     }
     fn initialize(
@@ -75,13 +66,12 @@ impl Module for AsusAuraUsb {
     ) -> Result<Capabilities, ModuleError> {
         self.initialize_with_zones(i, None, h)
     }
-    fn frame(&mut self, colors: &[Rgb], hid: &mut dyn Hid) -> Result<(), ModuleError> {
-        if !self.active || colors.len() != self.leds {
-            return Err(err("invalid Aura frame"));
+    fn frame(&mut self, colors: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
+        if !self.active || colors.len() != 1 {
+            return Err(err("invalid Gigabyte Aorus frame"));
         }
-        for packet in report::frames(colors) {
-            hid.write(&packet).map_err(err)?;
-        }
+        h.send_feature(&report::direct(colors[0], BRIGHTNESS_DEFAULT))
+            .map_err(err)?;
         Ok(())
     }
     fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {

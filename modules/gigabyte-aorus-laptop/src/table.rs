@@ -6,25 +6,52 @@ pub struct Detector {
     pub name: &'static str,
     pub vid: u16,
     pub pid: u16,
-    pub interface: i32,
+    pub interface: u8,
     pub usage_page: u16,
     pub usage: u16,
+    /// true for the Keyboard handlers; only those route a direct-mode controller
+    /// (upstream RGBController_GigabyteAorusLaptop.cpp adds the Direct mode only
+    /// for GIGABYTE_AORUS_LAPTOP_KEYBOARD_TYPE).
+    pub keyboard: bool,
 }
 pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = DETECTORS.iter().find(|d| {
         d.vid == i.vid
             && d.pid == i.pid
-            && (d.interface < 0
-                || (d.interface == i.interface
-                    && d.usage_page == i.usage_page
-                    && d.usage == i.usage))
+            && i32::from(d.interface) == i.interface
+            && d.usage_page == i.usage_page
+            && d.usage == i.usage
     });
-    Identification {
-        supported: d.is_some(),
-        model: d.map(|x| x.name.into()),
-        kind: d.map(|_| DeviceKind::LightingController),
-        reason: d
-            .is_none()
-            .then(|| "no Gigabyte Aorus laptop HID detector for this interface".into()),
+    match d {
+        Some(d) if d.keyboard => Identification {
+            supported: true,
+            model: Some(d.name.into()),
+            kind: Some(DeviceKind::Keyboard),
+            reason: None,
+        },
+        Some(d) => Identification {
+            supported: false,
+            model: Some(d.name.into()),
+            kind: Some(DeviceKind::Keyboard),
+            reason: Some(
+                "backlight controllers have no direct-mode path in upstream and are not supported here"
+                    .into(),
+            ),
+        },
+        None => Identification {
+            supported: false,
+            model: None,
+            kind: None,
+            reason: Some("no Gigabyte Aorus laptop HID detector for this interface".into()),
+        },
     }
+}
+pub fn device(i: &InterfaceInfo) -> Option<&'static Detector> {
+    DETECTORS.iter().find(|d| {
+        d.vid == i.vid
+            && d.pid == i.pid
+            && i32::from(d.interface) == i.interface
+            && d.usage_page == i.usage_page
+            && d.usage == i.usage
+    })
 }

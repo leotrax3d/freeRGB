@@ -197,6 +197,14 @@ impl Module for Logitech {
             .clamp(1, 240);
         self.active = true;
         self.handler = handler;
+        if handler.contains("G933") {
+            // upstream: RGBController_LogitechG933.cpp DeviceUpdateMode sends
+            // SetDirectMode(zone) [0x11, 0xFF, 0x04, 0xCA, zone] for every LED zone
+            // before the first direct-mode frame.
+            for zone in 0..self.leds {
+                h.write(&report::g933_direct(zone as u8)).map_err(err)?;
+            }
+        }
         if handler.contains("MouseG203L") {
             h.write(&report::g203l_init()).map_err(err)?;
         }
@@ -255,7 +263,7 @@ impl Module for Logitech {
                 h.write(&report::g213(zone, *color)).map_err(err)?;
             }
         } else if self.handler.contains("G600") {
-            h.send_feature(&report::g600(0, 3, c[0])).map_err(err)?;
+            h.send_feature(&report::g600(0, 0, c[0])).map_err(err)?;
         } else if self.handler.contains("HIDPP20") && self.hidpp_headset {
             for (zone, color) in c.iter().enumerate() {
                 let id = self.hidpp_zones.get(zone).copied().unwrap_or(zone as u8);
@@ -339,9 +347,9 @@ impl Module for Logitech {
             }
             h.write(&report::g915_commit(wired)).map_err(err)?;
         } else {
-            for x in c.chunks(20) {
-                h.write(&report::direct(x)).map_err(err)?;
-            }
+            // Every supported handler is fully ported above; an uncovered path is a
+            // programming error, not a generic packet to guess.
+            return Err(err("uncovered Logitech frame path"));
         }
         Ok(())
     }

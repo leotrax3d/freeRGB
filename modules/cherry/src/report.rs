@@ -60,11 +60,13 @@ mod tests {
     }
     #[test]
     fn color_frames_chunk_at_54_bytes() {
-        let c = vec![Rgb { r: 1, g: 2, b: 3 }; 125];
+        // upstream: CherryKeyboardController.h CHERRY_KB_MAX_PACKET_SIZE (0x36) and
+        // RGBController_CherryKeyboard.cpp CUSTOM_COLOR_ARRAY_BYTE_COUNT (126 * 3 = 378).
+        let c = vec![Rgb { r: 1, g: 2, b: 3 }; 126];
         let p = colors(&c);
         assert_eq!(p.len(), 7);
         assert_eq!(p[0].len(), 64);
-        assert_eq!(p[6][4], 51);
+        assert_eq!(p[6][4], 0x36);
         assert_eq!(p[6][5], 0x44);
         assert_eq!(p[6][6], 0x01);
     }

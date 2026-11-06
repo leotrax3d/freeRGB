@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+use crate::devices_table::DETECTORS;
 use freergb_module_api::{DeviceKind, Identification, InterfaceInfo};
 #[derive(Debug)]
 pub struct Detector {
@@ -6,43 +7,36 @@ pub struct Detector {
     pub handler: &'static str,
     pub vid: u16,
     pub pid: u16,
-    pub protocol: &'static str,
-    pub kind: &'static str,
-    pub leds: usize,
+    /// 255 = any interface; 65535 = any usage page.
+    pub interface: u8,
+    pub usage_page: u16,
 }
-#[derive(Debug)]
-pub struct Device {
-    pub vid: u16,
-    pub pid: u16,
-    pub protocol: &'static str,
-    pub kind: &'static str,
-    pub leds: usize,
+fn detector(i: &InterfaceInfo) -> Option<&'static Detector> {
+    DETECTORS.iter().find(|d| {
+        d.vid == i.vid
+            && d.pid == i.pid
+            && (d.interface == 255 || i32::from(d.interface) == i.interface)
+            && (d.usage_page == 65535 || d.usage_page == i.usage_page)
+    })
 }
 pub fn identify(i: &InterfaceInfo) -> Identification {
-    let d = crate::devices_table::DETECTORS.iter().find(|d| {
-        d.vid == i.vid
-            && d.pid == i.pid
-            && (i.pid != 0x1007 || (i.interface == 1) == (d.protocol == "zet"))
-    });
+    let d = detector(i);
     Identification {
-        supported: d.is_some(),
+        // Detector inventory is not a protocol implementation: the family spans
+        // mice (Glorious Model O/D wired + wireless with dongle/cable detection,
+        // Everest GT-100), the ZET Fury Pro, Genesis Xenon 200, Genesis Thor 300
+        // and the Sinowealth keyboards (010C/0016) — with different packet sizes
+        // (59/154/520/1032), plane orders, feature/write transports and init
+        // sequences. The audited branch version had duplicated rows (26) and
+        // reused builders across controllers.
+        supported: false,
         model: d.map(|x| x.name.into()),
-        kind: d.map(|x| {
-            if x.kind == "mouse" {
-                DeviceKind::Mouse
-            } else {
-                DeviceKind::Keyboard
-            }
+        kind: d.map(|_| DeviceKind::Accessory),
+        reason: Some(if d.is_some() {
+            "Sinowealth detector is inventoried but its controller-specific protocol is not ported"
+                .into()
+        } else {
+            "no Sinowealth HID detector for this interface".into()
         }),
-        reason: d
-            .is_none()
-            .then(|| "no Sinowealth HID detector for this VID/PID".into()),
     }
-}
-pub fn device(i: &InterfaceInfo) -> Option<&'static Device> {
-    crate::devices_table::DEVICES.iter().find(|d| {
-        d.vid == i.vid
-            && d.pid == i.pid
-            && (i.pid != 0x1007 || (i.interface == 1) == (d.protocol == "zet"))
-    })
 }

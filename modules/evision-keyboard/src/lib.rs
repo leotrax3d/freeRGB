@@ -6,7 +6,7 @@ use freergb_core::{Led, LedLayout, Rgb};
 use freergb_module_api::sdk::{Hid, Module};
 use freergb_module_api::{
     Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
-    Restore, MODULE_API,
+    Restore, Zone, MODULE_API,
 };
 pub const MODULE_ID: &str = "evision-keyboard";
 #[derive(Default)]
@@ -35,34 +35,43 @@ impl Module for EVision {
         i: &InterfaceInfo,
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        let d = table::device(i).ok_or_else(|| err("unsupported EVision device"))?;
-        self.v2 = d.v2;
-        self.leds = if self.v2 && d.pid == 0x0012 {
-            104
-        } else if self.v2 {
-            106
-        } else {
-            126
-        };
+        let id = table::identify(i);
+        if !id.supported {
+            return Err(err(id
+                .reason
+                .unwrap_or_else(|| "unsupported EVision device".into())));
+        }
+        // upstream: RGBController_EVisionKeyboard.cpp SetupZones: one 126-LED
+        // keyboard zone in a 6x23 matrix (12 blank cells).
+        self.v2 = false;
+        self.leds = 126;
         self.active = true;
+        let mut fallback = table::PositionMap::new();
+        let leds = (0..126u16)
+            .map(|n| {
+                let pos = table::v1_position(n)
+                    .or_else(|| fallback.next_free())
+                    .unwrap_or(((n % 23), (n / 23)));
+                Led {
+                    name: format!("Keyboard LED {n}"),
+                    pos,
+                }
+            })
+            .collect();
         Ok(Capabilities {
-            name: table::identify(i)
-                .model
-                .unwrap_or_else(|| "EVision Keyboard".into()),
+            name: id.model.unwrap_or_else(|| "EVision Keyboard".into()),
             kind: DeviceKind::Keyboard,
             layout: LedLayout {
-                width: 21,
+                width: 23,
                 height: 6,
-                leds: (0..self.leds)
-                    .map(|n| Led {
-                        name: format!("Keyboard LED {n}"),
-                        pos: ((n % 21) as u16, (n / 21) as u16),
-                    })
-                    .collect(),
+                leds,
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![],
+            zones: vec![Zone {
+                name: "Keyboard".into(),
+                leds: 126,
+            }],
         })
     }
     fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
@@ -70,20 +79,11 @@ impl Module for EVision {
             return Err(err("invalid EVision frame"));
         }
         let bytes: Vec<u8> = c.iter().flat_map(|x| [x.r, x.g, x.b]).collect();
-        if self.v2 {
-            for (off, chunk) in bytes.chunks(56).enumerate() {
-                h.write(&report::v2(0x12, (off * 56) as u16, chunk))
-                    .map_err(err)?;
-            }
-            h.write(&report::v2(0x13, (self.leds * 3) as u16, &[]))
+        // upstream: EVisionKeyboardController.cpp SetKeyboardColors: sequential
+        // 0x36-byte color chunks with checksums; no Begin/End packets in the flow.
+        for (off, chunk) in bytes.chunks(0x36).enumerate() {
+            h.write(&report::v1_colors(chunk, off * 0x36))
                 .map_err(err)?;
-        } else {
-            h.write(&report::v1_begin()).map_err(err)?;
-            for (off, chunk) in bytes.chunks(0x36).enumerate() {
-                h.write(&report::v1_colors(chunk, off * 0x36))
-                    .map_err(err)?;
-            }
-            h.write(&report::v1_end()).map_err(err)?;
         }
         Ok(())
     }
@@ -93,9 +93,4 @@ impl Module for EVision {
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog_has_15_detectors() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 15);
-    }
-}
+mod tests;

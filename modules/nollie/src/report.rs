@@ -24,7 +24,9 @@ pub fn fixed(pid: u16, channel: usize, packet: usize, colors: &[Rgb]) -> Vec<u8>
         0x1f11 | 0x2a01 => 30,
         _ => 25,
     };
-    let swap = matches!(pid, 0x1f01 | 0x1f11 | 0x2a08 | 0x2c08);
+    // upstream: NollieController.cpp SendPacketFS swaps R/G for NOLLIE8_PID,
+    // NOLLIE1_PID, NOLLIE8_OS2_1_PID, NOLLIE1_OS2_1_PID and PRISM8_OS2_1_PID.
+    let swap = matches!(pid, 0x1f01 | 0x1f11 | 0x2a08 | 0x2a01 | 0x2c08);
     let mut p = vec![0; 65];
     p[1] = (packet + channel * interval) as u8;
     for (i, c) in colors.iter().take(21).enumerate() {

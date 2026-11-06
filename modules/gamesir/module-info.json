@@ -1,0 +1,1 @@
+{"id":"gamesir","name":"GameSir RGB USB HID Controller","version":"0.1.0","license":"GPL-2.0-or-later","vendors":["GameSir"],"devices":2,"detectors":2,"origin":{"project":"OpenRGB","commit":"bbc77470a7cba56af60989e54ba910d5ac66a3ac"}}

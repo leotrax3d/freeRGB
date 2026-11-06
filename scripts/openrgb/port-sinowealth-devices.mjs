@@ -1,21 +1,90 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
-import fs from "node:fs";
-import path from "node:path";
-const [, , root = "openrgb", commit = "unknown"] = process.argv;
-const d = path.join(root, "Controllers", "SinowealthController");
-const files = [];
-const walk = (x) => { for (const e of fs.readdirSync(x, { withFileTypes: true })) { const p = path.join(x, e.name); if (e.isDirectory()) walk(p); else if (/\.(cpp|h)$/.test(e.name)) files.push(p); } };
-walk(d);
-const s = files.map((x) => fs.readFileSync(x, "utf8")).join("\n");
-const v = new Map();
-for (const m of s.matchAll(/^\s*#define\s+([A-Za-z0-9_]+)\s+(0x[0-9A-Fa-f]+)/gm)) v.set(m[1], m[2]);
-const ds = [];
-for (const m of s.matchAll(/REGISTER_HID_DETECTOR(?:_[A-Z]+)?\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z0-9_]+)/g)) if (v.has(m[3]) && v.has(m[4])) ds.push({ name: m[1], handler: m[2], vid: v.get(m[3]), pid: v.get(m[4]) });
-if (ds.length !== 13) throw new Error(`expected 13 detectors, found ${ds.length}`);
-const protocol = (d) => d.handler.includes("GMOW") ? "gmow" : d.handler.includes("ZetFury") ? "zet" : d.handler.includes("Xenon") ? "xenon" : d.handler.includes("Keyboard10c") ? "k10c" : d.handler.includes("Keyboard16") ? "k16" : d.handler.includes("Keyboard") || d.handler.includes("GenesisKeyboard") ? "keyboard" : "mouse";
-const kind = (d) => protocol(d) === "keyboard" || protocol(d) === "k10c" || protocol(d) === "k16" ? "keyboard" : "mouse";
-const leds = (d) => ({ gmow: 0, zet: 7, xenon: 1, k10c: 170, k16: 132, keyboard: 86, mouse: 1 }[protocol(d)]);
-const row = (name, d) => `${name}{vid:${d.vid},pid:${d.pid},protocol:${JSON.stringify(protocol(d))},kind:${JSON.stringify(kind(d))},leds:${leds(d)}}`;
-const out = ["// SPDX-License-Identifier: GPL-2.0-or-later", `// Generated from OpenRGB ${commit}.`, "use super::table::{Detector,Device};", "pub static DETECTORS:&[Detector]= &[", ...ds.map((d) => `Detector{name:${JSON.stringify(d.name)},handler:${JSON.stringify(d.handler)},vid:${d.vid},pid:${d.pid},protocol:${JSON.stringify(protocol(d))},kind:${JSON.stringify(kind(d))},leds:${leds(d)}},`), "];", "pub static DEVICES:&[Device]= &[", ...Array.from(new Map(ds.map((d) => [`${d.vid}:${d.pid}:${protocol(d)}`, d])).values()).map((d) => `Device{vid:${d.vid},pid:${d.pid},protocol:${JSON.stringify(protocol(d))},kind:${JSON.stringify(kind(d))},leds:${leds(d)}},`), "];", ""];
-fs.writeFileSync("modules/sinowealth/src/devices_table.rs", out.join("\n"));
-console.log(`generated ${ds.length} Sinowealth detectors`);
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Generator for the Sinowealth module device table.
+// Usage: node scripts/openrgb/port-sinowealth-devices.mjs <openrgb-root> <commit>
+// Reads SinowealthControllerDetect* and regenerates
+// modules/sinowealth/src/devices_table.rs. Do not edit by hand.
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+const root = process.argv[2] ?? process.env.OPENRGB_ROOT ?? '../openrgb';
+const commit = process.argv[3] ?? 'unknown';
+const family = path.join(root, 'Controllers', 'SinowealthController');
+const detect = fs
+  .readdirSync(family, { recursive: true })
+  .filter((f) => /Detect.*\.cpp$/.test(f))
+  .map((f) => fs.readFileSync(path.join(family, f), 'utf8'))
+  .join('\n');
+const headerText = fs
+  .readdirSync(family, { recursive: true })
+  .filter((f) => /\.h$/.test(f))
+  .map((f) => fs.readFileSync(path.join(family, f), 'utf8'))
+  .join('\n');
+const constants = Object.fromEntries(
+  [...(headerText + detect).matchAll(/#define\s+([A-Za-z][A-Za-z0-9_]*)\s+0x([0-9A-Fa-f]+)/g)].map((m) => [
+    m[1],
+    Number.parseInt(m[2], 16),
+  ]),
+);
+const n = (s) => {
+  const t = s.trim();
+  if (t in constants) return constants[t];
+  if (/^0x[0-9A-Fa-f]+$/.test(t)) return Number.parseInt(t, 16);
+  if (/^\d+$/.test(t)) return Number.parseInt(t, 10);
+  throw new Error(`unresolved constant ${t}`);
+};
+
+const rows = [];
+for (const m of detect.matchAll(
+  /REGISTER_HID_DETECTOR[A-Z_]*\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Za-z][A-Za-z0-9_]+)\s*,\s*([A-Za-z][A-Za-z0-9_]+)\s*(?:,\s*([^)]*)\))?/g,
+)) {
+  const vid = n(m[3]);
+  const pid = n(m[4]);
+  const anyPage = 65535;
+  const args = (m[5] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const variant = m[0].startsWith('REGISTER_HID_DETECTOR_IPU')
+    ? 'IPU'
+    : m[0].startsWith('REGISTER_HID_DETECTOR_IP')
+      ? 'IP'
+      : m[0].startsWith('REGISTER_HID_DETECTOR_PU')
+        ? 'PU'
+        : m[0].startsWith('REGISTER_HID_DETECTOR_P')
+          ? 'P'
+          : 'I';
+  let rec;
+  if (variant === 'IPU' && args.length === 3) rec = { interface: n(args[0]), usagePage: n(args[1]), usage: n(args[2]) };
+  else if (variant === 'IP' && args.length === 2) rec = { interface: n(args[0]), usagePage: n(args[1]), usage: 0 };
+  else if (variant === 'PU' && args.length === 2) rec = { interface: 255, usagePage: n(args[0]), usage: n(args[1]) };
+  else if (variant === 'P' && args.length === 1) rec = { interface: 255, usagePage: n(args[0]), usage: 0 };
+  else if (variant === 'I' && args.length === 1) rec = { interface: n(args[0]), usagePage: anyPage, usage: 0 };
+  else rec = { interface: 255, usagePage: anyPage, usage: 0 };
+  rows.push({ name: m[1], handler: m[2], vid, pid, ...rec });
+}
+const seen = new Set();
+const unique = rows.filter((r) => {
+  const key = `${r.name}|${r.pid}|${r.interface}|${r.usagePage}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+});
+if (unique.length !== 13) throw new Error(`expected 13 unique detector rows, got ${unique.length}`);
+
+const out = path.join(process.cwd(), 'modules', 'sinowealth', 'src', 'devices_table.rs');
+fs.mkdirSync(path.dirname(out), { recursive: true });
+const lines = [
+  '// SPDX-License-Identifier: GPL-2.0-or-later',
+  `// Generated by scripts/openrgb/port-sinowealth-devices.mjs from OpenRGB ${commit}; do not edit.`,
+  'use crate::table::Detector;',
+  '',
+  '// interface 255 = any interface; usage_page 65535 = any usage page.',
+  'pub const DETECTORS: &[Detector] = &[',
+  ...unique.map((d) =>
+    `    Detector { name: ${JSON.stringify(d.name)}, handler: ${JSON.stringify(d.handler)}, vid: 0x${d.vid.toString(16).padStart(4, '0')}, pid: 0x${d.pid.toString(16).padStart(4, '0')}, interface: ${d.interface}, usage_page: ${d.usagePage}, },
+`,
+  ),
+  '];',
+  '',
+];
+fs.writeFileSync(out, lines.join('\n'));
+execFileSync(process.platform === 'win32' ? 'rustfmt.exe' : 'rustfmt', [out], { stdio: 'ignore' });
+console.log(`generated ${unique.length} Sinowealth HID detectors`);

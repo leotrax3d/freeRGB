@@ -35,6 +35,10 @@ pub fn magic(magic: &[u8], command: u8, sequence: u8) -> Vec<u8> {
     p
 }
 #[cfg(test)]
+pub(crate) fn pec_bytes(data: &[u8]) -> u8 {
+    pec(data)
+}
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]

@@ -1,80 +1,92 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
-import fs from "node:fs";
-import path from "node:path";
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Generator for the Roccat module device table.
+// Usage: node scripts/openrgb/port-roccat-devices.mjs <openrgb-root> <commit>
+// Reads all RoccatController detect sources and regenerates
+// modules/roccat/src/devices_table.rs. Do not edit by hand.
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
-const [, , root = "openrgb", commit = "unknown"] = process.argv;
-const family = path.join(root, "Controllers", "RoccatController");
+const root = process.argv[2] ?? process.env.OPENRGB_ROOT ?? '../openrgb';
+const commit = process.argv[3] ?? 'unknown';
+const family = path.join(root, 'Controllers', 'RoccatController');
 const files = [];
-const walk = (dir) => {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(file);
-    else if (/\.(cpp|h)$/.test(entry.name)) files.push(file);
+function walk(dir) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p);
+    else if (/[Dd]etect.*\.cpp$/.test(e.name)) files.push(p);
   }
-};
+}
 walk(family);
-const source = files.map((file) => fs.readFileSync(file, "utf8")).join("\n");
-const constants = new Map();
-for (const match of source.matchAll(/^\s*#define\s+([A-Z0-9_]+)\s+(0x[0-9A-Fa-f]+)/gm)) {
-  constants.set(match[1], match[2]);
-}
-const detectors = [];
-const pattern = /REGISTER_HID_DETECTOR(?:_[A-Z]+)?\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)/g;
-for (const match of source.matchAll(pattern)) {
-  const vid = constants.get(match[3]);
-  const pid = constants.get(match[4]);
-  if (vid && pid) detectors.push({ name: match[1], handler: match[2], vid, pid });
-}
-if (detectors.length !== 28) throw new Error(`expected 28 Roccat detectors, found ${detectors.length}`);
-const protocol = (handler, name) => {
-  if (handler.includes("Horde")) return "horde";
-  if (handler.includes("Vulcan")) return "keyboard";
-  if (handler.includes("Elo")) return "headset";
-  if (handler.includes("Sense")) return "sense";
-  if (handler.includes("Kova")) return "kova";
-  if (handler.includes("KoneProAir")) return "kone-pro-air";
-  if (handler.includes("KoneXP")) return "kone-xp";
-  if (handler.includes("KoneAimo") || handler.includes("Mouse")) return "kone-aimo";
-  if (handler.includes("BurstProAir")) return "burst-pro-air";
-  if (handler.includes("Burst") || handler.includes("KonePro")) return "direct-mouse";
-  return name.toLowerCase().includes("air") ? "direct-mouse" : "mouse";
+const detect = files.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+const headerText = fs
+  .readdirSync(family, { recursive: true })
+  .filter((f) => /\.h$/.test(f))
+  .map((f) => fs.readFileSync(path.join(family, f), 'utf8'))
+  .join('\n');
+const constants = Object.fromEntries(
+  [...(headerText + '\n' + detect).matchAll(/#define\s+([A-Z][A-Z0-9_]*)\s+0x([0-9A-Fa-f]+)/g)].map((m) => [
+    m[1],
+    Number.parseInt(m[2], 16),
+  ]),
+);
+const n = (s) => {
+  const t = s.trim();
+  if (t in constants) return constants[t];
+  if (/^0x[0-9A-Fa-f]+$/.test(t)) return Number.parseInt(t, 16);
+  if (/^\d+$/.test(t)) return Number.parseInt(t, 10);
+  throw new Error(`unresolved constant ${t}`);
 };
-const metadata = (name, handler) => {
-  const p = protocol(handler, name);
-  if (p === "horde") return { p, leds: 6, packet: 24, column: 1, version: 1 };
-  if (p === "headset") return { p, leds: 1, packet: 16, column: 1, version: 1 };
-  if (p === "sense") return { p, leds: 2, packet: 9, column: 1, version: 1 };
-  if (p === "kone-aimo") return { p, leds: 11, packet: 46, column: 1, version: 1 };
-  if (p === "kova") return { p, leds: 2, packet: 46, column: 1, version: 1 };
-  if (p === "mouse") return { p, leds: 11, packet: 46, column: 1, version: 1 };
-  if (name.includes("Burst Pro Air")) return { p, leds: 4, packet: 30, column: 1, version: 2 };
-  if (name.includes("Burst Core")) return { p, leds: 1, packet: 11, column: 1, version: 1 };
-  if (name.includes("Burst Pro")) return { p, leds: 2, packet: 11, column: 1, version: 1 };
-  if (name.includes("Kone Pro Air")) return { p, leds: 2, packet: 16, column: 1, version: 2 };
-  if (name.includes("Kone Pro")) return { p, leds: 2, packet: 11, column: 1, version: 1 };
-  if (name.includes("Kone XP")) return { p, leds: 19, packet: 122, column: 1, version: 3 };
-  if (name.includes("Horde")) return { p, leds: 6, packet: 24, column: 1, version: 1 };
-  if (name.includes("Magma")) return { p, leds: 105, packet: 64, column: 5, version: 2 };
-  if (name.includes("Vulcan II Max")) return { p, leds: 148, packet: 567, column: 1, version: 2 };
-  if (name.includes("Vulcan II Mini")) return { p, leds: 69, packet: 345, column: 1, version: 2 };
-  if (name.includes("Vulcan II TKL")) return { p, leds: 85, packet: 320, column: 1, version: 2 };
-  if (name.includes("Vulcan II")) return { p, leds: 105, packet: 396, column: 1, version: 2 };
-  if (name.includes("Vulcan TKL")) return { p, leds: 85, packet: 436, column: 12, version: 1 };
-  if (name.includes("Vulcan")) return { p, leds: 105, packet: 436, column: 12, version: 1 };
-  return { p, leds: 105, packet: 436, column: 12, version: 1 };
-};
-const devices = detectors.map((device) => ({ ...device, ...metadata(device.name, device.handler) }));
-const out = [
-  "// SPDX-License-Identifier: GPL-2.0-or-later",
-  `// Generated from OpenRGB ${commit}.`,
-  "use super::table::{Detector, Device};",
-  "pub static DETECTORS: &[Detector] = &[",
-  ...devices.map((d) => `    Detector { name: ${JSON.stringify(d.name)}, handler: ${JSON.stringify(d.handler)}, vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.p)} },`),
-  "];",
-  "pub static DEVICES: &[Device] = &[",
-  ...devices.map((d) => `    Device { vid: ${d.vid}, pid: ${d.pid}, protocol: ${JSON.stringify(d.p)}, leds: ${d.leds}, packet: ${d.packet}, column: ${d.column}, version: ${d.version} },`),
-  "];",
-  "",
+
+const rows = [];
+for (const m of detect.matchAll(
+  /REGISTER_HID_DETECTOR[A-Z_]*\s*\(\s*"([^"]+)"\s*,\s*([A-Za-z0-9_]+)\s*,\s*([A-Z][A-Z0-9_]+)\s*,\s*([A-Z][A-Z0-9_]+)\s*(?:,\s*([^)]*)\))?/g,
+)) {
+  const vid = n(m[3]);
+  const pid = n(m[4]);
+  const args = (m[5] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const anyPage = 65535;
+  let rec;
+  if (args.length === 3) {
+    rec = { interface: n(args[0]), usagePage: n(args[1]), usage: n(args[2]) };
+  } else if (args.length === 1) {
+    rec = { interface: n(args[0]), usagePage: anyPage, usage: 0 };
+  } else if (args.length === 2) {
+    if (m[0].includes('_PU')) rec = { interface: 255, usagePage: n(args[0]), usage: n(args[1]) };
+    else rec = { interface: n(args[0]), usagePage: n(args[1]), usage: 0 };
+  } else {
+    rec = { interface: 255, usagePage: anyPage, usage: 0 };
+  }
+  rows.push({ name: m[1], handler: m[2], vid, pid, ...rec });
+}
+// upstream: 28 unique detector rows exist; the detect sources in this family
+// define them once each.
+const seen = new Set();
+const unique = rows.filter((r) => {
+  const key = `${r.name}|${r.pid}|${r.interface}|${r.usagePage}`;
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+});
+if (unique.length !== 28) throw new Error(`expected 28 unique detector rows, got ${unique.length}`);
+
+const out = path.join(process.cwd(), 'modules', 'roccat', 'src', 'devices_table.rs');
+fs.mkdirSync(path.dirname(out), { recursive: true });
+const lines = [
+  '// SPDX-License-Identifier: GPL-2.0-or-later',
+  `// Generated by scripts/openrgb/port-roccat-devices.mjs from OpenRGB ${commit}; do not edit.`,
+  'use crate::table::Detector;',
+  '',
+  '// interface 255 = any interface; usage_page 65535 = any usage page.',
+  'pub const DETECTORS: &[Detector] = &[',
+  ...unique.map((d) =>
+    `    Detector { name: ${JSON.stringify(d.name)}, handler: ${JSON.stringify(d.handler)}, vid: 0x${d.vid.toString(16).padStart(4, '0')}, pid: 0x${d.pid.toString(16).padStart(4, '0')}, interface: ${d.interface}, usage_page: ${d.usagePage}, },
+`,
+  ),
+  '];',
+  '',
 ];
-fs.writeFileSync("modules/roccat/src/devices_table.rs", out.join("\n"));
-console.log(`generated ${detectors.length} Roccat detectors`);
+fs.writeFileSync(out, lines.join('\n'));
+execFileSync(process.platform === 'win32' ? 'rustfmt.exe' : 'rustfmt', [out], { stdio: 'ignore' });
+console.log(`generated ${unique.length} Roccat HID detectors`);

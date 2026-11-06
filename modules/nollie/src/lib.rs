@@ -19,6 +19,18 @@ pub struct Nollie {
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
 }
+/// upstream: NollieController.cpp NollieController::GetChannelName
+fn channel_name(channel: usize) -> String {
+    if channel > 27 {
+        format!("Channel EXT {}", channel + 1 - 28)
+    } else if channel > 21 {
+        format!("Channel GPU {}", channel + 1 - 22)
+    } else if channel > 15 {
+        format!("Channel ATX {}", channel + 1 - 16)
+    } else {
+        format!("Channel {}", channel + 1)
+    }
+}
 impl Module for Nollie {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
@@ -37,7 +49,13 @@ impl Module for Nollie {
         z: Option<&[Zone]>,
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        let d = table::device(i).ok_or_else(|| err("unsupported Nollie device"))?;
+        let (d, _name, protocol) =
+            table::device_with_name(i).ok_or_else(|| err("unsupported Nollie device"))?;
+        if protocol != "fixed" {
+            return Err(err(
+                "Nollie high-speed protocol path is not ported (audit); this device is unsupported",
+            ));
+        }
         self.pid = d.pid;
         self.protocol = d.protocol;
         self.channels = z
@@ -52,13 +70,14 @@ impl Module for Nollie {
         let mut zones = Vec::new();
         let mut off = 0;
         for (c, n) in self.channels.iter().enumerate() {
+            let cname = channel_name(c);
             zones.push(Zone {
-                name: format!("Channel {}", c + 1),
+                name: cname.clone(),
                 leds: *n,
             });
             for k in 0..*n {
                 leds.push(Led {
-                    name: format!("Channel {} LED {}", c + 1, k),
+                    name: format!("{}, LED {}", cname, k + 1),
                     pos: (k as u16, c as u16),
                 });
             }
@@ -122,9 +141,4 @@ impl Module for Nollie {
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog_has_16_detectors() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 16);
-    }
-}
+mod tests;

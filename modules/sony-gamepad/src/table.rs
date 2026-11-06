@@ -11,12 +11,17 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
         .iter()
         .find(|d| d.vid == i.vid && d.pid == i.pid);
     Identification {
-        supported: d.is_some(),
+        supported: false,
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::Accessory),
-        reason: d.is_none().then(|| "no Sony gamepad HID detector".into()),
+        reason: Some(if d.is_some() {
+            "Sony USB/Bluetooth initialization and complete report lifecycle are not ported".into()
+        } else {
+            "no Sony gamepad HID detector".into()
+        }),
     }
 }
 pub fn device(i: &InterfaceInfo) -> Option<&'static Detector> {
-    crate::devices_table::device(i)
+    let _ = i;
+    None
 }

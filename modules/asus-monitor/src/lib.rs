@@ -35,9 +35,15 @@ impl Module for M {
         h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         table::device(i).ok_or_else(|| err("unsupported ASUS monitor"))?;
+        // upstream: RGBController_AsusMonitor.cpp SetupZones reads the LED count
+        // via GetNumberOfLEDs (query 0xEC 0xB0, count in response byte 32); a
+        // device that does not answer is not configured.
         h.write(&report::query()).map_err(err)?;
-        let r = h.read(65, 100).unwrap_or_default();
-        self.leds = r.get(32).copied().unwrap_or(1).max(1) as usize;
+        let r = h.read(65, 100).map_err(err)?;
+        if r.len() <= 32 || r[32] == 0 {
+            return Err(err("ASUS monitor did not report an LED count"));
+        }
+        self.leds = usize::from(r[32]);
         h.write(&report::init()).map_err(err)?;
         self.active = true;
         Ok(Capabilities {
@@ -73,9 +79,4 @@ impl Module for M {
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 7);
-    }
-}
+mod tests;

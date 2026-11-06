@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+//! Gigabyte RGB Fusion 2 USB inventory module.
+//!
+//! The five USB-HID detectors (IT8297 0x8297/0x8950/0x5702/0x5711 and
+//! Gigabyte 0xa100) are inventoried with usage-page/usage qualifications; the
+//! IT8297 protocol itself is not ported and the audited branch version sent
+//! fabricated packets. Nothing is claimed as supported.
 pub mod devices_table;
-pub mod report;
 pub mod table;
-use freergb_core::{Led, LedLayout, Rgb};
-use freergb_module_api::sdk::{Hid, Module};
+use freergb_module_api::sdk::Hid;
 use freergb_module_api::{
-    Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
-    Restore, Zone, MODULE_API,
+    Capabilities, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo, MODULE_API,
 };
 pub const MODULE_ID: &str = "gigabyte-rgbfusion2";
-#[derive(Default)]
-pub struct G {
-    leds: usize,
-    active: bool,
-}
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
 }
-impl Module for G {
+#[derive(Default)]
+pub struct RgbFusion2;
+impl freergb_module_api::sdk::Module for RgbFusion2 {
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
             id: MODULE_ID.into(),
@@ -29,6 +29,16 @@ impl Module for G {
     fn identify(&self, i: &InterfaceInfo) -> Identification {
         table::identify(i)
     }
+    fn initialize_with_zones(
+        &mut self,
+        _: &InterfaceInfo,
+        _: Option<&[freergb_module_api::Zone]>,
+        _: &mut dyn Hid,
+    ) -> Result<Capabilities, ModuleError> {
+        Err(err(
+            "the IT8297 protocol path is not ported; this device is unsupported",
+        ))
+    }
     fn initialize(
         &mut self,
         i: &InterfaceInfo,
@@ -36,56 +46,16 @@ impl Module for G {
     ) -> Result<Capabilities, ModuleError> {
         self.initialize_with_zones(i, None, h)
     }
-    fn initialize_with_zones(
+    fn frame(&mut self, _: &[freergb_core::Rgb], _: &mut dyn Hid) -> Result<(), ModuleError> {
+        Err(err("Gigabyte RGB Fusion 2 module is not initialized"))
+    }
+    fn shutdown(
         &mut self,
-        i: &InterfaceInfo,
-        z: Option<&[Zone]>,
+        _: Option<freergb_core::Rgb>,
         _: &mut dyn Hid,
-    ) -> Result<Capabilities, ModuleError> {
-        table::device(i).ok_or_else(|| err("unsupported Gigabyte RGB Fusion"))?;
-        self.leds = z.and_then(|x| x.first()).map(|q| q.leds).unwrap_or(0);
-        self.active = true;
-        Ok(Capabilities {
-            name: table::identify(i)
-                .model
-                .unwrap_or_else(|| "Gigabyte RGB Fusion 2 USB".into()),
-            kind: DeviceKind::LightingController,
-            layout: LedLayout {
-                width: 19,
-                height: 1,
-                leds: (0..self.leds)
-                    .map(|n| Led {
-                        name: format!("LED {n}"),
-                        pos: (n as u16, 0),
-                    })
-                    .collect(),
-            },
-            firmware: None,
-            restore: Restore::LastFrame,
-            zones: vec![Zone {
-                name: "ARGB Header".into(),
-                leds: self.leds,
-            }],
-        })
-    }
-    fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
-        if !self.active || c.len() != self.leds {
-            return Err(err("invalid Gigabyte frame"));
-        }
-        for chunk in c.chunks(19) {
-            h.send_feature(&report::direct(0x58, chunk)).map_err(err)?;
-        }
-        Ok(())
-    }
-    fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
-        self.active = false;
+    ) -> Result<(), ModuleError> {
         Ok(())
     }
 }
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn catalog() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 5);
-    }
-}
+mod tests;

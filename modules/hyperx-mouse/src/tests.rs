@@ -1,0 +1,327 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+use freergb_core::Rgb;
+use freergb_module_api::sdk::{Hid, Module};
+use freergb_module_api::{InterfaceInfo, ModuleError};
+
+#[test]
+fn inventory_is_complete() {
+    // upstream: HyperXMouseControllerDetect.cpp registers 14 IP/PU/IPU rows with
+    // distinct interface/usage-page qualifications (ANY = 255).
+    assert_eq!(crate::devices_table::DETECTORS.len(), 14);
+    assert_eq!(crate::devices_table::DEVICES.len(), 14);
+    assert!(crate::devices_table::DETECTORS
+        .iter()
+        .all(|d| d.vid == 0x0951 || d.vid == 0x03f0));
+}
+
+fn info_for(pid: u16) -> InterfaceInfo {
+    let d = &crate::devices_table::DETECTORS[0];
+    let _ = d;
+    InterfaceInfo {
+        vid: 0x0951,
+        pid,
+        interface: 1,
+        usage_page: 0xff01,
+        usage: 0,
+        product: None,
+    }
+}
+
+#[test]
+fn only_ported_devices_are_claimed() {
+    let surge = crate::table::identify(&info_for(0x16d3));
+    assert!(surge.supported, "Surge path is ported");
+    for row in 0..crate::devices_table::DETECTORS.len() {
+        let d = &crate::devices_table::DETECTORS[row];
+        let dev = &crate::devices_table::DEVICES[row];
+        let i = InterfaceInfo {
+            vid: d.vid,
+            pid: d.pid,
+            interface: d.interface as i32,
+            usage_page: d.usage_page,
+            usage: d.usage,
+            product: None,
+        };
+        let id = crate::table::identify(&i);
+        assert_eq!(
+            id.supported,
+            dev.protocol == "surge"
+                || dev.protocol == "fps"
+                || dev.protocol == "raid"
+                || dev.protocol == "haste"
+                || dev.protocol == "dart"
+        );
+    }
+}
+
+#[test]
+fn wrong_interface_or_usage_page_is_not_supported() {
+    // Surge: interface 1, usage page 0xFF01. A control interface must not match.
+    let i = info_for(0x16d3);
+    let id = crate::table::identify(&i);
+    assert!(id.model.as_deref().is_some_and(|m| m.contains("Surge")));
+    let mut i2 = i.clone();
+    i2.interface = 0;
+    assert!(!crate::table::identify(&i2).supported);
+    let mut i3 = i;
+    i3.usage_page = 0x0001;
+    assert!(!crate::table::identify(&i3).supported);
+}
+
+struct RecordingFeature {
+    features: Vec<Vec<u8>>,
+}
+
+impl RecordingFeature {
+    fn new() -> Self {
+        RecordingFeature {
+            features: Vec::new(),
+        }
+    }
+}
+impl Hid for RecordingFeature {
+    fn write(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        unreachable!()
+    }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+    fn send_feature(&mut self, b: &[u8]) -> Result<usize, ModuleError> {
+        self.features.push(b.to_vec());
+        Ok(b.len())
+    }
+    fn get_feature(&mut self, _: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+}
+
+struct NoIo;
+impl Hid for NoIo {
+    fn write(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        panic!("no device I/O may happen for unsupported devices")
+    }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        panic!("no device I/O may happen for unsupported devices")
+    }
+    fn send_feature(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        panic!("no device I/O may happen for unsupported devices")
+    }
+    fn get_feature(&mut self, _: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
+        panic!("no device I/O may happen for unsupported devices")
+    }
+}
+
+#[test]
+fn dart_initialize_validates_frame_size() {
+    let mut m = crate::HyperX::default();
+    let mut h = NoIo;
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler.contains("Dart"))
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: d.interface as i32,
+        usage_page: d.usage_page,
+        usage: d.usage,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert!(m.frame(&[], &mut h).is_err());
+}
+
+#[test]
+fn surge_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingFeature::new();
+    let i = info_for(0x16d3);
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: LED Strip 32 + Logo 1
+    assert_eq!(caps.layout.leds.len(), 33);
+    assert_eq!(caps.zones.len(), 2);
+    assert_eq!(caps.zones[0].name, "LED Strip");
+    assert_eq!(caps.zones[1].name, "Logo");
+    assert_eq!(caps.kind, freergb_module_api::DeviceKind::Mouse);
+    assert!(h.features.is_empty()); // initialize sends nothing
+    let colors: Vec<Rgb> = (0..33)
+        .map(|k| Rgb {
+            r: k as u8,
+            g: (2 * k) as u8,
+            b: (3 * k) as u8,
+        })
+        .collect();
+    m.frame(&colors, &mut h).unwrap();
+    assert_eq!(h.features.len(), 1);
+    let p = &h.features[0];
+    // upstream: SendDirect 264-byte feature report [07 14 00 A0 ...]
+    assert_eq!(p.len(), 264);
+    assert_eq!(&p[0..4], &[0x07, 0x14, 0x00, 0xA0]);
+    assert_eq!(p[0x08], 0);
+    assert_eq!(p[0x08 + 31], 31);
+    assert_eq!(p[0x28 + 1], 2);
+    assert_eq!(p[0x48 + 2], 6);
+    assert_eq!(&p[0x6C..0x6F], &[32, 64, 96]);
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.features.len(), 1); // no exit packets
+}
+
+#[test]
+fn fps_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingFeature::new();
+    // FPS Pro row: interface 1, usage page 0xFF01
+    let i = info_for(0x16d7);
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 1);
+    assert_eq!(caps.layout.leds[0].name, "Logo");
+    assert_eq!(caps.zones.len(), 1);
+    assert!(h.features.is_empty());
+    m.frame(
+        &[Rgb {
+            r: 10,
+            g: 20,
+            b: 30,
+        }],
+        &mut h,
+    )
+    .unwrap();
+    assert_eq!(h.features.len(), 1);
+    let p = &h.features[0];
+    // upstream: SendDirect [07 0A r g b .. 0xA0@0x08]
+    assert_eq!(p.len(), 264);
+    assert_eq!(&p[0..9], &[0x07, 0x0A, 10, 20, 30, 0, 0, 0, 0xA0]);
+    assert!(p[9..].iter().all(|b| *b == 0));
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.features.len(), 1);
+}
+
+#[test]
+fn haste_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingFeature::new();
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler.contains("Haste"))
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: d.interface as i32,
+        usage_page: d.usage_page,
+        usage: d.usage,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 1);
+    assert_eq!(caps.layout.leds[0].name, "Logo");
+    assert!(h.features.is_empty());
+    m.frame(&[Rgb { r: 7, g: 8, b: 9 }], &mut h).unwrap();
+    assert_eq!(h.features.len(), 2);
+    // upstream: SendDirectSetup then SendDirectColor
+    assert_eq!(&h.features[0][0..9], &[0, 4, 0xF2, 0, 0, 0, 0, 0, 0x02]);
+    assert_eq!(&h.features[1][0..9], &[0, 0x81, 7, 8, 9, 0, 0, 0, 0x02]);
+    assert_eq!(h.features[0].len(), 65);
+    assert_eq!(h.features[1].len(), 65);
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.features.len(), 2);
+}
+#[test]
+fn raid_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingFeature::new();
+    // Raid row: interface 1, usage page 0xFF01, usage 1
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler.contains("Raid"))
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: d.interface as i32,
+        usage_page: d.usage_page,
+        usage: d.usage,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    // upstream: Scroll Wheel + Logo zones
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert_eq!(caps.layout.leds[0].name, "Scroll Wheel");
+    assert_eq!(caps.layout.leds[1].name, "Logo");
+    assert!(h.features.is_empty());
+    m.frame(
+        &[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }],
+        &mut h,
+    )
+    .unwrap();
+    assert_eq!(h.features.len(), 1);
+    let p = &h.features[0];
+    // upstream: SendColors [07 0A rgb rgb 0xA0@8]
+    assert_eq!(p.len(), 264);
+    assert_eq!(&p[0..9], &[0x07, 0x0A, 1, 2, 3, 4, 5, 6, 0xA0]);
+    assert!(p[9..].iter().all(|b| *b == 0));
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.features.len(), 1);
+}
+struct RecordingWrite {
+    writes: Vec<Vec<u8>>,
+}
+impl Hid for RecordingWrite {
+    fn write(&mut self, b: &[u8]) -> Result<usize, ModuleError> {
+        self.writes.push(b.to_vec());
+        Ok(b.len())
+    }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+    fn send_feature(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        unreachable!()
+    }
+    fn get_feature(&mut self, _: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+}
+
+#[test]
+fn dart_full_sequence_is_byte_exact() {
+    let mut m = crate::HyperX::default();
+    let mut h = RecordingWrite { writes: Vec::new() };
+    let d = crate::devices_table::DETECTORS
+        .iter()
+        .find(|d| d.handler.contains("Dart"))
+        .unwrap();
+    let i = InterfaceInfo {
+        vid: d.vid,
+        pid: d.pid,
+        interface: d.interface as i32,
+        usage_page: d.usage_page,
+        usage: d.usage,
+        product: None,
+    };
+    let caps = m.initialize(&i, &mut h).unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
+    assert_eq!(caps.layout.leds[0].name, "Scroll Wheel");
+    assert_eq!(caps.layout.leds[1].name, "Logo");
+    assert!(h.writes.is_empty());
+    m.frame(
+        &[Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }],
+        &mut h,
+    )
+    .unwrap();
+    assert_eq!(h.writes.len(), 2);
+    let p0 = &h.writes[0];
+    assert_eq!(p0.len(), 65);
+    assert_eq!(
+        &p0[0..13],
+        &[0, 0xD2, 0x10, 0x00, 0x08, 1, 2, 3, 1, 2, 3, 0x64, 0x00]
+    );
+    let p1 = &h.writes[1];
+    assert_eq!(p1.len(), 65);
+    assert_eq!(
+        &p1[0..13],
+        &[0, 0xD2, 0x00, 0x00, 0x08, 4, 5, 6, 4, 5, 6, 0x64, 0x00]
+    );
+    m.shutdown(None, &mut h).unwrap();
+    assert_eq!(h.writes.len(), 2);
+}

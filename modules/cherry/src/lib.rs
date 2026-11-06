@@ -35,7 +35,9 @@ impl Module for Cherry {
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
         if table::identify(i).supported {
-            self.leds = 125;
+            // upstream: RGBController_CherryKeyboard.cpp: CHERRY_MATRIX_CELL_COUNT
+            // = CHERRY_MATRIX_MAP_HEIGHT (6) * CHERRY_MATRIX_MAP_WIDTH (21) = 126 LEDs.
+            self.leds = 126;
             self.active = true;
         } else {
             return Err(err("unsupported Cherry device"));

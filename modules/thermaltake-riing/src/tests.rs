@@ -68,3 +68,18 @@ fn lifecycle_uses_zones() {
     m.frame(&colors, &mut h).unwrap();
     assert!(h.writes.len() >= 6);
 }
+
+#[test]
+fn unknown_device_is_not_supported_with_reason() {
+    let i = InterfaceInfo {
+        vid: 0x1234,
+        pid: 0x5678,
+        interface: 0,
+        usage_page: 0,
+        usage: 0,
+        product: None,
+    };
+    let id = table::identify(&i);
+    assert!(!id.supported);
+    assert!(id.reason.is_some());
+}

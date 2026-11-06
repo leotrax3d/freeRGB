@@ -11,13 +11,8 @@ use freergb_module_api::{
 pub const MODULE_ID: &str = "drgb";
 #[derive(Default)]
 pub struct Drgb {
-    active: bool,
-    pid: u16,
-    channels: usize,
-    leds_per_channel: usize,
+    channel_counts: Vec<usize>,
     version: u8,
-    leds: usize,
-    zone_sizes: Vec<usize>,
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
@@ -37,44 +32,62 @@ impl Module for Drgb {
     fn initialize_with_zones(
         &mut self,
         i: &InterfaceInfo,
-        z: Option<&[Zone]>,
+        zones: Option<&[Zone]>,
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        let d = table::device(i).ok_or_else(|| err("unsupported DRGB device"))?;
-        self.pid = d.pid;
-        self.channels = d.channels;
-        self.leds_per_channel = d.leds_per_channel;
-        self.version = d.version;
-        self.zone_sizes = z
-            .map(|x| x.iter().map(|q| q.leds.clamp(1, 8192)).collect())
-            .unwrap_or_else(|| vec![d.leds_per_channel; d.channels]);
-        self.channels = self.zone_sizes.len().clamp(1, 36);
-        self.leds = self.zone_sizes.iter().sum::<usize>().clamp(1, 8192);
-        self.active = true;
+        let id = table::identify(i);
+        if !id.supported {
+            return Err(ModuleError::new(
+                ErrorCode::Unsupported,
+                id.reason.unwrap_or_else(|| "unsupported".into()),
+            ));
+        }
+        let dev = crate::devices_table::DEVICES
+            .iter()
+            .find(|d| d.pid == i.pid)
+            .ok_or_else(|| err("no DeepRGB detector"))?;
+        if dev.version != 1 && dev.version != 2 && dev.version != 3 && dev.version != 4 {
+            return Err(err("DeepRGB version is not ported yet"));
+        }
+        let channel_counts = match zones {
+            Some(z) if !z.is_empty() => z.iter().map(|z| z.leds).collect(),
+            _ => vec![dev.leds_per_channel; dev.channels],
+        };
+        let total: usize = channel_counts.iter().sum();
+        if total > 8192 {
+            return Err(err("DeepRGB frame exceeds 8192 LED Direct-mode limit"));
+        }
+        let leds = (0..total)
+            .map(|n| Led {
+                name: format!("LED {}", n),
+                pos: ((n % 30) as u16, (n / 30) as u16),
+            })
+            .collect::<Vec<_>>();
+        let zones_out = if zones.map_or(true, |z| z.is_empty()) {
+            channel_counts
+                .iter()
+                .enumerate()
+                .map(|(i, &c)| Zone {
+                    name: format!("Channel {}", i + 1),
+                    leds: c,
+                })
+                .collect()
+        } else {
+            zones.unwrap().to_vec()
+        };
+        self.channel_counts = channel_counts;
+        self.version = dev.version;
         Ok(Capabilities {
-            name: table::identify(i).model.unwrap_or_else(|| "DRGB".into()),
-            kind: DeviceKind::Accessory,
+            name: "DRGB".into(),
+            kind: DeviceKind::LightingController,
             layout: LedLayout {
-                width: self.leds as u16,
+                width: total as u16,
                 height: 1,
-                leds: (0..self.leds)
-                    .map(|n| Led {
-                        name: format!("LED {}", n + 1),
-                        pos: (n as u16, 0),
-                    })
-                    .collect(),
+                leds,
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: self
-                .zone_sizes
-                .iter()
-                .enumerate()
-                .map(|(n, leds)| Zone {
-                    name: format!("Channel {}", n + 1),
-                    leds: *leds,
-                })
-                .collect(),
+            zones: zones_out,
         })
     }
     fn initialize(
@@ -84,24 +97,20 @@ impl Module for Drgb {
     ) -> Result<Capabilities, ModuleError> {
         self.initialize_with_zones(i, None, h)
     }
-    fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
-        if !self.active || c.len() != self.leds {
-            return Err(err("invalid DRGB frame"));
+    fn frame(&mut self, colors: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
+        if self.channel_counts.is_empty() {
+            return Err(err("DeepRGB module is not initialized"));
         }
-        let packets = match self.version {
-            4 => report::v4_zoned(c, &self.zone_sizes),
-            3 => report::v3_zoned(c, &self.zone_sizes, 0x60),
-            1 => report::v3_zoned(c, &self.zone_sizes, 0x46),
-            2 => report::v2_zoned(c, &self.zone_sizes),
-            _ => return Err(err("unknown DRGB protocol version")),
-        };
-        for p in packets {
-            h.write(&p).map_err(err)?;
+        let total: usize = self.channel_counts.iter().sum();
+        if colors.len() != total {
+            return Err(err("invalid DeepRGB frame length"));
+        }
+        for packet in report::frames(self.version, &self.channel_counts, colors) {
+            h.write(&packet).map_err(err)?;
         }
         Ok(())
     }
     fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
-        self.active = false;
         Ok(())
     }
 }

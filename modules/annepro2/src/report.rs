@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-use freergb_core::Rgb;
-pub fn direct(colors: &[Rgb]) -> Vec<Vec<u8>> {
-    let mut raw = vec![0; 210];
-    for (i, c) in colors.iter().take(61).enumerate() {
-        raw[i * 3..i * 3 + 3].copy_from_slice(&[c.r, c.g, c.b]);
-    }
-    let n = raw.len();
+/// upstream: AnnePro2Controller.cpp SendDirect (annemone reverse engineering).
+/// frame_data is the real 70-LED RGB stream (210 bytes); each packet carries up
+/// to 51 payload bytes (max_command_length 55 - real_command_info_length 4).
+pub fn direct(raw: &[u8]) -> Vec<Vec<u8>> {
+    const MAX_MESSAGE: usize = 51;
+    let frame_count = raw.len();
+    let count = frame_count / MAX_MESSAGE + 1;
     let mut out = Vec::new();
-    let max = 51;
-    let count = n / max + 1;
     for pidx in 0..count {
-        let start = pidx * max;
-        let part = raw.get(start..(start + max).min(n)).unwrap_or(&[]);
-        let mut p = vec![0; 64];
+        let start = pidx * MAX_MESSAGE;
+        let end = (start + MAX_MESSAGE).min(frame_count);
+        let part = &raw[start..end];
+        let mut p = vec![0u8; 64];
         p[0] = 0;
         p[1] = 0x7b;
         p[2] = 0x10;
@@ -36,12 +35,18 @@ mod tests {
     use super::*;
     #[test]
     fn exact() {
-        let p = direct(&[Rgb { r: 1, g: 2, b: 3 }; 61]);
+        // 210 real bytes -> 5 packets, 51 payload bytes each, last 6 bytes.
+        let raw = vec![1u8; 210];
+        let p = direct(&raw);
         assert_eq!(p.len(), 5);
         assert_eq!(
             &p[0][0..14],
             &[0, 0x7b, 0x10, 0x41, 0x50, 55, 0, 0, 0x7d, 32, 3, 0xff, 2, 1]
         );
         assert_eq!(p[0].len(), 64);
+        assert_eq!(p[4][4], 0x54);
+        assert_eq!(p[4][5], 10);
+        assert_eq!(&p[4][13..19], &[1; 6]);
+        assert!(p[4][19..].iter().all(|b| *b == 0));
     }
 }

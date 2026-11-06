@@ -145,47 +145,73 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `RazerController` | ported | existing reference module | 125 supported subset | ARGB, keyboard layouts, receivers and hardware effects omitted |
 | `RedragonController` | ported | `4a55e3c` | 11 | Direct only; effects/profile persistence omitted |
 | `LuxaforController` | ported | `8e7b1d2` | 1 | Direct only; Fade/Strobe/Wave/Pattern omitted |
-| `ThermaltakeRiingController` | ported | `e90c42a` | 51 | Base/Quad/Trio direct HID packet paths and optional zones supported; firmware/serial reads and Quad keepalive omitted |
-| `MSIMotherboardController` | ported | `55000e9` | 124 detectors / 123 unique IDs | 112/162/185/761-byte HID protocols; serial/path reads omitted; frame API sends direct RGB state |
-| `AsusAuraUSBController` | ported | `063d720` | 100 detectors / 100 non-built-in IDs | Common 0xEC/0x40 direct HID framing; built-in 0b05:19af omitted; controller-specific effects omitted |
-| `SteelSeriesController` | ported | `aa96e26` | 76 detectors / 76 unique IDs | Generic 64-byte RGB report path; device-specific Apex, Arctis, receiver, layout and effect paths omitted |
-| `ThermaltakeRiingController` | ported | `e90c42a` | 51 detectors / 51 unique IDs | Base 65-byte, Quad 193-byte and Trio chunked 65-byte direct paths; firmware/serial reads and Quad keepalive omitted |
-| `LogitechController` | in progress | `6b16cb8` | 55 detectors / 48 unique IDs | Generator and HID inventory staged; G213, G203/G203L, G600, G815, G915 with OpenRGB keycode maps, TKL sizing, exact G915 initialization and commit packets, Lightsync mouse with per-model zone counts, X56, G933, HID++ RGB/0x8081 and 0x0620 headset discovery/frame reports with response validation/retries plus wired/wireless Lightspeed 8070/8071 discovery, effect frames and simulated lifecycle ported; receiver aggregation and remaining mouse paths still being ported. Workspace tests, clippy and standalone source-archive build green |
-| `CorsairPeripheralController` | ported | `64ae9a6` | 39 detectors / 39 unique IDs | Generated detector inventory and brokered HID module cover Corsair Peripheral, K65 Mini and K55 RGB PRO XT packet paths; no device paths omitted. Workspace tests, clippy and standalone source-archive build green |
-| `CoolerMasterController` | ported | `8864179` | 38 detectors / 38 unique IDs | Generated full HID inventory, optional zone sizing and byte-exact packet builders cover the shared direct, keyboard, ARGB, mouse and MM712 HID paths. Omitted paths: OpenRGB effect/profile UI, firmware and telemetry reads, monitor/desk mode controls, and device-specific key-matrix naming. |
-| `CorsairPeripheralV2Controller` | in progress | `a7f9fae` | 37 detectors / 37 unique IDs | Generated inventory excludes only built-in K70 CORE/iCUE LINK IDs; brokered V2 initialization now sets render mode, selects wired/wireless command IDs, sends lighting-control setup, and streams OpenRGB color-block packets with exact 1,025-byte block framing. Per-device feature discovery and hardware endpoint selection remain to be ported. |
-| `DRGBController` | in progress | `fe6e040` | 33 detectors / 33 unique IDs | Generated complete device inventory and V1/V2/V3/V4 report builders are staged with byte-exact tests; optional configured zone sizes now flow into V1/V2/V3/V4 headers and frame splitting. Keepalive remains to be completed. |
-| `RoccatController` | ported | `8a1321f` | 28 detectors / 28 unique IDs | All 28 registered USB-HID IDs have generated device metadata, direct RGB frame builders, per-device packet layouts, direct-mode initialization, brokered lifecycle tests and `--list-devices`. Omitted paths: effect/profile persistence and reads, firmware/serial display, full keyboard layout-name maps, and OpenRGB's separate wireless multi-interface aggregation. |
-| `CherryKeyboardController` | ported | `abc401a` | 25 detectors / 25 unique IDs | 64-byte checksum-framed custom-color packets and mode packets ported with 125-LED matrix layout and byte-exact report tests. Omitted paths: firmware/serial reads, hardware effect persistence and OpenRGB's read acknowledgements. |
-| `LenovoControllers` | ported | `f2c2c01` | 24 detectors / 24 unique IDs | Legacy Legion, Gen7/8, 4-zone, K500 and M300 direct HID paths use generated upstream LED IDs, zones and byte-exact report tests; K510 follows the upstream controller's no-op LED-frame path. Omitted paths: firmware/serial reads, profile/effect reads and persistence, runtime chassis/keyboard-layout probing, and OpenRGB's dynamic mode UI. |
-| `NZXTHue2Controller` | ported | `9cf428d` | 21 detectors / 21 unique IDs | Dynamic device-list discovery, channel LED sizing, direct 64-byte RGB packets and apply packets are ported with byte-exact tests. Omitted paths: effect-mode packets, fan telemetry/control, firmware/serial display and device-specific UI modes. |
-| `NollieController` | ported | `a8c6a79` | 16 detectors / 16 unique IDs | Generated detector inventory, configurable channel layouts, high-speed 1025-byte reports, fixed 65-byte chunk reports and update packets are covered by byte-exact tests. Omitted paths: effect/mode UI and serial/firmware reads. |
-| `EVisionKeyboardController` | ported | `4b0ce69` | 15 detectors / 15 unique IDs | Generated V1/V2 HID inventory, checksum-framed V1 color chunks and V2 dynamic-color packets are covered by byte-exact tests. Omitted paths: OpenRGB's matrix remapping, capability/profile reads, advanced effect-mode persistence and serial display. |
-| `HyperXKeyboardController` | ported | `bdf915d` | 20 detectors / 13 unique IDs | Generated full detector inventory and direct report builders for Origins, Origins 60/65, Origins 2 65, Eve 1800, Origins Core, Alloy Elite 2, Alloy Elite and Alloy FPS are covered by byte-exact tests. Omitted paths: profile/effect persistence, keepalive threads, serial display and OpenRGB matrix naming/layout UI. |
-| `CorsairHydroPlatinumController` | ported | `eb52c62` | 13 detectors / 13 unique IDs | Generated detector inventory, upstream startup magic tables, CRC-8 PEC framing, BGR lighting packets and optional fan-zone sizing are covered by byte-exact tests. Omitted paths: firmware telemetry/version reads, fan tachometer data and OpenRGB's keepalive/guard threading. |
-| `SinowealthController` | ported | pending | 13 detectors / 13 unique IDs | Generated detector inventory and byte-exact report builders cover the base mouse, ZET Fury Pro, Genesis Xenon 200, GMOW, Keyboard 10C, Keyboard 16 and legacy keyboard paths. Omitted paths: OpenRGB effect/profile UI, feature-report read/modify/write persistence, GMOW mode controls and device-specific matrix naming. |
-| `HyperXMouseController` | ported | `4a76c58` | 12 detectors / 14 unique IDs | Generated HID inventory and direct packet builders cover Surge, FPS Pro/Core, Dart, Raid and Haste with byte-exact packet tests. Omitted paths: profile/effect persistence, keepalive threads, telemetry and OpenRGB zone naming. |
-| `GaiZongGaiKeyboardController` | ported | `65913ad` | 9 detectors / 9 unique IDs | Generated inventory and PID-specific 65-byte chunk reports cover keyboard, dial, light-board and RGB-hub paths with byte-exact tests. Omitted paths: dynamic hub length discovery/readback, effect UI and device-specific matrix maps. |
-| `LianLiController` | ported | `1a9911e` | 9 detectors / 9 unique IDs | Generated HID inventory and 64-byte channel reports cover Uni Hub SL/AL variants, Strimer L Connect and GA II Trinity HID paths with byte-exact tests. Omitted paths: non-HID Universal Screen/legacy discovery, dynamic serial/readback and effect/profile UI. |
-| `AsusMonitorController` | ported | `f3ec7cc` | 7 detectors / 7 unique IDs | Generated HID inventory, LED-count query, initialization and 65-byte direct color reports are covered by byte-exact tests. Omitted paths: serial metadata, monitor effect UI and readback beyond the upstream LED-count query. |
-| `CorsairCommanderCoreController` | ported | `b4a1387` | 7 detectors / 7 unique IDs | Generated inventory, optional seven-zone LED configuration and 97-byte channel reports are covered by byte-exact tests. Omitted paths: firmware/telemetry reads, fan tachometer data, startup handshakes and effect UI. |
-| `CorsairLightingNodeController` | ported | `9f3021d` | 7 detectors / 7 unique IDs | Generated inventory, optional two-zone configuration, software port-state packets, planar 50-byte direct updates and commit packets are covered by byte-exact tests. Omitted paths: firmware/telemetry reads, effect-mode UI and serial metadata. |
-| `EVGAUSBController` | ported | `ec2dd5d` | 7 detectors / 15 unique IDs | Generated inventory and protocol-specific feature reports cover EVGA Z15/Z20 keyboards, X20 mouse/receiver and X12 mouse with byte-exact tests. Omitted paths: mode/profile persistence, wireless retry state, telemetry and device-specific key matrix naming. |
-| `A4TechController` | ported | `f913727` | 6 detectors / 6 unique IDs | Generated inventory and feature reports cover Bloody B820R keyboard and W60/W70/W90/MP50RS mouse paths with byte-exact tests. Omitted paths: mode persistence, sleep/retry handling and matrix naming. |
-| `AresonController` | ported | `c7e2eaf` | 6 detectors / 6 unique IDs | Generated inventory and CRC-framed 17-byte direct reports cover ZET Gaming Edge Air and Redragon M914 NIX paths with byte-exact tests. Omitted paths: effect-mode UI, wireless retry state and profile persistence. |
-| `AnnePro2Controller` | ported | `cc11924` | 5 detectors / 5 unique IDs | Generated inventory and five-part 64-byte service reports cover the 61-LED Anne Pro 2 direct path with byte-exact tests. Omitted paths: wireless protocol, mode/profile persistence and key-matrix naming. |
-| `GigabyteRGBFusion2USBController` | ported | `cca73f4` | 5 detectors / 5 unique IDs | Generated inventory, optional addressable-zone sizing and 64-byte direct HID packets are covered by byte-exact tests. Omitted paths: non-HID/DMI discovery, calibration reads, hardware effects and dynamic motherboard layout probing. |
-| `RoyuanKeyboardController` | ported | `f80bb4e` | 5 detectors / 5 unique IDs | Generated inventory and byte-exact 65-byte Royuan service, direct-color and Skyloong user-picture reports cover Akko, Epomaker, Attack Shark and Skyloong HID paths. Omitted paths: readback/profile persistence, wireless retry state, full effect UI and key-matrix naming. |
-
-| `SonyGamepadController` | ported | `7ee2503` | 5 detectors / 5 unique IDs | Generated inventory and byte-exact USB DualShock 4 and DualSense lightbar/player-light reports cover all five HID registrations. Omitted paths: Bluetooth CRC framing, adaptive-trigger/gamepad controls, effect UI and wireless readback. |
-| `AsusAuraCoreController` | ported | `eaf22fe` | 5 detector registrations / 5 generated HID IDs | Generated inventory and byte-exact Aura Core direct/chunked reports cover desktop and SCAR HID registrations. Omitted paths: laptop-specific feature-report sequencing, effect/profile UI, power configuration and readback. |
-| `GigabyteAorusLaptopController` | ported | `0679451` | 4 detectors / 4 unique IDs | Generated inventory and byte-exact 8-part 65-byte keyboard color reports cover the four Aorus 17X/15BKF HID registrations. Omitted paths: laptop mode/profile sequencing, keyboard matrix naming, feature-report readback and effect UI. |
-| `InstantMouseController` | ported | `4675ed4` | 4 detectors / 4 unique IDs | Generated inventory and byte-exact eight-byte feature reports cover Advanced GTA 250, Anko KM43243952/KM43277483 and AntEsports GM600 HID paths. Omitted paths: effect-mode UI, DPI profile persistence and readback. |
-| `MSIKeyboardController` | ported | `d65e396` | 4 detectors / 4 unique IDs | Generated inventory and byte-exact 64-byte zone/payload feature reports cover MSI Keyboard MS_1565 and Mystic Light MS_1562–1564 HID paths. Omitted paths: effect/profile UI, firmware/readback and keyboard matrix naming. |
-| `MSILaptopController` | ported | `28109fd` | 4 detectors / 4 unique IDs | Generated inventory and 64-byte MSI laptop feature-report builders cover Raider A18 and GE68HX keyboard/lightbar registrations. Omitted paths: 525-byte KLC batching, mode/profile UI, DMI model naming and feature readback. |
-| `AsusLegacyUSBController` | ported | `f42fa18` | 3 detectors / 3 unique IDs | Generated inventory and byte-exact legacy feature-report builders cover Cerberus Mech, Sagaris GK1100 and ROG Strix Claw HID registrations. Omitted paths: per-key matrix naming, effect/profile UI, serial reads and model-specific mode sequencing. |
-| `DasKeyboardController` | ported | `a3725e4` | 3 detectors / 3 unique IDs | Generated inventory and byte-exact Das Keyboard color/apply reports cover Q4, Q5 and Q5S HID registrations. Omitted paths: modern/traditional transport negotiation, firmware readback, per-key mapping and effect UI. |
-| `FnaticStreakController` | ported | `f70f578` | 3 detectors / 3 unique IDs | Generated inventory and byte-exact 64-byte direct color reports cover Fnatic Streak, miniStreak and Streak65 HID registrations. Omitted paths: transport negotiation, per-key matrix mapping, keepalive/profile persistence and effect UI. |
+| `ThermaltakeRiingController` | ported | `8f1b5eb` | 51 | Direct mode for Riing/Quad/Trio fully ported; hardware effect modes, Save/Fan packets and the Quad keepalive thread omitted by module API |
+| `SteelSeriesController` | partial | `20231f7` | 76 | 76 detector rows audited. Direct-mode fully ported for the Rival family: Rival 100 (5 rows, 1 LED), Rival 300 (8 rows, 2 LEDs), Rival 600 (2 rows, 8 LEDs, 1<<zone masks), Rival 650 (2 rows, 8 LEDs, 4x61-byte packets), Rival 700 (2 rows, 2 LEDs, 579-byte feature report, no effect packets), Rival 3 (2 rows, 4 LEDs, 8-byte writes with brightness 0x64 + [00 06 00 04] effect), Rival 5 (1 row, 10 LEDs "Whole Mouse" zone, 64-byte feature reports [00 23 n] brightness tiers + [00 21 FF 03] direct colors, brightness sent only on change), Sensei (6 rows: Sensei TEN 0x1832/0x1834, Sensei 310 0x1722, Rival 310 0x1720/0x171E/0x1736, 2 LEDs Logo/Scroll Wheel zones, 65-byte [5B 00 zone .. 13=01 1B=01 rgb rgb] writes), Siberia 350 (1 row PID 0x1229 interface 3, 1 LED, 4x16-byte framed writes [01 00 cmd len payload]: 95/80 80/52 20 83/rgb 93/03 80), Arctis 5 (2 rows PIDs 0x1250/0x12AA interface 5, Left/Right LEDs, 6x37-byte writes [06 81.. / 06 8A..] per zone incl. color packet 20 41 .. rgb and apply packets 20 41 08 zone / 20 60 zone / 20 05), Arctis Nova 3 (1 row PID 0x12EC interface 4, Right/Left LEDs in zone "Nova 3", per LED 521-byte effect packet [06 AA .. 98/3A 55 96 01 02 rgb FF] + select [06 A5 sel 0A] + apply [06 09/A3]), Aerox 3 wired (1 row PID 0x1836 interface 3, 3 LEDs Front/Middle/Rear, SendInit feature [00 2D] at start, 65-byte writes [00 21 (1<<zone) rgb@3+zone*3] + brightness [00 23 64] only on first change), Aerox 5 wired (1 row PID 0x1850 interface 3, 4 LEDs Front/Middle/Rear/Reactive, SendInit feature [00 2D], 65-byte writes cmd 0x21 masks 01/02/04 RGB@3/6/9 and cmd 0x26 RGB@4 for Reactive, brightness [00 23 64] once), Aerox/Rival wireless family (13 rows handlers DetectSteelSeriesAerox{3,3Wireless,3WirelessWired,3Gen2Wireless,5Wireless,5WirelessWired,5DestinyWireless+,5DiabloWireless+,9Wireless,9WirelessWired} and DetectSteelSeriesRival3Wireless, interface 3, 64-byte writes [00 21 01 zone rgb@4] with 0x40 flag + hid_read readback for wireless rows, Aerox 9 zone 3 cmd 0x26 byte3=0, Rival 3 Wireless [00 13 zone rgb@3] without flag, brightness [00 23 10] = 0x64/10), QCK Prism mousemats (9 rows handler DetectSteelSeriesMousemat PIDs 0x150A..0x1520 interface 3, Mat Bottom/Top LEDs in one "Mousemat" zone, 525-byte feature [00 0E .. rgb@5/11 FF 32 C8 01] + 65-byte apply write [00 0D]), Apex 3 family (Apex 3 PID 0x161A interface 3 via SteelSeriesApexTZoneController: 10-LED "Keyboard" zone, 33-byte writes [00 0A 00 64] + [00 0B 00 rgb@3..]; Apex 3 TKL PID 0x1622 interface 1 via SteelSeriesApex8ZoneController: 8-LED "Keyboard" zone, 65-byte write [00 21 FF rgb@3..] + brightness [00 23 10] on first change). Apex Direct now uses the fixed 112-slot scancode table and gen-dependent 65/513-byte reports; effect modes, brightness Save and SKU-region/LED-name mapping remain omitted |
+| `MSIMotherboardController` | partial | `680c48f` | 124 (identify-supported; runtime-probe gated) | 124 detector rows audited; 112-byte and 162-byte controller lifecycles fully ported; 185 variant **blockiert** (Common-PID 0x0DB0 rows require the serial number to extract the real PID, and the DIRECT_MODE_PER_LED non-sync path needs 13 ms sleeps = module-protocol change; see `modules/msi-motherboard/PROVENANCE.md`); 761 blocked (needs DMI mainboard name outside brokered HID) |
+| `LogitechController` | partial | `a9dbdc3` | 13 | 55 detector rows audited. Fully ported Direct-mode: G213 (1), G915 wired+wireless (4), G203L (2), G600 (1), G933 (1), X56 (4). G815, G915Receiver2, G203 (Prodigy), G303/G403/GPRO, Wired/Wireless HID++, LightspeedReceiver and HIDPP20 wildcard paths are inventoried but unsupported (device-index, SW-control-claim, name-probe and frame-layout gaps); fabricated 0x02 fallthrough removed |
+| `NollieController` | partial | `0427014` | 10 | 16 detector rows audited. Fixed-rate path (SendPacketFS + SendUpdate) fully ported for 10 devices (Nollie 8CH/1CH/28 12/L1/L2, OS2/OS2_1, Prism8; GRB fix for 0x2A01, interface matching). High-speed 32/16-channel devices unsupported until channel_index maps, sorted channel order, flag-channel writes and SetMos/InitChLEDs are ported |
+| `DasKeyboardController` | partial | `1b7d153` | 0 | 3 detector rows audited; complete keyboard initialization, per-key mapping, direct mode and cleanup remain unsupported |
+| `CherryKeyboardController` | ported | `a4b5b21` | 25 | Direct mode fully ported (126-LED 21x6 matrix, interface 1 + usage page 0xFF1C matching); hardware effect modes omitted |
+| `AsusAuraUSBController` | partial | `b6edab9` | 0 | 100 external detector rows audited; built-in 0b05:19af excluded; controller-specific lifecycles remain unsupported |
+| `AsusLegacyUSBController` | partial | `a4b28e5` | 0 | 3 detector rows audited; Cerberus, Sagaris and Strix Claw paths remain unsupported |
+| `AsusAuraCoreController` | partial | `ba82083` | 0 | 5 detector rows audited; desktop/laptop controller paths remain unsupported |
+| `InstantMouseController` | partial | `c834a99` | 4 | Four exact HID detectors audited. Direct one-LED lifecycle and six-report DPI-slot sequence are ported; OpenRGB effect-mode controls are not exposed by the module API. |
+| `SonyGamepadController` | partial | `47bfa79` | 0 | Five detector rows audited; DS4 runtime USB/Bluetooth detection, both CRC Bluetooth formats, and correct DualSense mode/brightness lifecycle remain unsupported. |
+| `MSIKeyboardController` | partial | `634be02` | 0 | Four detector rows audited; MS_1565 and MSI_64 packet structures, zone layouts and mode lifecycles remain unsupported. |
+| `MSILaptopController` | partial | `025d945` | 0 | Four detector rows audited; model matrices, 525-byte keyboard transfers, commit packets and lightbar mapping remain unsupported. |
+| `CorsairHydroPlatinumController` | ported | `a5c312b` | 13 | Direct mode fully ported: magic init, monotonic sequence number, 20-LED combined chunk frames (commands 4/5/6), hardware-magic shutdown restore, 5x5 CPU block + optional fan zone (5 Elite PIDs CPU-only). No firmware read. |
+| `CorsairPeripheralController` | partial+blocked | `4ab24c3` | 18 | Generic mouse path ported; keyboard STREAM 0x7F path blocked (shared KeyboardLayoutManager + 42K key maps). See modules/corsair-peripheral. |
+| `CorsairLightingNodeController` | ported | `9314d1f` | 7 | Direct mode fully ported for all 7 detector rows: PortState/Direct(R,G,B planes, 50-LED blocks with running offset)/Commit per channel, two 204-LED-max zones. 5s keepalive and firmware read omitted |
+| `CorsairCommanderCoreController` | ported | `f3f3e79` | 7 | Direct mode fully ported for all 7 rows: SendCommand framing [00 08 cmd] (V2 97/V3 65/XT 385/V1 1025 bytes via FW-major-1 negotiation), version query [02 13], SetFanMode fan-mode payload (XT shifts), GetLedCounts endpoint read (pump + host-configured fan zones), 699/1224-byte RGB buffer with 34-LED zone padding, chunked WriteData (06-header + 07 continuations), hardware-mode shutdown. 10 s keepalive thread and 33 ms throttle omitted (no timer threads in the module API); XT external-port SetLedAmount exposed only as tested builder |
+| `AsusMonitorController` | ported | `26aa68c` | 7 | Direct mode fully ported: LED-count query (byte 32 response), SendInit, single SetDirect packet; interface 1/2 + usage 0xFF72/0x00A1 matching; fails closed on missing response |
+| `DRGBController` | ported | `96bb611` | 33 | All versions (V1,V2,V3,V4) Direct-mode fully ported (append-only 65/1025-byte reports; V1/V3 header+0x47/0x64 and 0xA3/0xC8 markers; V2 per-zone 20-LED reports 0xBB; V4 316/340-byte-cap reports with 1020-byte flat chunks). Upstream 500 ms keepalive omitted; byte-exact runtime-controlled zones. |
+| `NZXTHue2Controller` | ported | `241dc17` | 21 | Direct mode fully ported for all 21 detector rows: device-list query, id-to-LED table (0x10..0x1F fixed), per-channel direct/apply incl. empty channels, RGB channel counts from upstream spawn_hue calls. Fan/pump/temperature reads and 2023-effects omitted |
+| `FnaticStreakController` | partial | `d14c9ac` | 0 | 3 detector rows audited; fabricated 1-LED feature report removed. Direct mode needs the fragmented SendRequest framing plus 0x07 keepalive (full 124 / mini 106 LEDs) or the Streak65 `0F 15` packet with 0xFF padding |
+| `GigabyteAorusLaptopController` | ported | `2de0d2e` | 2 | Direct mode fully ported for both Keyboard rows: single-LED 9-byte feature report with checksum, brightness default 0x19; backlight rows unsupported (no direct mode upstream); interface 3/usage 0xFF01/1 matching |
+| `HyperXMouseController` | ported | `fe73da3` | 14 | All 14 detector rows now ported: Surge (2, 264-byte feature report), FPS Pro/Core (3, single-LED feature report), Raid (1, two-LED feature report), Haste (4, init+color feature reports), Dart (4, per-LED 65-byte writes `[00 D2 led 00 08 RGB RGB 0x64 00]`). Hardware effect modes, Save/on-board persistence and the 50 ms keepalive thread remain omitted by module policy. |
+| `LenovoControllers` | partial | `a9e1ab5` | 14 | 24 detector rows audited. Fully ported: 4 zone rows (7), K500, M300, legacy ANSI (Y740/Y760S/Y760 keyboard, 3), Gen7 C977. Unsupported: K510 (no packets), Gen10 C195/C197 (length header + D0 re-assert + 0xDD logo LED), Gen7 laptops C978/C987/C988/C997/C998 (zone-ID high bytes), Y750 C956 (dead additional LEDs), K500 palette bytes |
+| `HyperXKeyboardController` | partial | `c9f8612` | 2 | 20 detector rows audited (branch had duplicated rows); supported: Alloy Elite RGB + Alloy FPS RGB (channel + extended packets, 264-byte feature reports, upstream 6x23 matrix layouts and key names). Origins/Elite2/Origins2/Eve/Core unsupported: skip-gap insertion, exact packet counts/padding, correct init packets, 380-byte Core segment layout, zone sizes 107/71/77/74 not ported |
+| `EVisionKeyboardController` | partial | `c115687` | 13 | 15 detector rows audited. V1 fully ported: 7 checksummed 0x36-byte chunks, 126-LED 6x23 matrix layout (22 unmapped LEDs on first free cells); V2 rows unsupported (keyvalue_map offsets, begin/end-configure und Read-Back fehlen) |
+| `RoyuanKeyboardController` | partial | `4589940` | 0 | 5 detector rows audited; fabricated packets removed. All three paths (Akko, Legacy, Skyloong GK68HE Pro) send 65-byte feature reports with per-protocol checksums (NextPowerOfTwo/OnesComplement); packet layout and GK68 key tables not ported |
+| `CorsairPeripheralV2Controller` | partial | `ea708eb` | 0 | 36 of 38 detector rows inventoried (K70 CORE policy-excluded), interface/usage-page qualified; fabricated block packets removed. Direct mode needs StartTransaction/SubmitData/EndTransaction framing with read validation and per-key layouts |
+| `CoolerMasterController` | partial | `16bc29e` | 0 | 38 detector rows (11 controllers) inventoried with IP/IPU/I/PU qualifications; fabricated generic packets removed. Direct mode needs per-controller framings (CMMM init `41 80` + status reads, MM712 feature reports, ARGB/RGB controllers, keyboards usage page 0xFF00). CMSmallARGB (0x2516:0x1000) and CMARGB (0x2516:0x1011) packet paths are fully specified, but **blockiert**: the upstream firmware gate is a HID serial-number string compare (`A202104052336` / `A202011171238` / `A202105291658`) and the module API exposes no serial string; claiming without the gate would mark unsupported firmware as supported (module-protocol change needed) |
+| `RoccatController` | partial | `2f58c1c` | 32 | 28 unique detector rows inventoried (branch had 56 duplicated), interface/usage-page qualified; fabricated builders removed. Burst Pro/Air plus Burst/Core (5 rows) ported; now also Elo 7.1 (1), Horde Aimo (1), Sense Aimo (2), Kone Pro (1). Direct mode still needs Vulcan key tables, Kone/Kova/Kone-Pro-Air/Kone-Xp layouts; Kova has no direct mode at all | |
+| `SinowealthController` | partial | `3531981` | 0 | 13 unique detector rows inventoried (branch had 26 duplicated), interface/usage-page qualified; fabricated builders removed. Direct mode needs per-controller sizes (59/154/520/1032 bytes), plane orders, dongle/cable pairs and init/profile packets |
+| `LianLiController` | partial | `f7ccc3d` | 0 | 9 USB-HID detector rows inventoried (branch had 18 duplicated), interface/usage-page qualified. Direct mode needs per-controller framings (UniHub SL/AL/V2/Infinity, Strimer, GAII); generic USB rows (UniHub legacy/Universal Screen/AL10) blocked: non-HID transport. UniHub SL sources carry GPL-2.0-only SPDX headers |
+| `GigabyteRGBFusion2USBController` | partial | `dd17fe4` | 0 | 5 USB-HID detector rows inventoried (usage page 0xFF89/usage 0xCC); fabricated packets removed; the IT8297 controller (config/flash state machine, 11k lines) is not ported. Mixed HID+other family; SMBus paths not eligible |
+| `AresonController` | ported | `b3838fe` | 6 | Direct mode fully ported: 17-byte Static-mode feature report (speed byte and checksum corrected), interface 1/usage 0xFF02/2 matching |
+| `A4TechController` | partial | `1e1a686` | 0 | 6 detector rows audited; fabricated packets removed. Mouse needs gain/init feature reports plus per-PID physical LED index layouts (W60 Pro/W90 group/MP 50RS); B820R needs gain/release control packets plus the six plane feature reports; output writes from the branch version removed |
+| `EVGAUSBController` | partial | `131e74d` | 0 | 7 detector rows audited; fabricated packets removed. Direct mode needs keyboard packet_map feature reports (two controller-ID sizes, Z20 extra keys), mouse single-LED SetLed with feature queries and wireless delays, and the X12 read/state machine |
+| `GaiZongGaiKeyboardController` | partial | `c41713d` | 0 | 9 detector rows audited; fabricated packets removed. Direct mode needs per-PID packet layouts (0x10/0x11/0x12/0x13 with fixed offsets 0/21/42/68/85 and sizes 63/60/51), flash reads for LightBoard/HUB counts and the FF restore packet |
+| `AnnePro2Controller` | ported | `72525ea` | 5 | Direct mode fully ported: 5-packet 64-byte stream with upstream 51-byte payload layout, real frame index mapping with the 9 gap triplets (LED_REAL_COUNT 70), upstream 5x14 key names, interface 1 matching |
+| `AOCMouseController` | ported | `59fad51` | 1 | Direct mode fully ported: 2 LEDs (Logo, Scroll Wheel); 60-byte feature packet with fixed constants and RGB bytes at 0x33/0x34/0x35 and 0x36/0x37/0x38. Brokered send_feature. |
+| `PatriotViperMouseController` | ported | `605c58e` | 1 | Direct mode fully ported: 7 LEDs, init 64-byte feature packet, 7 feature packets with per-LED checksum adjustment (xor �1 if even/odd). Brokered send_feature. |
+| `DarkProject` | ported | `5288f3d` | 1 | Direct mode fully ported: 87 LEDs, two 256-byte feature reports (RG: R@+5 of `packet_map`, G@+107; B@+5 of second report). Brokered `send_feature`; serial reads omitted; only Direct. |
+| `MSI3ZoneController` | ported | `5fed4db` | 1 | Direct mode fully ported: 4 LEDs ("Keyboard Left/Middle/Right" + "Aux"), 7 feature reports of 8 bytes: zones 1-4 carry RGB, zones 5-7 repeat the last colour. Brokered `send_feature`; no save. |
+| `TecknetController` | ported | `9e2a147` | 1 | Direct mode fully ported: single "Logo" LED, 16-byte feature report with RGB inverted (255-R/G/B), brightness 0x03, speed 0x00. Brokered `send_feature`; serial/name reads omitted. |
+| `DreamCheekyController` | ported | `44633f2` | 1 | Direct mode fully ported: four 9-byte init packets, one LED, 9-byte colour write with 0..255 to 0..64 scaling (>> 2 plus +1 at 255). Brokered `write`; serial/product reads omitted; device has no Save path. |
+| `ClevoLightbarController` | ported | `00f5cb2` | 1 | Direct mode fully ported: single "Lightbar" LED; feature reports `[14 00 01 R G B 00 00]` (SetColor) then `[08 22 01 06 64 01 00 00]` (SetMode: mode 1, speed default inverted 6, brightness 100). Brokered `send_feature`; serial/product/firmware reads omitted; Off/effects (Wave/Bounce/Marquee/Scan/Breathing) omitted. |
+| `MountainKeyboardController` | partial | `4d550e6` | 0 | 3 USB-HID detector rows inventoried (Mountain Everest, Everest 60 ANSI/ISO). Upstream protocol (chunked 65-byte direct-colour packets, wheel config, Save/SelectMode, effect modes) is not ported. Old branch module audited and reduced to inventory-only; no fabricated bytes are sent. |
+| `ThingMController` | ported | `4d550e6` | 1 | Direct mode fully ported for blink(1) mk2: two-LED layout (LED A/B), 9-byte feature report `[1, 0x63, R, G, B, 0, 0, led, 0]`, interface usage page 0xFF00 / usage 0x01. Off/Fade modes and serial/product reads omitted by module policy. |
+| `IntelArcA770LEController` | ported | `857359e` | 1 | Direct mode fully ported: 91 LEDs (Fan1 16, Fan2 16, Back 8, Ring 50, Logo 1); init queries+enable+apply, 65-byte packets in 15-LED chunks, marker bytes and logo max-channel handling. Effects/shutdown restore omitted. |
+| `XPGSummonerKeyboardController` | ported | `8d220f5` | 104 | Direct mode ported: 104 LEDs mapped by matrix, init 265-byte report and two color chunks (256 + 248 bytes), brightness fixed 0x64. Effect modes and TerminateColor omitted. |
+| `LenovoMotherboardController` | ported | `d413283` | 2 | LED modes mapped to Direct: 2 LEDs, two 64-byte feature reports (Static mode, brightness max, speed min). Wave/Breathing/etc. and DMI name omitted. |
+| `ThermaltakePoseidonZRGBController` | ported | `077f100` | 1 | Direct mode fully ported: 104-LED keyboard, 23x6 matrix, two 264-byte feature reports (red/green then blue planes), keyboard direct only. |
+| `NvidiaESAController` | ported | `4b56674` | 1 | Direct mode fully ported: 5 zones (Front Drive Bays, Front USB, Rear, Internal, Front Audio), 4-byte output reports `0x42+zone` with inverted 4-bit channels. Init/shutdown/effect modes and serial reads omitted. |
+| `HPOmen30LController` | ported | `4a40489` | 1 | Direct mode fully ported: 7 zones, 58-byte packets per zone (version 0x12, zone 1..7, brightness 0x64, color at `0x08+zone*4`). Effect modes, set-zone-mode controls and shutdown omitted. |
+| `CryorigH7QuadLumiController` | ported | `691cae0` | 1 | Direct mode fully ported: 10 LEDs in two 5-LED zones (Logo, Underglow), two 65-byte packets per frame with GRB ordering, 0x02/0x4C header and channel bytes. Firmware request and effect modes omitted. |
+| `MSIOptixController` | ported | `3b03ba3` | 1 | Direct mode fully ported: 12-LED Backside strip, 168-byte feature report (report ID 0x72), duplicated header and colors at offset 95, fixed brightness 0x64. Effect modes omitted. |
+| `AcerNitroHidLed` | ported | `85e97f4` | 1 | Direct-mode keeper for the single LED: 11-byte feature report 0xA4, device id 0x65, mode 0x02, brightness 100, zone select 1. Effects omitted. |
+| `AcerNitroHidKeyboard` | ported | `e771dc1` | 4 | Direct-mode adapter: 4 backlight zones, each an 11-byte feature report with device id 0x21, mode 0x02, brightness 100 and zone select `1<<zone`. Effects omitted. |
+| `RoccatBurstProAirController` | ported | `080488d` | 1 | Direct mode fully ported: 4-LED mouse, 30-byte feature report report ID 0x06, RGB per LED with marker values 0xFF; effects, SetModeValues and reads omitted. |
+| `AMDWraithPrismController` | ported | `a99a4bb` | 1 | Direct mode fully ported: 17 LEDs (Logo, Fan, Ring×15), enable/apply plus two color packets (2+15 LEDs) with hardware ID ordering; effects, firmware read, Save and brightness parameters omitted. |
+| `HyperXMicrophoneV2Controller` | ported | `2b2774d` | 1 | Direct mode fully ported: 108-LED 12x9 matrix, 64-byte header + 6 color packets (20 LEDs, final 8), 108 report bytes firm. Save/keepalive omitted. |
+| `CreativeController` (XG6) | ported | `a454574` | 1 | Direct mode fully ported: single Logo LED, three 64-byte output reports with report ID 0, color order BGR at bytes 10-12, fixed brightness 0xFF. Effects and Save omitted. |
+| `NZXTHue1Controller` | ported | `ef4094e` | 1 | Direct mode fully ported: init `01 5C` + start-reporting `01 5D`, 21-byte status read (firmware 0x0B/0x0E, accessory 0x10>>3, count 0x11; strip 10 / fan 8 LEDs per device), fixed-mode two-packet frames `02 4B ..` / `03 ..` with GRB colors split at 20. Upstream blocking read loop fails closed; >40-LED layouts rejected (upstream color_data buffer limit). Effect modes omitted. |
+| `TurtleBeachKP7Controller` | ported | `f4bdecb` | 1 | Direct mode fully ported: enter-direct 5-byte feature report `[14 00 01 00 00]`, two 64-byte output reports per frame (page 0 `EF 00` first 62 buffer bytes, page 1 `EF 01` remaining 37), 33 LEDs via the upstream zone→device slot order, 3 zones with the upstream 7x5 keypad matrix. Upstream 50 ms keepalive thread omitted by module policy; effects and the report-ID-0x11 macro channel not handled (same as upstream). |
+| `ZalmanZSyncController` | ported | `64d7c66` | 1 | Direct mode fully ported (Corsair Lighting Node protocol with 8 channels): firmware request `00 02` + 17-byte read with 0.7.1 fallback, PortState `00 38 <ch> 02`, R/G/B plane `00 32 <ch> <start> <count> <plane>` blocks (50 per packet), Commit `00 33 FF` per channel, 8 "Addressable RGB Header n" zones (max 40 LEDs, user-sized via the module `zones` parameter). 1 s commit keepalive and effect modes omitted (module policy). |
+| `MSIMonitorController` (0x72 sub-family) | ported | `3fd4d98` | 27 | | Direct mode fully ported for all 27 enabled 0x72 layout rows (version 34 MPG 322URX verified upstream, MAG272R, MAG301CR, …): layout-version query `01 B0` with `01 5A` ACK, LED count/fill from the upstream version table, 168-byte 0x72 feature report with control blocks at 1/12, colour array at 95, store byte 167 = 0. Legacy 0x71 and dual-block/0x82 versions unsupported (upstream-disabled). 5 ms control-pipe idle omitted. |
+| `AsusAuraUSBController` (Aura Mouse Direct sub-family) | ported | `5a83540` | 9 | First ported sub-controller of the family: the 9 Aura Mouse devices with a native Direct mode (`aura_mouse_devices[p].direct == true`). 65-byte `00 51 29` colour packets, 5 colours each, zone paints mapped through `aura_mouse_led_maps`. Static-as-direct devices, the Spatha X Dock product and the other 7 Aura USB sub-controllers stay unsupported. |
 
 
 The per-family status ledger is maintained below this inventory by the porting
@@ -200,3 +226,152 @@ workflow. A family may be marked blocked only for an actual non-HID transport,
 unclear upstream licensing or missing upstream hardware information. User-sized
 LED layouts use the optional initialize `zones` parameter documented in
 `docs/HARDWARE_MODULES.md`.
+
+## TODO / Fortschritt (freeRGB Portierung)
+
+- [x] Teil A – Aufräumen/Audit (Mountain, ThingM)
+- [x] HyperX Dart
+- [x] Dream Cheeky
+- [x] Nvidia ESA (5 zones)
+- [x] HP Omen 30L (7 zones)
+- [x] Cryorig H7 Quad Lumi (10 LEDs)
+- [x] MSI Optix (12 LEDs)
+- [x] Acer Nitro HID LED (1 LED)
+- [x] Acer Nitro HID Keyboard (4 zones)
+- [x] Roccat Burst Pro Air (4 LEDs)
+- [x] AMD Wraith Prism (17 LEDs)
+- [x] Creative SoundBlasterX G6 (1 LED)
+- [x] AMD Wraith Prism (17 LEDs)
+- [x] Clevo Lightbar
+- [x] Tecknet M008
+- [x] MSI 3‑Zone
+- [x] Dark Project KD3B V2
+- [x] Corsair K55 RGB PRO XT
+- [x] Corsair K65 Mini
+- [x] Corsair Peripheral Generic – Mouse/Mat/ST100 (+16)
+- [ ] Corsair Peripheral Generic – Keyboards STREAM 0x7F (blockiert)
+- [x] Patriot Viper V550
+- [x] DRGB V1–V4 (33, Direct complete, keepalive omitted)
+- [x] GameSir
+- [x] Lexip Np93 ALPHA
+- [x] MadCatz Cyborg
+- [x] Gigabyte Aorus Mouse
+- [x] N5312A
+- [x] Ionico
+- [x] NZXT Mouse
+- [x] AOC Mousemat
+- [ ] CoolerMasterController (38)
+- [x] Zalman Z Sync (8 channels, user-sized)
+- [x] Turtle Beach KP7 (33 LEDs)
+- [ ] RoccatController (28)
+- [ ] AsusAuraUSB (ohne 0b05:19af)
+- [ ] weitere kleine Familien (Cougar, LegoDimensions, RealtekARGB, Skydimo, XPG Summoner …)
+
+Last update: DRGB all versions ported.
+## Agent-Handover (export)
+
+Last known commit: `c9133c4` on branch `modules/integration`. Repo stable, tests/builds green.
+
+### Ported in the latest session (4 new modules)
+| Module | Family | LEDs | Commit |
+|---|---|---:|---|
+| `nzxt-hue1` | NZXTHue1Controller | 10/8 per connected accessory, from the status packet | `ef4094e` |
+| `turtle-beach-kp7` | TurtleBeachKP7Controller | 33 | `f4bdecb` |
+| `zalman-z-sync` | ZalmanZSyncController | 8 user-sized zones (max 40 each) | `64d7c66` |
+| `msi-monitor72` | MSIMonitorController (0x72 sub-family, 27 layout rows) | 7..24 per version | `3fd4d98` |
+
+Also fixed: clippy lint sweep across all ported modules (`069479d`; a newer
+clippy now rejects `i32::from` on already-i32 fields, needless range loops,
+unused imports and manual slice copies).
+Note for the next session: after reverting unstaged work, always re-run
+`git status` before committing — a partial revert dropped workspace/docs edits
+once and they had to be re-added (`39a89bd`).
+
+### Ported in the previous session (13 new/sub-controllers)
+| Module | Family | LEDs | Commit |
+|---|---|---:|---|
+| `nvidia-esa` | NvidiaESAController | 5 | `4b56674` |
+| `hp-omen-30l` | HPOmen30LController | 7 | `4a40489` |
+| `cryorig-h7-quad-lumi` | CryorigH7QuadLumiController | 10 | `691cae0` |
+| `msi-optix` | MSIOptixController | 12 | `3b03ba3` |
+| `acer-nitro-hid-led` | AcerNitroHidKeyboardController (0x65) | 1 | `85e97f4` |
+| `acer-nitro-hid-keyboard` | AcerNitroHidKeyboardController (0x21) | 4 | `e771dc1` |
+| `roccat-burst-pro-air` | RoccatBurstProAirController | 4 | `080488d` |
+| `amd-wraith-prism` | AMDWraithPrismController | 17 | `a99a4bb` |
+| `creative-soundblaster-xg6` | CreativeController (XG6) | 1 | `a454574` |
+| `thermaltake-poseidon-z-rgb` | ThermaltakePoseidonZRGBController | 104 | `077f100` |
+| `lenovo-motherboard-led` | LenovoMotherboardController | 2 | `d413283` |
+| `xpg-summoner-keyboard` | XPGSummonerKeyboardController | 104 | `8d220f5` |
+| `intel-arc-a770-le` | IntelArcA770LEController | 91 | `857359e` |
+
+All are Direct-mode only, byte-exact tested with recorded Hid::write/send_feature fakes, no
+hardware touched. `docs/OPENRGB_PORTING.md` ledger contains the corresponding entries with
+their commit hashes.
+
+### Remaining candidates (all "complex", need dedicated handling)
+Simpler single-detector Direct-mode families are exhausted. What is left:
+- TurtleBeachKP7Controller - keepalive thread (omit the thread, port the pages) + EnterDirect init => ported as modules/turtle-beach-kp7
+- (done) NZXTHue1Controller - ported as modules/nzxt-hue1
+- ZalmanZSyncController - ported as modules/zalman-z-sync
+- MSIMonitorController - 0x72 sub-family ported as modules/msi-monitor72; legacy 0x71 / dual-block / 0x82 remain unsupported
+- MSI3Zone remaining, OKSController/OKSKeyboard - multi-zone direct with byte-exact mapping
+- Large partial families: CoolerMaster, Roccat (non-Burst), AsusAuraUSB (Mouse/Mat/Stand/Ryuo/ROG/Keyboard/TUF), Logitech, HyperX-Keyboard remaining, Sinowealth, LianLi, Gigabyte RGBFusion2, EVGA, A4Tech, GaiZongGai, EVision V2.
+- Blocked paths that stay blocked: Corsair keyboard STREAM 0x7F (KeyboardLayoutManager), MSI motherboard 185/761, DRGB keepalive (policy).
+
+### Recommended next step
+Use a subagent to return a full byte-exact SPEC for one remaining candidate (same style as the
+ones used for `intel-arc-a770-le`, `hyperx-microphone-v2`, `xpg-summoner-keyboard`), then port it
+in a standalone `modules/<id>` crate, wire it into root `Cargo.toml`, and add the ledger row in
+`docs/OPENRGB_PORTING.md` with `pending` + later the real hash as a second docs commit.
+
+### Working rules reminder
+- Branch: `modules/integration` only.
+- No hardware access.
+- Only modify `modules/`, `scripts/openrgb/`, `Cargo.toml/Cargo.lock`, and `docs/OPENRGB_PORTING.md`.
+- New modules need full file set and tests; fmt/clippy/workspace tests/release build.
+
+### Operational startup
+```bash
+cd WORK/freergb
+git checkout modules/integration
+git branch --show-current
+git status --short
+git pull --ff-only origin modules/integration
+cargo test --workspace
+```
+
+### Suggested next tasks
+1. CoolerMasterController: port full or sub-interfaces (CMM711/MM720 etc).
+2. Roccat Controller: Burst Pro/Air, Kone Pro/Air/XP/Aimo, Elo, Horde, Kova, Sense, Vulcan.
+3. AsusAuraUSB controller: Mouse, Mousemat, HeadsetStand, Monitor, RyuoAIO, ROG, Keyboard, TUF, Mainboard (exclude 0b05:19af).
+4. Corsair Peripheral Generic keyboards (K55/K95/K70 Pro/K68) – remain blocked/unported in this repo current.
+5. Other small families: Cougard, LegoDimensions, NvidiaESA, RealtekARGB, A4Tech, EVGA, GaiZongGai, Sinowealth, LianLi, Gigabyte RGBFusion2, HyperX Keyboard remaining, EVision V2, Royuan, DaSKKeyboard, etc.
+
+### Immediate starting guidance
+- Pick one small or mid family that is directly supported by byte-exact reports and Start-Controller flow.
+- For existing partial modules, add support only when complete direct-path for a subset (same as done for Corsair mouse and DRGB).
+
+### Validation commands
+```bash
+cargo fmt --all
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo build --release -p freergb-module-<id>
+```
+
+### Commit/push
+```bash
+git add modules/<id> scripts/openrgb docs/OPENRGB_PORTING.md Cargo.toml Cargo.lock
+git commit -m "modules: port <family or subcontroller>"
+git push origin modules/integration
+```
+
+### Status of simple one-shot Direct-mode controllers
+- Exhausted as of the last session. All remaining candidates need the complex handling listed above.
+
+### Candidate next concrete small device (subagent spec available)
+- None right now from background subagent output; inspect family code directly, or launch a concise subagent that returns one exact candidate and packet bytes.
+
+
+

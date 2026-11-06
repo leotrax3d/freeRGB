@@ -8,15 +8,40 @@ use freergb_module_api::{
     Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
     Restore, Zone, MODULE_API,
 };
+
 pub const MODULE_ID: &str = "corsair-peripheral";
 #[derive(Default)]
 pub struct CorsairPeripheral {
     active: bool,
-    leds: usize,
-    handler: &'static str,
+    kind: u8, // 0=unknown,1=mouse,2=mat,3=headset
 }
 fn err(e: impl std::fmt::Display) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, e.to_string())
+}
+fn firmware_type(h: &mut dyn Hid) -> Result<u8, ModuleError> {
+    for _ in 0..10usize {
+        let mut buf = vec![0u8; 65];
+        buf[1] = 0x0E;
+        buf[2] = 0x01;
+        if h.write(&buf).is_ok() {
+            match h.read(65, 1000) {
+                Ok(v) if v.len() > 0x15 && (v[0x14] == 0xC1 || v[0x14] == 0xC2) => {
+                    return Ok(v[0x14]);
+                }
+                _ => {}
+            }
+        }
+        let mut buf = vec![0u8; 65];
+        buf[1] = 0x0E;
+        buf[2] = 0x01;
+        let _ = h.send_feature(&buf);
+        if let Ok(v) = h.get_feature(&[0x00], 65) {
+            if v.len() > 0x15 && (v[0x14] == 0xC1 || v[0x14] == 0xC2) {
+                return Ok(v[0x14]);
+            }
+        }
+    }
+    Err(err("could not determine firmware type"))
 }
 impl Module for CorsairPeripheral {
     fn info(&self) -> ModuleInfo {
@@ -30,95 +55,146 @@ impl Module for CorsairPeripheral {
     fn identify(&self, i: &InterfaceInfo) -> Identification {
         table::identify(i)
     }
-    fn initialize_with_zones(
-        &mut self,
-        i: &InterfaceInfo,
-        z: Option<&[Zone]>,
-        h: &mut dyn Hid,
-    ) -> Result<Capabilities, ModuleError> {
-        let id = table::identify(i);
-        let handler = table::handler(i).ok_or_else(|| err("unsupported Corsair peripheral"))?;
-        let k65 = handler.contains("K65Mini");
-        let leds = if k65 {
-            18
-        } else if handler.contains("K55RGBPROXT") {
-            117
-        } else if handler.contains("Peripheral") {
-            if i.pid == 0x0a34 {
-                9
-            } else if i.pid == 0x1b3b {
-                15
-            } else if i.pid < 0x1b30 {
-                3
-            } else {
-                20
-            }
-        } else {
-            20
-        };
-        if k65 {
-            for p in report::k65_init() {
-                h.write(&p).map_err(err)?;
-            }
-        } else if handler.contains("Peripheral") || handler.contains("K55RGBPROXT") {
-            for p in report::init() {
-                h.write(&p).map_err(err)?;
-            }
-        }
-        self.leds = z
-            .map(|x| x.iter().map(|q| q.leds).sum())
-            .unwrap_or(leds)
-            .clamp(1, 240);
-        self.handler = handler;
-        self.active = true;
-        Ok(Capabilities {
-            name: id.model.unwrap_or_else(|| "Corsair".into()),
-            kind: DeviceKind::Accessory,
-            layout: LedLayout {
-                width: self.leds as u16,
-                height: 1,
-                leds: (0..self.leds)
-                    .map(|n| Led {
-                        name: format!("LED {}", n + 1),
-                        pos: (n as u16, 0),
-                    })
-                    .collect(),
-            },
-            firmware: None,
-            restore: Restore::LastFrame,
-            zones: vec![Zone {
-                name: "Corsair".into(),
-                leds: self.leds,
-            }],
-        })
-    }
     fn initialize(
         &mut self,
         i: &InterfaceInfo,
         h: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        self.initialize_with_zones(i, None, h)
-    }
-    fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
-        if !self.active || c.len() != self.leds {
-            return Err(err("invalid Corsair frame"));
+        let id = table::identify(i);
+        if !id.supported {
+            return Err(ModuleError::new(
+                ErrorCode::Unsupported,
+                id.reason.unwrap_or_else(|| "unsupported".into()),
+            ));
         }
-        let p = if self.handler.contains("K65Mini") {
-            report::k65(c)
-        } else if self.handler.contains("K55RGBPROXT") {
-            report::keyboard(c)
-        } else if self.handler.contains("ST100") {
-            report::strip(c)
-        } else {
-            report::mouse(c)
+        let typ = firmware_type(h)?;
+        // C1 mouse, C2 mousemat (default) or headset stand.
+        let (kind, leds, layout, zones, kind_byte, k) = match typ {
+            0xC1 => {
+                let (l, z) = mouse_layout();
+                (DeviceKind::Mouse, 15usize, l, z, 0x01u8, 1u8)
+            }
+            0xC2 if i.pid == 0x0a34 => (
+                DeviceKind::LightingController,
+                9usize,
+                (0..9usize)
+                    .map(|n| Led {
+                        name: format!("Stand LED {}", n + 1),
+                        pos: (n as u16, 0),
+                    })
+                    .collect(),
+                Zone {
+                    name: "Base".into(),
+                    leds: 9,
+                },
+                0x03u8,
+                3u8,
+            ),
+            0xC2 => (
+                DeviceKind::LightingController,
+                15usize,
+                (0..15usize)
+                    .map(|n| Led {
+                        name: format!("Mousemat LED {}", n + 1),
+                        pos: (n as u16, 0),
+                    })
+                    .collect(),
+                Zone {
+                    name: "Mousemat".into(),
+                    leds: 15,
+                },
+                0x04u8,
+                2u8,
+            ),
+            0xC0 => (
+                DeviceKind::Keyboard,
+                113usize,
+                (0..113usize)
+                    .map(|n| Led {
+                        name: format!("LED {}", n + 1),
+                        pos: (n as u16, 0),
+                    })
+                    .collect(),
+                Zone {
+                    name: "Keyboard".into(),
+                    leds: 113,
+                },
+                0x03u8,
+                4u8,
+            ),
+            _ => return Err(err("generic keyboard not ported")),
         };
-        h.write(&p).map_err(err)?;
+        // LightingControl software
+        h.write(&report::lighting_control_header_bytes(kind_byte))
+            .map_err(err)?;
+        self.active = true;
+        self.kind = k;
+        Ok(Capabilities {
+            name: id.model.unwrap_or_else(|| "Corsair peripheral".into()),
+            kind,
+            layout: LedLayout {
+                width: 1,
+                height: leds as u16,
+                leds: layout,
+            },
+            firmware: None,
+            restore: Restore::LastFrame,
+            zones: vec![zones],
+        })
+    }
+    fn frame(&mut self, colors: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
+        if !self.active {
+            return Err(err("Corsair peripheral module is not initialized"));
+        }
+        if self.kind == 1 {
+            if colors.len() != 15 {
+                return Err(err("invalid mouse frame"));
+            }
+            h.write(&report::mouse_direct(colors)).map_err(err)?;
+        } else if self.kind == 2 {
+            if colors.len() != 15 {
+                return Err(err("invalid mousemat frame"));
+            }
+            h.write(&report::mousemat_direct(colors)).map_err(err)?;
+        } else if self.kind == 3 {
+            if colors.len() != 9 {
+                return Err(err("invalid headset stand frame"));
+            }
+            h.write(&report::stand_direct(colors)).map_err(err)?;
+        } else if self.kind == 4 {
+            if colors.len() != 113 {
+                return Err(err("invalid keyboard frame"));
+            }
+            for packet in report::keyboard_normal(colors) {
+                h.write(&packet).map_err(err)?;
+            }
+        } else {
+            return Err(err("unsupported device"));
+        }
         Ok(())
     }
-    fn shutdown(&mut self, _: Option<Rgb>, _: &mut dyn Hid) -> Result<(), ModuleError> {
+    fn shutdown(
+        &mut self,
+        _: Option<freergb_core::Rgb>,
+        _: &mut dyn Hid,
+    ) -> Result<(), ModuleError> {
         self.active = false;
         Ok(())
     }
+}
+fn mouse_layout() -> (Vec<Led>, Zone) {
+    (
+        (0..15usize)
+            .map(|n| Led {
+                name: format!("Mouse LED {}", n + 1),
+                pos: (n as u16, 0),
+            })
+            .collect(),
+        Zone {
+            name: "Mouse".into(),
+            leds: 15,
+        },
+    )
 }
 #[cfg(test)]
 mod tests;

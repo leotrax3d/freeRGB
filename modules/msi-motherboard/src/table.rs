@@ -11,19 +11,30 @@ pub struct Detector {
     pub usage_page: u16,
 }
 
-pub fn identify(i: &InterfaceInfo) -> Identification {
-    let d = DETECTORS.iter().find(|d| {
+pub fn detector(i: &InterfaceInfo) -> Option<&'static Detector> {
+    DETECTORS.iter().find(|d| {
         d.vid == i.vid
             && d.pid == i.pid
             && d.interface == i.interface
             && d.usage_page == i.usage_page
-    });
+    })
+}
+
+pub fn identify(i: &InterfaceInfo) -> Identification {
+    let d = detector(i);
     Identification {
+        // upstream: MSIMotherboardControllerDetect.cpp routes every row to the
+        // same runtime probe (DetectMSIMotherboardControllers); the variant is
+        // decided by the 0x52 feature-report length. The 112-byte controller
+        // path is fully ported; initialize() fails closed for boards that
+        // answer with the 162/185/761 layouts.
         supported: d.is_some(),
         model: d.map(|d| d.name.to_owned()),
         kind: d.map(|_| DeviceKind::LightingController),
-        reason: d
-            .is_none()
-            .then(|| "no MSI Mystic Light HID detector for this interface".into()),
+        reason: if d.is_some() {
+            None
+        } else {
+            Some("no MSI Mystic Light HID detector for this interface".into())
+        },
     }
 }

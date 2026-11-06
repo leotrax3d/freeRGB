@@ -33,12 +33,12 @@ impl Module for A {
         i: &InterfaceInfo,
         _: &mut dyn Hid,
     ) -> Result<Capabilities, ModuleError> {
-        table::device(i).ok_or_else(|| err("unsupported Instant mouse"))?;
+        table::device(i).ok_or_else(|| err("unsupported ASUS legacy device"))?;
         self.active = true;
         Ok(Capabilities {
             name: table::identify(i)
                 .model
-                .unwrap_or_else(|| "Instant mouse".into()),
+                .unwrap_or_else(|| "ASUS legacy USB".into()),
             kind: DeviceKind::Keyboard,
             layout: LedLayout {
                 width: 1,
@@ -57,7 +57,7 @@ impl Module for A {
     }
     fn frame(&mut self, c: &[Rgb], h: &mut dyn Hid) -> Result<(), ModuleError> {
         if !self.active || c.len() != 1 {
-            return Err(err("invalid Instant mouse frame"));
+            return Err(err("invalid ASUS legacy frame"));
         }
         for packet in report::frames(c[0]) {
             h.send_feature(&packet).map_err(err)?;
@@ -72,7 +72,17 @@ impl Module for A {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn catalog() {
-        assert_eq!(crate::devices_table::DETECTORS.len(), 3);
+    fn inventoried_devices_are_not_claimed_before_protocol_port() {
+        let i = crate::InterfaceInfo {
+            vid: 0x195d,
+            pid: 0x2047,
+            interface: 1,
+            usage_page: 0xff01,
+            usage: 1,
+            product: None,
+        };
+        let result = crate::table::identify(&i);
+        assert!(!result.supported);
+        assert!(result.reason.unwrap().contains("protocol is not ported"));
     }
 }
