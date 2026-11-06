@@ -1,6 +1,7 @@
 //! Rust peer for the private native-worker protocol. No listener or activation.
 //! The protected supervisor must authenticate and bind the transport to its exact
 //! worker before calling this module. This module provides no OS authentication.
+use freergb_control::telemetry_guard::NATIVE_TELEMETRY_MAX_AGE_MS;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -69,7 +70,7 @@ fn observation(
     };
     if !(-20.0..=150.0).contains(&raw.temperature_c)
         || !(0.0..=100_000.0).contains(&raw.rpm)
-        || raw.age_ms > 1500
+        || raw.age_ms > NATIVE_TELEMETRY_MAX_AGE_MS
     {
         return Err("Invalid trusted native telemetry".into());
     }
@@ -350,6 +351,26 @@ mod tests {
         .unwrap()
         .unwrap();
         assert_eq!(first.1.acquired, repeated.1.acquired);
+        let delayed = observation(
+            Some(NativeTelemetry {
+                age_ms: 7000,
+                ..raw
+            }),
+            began + Duration::from_secs(7),
+            None,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(delayed.1.acquired, began);
+        assert!(observation(
+            Some(NativeTelemetry {
+                age_ms: 7001,
+                ..raw
+            }),
+            began + Duration::from_secs(8),
+            None,
+        )
+        .is_err());
         assert!(observation(
             Some(NativeTelemetry { rpm: 0.0, ..raw }),
             began,

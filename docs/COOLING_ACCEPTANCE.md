@@ -187,3 +187,68 @@ Local validation on 2026-11-06:
   doctests (225 tests passed, 7 existing fixture-dependent tests ignored).
   An initial run overlapping Clippy failed at Rustdoc dependency resolution;
   the full command passed when rerun without another Cargo build in parallel.
+
+## Owner session 2026-11-06: R5b loaded linear-session freshness
+
+On the same ASUS PRIME X870-P WIFI / NCT6701D CHA_FAN2 channel, the owner ran
+`mode:linear` during a heavy `cargo build` (Tctl 73 C). About ten seconds into
+execution the session became blocked with `Cooling supervision stopped: Stopped,
+Some(Stale); preserve recovery intent`. The inventory reader had been ready for
+24/24 idle observations. No new hardware run was performed during this fix.
+
+The exact message identifies the daemon's `SupervisedControl` / `TelemetryGuard`
+1500 ms acquisition-age check, which stops the lease with `TelemetryFault::Stale`.
+It does not identify a broker timeout or a native-worker emergency receipt.
+`CoolingHost::start_native` takes live data from authenticated native-worker
+receipts; it does not consume the broker's inventory snapshots. The broker sleeps
+one second after each snapshot and expires cached data after five seconds.
+The dedicated native sampler instead sleeps 100 ms, then refreshes checked SuperIO
+RPM and the selected temperature hardware (Tctl uses its CPU hardware). Both its
+independent C# guard and the Rust receipt decoder also enforced 1500 ms.
+
+Acquisition is conservatively timestamped before the hardware refresh. With two
+consecutive three-second reads, the last published measurement reaches about
+6100 ms old before the next read finishes. The source trace establishes this
+budget mismatch; the owner's error contains no per-read durations, so the exact
+hardware delay remains to be measured during re-test.
+
+Fix: **Align native telemetry freshness with slow reader cadence** (this commit).
+The native C# guard, Rust receipt decoder and native-session Rust supervision now
+share a seven-second acquisition-age ceiling. A 2-3 s read therefore fits without
+inventing newer timestamps. Generic Rust samplers keep their 1500 ms default;
+broker expiry and calibration measurement-age rules are unchanged.
+
+Fail-safe remains bounded: linear/curve temperature age >3000 ms still requests
+100% and bypasses shaping; observed critical heat still acts immediately. At
+>7000 ms acquisition age, stale is latched and the session ends. Explicit native
+close verifies firmware return; an independent native fault retains the existing
+full-speed/recovery policy for verified channels and firmware callback for lower
+tiers. A fresh command or cached receipt cannot renew sensor freshness. The
+one-second command lease, receipt deadlines, pump/floor checks and durable recovery
+requirements are unchanged.
+
+Regression: a real Rust duplex session with native telemetry receipts models a
+73 C linear curve, 2/3/3-second acquisitions, the 100 ms sampling pause and cached
+sample identities. It survives every slow update, requests full speed during
+delays, then returns with register/journal evidence when acquisition freezes,
+despite continuing command heartbeats. Rust policy tests cover independent source
+expiry and immediate critical heat; C# synthetic session tests cover slow reads,
+the exact 7000/7001 ms boundary, full-speed stale faults and non-revival.
+
+Owner re-test remains open: repeat the loaded linear session on confirmed CHA_FAN2
+with the owner present, track native sample age and session status for at least
+two minutes, confirm 100% during delayed telemetry, stop explicitly and verify
+firmware return plus a clear journal. This is simulated coverage, not hardware
+acceptance. No UAC, installer or installed application files were accessed.
+
+Local validation for R5b:
+
+- `cargo fmt --all --check`: passed.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings`: passed.
+- `cargo test -p freergb-control -p freergb-daemon --locked`: passed, including
+  doctests (227 passed, 7 existing fixture-dependent tests ignored). An initial
+  Rustdoc stale-dependency error resolved after rebuilding doctest artifacts;
+  the complete command then passed.
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-mainboard-control.ps1`:
+  passed; synthetic native callbacks/ports and test-directory journal storage,
+  without opening hardware or installing a service/driver.

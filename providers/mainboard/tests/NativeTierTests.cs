@@ -223,7 +223,7 @@ internal static class NativeTierTests
         warn.Observe(0,0,40,0);
         warn.Observe(1200,1200,40,0);
         Assert(warn.Check(1300) == null && warn.Warning == "fan_stalled","Unrestricted fan stop faulted instead of warning.");
-        Assert(warn.Check(2800) == "telemetry_stale","Stall warning masked stale telemetry.");
+        Assert(warn.Check(8201) == "telemetry_stale","Stall warning masked stale telemetry.");
         var hot = new NativeTelemetryGuard(80,true);
         hot.Observe(0,0,80,0);
         Assert(hot.Check(10) == "temperature_critical","Stall warning masked the critical temperature override.");

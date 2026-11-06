@@ -24,6 +24,9 @@ internal interface INativeReturnEvidence
 // No sensor I/O here: polling must not wait on a sensor/driver callback.
 internal sealed class NativeTelemetryGuard
 {
+    // Acquisition is stamped before I/O: two 3 s reads + 100 ms sampler pause
+    // and transport must fit. Mirror Rust NATIVE_TELEMETRY_MAX_AGE_MS.
+    internal const long MaxAgeMs = 7000;
     private readonly object gate = new object();
     private readonly double critical;
     private readonly bool stallWarning;
@@ -65,7 +68,7 @@ internal sealed class NativeTelemetryGuard
             if (fault != null) return fault;
             if (now < 0 || now < lastNow) return fault = "telemetry_clock_fault";
             lastNow = now;
-            if (temperatureAt < 0 || rpmAt < 0 || now - temperatureAt > 1500 || now - rpmAt > 1500)
+            if (temperatureAt < 0 || rpmAt < 0 || now - temperatureAt > MaxAgeMs || now - rpmAt > MaxAgeMs)
                 return fault = "telemetry_stale";
             if (temperature >= critical) return fault = "temperature_critical";
             if (!stallWarning && stalledAt >= 0 && now - stalledAt >= 1000) return fault = "fan_stalled";
