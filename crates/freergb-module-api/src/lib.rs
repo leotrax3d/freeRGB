@@ -34,6 +34,18 @@ pub const MAX_REPORT: usize = 4096;
 /// Transport calls allowed while one host request is open.
 pub const MAX_CALLS_PER_REQUEST: u32 = 512;
 
+/// Read-only platform labels supplied by the host. Never contains serials,
+/// UUIDs, firmware blobs, registry paths or raw hardware handles.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlatformIdentity {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub board_vendor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub board_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub product: Option<String>,
+}
+
 /// What the daemon knows about one HID interface. No serial number or path is
 /// ever sent to a module.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,9 +183,13 @@ pub enum Method {
     Hello,
     Identify {
         interface: InterfaceInfo,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        platform: Option<PlatformIdentity>,
     },
     Initialize {
         interface: InterfaceInfo,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        platform: Option<PlatformIdentity>,
         /// Optional user configuration for variable-sized zone families.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         zones: Option<Vec<Zone>>,
@@ -283,6 +299,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn optional_platform_is_backward_compatible_and_contains_only_labels() {
+        let old = r#"{"v":1,"id":1,"method":"identify","params":{"interface":{"vid":1,"pid":2,"interface":0,"usage_page":1,"usage":2}}}"#;
+        let request: Request = serde_json::from_str(old).unwrap();
+        assert!(matches!(
+            request.method,
+            Method::Identify { platform: None, .. }
+        ));
+        let mut wire: serde_json::Value = serde_json::from_str(old).unwrap();
+        wire["params"]["platform"] = serde_json::json!({
+            "board_vendor": "Fixture Vendor", "board_name": "Fixture Board A", "product": "Fixture Product"
+        });
+        let request: Request = serde_json::from_value(wire.clone()).unwrap();
+        let Method::Identify {
+            platform: Some(platform),
+            ..
+        } = request.method
+        else {
+            panic!("missing metadata")
+        };
+        assert_eq!(platform.board_name.as_deref(), Some("Fixture Board A"));
+        assert_eq!(
+            serde_json::to_value(platform)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .len(),
+            3
+        );
+        // The previous API-1 params shape ignores additive fields using the
+        // same serde behaviour as already shipped modules.
+        #[derive(Deserialize)]
+        struct LegacyParams {
+            interface: InterfaceInfo,
+        }
+        let legacy: LegacyParams = serde_json::from_value(wire["params"].clone()).unwrap();
+        assert_eq!(legacy.interface.pid, 2);
+        wire["params"]["platform"]["board_name"] = serde_json::json!(7);
+        assert!(serde_json::from_value::<Request>(wire).is_err());
+    }
+
+    #[test]
     fn methods_round_trip_with_stable_wire_names() {
         let request = Request {
             v: MODULE_API,
@@ -304,6 +361,7 @@ mod tests {
             v: MODULE_API,
             id: 4,
             method: Method::Initialize {
+                platform: None,
                 interface: InterfaceInfo {
                     vid: 1,
                     pid: 2,

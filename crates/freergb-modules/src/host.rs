@@ -13,8 +13,8 @@ use freergb_device_api::{
 };
 use freergb_module_api::{
     decode, encode, pack_rgb, Call, CallReply, Capabilities, ErrorCode, InterfaceInfo, Method,
-    ModuleError, ModuleInfo, Op, Request, Response, Zone, MAX_CALLS_PER_REQUEST, MAX_MESSAGE,
-    MAX_REPORT, MODULE_API,
+    ModuleError, ModuleInfo, Op, PlatformIdentity, Request, Response, Zone, MAX_CALLS_PER_REQUEST,
+    MAX_MESSAGE, MAX_REPORT, MODULE_API,
 };
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
@@ -330,6 +330,7 @@ pub struct ModuleDevice {
     failures: u32,
     last_error: Option<ModuleError>,
     zones: Option<Vec<Zone>>,
+    platform: Option<PlatformIdentity>,
 }
 
 impl ModuleDevice {
@@ -366,6 +367,7 @@ impl ModuleDevice {
             failures: 0,
             last_error: None,
             zones: None,
+            platform: None,
         }
     }
 
@@ -373,6 +375,12 @@ impl ModuleDevice {
     /// preserves the module's OpenRGB-derived defaults.
     pub fn set_zones(&mut self, zones: Option<Vec<Zone>>) {
         self.zones = zones;
+    }
+
+    /// Overrides native discovery with an explicit snapshot (including an empty
+    /// identity). Used by simulators; modules cannot request additional fields.
+    pub fn set_platform_identity(&mut self, platform: PlatformIdentity) {
+        self.platform = Some(platform);
     }
 
     pub fn last_error(&self) -> Option<&ModuleError> {
@@ -431,6 +439,11 @@ impl RgbDevice for ModuleDevice {
             Method::Initialize {
                 interface: self.interface.clone(),
                 zones: self.zones.clone(),
+                platform: Some(
+                    self.platform
+                        .clone()
+                        .unwrap_or_else(crate::platform::identity),
+                ),
             },
             INITIALIZE_TIMEOUT,
             &mut self.transport,

@@ -164,7 +164,7 @@ pub fn frames_v4(counts: &[usize], colors: &[Rgb]) -> Vec<Vec<u8>> {
         1usize
     } else {
         1 + ((total - V4_ONE_PACKAGE_SIZE) / V4_PACKAGE_SIZE)
-            + (((total - V4_ONE_PACKAGE_SIZE) % V4_PACKAGE_SIZE) > 0) as usize
+            + (!(total - V4_ONE_PACKAGE_SIZE).is_multiple_of(V4_PACKAGE_SIZE)) as usize
     };
     let mut out = Vec::new();
     // header color-less report is raw 1025? SendPacketFS uses ArrayData 65; raw branch writes 64 bytes. In freeRGB send separately 65-byte header.
