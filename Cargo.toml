@@ -53,6 +53,8 @@ members = [
     "modules/roccat-kone-pro",
     "modules/roccat-kone-pro-air",
     "modules/roccat-kone-aimo",
+    "modules/roccat-kone-xp",
+    "modules/roccat-kone-xp",
     "modules/hyperx-mouse",
     "modules/areson",
     "modules/annepro2",
