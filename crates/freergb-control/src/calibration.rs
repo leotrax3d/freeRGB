@@ -30,6 +30,9 @@ impl SweepOptions {
     }
 }
 const SWEEP_FLOOR: u8 = 40;
+const FIRST_STAGE_TIMEOUT_MS: u64 = 15_000;
+const STAGE_TIMEOUT_MS: u64 = 10_000;
+const STABLE_READINGS: usize = 5;
 
 /// Mean RPM measured at one tested duty.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -226,7 +229,14 @@ impl Calibration {
             critical_c,
             pending_result: None,
             descending: duties.len(),
-            timeout_ms: 60_000.max(4_000 * 2 * duties.len() as u64 + 10_000),
+            // Budget for every descending stage and restart probes (rounding
+            // the probe step down can require up to nine), plus acknowledgments
+            // and the longer initial spin-up.
+            timeout_ms: 60_000.max(
+                FIRST_STAGE_TIMEOUT_MS
+                    + (duties.len() as u64 + if probe_stall { 9 } else { 0 })
+                        * (STAGE_TIMEOUT_MS + 1000),
+            ),
             duties,
             probe_stall,
             monotonic_ratio: 0.95,
@@ -353,7 +363,12 @@ impl Calibration {
             return self.output();
         }
         let acknowledged = *self.acknowledged.get_or_insert(now);
-        if now - acknowledged > 10_000 {
+        let stage_timeout = if self.stage == 0 {
+            FIRST_STAGE_TIMEOUT_MS
+        } else {
+            STAGE_TIMEOUT_MS
+        };
+        if now - acknowledged > stage_timeout {
             self.restore(now, Some("unstable_or_missing_samples"));
             return self.output();
         }
@@ -361,7 +376,7 @@ impl Calibration {
             self.output.phase = Settling;
             return self.output();
         }
-        self.output.phase = Sampling;
+        self.output.phase = Settling;
         let sampled = now - sample.rpm_age_ms;
         if sampled < acknowledged.saturating_add(2000)
             || self
@@ -372,19 +387,27 @@ impl Calibration {
         }
         self.last_sample = Some(sampled);
         self.readings.push(rpm.unwrap());
-        if self.readings.len() < 5 {
+        if self.readings.len() > STABLE_READINGS {
+            self.readings.remove(0);
+        }
+        if self.readings.len() < STABLE_READINGS {
             return self.output();
         }
         let duty = self.duties[self.stage];
         let rising = self.stage >= self.descending;
         let minimum = self.readings.iter().copied().fold(f32::INFINITY, f32::min);
         let maximum = self.readings.iter().copied().fold(0.0, f32::max);
-        // A stall stage must end stopped: spinning down or up is not a verdict.
-        let stalled = minimum == 0.0 && self.readings.last() == Some(&0.0);
-        if (minimum == 0.0 && !stalled) || (!stalled && minimum < maximum * 0.8) {
-            self.restore(now, Some("unstable_rpm"));
+        // A narrow band alone can accept a slow ramp. Reject monotonic drift
+        // above 0.5% as well, allowing small tachometer noise and flat tops.
+        let monotonic = self.readings.windows(2).all(|w| w[1] >= w[0])
+            || self.readings.windows(2).all(|w| w[1] <= w[0]);
+        let drift = (self.readings[STABLE_READINGS - 1] - self.readings[0]).abs();
+        if minimum < maximum * 0.97 || (monotonic && drift > maximum * 0.005) {
             return self.output();
         }
+        self.output.phase = Sampling;
+        // A stall verdict requires the entire stable window to be stopped.
+        let stalled = maximum == 0.0;
         let mean = self.readings.iter().sum::<f32>() / self.readings.len() as f32;
         let mut finished = false;
         if stalled {
@@ -395,7 +418,7 @@ impl Calibration {
                 self.duties.truncate(self.stage + 1);
                 self.descending = self.stage;
                 if let Some(running) = running {
-                    // At most five probes between the stall and the last running duty.
+                    // Roughly five increments, with finer probes after rounding.
                     let step = ((running - duty) / 5).max(1);
                     let mut next = duty.saturating_add(step);
                     while next < running {
@@ -511,6 +534,101 @@ mod tests {
         assert!(!result.hardware_verified);
         assert!(Calibration::new(ChannelRole::Pump, 85.0, 0).is_err());
     }
+    #[test]
+    fn slow_initial_ramp_and_flat_top_complete_the_entire_sweep() {
+        for ramp_ms in [6000, 10_000] {
+            let mut c = Calibration::sweep(
+                ChannelRole::Fan,
+                85.0,
+                0,
+                SweepOptions {
+                    step_percent: 5,
+                    lowest_percent: 40,
+                    probe_stall: false,
+                },
+            )
+            .unwrap();
+            for now in (0..100_000).step_by(250) {
+                let out = c.output();
+                let rpm = if out.sequence == 1 {
+                    1000.0 + 700.0 * (now as f32 / ramp_ms as f32).min(1.0)
+                } else {
+                    1700.0 * f32::from(out.duty_percent.min(90)) / 90.0
+                };
+                let out = c.update(sample(now, out.sequence, rpm));
+                if now < ramp_ms {
+                    assert_eq!(out.sequence, 1, "ramp must not become the baseline");
+                }
+                if out.phase == CalibrationPhase::Completed {
+                    let result = out.result.unwrap();
+                    assert_eq!(result.tested.len(), 13);
+                    assert_eq!(result.tested[0].rpm, 1700.0);
+                    assert_eq!(result.tested[1].rpm, 1700.0);
+                    assert_eq!(result.tested[2].rpm, 1700.0);
+                    assert!(result.response_observed && result.monotonic_response);
+                    assert!(!result.hardware_verified);
+                    break;
+                }
+            }
+            assert_eq!(c.output().phase, CalibrationPhase::Completed);
+        }
+    }
+
+    #[test]
+    fn genuinely_inconsistent_settled_response_still_restores_and_aborts() {
+        let mut c = Calibration::new(ChannelRole::Fan, 85.0, 0).unwrap();
+        for now in (0..10_000).step_by(250) {
+            let out = c.output();
+            let rpm = if out.sequence == 1 { 1000.0 } else { 1700.0 };
+            let out = c.update(sample(now, out.sequence, rpm));
+            if out.phase == CalibrationPhase::Restoring {
+                assert_eq!(out.reason.as_deref(), Some("inconsistent_response"));
+                assert_eq!(out.duty_percent, 100);
+                let out = c.update(sample(now, out.sequence, rpm));
+                assert_eq!(out.phase, CalibrationPhase::Aborted);
+                assert!(out.result.is_none());
+                return;
+            }
+        }
+        panic!("inconsistent response did not abort");
+    }
+
+    #[test]
+    fn narrow_monotonic_trend_waits_until_each_stage_deadline() {
+        for stage in [0, 1] {
+            let mut c = Calibration::new(ChannelRole::Fan, 85.0, 0).unwrap();
+            let mut now = 0;
+            if stage == 1 {
+                for at in (0..=3000).step_by(250) {
+                    c.update(sample(at, 1, 1700.0));
+                }
+                assert_eq!(c.output().sequence, 2);
+                now = 3250;
+            }
+            let began = now;
+            let seq = c.output().sequence;
+            let bound = if stage == 0 {
+                FIRST_STAGE_TIMEOUT_MS
+            } else {
+                STAGE_TIMEOUT_MS
+            };
+            while now <= began + bound {
+                // Only ~1% per second: within the 3% band, still trending.
+                let out = c.update(sample(now, seq, 1700.0 + (now - began) as f32 * 0.02));
+                assert_eq!(out.sequence, seq);
+                assert_eq!(out.phase, CalibrationPhase::Settling);
+                now += 250;
+            }
+            let out = c.update(sample(now, seq, 2000.0));
+            assert_eq!(out.reason.as_deref(), Some("unstable_or_missing_samples"));
+            assert_eq!(out.duty_percent, 100);
+            assert_eq!(
+                c.update(sample(now, out.sequence, 2000.0)).phase,
+                CalibrationPhase::Aborted
+            );
+        }
+    }
+
     fn run_test(rpm_at: impl Fn(u8) -> f32) -> CalibrationResult {
         let mut c = Calibration::channel_test(ChannelRole::Fan, 85.0, 0).unwrap();
         let mut now = 0;
@@ -611,7 +729,9 @@ mod tests {
         {
             c.update(sample(2000 + index as u64 * 250, 1, rpm));
         }
-        assert_eq!(c.output().reason.as_deref(), Some("unstable_rpm"));
+        assert_eq!(c.output().phase, CalibrationPhase::Settling);
+        let out = c.update(sample(FIRST_STAGE_TIMEOUT_MS + 1, 1, 2000.0));
+        assert_eq!(out.reason.as_deref(), Some("unstable_or_missing_samples"));
         assert_eq!(c.output().duty_percent, 100);
         assert!(Calibration::new(ChannelRole::Fan, 85.0, u64::MAX).is_err());
     }

@@ -13,10 +13,14 @@ minimum startup duty; a real backend must never label their result as that.
 
 Each command needs the matching applied sequence within 1000 ms of issue. This
 acknowledgment must eventually come from a checked backend operation, not merely
-an IPC enqueue. After acknowledgment, wait 2000 ms, then collect five RPM samples
-whose acquisition times are at least 250 ms apart and after settling. Re-reading
-the same cached acquisition does not count again. A stage is limited to 10000 ms
-after acknowledgment and a session to 60000 ms. Runtime callers must keep polling;
+an IPC enqueue. After acknowledgment, wait at least 2000 ms, then evaluate a rolling
+window of five RPM readings whose acquisition times are at least 250 ms apart.
+Only a stable window becomes the stage's samples; a ramp keeps settling. Re-reading
+the same cached acquisition does not count again. The first stage allows 15000 ms
+after acknowledgment for spin-up from firmware duty; later stages allow 10000 ms.
+Expiry requests restoration with `unstable_or_missing_samples`. The session budget
+is at least 60000 ms and covers all stages plus up to nine restart probes at their
+deadlines, including acknowledgment time. Runtime callers must keep polling;
 the model itself owns no thread or hardware handle.
 
 RPM must be finite and 100..100000; temperature finite and -20..150 Celsius.
@@ -26,7 +30,9 @@ acknowledgment, reversed clock, time limits or cancellation request 100%.
 Critical temperature is caller-specified, finite, 40..100 Celsius. At least a
 100-RPM lower bound is an experiment prerequisite, not a universal fan/pump limit.
 
-Five samples are stable only if minimum >=80% of maximum. A lower duty stage
+Five readings are stable only if minimum >=97% of maximum and a monotonic trend
+changes by at most 0.5% of maximum across the window. A stall sweep requires all
+five readings to be zero before recording a stall. A lower duty stage
 whose mean RPM rises >10% over the preceding stage aborts. At the final stage,
 mean RPM <=90% of the initial mean marks `response_observed:true`. This is a
 response indication, not proof of wiring: temperature/load/firmware changes can
