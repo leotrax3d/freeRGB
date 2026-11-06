@@ -29,9 +29,15 @@ impl Hid for Fake {
         self.writes.push(b.to_vec());
         Ok(b.len())
     }
-    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> { unreachable!() }
-    fn send_feature(&mut self, _: &[u8]) -> Result<usize, ModuleError> { unreachable!() }
-    fn get_feature(&mut self, _: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> { unreachable!() }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+    fn send_feature(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        unreachable!()
+    }
+    fn get_feature(&mut self, _: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
 }
 
 #[test]

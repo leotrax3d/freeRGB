@@ -41,18 +41,26 @@ impl Module for M {
         table::device(i).ok_or_else(|| err("unsupported ASUS Aura mousemat"))?;
         self.active = true;
         Ok(Capabilities {
-            name: table::identify(i).model.unwrap_or_else(|| "ASUS Aura Mousemat".into()),
+            name: table::identify(i)
+                .model
+                .unwrap_or_else(|| "ASUS Aura Mousemat".into()),
             kind: DeviceKind::Mousemat,
             layout: LedLayout {
                 width: 15,
                 height: 1,
                 leds: (0..15)
-                    .map(|n| Led { name: format!("Mousemat LED {}", n), pos: (n as u16, 0) })
+                    .map(|n| Led {
+                        name: format!("Mousemat LED {}", n),
+                        pos: (n as u16, 0),
+                    })
                     .collect(),
             },
             firmware: None,
             restore: Restore::LastFrame,
-            zones: vec![freergb_module_api::Zone { name: "Mousemat".into(), leds: 15 }],
+            zones: vec![freergb_module_api::Zone {
+                name: "Mousemat".into(),
+                leds: 15,
+            }],
         })
     }
 

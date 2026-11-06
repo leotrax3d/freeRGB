@@ -25,15 +25,27 @@ struct Fake {
     features: Vec<Vec<u8>>,
 }
 impl Hid for Fake {
-    fn write(&mut self, _: &[u8]) -> Result<usize, ModuleError> { unreachable!() }
-    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> { unreachable!() }
-    fn send_feature(&mut self, b: &[u8]) -> Result<usize, ModuleError> { self.features.push(b.to_vec()); Ok(b.len()) }
-    fn get_feature(&mut self, b: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> { Ok(b.to_vec()) }
+    fn write(&mut self, _: &[u8]) -> Result<usize, ModuleError> {
+        unreachable!()
+    }
+    fn read(&mut self, _: usize, _: i32) -> Result<Vec<u8>, ModuleError> {
+        unreachable!()
+    }
+    fn send_feature(&mut self, b: &[u8]) -> Result<usize, ModuleError> {
+        self.features.push(b.to_vec());
+        Ok(b.len())
+    }
+    fn get_feature(&mut self, b: &[u8], _: usize) -> Result<Vec<u8>, ModuleError> {
+        Ok(b.to_vec())
+    }
 }
 
 #[test]
 fn enter_direct_and_direct_packets_are_byte_exact() {
-    assert_eq!(crate::report::enter_direct(), vec![0x0e, 0x06, 0x01, 0x01, 0x00, 0xff]);
+    assert_eq!(
+        crate::report::enter_direct(),
+        vec![0x0e, 0x06, 0x01, 0x01, 0x00, 0xff]
+    );
     let p = crate::report::direct(&[Rgb { r: 1, g: 2, b: 3 }; 20]);
     assert_eq!(p.len(), 122);
     assert_eq!(&p[0..6], &[0x0d, 0x7a, 1, 2, 3, 0xff]);

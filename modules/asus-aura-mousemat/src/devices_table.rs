@@ -3,6 +3,20 @@
 use crate::table::Detector;
 
 pub const DETECTORS: &[Detector] = &[
-    Detector { name: "ASUS ROG Balteus", vid: 0x0b05, pid: 0x1891, interface: -1, usage_page: 0xff06, usage: 0x0001 },
-    Detector { name: "ASUS ROG Balteus Qi", vid: 0x0b05, pid: 0x1890, interface: -1, usage_page: 0xff06, usage: 0x0001 },
+    Detector {
+        name: "ASUS ROG Balteus",
+        vid: 0x0b05,
+        pid: 0x1891,
+        interface: -1,
+        usage_page: 0xff06,
+        usage: 0x0001,
+    },
+    Detector {
+        name: "ASUS ROG Balteus Qi",
+        vid: 0x0b05,
+        pid: 0x1890,
+        interface: -1,
+        usage_page: 0xff06,
+        usage: 0x0001,
+    },
 ];

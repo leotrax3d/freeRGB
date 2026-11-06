@@ -18,7 +18,9 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
         supported: d.is_some(),
         model: d.map(|x| x.name.into()),
         kind: d.map(|_| DeviceKind::Mousemat),
-        reason: d.is_none().then(|| "no ASUS Aura mousemat HID detector for this interface".into()),
+        reason: d
+            .is_none()
+            .then(|| "no ASUS Aura mousemat HID detector for this interface".into()),
     }
 }
 

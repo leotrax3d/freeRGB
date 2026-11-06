@@ -41,24 +41,54 @@ impl Module for K {
         self.active = true;
         let mut leds = Vec::new();
         for i in 0..9 {
-            leds.push(Led { name: format!("Left LED {}", i + 1), pos: (i as u16, 0) });
+            leds.push(Led {
+                name: format!("Left LED {}", i + 1),
+                pos: (i as u16, 0),
+            });
         }
         for i in 0..9 {
-            leds.push(Led { name: format!("Right LED {}", i + 1), pos: ((9 + i) as u16, 0) });
+            leds.push(Led {
+                name: format!("Right LED {}", i + 1),
+                pos: ((9 + i) as u16, 0),
+            });
         }
-        leds.push(Led { name: "Scrollwheel LED".into(), pos: (18, 0) });
-        leds.push(Led { name: "DPI button LED".into(), pos: (19, 0) });
+        leds.push(Led {
+            name: "Scrollwheel LED".into(),
+            pos: (18, 0),
+        });
+        leds.push(Led {
+            name: "DPI button LED".into(),
+            pos: (19, 0),
+        });
         Ok(Capabilities {
-            name: table::identify(i).model.unwrap_or_else(|| "Roccat Kone XP".into()),
+            name: table::identify(i)
+                .model
+                .unwrap_or_else(|| "Roccat Kone XP".into()),
             kind: DeviceKind::Mouse,
-            layout: LedLayout { width: 20, height: 1, leds },
+            layout: LedLayout {
+                width: 20,
+                height: 1,
+                leds,
+            },
             firmware: None,
             restore: Restore::LastFrame,
             zones: vec![
-                Zone { name: "Left".into(), leds: 9 },
-                Zone { name: "Right".into(), leds: 9 },
-                Zone { name: "Scrollwheel".into(), leds: 1 },
-                Zone { name: "DPI button".into(), leds: 1 },
+                Zone {
+                    name: "Left".into(),
+                    leds: 9,
+                },
+                Zone {
+                    name: "Right".into(),
+                    leds: 9,
+                },
+                Zone {
+                    name: "Scrollwheel".into(),
+                    leds: 1,
+                },
+                Zone {
+                    name: "DPI button".into(),
+                    leds: 1,
+                },
             ],
         })
     }
