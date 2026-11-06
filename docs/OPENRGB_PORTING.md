@@ -208,6 +208,7 @@ Summary: **121 families**, **1179 detector registrations**, **1156 unique detect
 | `HyperXMicrophoneV2Controller` | ported | `2b2774d` | 1 | Direct mode fully ported: 108-LED 12x9 matrix, 64-byte header + 6 color packets (20 LEDs, final 8), 108 report bytes firm. Save/keepalive omitted. |
 | `CreativeController` (XG6) | ported | `a454574` | 1 | Direct mode fully ported: single Logo LED, three 64-byte output reports with report ID 0, color order BGR at bytes 10-12, fixed brightness 0xFF. Effects and Save omitted. |
 | `NZXTHue1Controller` | ported | `ef4094e` | 1 | Direct mode fully ported: init `01 5C` + start-reporting `01 5D`, 21-byte status read (firmware 0x0B/0x0E, accessory 0x10>>3, count 0x11; strip 10 / fan 8 LEDs per device), fixed-mode two-packet frames `02 4B ..` / `03 ..` with GRB colors split at 20. Upstream blocking read loop fails closed; >40-LED layouts rejected (upstream color_data buffer limit). Effect modes omitted. |
+| `TurtleBeachKP7Controller` | ported | pending | 1 | Direct mode fully ported: enter-direct 5-byte feature report `[14 00 01 00 00]`, two 64-byte output reports per frame (page 0 `EF 00` first 62 buffer bytes, page 1 `EF 01` remaining 37), 33 LEDs via the upstream zone→device slot order, 3 zones with the upstream 7x5 keypad matrix. Upstream 50 ms keepalive thread omitted by module policy; effects and the report-ID-0x11 macro channel not handled (same as upstream). |
 
 
 The per-family status ledger is maintained below this inventory by the porting
@@ -257,6 +258,7 @@ LED layouts use the optional initialize `zones` parameter documented in
 - [x] NZXT Mouse
 - [x] AOC Mousemat
 - [ ] CoolerMasterController (38)
+- [x] Turtle Beach KP7 (33 LEDs)
 - [ ] RoccatController (28)
 - [ ] AsusAuraUSB (ohne 0b05:19af)
 - [ ] weitere kleine Familien (Cougar, LegoDimensions, RealtekARGB, Skydimo, XPG Summoner …)
@@ -289,7 +291,7 @@ their commit hashes.
 
 ### Remaining candidates (all "complex", need dedicated handling)
 Simpler single-detector Direct-mode families are exhausted. What is left:
-- TurtleBeachKP7Controller - keepalive thread (omit the thread, port the pages) + EnterDirect init
+- TurtleBeachKP7Controller - keepalive thread (omit the thread, port the pages) + EnterDirect init => ported as modules/turtle-beach-kp7
 - (done) NZXTHue1Controller - ported as modules/nzxt-hue1
 - ZalmanZSyncController - 30 byte reports plus state machine
 - MSIMonitorController - version query and 168-byte 0x72 double-block layout

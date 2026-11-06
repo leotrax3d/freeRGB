@@ -173,6 +173,10 @@ jobs:
             node scripts/openrgb/port-nzxt-hue1-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-nzxt-hue1
             git diff --exit-code -- modules/nzxt-hue1/src/devices_table.rs
+          elif [ "$MODULE" = "turtle-beach-kp7" ]; then
+            node scripts/openrgb/port-turtle-beach-kp7-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-turtle-beach-kp7
+            git diff --exit-code -- modules/turtle-beach-kp7/src/devices_table.rs
           elif [ "$MODULE" = "hyperx-mouse" ]; then
             node scripts/openrgb/port-hyperx-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-hyperx-mouse

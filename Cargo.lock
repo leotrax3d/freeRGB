@@ -2339,6 +2339,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-nzxt-hue1"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-nzxt-hue2"
 version = "0.1.0"
 dependencies = [
@@ -2515,6 +2524,15 @@ dependencies = [
  "serde_json",
  "sha2",
  "zip",
+]
+
+[[package]]
+name = "freergb-module-turtle-beach-kp7"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
 ]
 
 [[package]]
