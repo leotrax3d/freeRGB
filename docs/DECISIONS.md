@@ -47,3 +47,13 @@
     only until the protected service can authorize boot channels for a
     service-launched daemon (owner review + hardware, prompt 07). Cooling
     profiles never contain electrical channel bindings. See `COOLING_SERVICE.md`.
+16. **Host-owned platform identity (2026-11-06).** HID API 1 gains optional
+    `platform` labels on identify/initialize with default SDK delegation, so
+    shipped modules and older hosts keep working. Read-only Windows registry
+    and Linux sysfs discovery stays in the host, cached once per process and
+    injectable in simulations. Only bounded board vendor/name and system
+    product labels cross the broker; no serials, UUIDs, firmware blobs or raw
+    handles. Exact model gating remains a module responsibility and grants no
+    hardware write authority. This enables future DMI-gated detection without
+    adding family ports or claiming hardware acceptance. See
+    [HARDWARE_MODULES.md](HARDWARE_MODULES.md#read-only-platform-identity-api-1-additive-extension).

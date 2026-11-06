@@ -7,6 +7,7 @@ pub mod catalog;
 pub mod cooling_host;
 pub mod host;
 pub mod package;
+pub mod platform;
 pub mod setup;
 pub mod source;
 pub mod store;

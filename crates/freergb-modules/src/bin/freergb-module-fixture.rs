@@ -23,6 +23,33 @@ impl Module for Fixture {
             reason: None,
         }
     }
+    fn identify_with_platform(
+        &self,
+        interface: &InterfaceInfo,
+        platform: Option<&PlatformIdentity>,
+    ) -> Identification {
+        let mut id = self.identify(interface);
+        if self.0 == "platform-required" && !matches_platform(platform) {
+            id.supported = false;
+            id.reason = Some("fixture board identity does not match".into());
+        }
+        id
+    }
+    fn initialize_with_platform(
+        &mut self,
+        interface: &InterfaceInfo,
+        zones: Option<&[Zone]>,
+        platform: Option<&PlatformIdentity>,
+        hid: &mut dyn Hid,
+    ) -> Result<Capabilities, ModuleError> {
+        if self.0 == "platform-required" && !matches_platform(platform) {
+            return Err(ModuleError::new(
+                ErrorCode::Unsupported,
+                "fixture board identity does not match",
+            ));
+        }
+        self.initialize_with_zones(interface, zones, hid)
+    }
     fn initialize(
         &mut self,
         interface: &InterfaceInfo,
@@ -57,6 +84,14 @@ impl Module for Fixture {
         hid.write(&[2, color.map_or(0, |c| c.r)])?;
         Ok(())
     }
+}
+
+fn matches_platform(platform: Option<&PlatformIdentity>) -> bool {
+    platform.is_some_and(|p| {
+        p.board_vendor.as_deref() == Some("Fixture Vendor")
+            && p.board_name.as_deref() == Some("Fixture Board A (FB-1)")
+            && p.product.as_deref() == Some("Fixture Product")
+    })
 }
 
 fn initialize_inner(

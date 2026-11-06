@@ -103,6 +103,42 @@ Writing a module: depend on `freergb-module-api`, implement
 `modules/razer-chroma` and the fixture in
 `crates/freergb-modules/src/bin/freergb-module-fixture.rs`.
 
+## Read-only platform identity (API 1 additive extension)
+
+`identify` and `initialize` accept an optional `params.platform` object:
+`{"board_vendor":"Fixture Vendor","board_name":"Fixture Board A (FB-1)","product":"Fixture Product"}`.
+Each field is an optional string; absent, denied or invalid reads stay absent.
+The host snapshots only these labels once per daemon process: Windows reads
+`BaseBoardManufacturer`, `BaseBoardProduct`, `SystemProductName` from
+`HKLM\HARDWARE\DESCRIPTION\System\BIOS` using read-only registry access;
+Linux reads `board_vendor`, `board_name`, `product_name` from `/sys/class/dmi/id`.
+Neither requires elevation, a driver, a subprocess or hardware writes.
+Unsupported platforms return an empty identity. Labels are trimmed, limited to
+256 UTF-8 bytes and rejected on embedded control characters; names are not
+case-folded, shortened or inferred from the USB product string.
+
+SDK `identify_with_platform` and `initialize_with_platform` hooks receive this
+snapshot; their defaults delegate to the existing identify/zone initialization
+hooks. API stays at version 1: old modules ignore the additive field and old
+hosts omit it. A module requiring a board identity must fail closed when the
+field is missing or does not exactly match its audited configuration. An
+identity label is a detection input, not a grant of device access or proof of
+protocol compatibility; transport probing still applies. No serials, UUIDs,
+firmware tables, registry/sysfs paths or handles are exposed to modules.
+
+The host's `platform::read_with`, `read_sysfs(root)` and
+`ModuleDevice::set_platform_identity` allow deterministic injection. Unit and
+real-child-process fixture tests cover absent/denied/malformed values, exact
+name gating without writes on mismatch, and initialize/frame/shutdown through
+the existing HID broker. No family driver is changed by this extension.
+
+For future family work this removes the DMI-input blocker for MSI 761's
+35 exact `board_names` configurations at pinned OpenRGB commit
+`bbc77470a7cba56af60989e54ba910d5ac66a3ac`, including MAG X870 TOMAHAWK WIFI
+(MS-7E51) and MPG X870E EDGE TI WIFI (MS-7E59). The 761 packet implementation
+remains **blocked: licence/provenance review (SignalRGB-derived), owner
+decision**. Identity availability does not promote any compatibility row.
+
 ## Catalog and detection
 
 `catalog.json` (schema 1) lists modules with id, version, family, protocol

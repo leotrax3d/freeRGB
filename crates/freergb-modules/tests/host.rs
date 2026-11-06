@@ -55,16 +55,113 @@ fn device(mode: &str, wire: &Wire) -> ModuleDevice {
         product: None,
     };
     let wire = wire.clone();
-    ModuleDevice::new(
+    let mut device = ModuleDevice::new(
         DeviceId("module:fixture:test".into()),
         "Fixture".into(),
         launch,
         interface,
         Box::new(move || Ok(Box::new(Echo(wire.clone(), None)) as Box<dyn HidTransport>)),
-    )
+    );
+    // Tests never consult the machine's registry/sysfs.
+    device.set_platform_identity(freergb_module_api::PlatformIdentity::default());
+    device
 }
 
 const RED: Rgb = Rgb { r: 255, g: 0, b: 0 };
+
+fn fixture_platform() -> freergb_module_api::PlatformIdentity {
+    freergb_module_api::PlatformIdentity {
+        board_vendor: Some("Fixture Vendor".into()),
+        board_name: Some("Fixture Board A (FB-1)".into()),
+        product: Some("Fixture Product".into()),
+    }
+}
+
+#[test]
+fn host_platform_snapshot_gates_real_child_without_device_writes_on_mismatch() {
+    let wire = Wire::default();
+    let mut d = device("platform-required", &wire);
+    for platform in [
+        freergb_module_api::PlatformIdentity::default(),
+        freergb_module_api::PlatformIdentity {
+            board_name: Some("fixture board a (fb-1)".into()),
+            ..fixture_platform()
+        },
+        freergb_module_api::PlatformIdentity {
+            board_name: Some("Fixture Board A (FB-1) extra".into()),
+            ..fixture_platform()
+        },
+    ] {
+        d.set_platform_identity(platform);
+        assert!(d.connect().is_err());
+        assert!(wire.written.lock().unwrap().is_empty());
+    }
+    d.set_platform_identity(fixture_platform());
+    d.connect().unwrap();
+    d.push_frame(&Frame::solid(2, RED)).unwrap();
+    d.disconnect(None).unwrap();
+    assert_eq!(
+        *wire.written.lock().unwrap(),
+        [vec![0, 0xAB], vec![1, 255, 0, 0, 255, 0, 0], vec![2, 0]]
+    );
+}
+
+#[test]
+fn platform_context_reaches_identify_and_old_host_omission_is_safe() {
+    use freergb_module_api::{Identification, Method};
+    use freergb_modules::host::Process;
+    let dir =
+        std::env::temp_dir().join(format!("freergb-platform-identify-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("fixture-mode"), "platform-required").unwrap();
+    let mut child = Process::spawn(&Launch {
+        module_id: "fixture".into(),
+        executable: env!("CARGO_BIN_EXE_freergb-module-fixture").into(),
+        directory: dir.clone(),
+    })
+    .unwrap();
+    child.hello().unwrap();
+    let interface = InterfaceInfo {
+        vid: 1,
+        pid: 2,
+        interface: 0,
+        usage_page: 1,
+        usage: 2,
+        product: None,
+    };
+    for platform in [None, Some(fixture_platform())] {
+        let supported = platform.is_some();
+        let value = child
+            .request(
+                Method::Identify {
+                    interface: interface.clone(),
+                    platform,
+                },
+                REQUEST_TIMEOUT,
+                &mut None,
+            )
+            .unwrap();
+        let id: Identification = serde_json::from_value(value).unwrap();
+        assert_eq!(id.supported, supported);
+    }
+    // A platform-aware new module also fails closed when an old host omits
+    // metadata during initialization; no transport is available in this test.
+    let error = child
+        .request(
+            Method::Initialize {
+                interface,
+                platform: None,
+                zones: None,
+            },
+            REQUEST_TIMEOUT,
+            &mut None,
+        )
+        .unwrap_err();
+    assert_eq!(error.code, freergb_module_api::ErrorCode::Unsupported);
+    drop(child);
+    std::fs::remove_file(dir.join("fixture-mode")).unwrap();
+    std::fs::remove_dir(dir).unwrap();
+}
 
 #[test]
 fn frames_are_bundled_brokered_and_shutdown_releases() {
