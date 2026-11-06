@@ -50,6 +50,8 @@ members = [
     "modules/asus-aura-mousemat",
     "modules/asus-aura-mousemat",
     "modules/asus-aura-monitor",
+    "modules/asus-aura-headset-stand",
+    "modules/asus-aura-headset-stand",
     "modules/roccat-elo",
     "modules/roccat-horde-aimo",
     "modules/roccat-sense-aimo",

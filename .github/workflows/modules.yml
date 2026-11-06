@@ -193,10 +193,34 @@ jobs:
             node scripts/openrgb/port-asus-aura-mousemat-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-asus-aura-mousemat
             git diff --exit-code -- modules/asus-aura-mousemat/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-headset-stand" ]; then
+            node scripts/openrgb/port-asus-aura-headset-stand-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-headset-stand
+            git diff --exit-code -- modules/asus-aura-headset-stand/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-monitor" ]; then
+            node scripts/openrgb/port-asus-aura-monitor-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-monitor
+            git diff --exit-code -- modules/asus-aura-monitor/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-headset-stand" ]; then
+            node scripts/openrgb/port-asus-aura-headset-stand-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-headset-stand
+            git diff --exit-code -- modules/asus-aura-headset-stand/src/devices_table.rs
           elif [ "$MODULE" = "asus-aura-mousemat" ]; then
             node scripts/openrgb/port-asus-aura-mousemat-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-asus-aura-mousemat
             git diff --exit-code -- modules/asus-aura-mousemat/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-headset-stand" ]; then
+            node scripts/openrgb/port-asus-aura-headset-stand-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-headset-stand
+            git diff --exit-code -- modules/asus-aura-headset-stand/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-monitor" ]; then
+            node scripts/openrgb/port-asus-aura-monitor-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-monitor
+            git diff --exit-code -- modules/asus-aura-monitor/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-headset-stand" ]; then
+            node scripts/openrgb/port-asus-aura-headset-stand-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-headset-stand
+            git diff --exit-code -- modules/asus-aura-headset-stand/src/devices_table.rs
           elif [ "$MODULE" = "roccat-elo" ]; then
             node scripts/openrgb/port-roccat-elo-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-roccat-elo
