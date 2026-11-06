@@ -73,13 +73,13 @@ jobs:
         shell: pwsh
         run: ./scripts/test-installer-process-scope.ps1
 
-      - name: Linux system libraries (udev for hidapi, X11/Wayland/GL for egui)
+      - name: Linux system libraries (udev for hidapi, X11/Wayland/GL for egui, GLib tests)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libudev-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
-            libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev
+            libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev libglib2.0-dev
 
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action, pinned toolchain below
         with:
