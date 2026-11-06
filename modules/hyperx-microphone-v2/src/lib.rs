@@ -2,7 +2,7 @@
 pub mod devices_table;
 pub mod report;
 pub mod table;
-use freergb_core::{Led, LedLayout, Rgb};
+use freergb_core::{LedLayout, Rgb};
 use freergb_module_api::sdk::{Hid, Module};
 use freergb_module_api::{
     Capabilities, DeviceKind, ErrorCode, Identification, InterfaceInfo, ModuleError, ModuleInfo,
@@ -53,9 +53,9 @@ impl Module for HyperXMicrophoneV2 {
         }
         self.active = true;
         let mut pos_of = vec![(0u16, 0u16); 108];
-        for row in 0..9usize {
-            for col in 0..12usize {
-                let led = MATRIX_MAP[row][col] as usize;
+        for (row, matrix_row) in MATRIX_MAP.iter().enumerate() {
+            for (col, led) in matrix_row.iter().enumerate() {
+                let led = *led as usize;
                 if led < 108 {
                     pos_of[led] = (col as u16, row as u16);
                 }

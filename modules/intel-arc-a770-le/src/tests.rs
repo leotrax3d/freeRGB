@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 use freergb_core::Rgb;
 use freergb_module_api::sdk::{Hid, Module};
-use freergb_module_api::{ErrorCode, InterfaceInfo, ModuleError};
+use freergb_module_api::{InterfaceInfo, ModuleError};
 
 struct Fake {
     writes: Vec<Vec<u8>>,

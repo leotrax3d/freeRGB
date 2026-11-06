@@ -18,8 +18,6 @@ pub fn chunk(packet_id: usize, data: &[u8]) -> [u8; REPORT_LEN] {
     p[4] = packet_id as u8;
     p[5] = 0x00;
     let n = data.len().min(256);
-    for i in 0..n {
-        p[6 + i] = data[i];
-    }
+    p[6..6 + n].copy_from_slice(&data[..n]);
     p
 }

@@ -75,8 +75,8 @@ fn initialize_frame_shutdown_sequence_is_byte_exact() {
         .collect();
     m.frame(&colors, &mut h).unwrap();
     assert_eq!(h.writes.len(), 4);
-    let mut c0 = vec![colors[0], colors[1]];
-    let mut c1 = colors[2..17].to_vec();
+    let c0 = vec![colors[0], colors[1]];
+    let c1 = colors[2..17].to_vec();
     assert_eq!(
         h.writes[2],
         crate::report::packet(&crate::report::LOGO_FAN_IDS, &c0)

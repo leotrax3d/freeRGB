@@ -62,11 +62,10 @@ impl Module for ThermaltakePoseidonZRgb {
         }
         self.active = true;
         let mut pos_of = vec![(0u16, 0u16); 104];
-        for row in 0..6usize {
-            for col in 0..23usize {
-                let led = MATRIX_MAP[row][col];
-                if led >= 0 && (led as usize) < 104 {
-                    pos_of[led as usize] = (col as u16, row as u16);
+        for (row, matrix_row) in MATRIX_MAP.iter().enumerate() {
+            for (col, led) in matrix_row.iter().enumerate() {
+                if *led >= 0 && (*led as usize) < 104 {
+                    pos_of[*led as usize] = (col as u16, row as u16);
                 }
             }
         }

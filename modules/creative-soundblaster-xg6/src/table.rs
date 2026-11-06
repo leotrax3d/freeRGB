@@ -13,7 +13,7 @@ pub struct Detector {
 pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = DETECTORS
         .iter()
-        .find(|d| d.vid == i.vid && d.pid == i.pid && i32::from(d.interface) == i.interface);
+        .find(|d| d.vid == i.vid && d.pid == i.pid && d.interface == i.interface);
     Identification {
         supported: d.is_some(),
         model: d.map(|x| x.name.into()),
@@ -26,5 +26,5 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
 pub fn device(i: &InterfaceInfo) -> Option<&'static Detector> {
     DETECTORS
         .iter()
-        .find(|d| d.vid == i.vid && d.pid == i.pid && i32::from(d.interface) == i.interface)
+        .find(|d| d.vid == i.vid && d.pid == i.pid && d.interface == i.interface)
 }

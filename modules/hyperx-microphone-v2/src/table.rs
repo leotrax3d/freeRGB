@@ -14,7 +14,7 @@ pub fn identify(i: &InterfaceInfo) -> Identification {
     let d = DETECTORS.iter().find(|d| {
         d.vid == i.vid
             && d.pid == i.pid
-            && i32::from(d.interface) == i.interface
+            && d.interface == i.interface
             && d.usage_page == i.usage_page
     });
     Identification {
@@ -30,7 +30,7 @@ pub fn device(i: &InterfaceInfo) -> Option<&'static Detector> {
     DETECTORS.iter().find(|d| {
         d.vid == i.vid
             && d.pid == i.pid
-            && i32::from(d.interface) == i.interface
+            && d.interface == i.interface
             && d.usage_page == i.usage_page
     })
 }
