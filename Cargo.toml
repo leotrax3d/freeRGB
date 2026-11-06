@@ -49,6 +49,8 @@ members = [
     "modules/asus-aura-mouse",
     "modules/roccat-elo",
     "modules/roccat-horde-aimo",
+    "modules/roccat-sense-aimo",
+    "modules/roccat-kone-pro",
     "modules/hyperx-mouse",
     "modules/areson",
     "modules/annepro2",
