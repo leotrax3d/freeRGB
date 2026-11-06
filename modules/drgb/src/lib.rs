@@ -63,7 +63,7 @@ impl Module for Drgb {
                 pos: ((n % 30) as u16, (n / 30) as u16),
             })
             .collect::<Vec<_>>();
-        let zones_out = if zones.map_or(true, |z| z.is_empty()) {
+        let zones_out = if zones.is_none_or(|z| z.is_empty()) {
             channel_counts
                 .iter()
                 .enumerate()
