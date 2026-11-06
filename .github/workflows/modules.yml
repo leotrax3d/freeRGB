@@ -205,6 +205,10 @@ jobs:
             node scripts/openrgb/port-roccat-kone-pro-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-roccat-kone-pro
             git diff --exit-code -- modules/roccat-kone-pro/src/devices_table.rs
+          elif [ "$MODULE" = "roccat-kone-pro-air" ]; then
+            node scripts/openrgb/port-roccat-kone-pro-air-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-roccat-kone-pro-air
+            git diff --exit-code -- modules/roccat-kone-pro-air/src/devices_table.rs
           elif [ "$MODULE" = "hyperx-mouse" ]; then
             node scripts/openrgb/port-hyperx-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-hyperx-mouse
