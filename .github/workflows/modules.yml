@@ -185,6 +185,10 @@ jobs:
             node scripts/openrgb/port-msi-monitor72-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-msi-monitor72
             git diff --exit-code -- modules/msi-monitor72/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-mouse" ]; then
+            node scripts/openrgb/port-asus-aura-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-mouse
+            git diff --exit-code -- modules/asus-aura-mouse/src/devices_table.rs
           elif [ "$MODULE" = "hyperx-mouse" ]; then
             node scripts/openrgb/port-hyperx-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-hyperx-mouse
