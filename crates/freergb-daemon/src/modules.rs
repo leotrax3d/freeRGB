@@ -182,9 +182,9 @@ fn attach(
         });
         KEYS.insert(id.0.clone(), key.clone());
         tracing::info!(device = %id, %module, "starting module device");
-        lock(engine).add_device(Box::new(ModuleDevice::new(
-            id, name, launch, interface, open,
-        )));
+        let mut device = ModuleDevice::new(id, name, launch, interface, open);
+        device.set_probe_policy(verified.manifest.probe);
+        lock(engine).add_device(Box::new(device));
     }
 }
 

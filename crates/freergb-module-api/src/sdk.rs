@@ -26,6 +26,14 @@ pub trait Module {
     ) -> Identification {
         self.identify(interface)
     }
+    /// Optional read-only probe. Existing modules retain table lookup.
+    fn probe(
+        &mut self,
+        interface: &InterfaceInfo,
+        _hid: &mut dyn crate::probe::Hid,
+    ) -> Result<Identification, ModuleError> {
+        Ok(self.identify(interface))
+    }
     fn initialize(
         &mut self,
         interface: &InterfaceInfo,
@@ -180,6 +188,34 @@ impl<R: BufRead, W: Write> Hid for Host<R, W> {
     }
 }
 
+impl<R: BufRead, W: Write> crate::probe::Hid for Host<R, W> {
+    fn serial_string(&mut self) -> Result<Option<String>, ModuleError> {
+        self.identity_string(Op::SerialString)
+    }
+    fn product_string(&mut self) -> Result<Option<String>, ModuleError> {
+        self.identity_string(Op::ProductString)
+    }
+    fn feature(&mut self, report_id: u8, len: usize) -> Result<Vec<u8>, ModuleError> {
+        Hid::get_feature(self, &[report_id], len)
+    }
+}
+
+impl<R: BufRead, W: Write> Host<R, W> {
+    fn identity_string(&mut self, op: Op) -> Result<Option<String>, ModuleError> {
+        let reply = self.call(op, &[], 0, 0)?;
+        let Some(data) = reply.data else {
+            return Ok(None);
+        };
+        let bytes = decode(&data)?;
+        if bytes.len() > crate::probe::MAX_STRING {
+            return Err(protocol("identity string too large"));
+        }
+        String::from_utf8(bytes)
+            .map(Some)
+            .map_err(|_| protocol("invalid identity UTF-8"))
+    }
+}
+
 /// Serves requests until EOF or `shutdown`. On EOF the module still runs its
 /// own shutdown so the device is released even if the host vanished.
 pub fn serve<M: Module, R: BufRead, W: Write>(module: &mut M, input: R, output: W) {
@@ -206,6 +242,15 @@ pub fn serve<M: Module, R: BufRead, W: Write>(module: &mut M, input: R, output: 
             match &request.method {
                 Method::Hello => {
                     serde_json::to_value(module.info()).map_err(|e| protocol(e.to_string()))
+                }
+                Method::Probe { version, interface } => {
+                    if *version != crate::probe::VERSION || leds.is_some() {
+                        Err(protocol("invalid probe version or lifecycle"))
+                    } else {
+                        module.probe(interface, &mut host).and_then(|id| {
+                            serde_json::to_value(id).map_err(|e| protocol(e.to_string()))
+                        })
+                    }
                 }
                 Method::Identify {
                     interface,

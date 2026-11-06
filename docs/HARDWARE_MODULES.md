@@ -40,7 +40,7 @@ it. Reasons, from the actual project:
   and built-in adapters run side by side.
 * Handle ownership is unambiguous (daemon), so no two drivers can open one
   device; the module needs no device permissions and never sees paths or
-  serial numbers.
+  serial numbers except during an explicitly permitted read-only identity probe.
 * A crash or hang only faults that one device. No Rust ABI is shared.
 * The GPL module is a separate program talking to the MIT/Apache service only
   through this generic, documented protocol.
@@ -138,6 +138,81 @@ For future family work this removes the DMI-input blocker for MSI 761's
 (MS-7E51) and MPG X870E EDGE TI WIFI (MS-7E59). The 761 packet implementation
 remains **blocked: licence/provenance review (SignalRGB-derived), owner
 decision**. Identity availability does not promote any compatibility row.
+
+## Read-only identity probes (extension version 1)
+
+The HID envelope remains API 1. A schema-1 package may opt into the separately
+versioned identity extension with a signed `probe` field in `module.json`:
+
+```json
+"probe": {
+  "version": 1,
+  "serial": true,
+  "product": true,
+  "features": [{ "report_id": 82, "max_len": 200 }]
+}
+```
+
+The release tool accepts `pack --probe-policy policy.json` (also in release
+plans). Permissions are authenticated through the existing signed package digest
+and reverified manifest hash. Unknown extension versions, duplicate report IDs,
+zero/over-4096 lengths and use with non-HID packages are rejected. Omitting this
+field preserves existing manifests, wire messages, module implementations and
+startup behavior. Old hosts reject packages containing the extension field;
+publish opt-in packages only for hosts that support it.
+
+After `hello`, before `initialize`, and on each reconnect, the host sends
+`probe {version:1, interface}`. The result has the same shape as `identify`.
+Implement `sdk::Module::probe` using `probe::Hid`; its default delegates to
+legacy table lookup. The dedicated trait exposes only `serial_string()`,
+`product_string()` and `feature(report_id, len)`. The original `identify`
+remains an I/O-free table lookup.
+
+String calls use ops `serial_string` / `product_string` with empty data and
+zero length/timeout. Replies contain optional base64 UTF-8 data and byte length;
+missing data means no string, while empty base64 means an empty string. Strings
+are limited to 1024 UTF-8 bytes. Feature reads use `get_feature`, exactly one
+report-ID byte in data, zero timeout and a nonzero length at most the manifest's
+maximum (including report ID). Only returned bytes are forwarded. No arbitrary
+prefix bytes are accepted. This supports firmware queries that are pure HID
+GET_REPORT operations; request/response protocols requiring writes are excluded.
+
+The host enforces these restrictions independently of the SDK. Output writes,
+feature writes and input reads are denied during probes. String reads are denied
+outside probes. Existing runtime feature-report operations remain unchanged.
+The daemon retains the same opened handle and all native calls use the global
+HID gate. A refused or failed probe prevents initialization and therefore any
+initialization/frame writes. The existing call-count, message-size and 2-second
+process deadline apply; a blocking OS HID call retains the existing backend
+limitation and cannot be cancelled by the process deadline.
+
+Identity strings are transient module inputs: do not log, persist, echo them in
+probe errors/results, or add them to device diagnostics. The host does not copy
+probe model/reason fields into device diagnostics and masks probe failures before
+exposing them. Backend string errors are replaced with a generic error. Native
+process modules remain trusted executables, not a security sandbox.
+
+This API enables future external family work for MSI common VID 0x0DB0/PID 0x0076
+virtual-PID extraction from the serial prefix and the read-only 0x52 variant
+probe, and Cooler Master ARGB/SmallARGB firmware gates based on exact serial
+strings. It does not implement their lighting protocols or add supported devices.
+Logitech 0xC547 `ProbeG915ReceiverName` requires two HID++ output writes
+(`10 01 03 0E 00 00 00`, `10 01 03 1E 00 00 00`) upstream and remains
+blocked for the A6 HID++ workstream. A USB product string cannot substitute for
+the paired keyboard's HID++ name. No family module or coverage ledger is changed.
+Upstream evidence: OpenRGB commit `bbc77470a7cba56af60989e54ba910d5ac66a3ac`,
+`Controllers/MSIMotherboardController/MSIMotherboard185Controller/MSIMotherboard185Controller.cpp`
+(constructor), `Controllers/MSIMotherboardController/MSIMotherboardControllerDetect.cpp`,
+`Controllers/CoolerMasterController/{CMARGBController,CMSmallARGBController}/`
+(`GetVersion` / `GetSerial`), and
+`Controllers/LogitechController/LogitechControllerDetect.cpp`
+(`ProbeG915ReceiverName`). These references document constraints; no upstream
+implementation is copied into the MIT/Apache API or broker.
+
+Owner acceptance: after external family ports adopt the policy, verify their
+read-only identity decisions on supported and unsupported firmware without
+lighting writes, confirm no serial appears in exported diagnostics, and record
+hardware results in each module's PROVENANCE.md. Current evidence is simulated.
 
 ## Catalog and detection
 

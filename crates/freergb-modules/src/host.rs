@@ -177,6 +177,40 @@ impl Process {
         timeout: Duration,
         transport: &mut Option<Box<dyn HidTransport>>,
     ) -> Result<serde_json::Value, ModuleError> {
+        self.request_inner(method, timeout, transport, None)
+    }
+
+    /// Runs the optional identity extension against a signed package policy.
+    pub fn probe(
+        &mut self,
+        interface: InterfaceInfo,
+        policy: &freergb_module_api::probe::Policy,
+        transport: &mut Option<Box<dyn HidTransport>>,
+    ) -> Result<freergb_module_api::Identification, ModuleError> {
+        policy.validate()?;
+        let value = self.request_inner(
+            Method::Probe {
+                version: freergb_module_api::probe::VERSION,
+                interface,
+            },
+            REQUEST_TIMEOUT,
+            transport,
+            Some(policy),
+        )?;
+        serde_json::from_value(value).map_err(|_| protocol("invalid probe result"))
+    }
+
+    fn request_inner(
+        &mut self,
+        method: Method,
+        timeout: Duration,
+        transport: &mut Option<Box<dyn HidTransport>>,
+        policy: Option<&freergb_module_api::probe::Policy>,
+    ) -> Result<serde_json::Value, ModuleError> {
+        let probing = matches!(method, Method::Probe { .. });
+        if probing && policy.is_none() {
+            return Err(protocol("probe requires an explicit policy"));
+        }
         let deadline = Instant::now() + timeout;
         self.next_id += 1;
         let id = self.next_id;
@@ -198,7 +232,13 @@ impl Process {
                 if call.v != MODULE_API || calls > MAX_CALLS_PER_REQUEST {
                     return Err(protocol("invalid or excessive transport call"));
                 }
-                let reply = broker(&call, transport);
+                let reply = if probing {
+                    broker_probe(&call, policy.unwrap(), transport)
+                } else if matches!(call.op, Op::SerialString | Op::ProductString) {
+                    denied(&call, "identity reads are only allowed during probe")
+                } else {
+                    broker(&call, transport)
+                };
                 self.send(&reply, deadline)?;
                 continue;
             }
@@ -282,15 +322,26 @@ pub(crate) fn broker(call: &Call, transport: &mut Option<Box<dyn HidTransport>>)
             let mut buffer = vec![0u8; call.len.max(1)];
             transport
                 .read_timeout(&mut buffer, call.timeout_ms.clamp(0, 1000))
-                .map(|n| (Some(buffer[..n].to_vec()), n))
+                .and_then(|n| {
+                    buffer
+                        .get(..n)
+                        .map(|bytes| (Some(bytes.to_vec()), n))
+                        .ok_or_else(|| TransportError::Io("invalid transport reply length".into()))
+                })
+        }
+        Op::SerialString | Op::ProductString => {
+            return denied(call, "identity reads are only allowed during probe");
         }
         Op::GetFeature => {
             let mut buffer = vec![0u8; call.len.max(1)];
             let prefix = data.len().min(buffer.len());
             buffer[..prefix].copy_from_slice(&data[..prefix]);
-            transport
-                .get_feature(&mut buffer)
-                .map(|n| (Some(buffer[..n].to_vec()), n))
+            transport.get_feature(&mut buffer).and_then(|n| {
+                buffer
+                    .get(..n)
+                    .map(|bytes| (Some(bytes.to_vec()), n))
+                    .ok_or_else(|| TransportError::Io("invalid transport reply length".into()))
+            })
         }
     };
     match result {
@@ -301,6 +352,80 @@ pub(crate) fn broker(call: &Call, transport: &mut Option<Box<dyn HidTransport>>)
         Err(e) => reply.error = Some(transport_error(e)),
     }
     reply
+}
+
+fn denied(call: &Call, reason: &str) -> CallReply {
+    CallReply {
+        v: MODULE_API,
+        call: call.call,
+        data: None,
+        len: None,
+        error: Some(reason.into()),
+    }
+}
+
+/// This boundary is enforced even for modules bypassing the SDK.
+fn broker_probe(
+    call: &Call,
+    policy: &freergb_module_api::probe::Policy,
+    transport: &mut Option<Box<dyn HidTransport>>,
+) -> CallReply {
+    if policy.validate().is_err() || call.v != MODULE_API || call.timeout_ms != 0 {
+        return denied(call, "invalid probe policy or call");
+    }
+    let Ok(data) = decode(&call.data) else {
+        return denied(call, "invalid probe data");
+    };
+    match call.op {
+        Op::GetFeature
+            if data.len() == 1
+                && call.len > 0
+                && policy
+                    .features
+                    .iter()
+                    .any(|f| f.report_id == data[0] && call.len <= f.max_len) =>
+        {
+            broker(call, transport)
+        }
+        Op::SerialString | Op::ProductString
+            if data.is_empty()
+                && call.len == 0
+                && if call.op == Op::SerialString {
+                    policy.serial
+                } else {
+                    policy.product
+                } =>
+        {
+            let Some(device) = transport.as_mut() else {
+                return denied(call, "no device assigned for this request");
+            };
+            let result = if call.op == Op::SerialString {
+                device.serial_string()
+            } else {
+                device.product_string()
+            };
+            match result {
+                Ok(value)
+                    if value
+                        .as_ref()
+                        .is_none_or(|s| s.len() <= freergb_module_api::probe::MAX_STRING) =>
+                {
+                    CallReply {
+                        v: MODULE_API,
+                        call: call.call,
+                        len: Some(value.as_ref().map_or(0, |s| s.len())),
+                        data: value.map(|s| encode(s.as_bytes())),
+                        error: None,
+                    }
+                }
+                Err(TransportError::Disconnected) => denied(call, "device disconnected"),
+                Err(TransportError::Timeout) => denied(call, "timed out"),
+                // Device/backend errors may include identity strings. Do not forward them.
+                _ => denied(call, "identity string unavailable or too large"),
+            }
+        }
+        _ => denied(call, "operation not allowed by read-only probe policy"),
+    }
 }
 
 fn kind(kind: freergb_module_api::DeviceKind) -> DeviceKind {
@@ -331,6 +456,8 @@ pub struct ModuleDevice {
     last_error: Option<ModuleError>,
     zones: Option<Vec<Zone>>,
     platform: Option<PlatformIdentity>,
+
+    probe: Option<freergb_module_api::probe::Policy>,
 }
 
 impl ModuleDevice {
@@ -368,6 +495,8 @@ impl ModuleDevice {
             last_error: None,
             zones: None,
             platform: None,
+
+            probe: None,
         }
     }
 
@@ -381,6 +510,10 @@ impl ModuleDevice {
     /// identity). Used by simulators; modules cannot request additional fields.
     pub fn set_platform_identity(&mut self, platform: PlatformIdentity) {
         self.platform = Some(platform);
+    }
+    /// Set only from the verified package manifest. None preserves legacy startup.
+    pub fn set_probe_policy(&mut self, policy: Option<freergb_module_api::probe::Policy>) {
+        self.probe = policy;
     }
 
     pub fn last_error(&self) -> Option<&ModuleError> {
@@ -434,6 +567,25 @@ impl RgbDevice for ModuleDevice {
         };
         if let Err(e) = process.hello() {
             return Err(self.fault(e));
+        }
+        if let Some(policy) = &self.probe {
+            match process.probe(self.interface.clone(), policy, &mut self.transport) {
+                Ok(id) if id.supported => {}
+                Ok(_) => {
+                    return Err(self.fault(ModuleError::new(
+                        ErrorCode::Unsupported,
+                        "read-only identity probe refused device",
+                    )))
+                }
+                Err(error) => {
+                    let message = if error.code == ErrorCode::Disconnected {
+                        "device disconnected during read-only identity probe"
+                    } else {
+                        "read-only identity probe failed"
+                    };
+                    return Err(self.fault(ModuleError::new(error.code, message)));
+                }
+            }
         }
         let result = process.request(
             Method::Initialize {
@@ -498,5 +650,125 @@ impl RgbDevice for ModuleDevice {
         self.process = None;
         self.status = DeviceStatus::Disconnected;
         result
+    }
+}
+#[cfg(test)]
+mod probe_tests {
+    use super::*;
+    use freergb_module_api::probe::{Feature, Policy};
+    use std::sync::{Arc, Mutex};
+
+    struct Simulated(Arc<Mutex<Vec<String>>>);
+    impl HidTransport for Simulated {
+        fn write(&mut self, _: &[u8]) -> Result<usize, TransportError> {
+            panic!("probe write")
+        }
+        fn send_feature(&mut self, _: &[u8]) -> Result<usize, TransportError> {
+            panic!("probe feature write")
+        }
+        fn read_timeout(&mut self, _: &mut [u8], _: i32) -> Result<usize, TransportError> {
+            panic!("probe input read")
+        }
+        fn output_report_len(&self) -> usize {
+            64
+        }
+        fn input_report_len(&self) -> usize {
+            64
+        }
+        fn serial_string(&mut self) -> Result<Option<String>, TransportError> {
+            self.0.lock().unwrap().push("serial".into());
+            Ok(Some("private-serial".into()))
+        }
+        fn product_string(&mut self) -> Result<Option<String>, TransportError> {
+            self.0.lock().unwrap().push("product".into());
+            Ok(None)
+        }
+        fn get_feature(&mut self, buf: &mut [u8]) -> Result<usize, TransportError> {
+            assert_eq!(buf, &[0x52, 0, 0, 0]);
+            self.0.lock().unwrap().push("feature".into());
+            buf[1] = 42;
+            Ok(2)
+        }
+    }
+    fn policy() -> Policy {
+        Policy {
+            version: 1,
+            serial: true,
+            product: true,
+            features: vec![Feature {
+                report_id: 0x52,
+                max_len: 4,
+            }],
+        }
+    }
+    fn call(op: Op, bytes: &[u8], len: usize) -> Call {
+        Call {
+            v: MODULE_API,
+            call: 4,
+            op,
+            data: encode(bytes),
+            len,
+            timeout_ms: 0,
+        }
+    }
+
+    #[test]
+    fn untrusted_probe_calls_are_checked_before_transport_access() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let mut transport = Some(Box::new(Simulated(seen.clone())) as Box<dyn HidTransport>);
+        let mut calls = vec![
+            call(Op::Write, &[0, 1], 0),
+            call(Op::SendFeature, &[0], 0),
+            call(Op::Read, &[], 4),
+            call(Op::GetFeature, &[0x53], 4),
+            call(Op::GetFeature, &[0x52], 5),
+            call(Op::GetFeature, &[0x52], 0),
+            call(Op::GetFeature, &[0x52, 1], 4),
+            call(Op::GetFeature, &[], 4),
+            call(Op::SerialString, &[1], 0),
+            call(Op::ProductString, &[], 1),
+        ];
+        let mut bad_version = call(Op::SerialString, &[], 0);
+        bad_version.v = 2;
+        calls.push(bad_version);
+        let mut bad_base64 = call(Op::SerialString, &[], 0);
+        bad_base64.data = "!".into();
+        calls.push(bad_base64);
+        for c in calls {
+            assert!(
+                broker_probe(&c, &policy(), &mut transport).error.is_some(),
+                "{c:?}"
+            );
+        }
+        let denied_policy = Policy {
+            serial: false,
+            product: false,
+            features: vec![],
+            ..policy()
+        };
+        for op in [Op::SerialString, Op::ProductString] {
+            assert!(
+                broker_probe(&call(op, &[], 0), &denied_policy, &mut transport)
+                    .error
+                    .is_some()
+            );
+            assert!(
+                broker(&call(op, &[], 0), &mut transport).error.is_some(),
+                "not outside probe"
+            );
+        }
+        assert!(seen.lock().unwrap().is_empty());
+        let reply = broker_probe(&call(Op::SerialString, &[], 0), &policy(), &mut transport);
+        assert_eq!(
+            decode(reply.data.as_deref().unwrap()).unwrap(),
+            b"private-serial"
+        );
+        assert_eq!(reply.len, Some(14));
+        let reply = broker_probe(&call(Op::ProductString, &[], 0), &policy(), &mut transport);
+        assert_eq!(reply.data, None);
+        let reply = broker_probe(&call(Op::GetFeature, &[0x52], 4), &policy(), &mut transport);
+        assert_eq!(decode(reply.data.as_deref().unwrap()).unwrap(), [0x52, 42]);
+        assert_eq!(reply.len, Some(2));
+        assert_eq!(*seen.lock().unwrap(), ["serial", "product", "feature"]);
     }
 }

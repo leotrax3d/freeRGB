@@ -57,3 +57,14 @@
     hardware write authority. This enables future DMI-gated detection without
     adding family ports or claiming hardware acceptance. See
     [HARDWARE_MODULES.md](HARDWARE_MODULES.md#read-only-platform-identity-api-1-additive-extension).
+
+
+17. **Read-only HID identity extension v1 (2026-11-06).** Keep the API-1 envelope
+    and legacy startup unchanged; opt in through a signed, versioned package
+    probe policy. Before initialization, broker only explicitly allowed serial/
+    product strings and feature report IDs/maximum lengths through the same
+    daemon-owned handle and global HID gate. Reject every probe write even if
+    a child bypasses the SDK. Keep strings transient and out of diagnostics.
+    Protocols needing output writes for identity (Logitech receiver HID++ name)
+    remain outside this extension. Family ports are separate external work.
+    See HARDWARE_MODULES.md, "Read-only identity probes".

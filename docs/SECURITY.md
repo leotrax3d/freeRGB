@@ -35,3 +35,13 @@ latency depends on the OS. Stderr is discarded, and plugins must not spawn child
 
 Local API requests are capped at 256 KiB per line; oversized connections close.
 Effect parameters and saved state/profile data are validated before application.
+
+## Read-only HID identity extension
+
+Signed HID module manifests may explicitly permit bounded serial/product string
+reads and feature report reads during the versioned pre-initialization probe.
+The broker denies output/feature writes and input reads in that phase, validates
+report IDs and maximum lengths, and denies string reads in all other phases.
+Probe strings are transient and are not added to diagnostics or setup state;
+modules must not echo them in errors/results. See HARDWARE_MODULES.md for the
+wire contract, package compatibility and trusted-native-process limitation.

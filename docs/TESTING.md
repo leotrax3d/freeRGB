@@ -412,3 +412,15 @@ See [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md) for current local results and
 hardware/release limits, and [LOCAL_API.md](LOCAL_API.md) for additive live-session
 parameters and errors. Native test passes remain synthetic unless explicitly
 identified as the existing CHA_FAN2 hardware evidence in that record.
+
+## Read-only module identity probes
+
+The module API policy tests reject unknown versions, duplicate IDs and invalid
+lengths. Broker tests call the untrusted wire boundary directly and verify that
+writes, input reads, unlisted IDs, oversized buffers and arbitrary prefixes never
+reach the simulated transport. The real fixture child in
+`freergb-modules/tests/host.rs` reads synthetic serial/product strings and a
+byte-exact 0x52 feature report before initialization, repeats the probe on
+reconnect, and refuses initialization without writes on denial or unsupported
+identity. Existing lifecycle tests exercise packages/modules without the extension.
+No family port or hardware validation is included.

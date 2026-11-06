@@ -197,6 +197,7 @@ fn execute(
                 executable,
                 devices,
                 cooling_policy,
+                probe_policy,
                 files,
                 out,
             } => Cmd::Pack {
@@ -207,6 +208,7 @@ fn execute(
                 target,
                 executable: input(&root, &executable)?,
                 devices: devices.map(|p| input(&root, &p)).transpose()?,
+                probe_policy: probe_policy.map(|p| input(&root, &p)).transpose()?,
                 cooling_policy: cooling_policy.map(|p| input(&root, &p)).transpose()?,
                 files: files
                     .into_iter()

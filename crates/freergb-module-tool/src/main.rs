@@ -63,6 +63,10 @@ enum Cmd {
         /// API 3 cooling plugin policy JSON (schema-3 package, no device matches).
         #[arg(long, conflicts_with = "devices")]
         cooling_policy: Option<PathBuf>,
+        /// Optional versioned read-only HID identity policy JSON.
+        #[arg(long, conflicts_with = "cooling_policy")]
+        #[serde(default)]
+        probe_policy: Option<PathBuf>,
         /// Extra files (license text, PROVENANCE.md, NOTICE...).
         #[arg(long = "file")]
         files: Vec<PathBuf>,
@@ -218,6 +222,7 @@ fn run(command: Cmd) -> Result<()> {
             executable,
             devices,
             cooling_policy,
+            probe_policy,
             files,
             out,
         } => {
@@ -257,6 +262,9 @@ fn run(command: Cmd) -> Result<()> {
                 devices,
                 bus: None,
                 cooling,
+                probe: probe_policy
+                    .map(|p| -> Result<_> { Ok(serde_json::from_slice(&std::fs::read(p)?)?) })
+                    .transpose()?,
                 files: Default::default(),
             };
             package::build(manifest, &contents, &out)?;
