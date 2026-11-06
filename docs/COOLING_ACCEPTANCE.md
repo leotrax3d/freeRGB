@@ -178,3 +178,12 @@ using 5% steps down to 40%; confirm the initial stage waits for steady RPM,
 all 13 duties are recorded, a result is stored and the channel returns to
 firmware with a clear recovery journal. No hardware, UAC, installer or installed
 application files were accessed for this fix. `hardware_verified` remains false.
+
+Local validation on 2026-11-06:
+
+- `cargo fmt --all --check`: passed.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings`: passed.
+- `cargo test -p freergb-control -p freergb-daemon --locked`: passed, including
+  doctests (225 tests passed, 7 existing fixture-dependent tests ignored).
+  An initial run overlapping Clippy failed at Rustdoc dependency resolution;
+  the full command passed when rerun without another Cargo build in parallel.
