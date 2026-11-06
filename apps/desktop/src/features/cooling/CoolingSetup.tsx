@@ -10,7 +10,18 @@ import { SupportBadge } from "./SupportBadge";
 import { fanViews, floorFor, withChannel, type FanView } from "./fanModel";
 import { tierDescription, tierLabel } from "./support";
 import { ACTIVE_STATES } from "./liveModel";
-import { chipSummaries, proposeCurve, SETUP_STEPS, type SetupStep } from "./setupModel";
+import { chipSummaries, proposeCurve, ROLE_UNKNOWN_LABEL, SETUP_STEPS, unassignedRoles, type SetupStep } from "./setupModel";
+
+/** Blocks reductions while a header with a tachometer has no role. */
+function RoleGate({ unknown }: { unknown: FanView[] }) {
+  if (unknown.length === 0) return null;
+  return (
+    <Banner tone="warn">
+      Every header with an RPM sensor needs a role (fan or pump) before anything is slowed down. Go back to Identify and assign:{" "}
+      {unknown.map((v) => `${v.name}: ${ROLE_UNKNOWN_LABEL}`).join(", ")}.
+    </Banner>
+  );
+}
 
 function Steps({ step }: { step: SetupStep }) {
   const index = SETUP_STEPS.findIndex((s) => s.id === step);
@@ -67,7 +78,7 @@ function Detect({ onNext }: { onNext: () => void }) {
         <ul className="flex flex-col divide-y divide-border rounded-control border border-border">
           {views.map((v) => (
             <li key={v.id} className="flex flex-col gap-1 px-3 py-2 text-small">
-              <span className="flex flex-wrap items-center gap-3"><span className="font-medium">{v.name}</span><SupportBadge tier={v.tier} coverage={v.evidence?.coverage} /></span>
+              <span className="flex flex-wrap items-center gap-3"><span className="font-medium">{v.name}</span><SupportBadge tier={v.tier} coverage={v.evidence?.coverage} />{unassignedRoles([v]).length > 0 && <span className="text-caption text-warning-text">{ROLE_UNKNOWN_LABEL}</span>}</span>
               <span className="text-caption text-text-subtle">{v.blocked ?? tierDescription(v.tier)}</span>
             </li>
           ))}
@@ -82,6 +93,7 @@ function Calibrate({ onNext }: { onNext: () => void }) {
   const session = useDaemon((s) => s.cooling_session);
   const views = useViews().filter((v) => v.role === "fan" && !v.blocked);
   const pumps = useViews().filter((v) => v.role === "pump");
+  const unknown = unassignedRoles(useViews());
   const { pending, error, run } = useAction();
   const [jobs, setJobs] = useState<Record<string, number>>({});
   const jobState = (id: string) => session?.jobs?.find((j) => j.job_id === jobs[id])?.state;
@@ -95,6 +107,7 @@ function Calibrate({ onNext }: { onNext: () => void }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-small text-text-muted">Calibration measures each confirmed fan at 100 → 80 → 60 → 40 % (never lower) and stores its RPM range, so RPM targets and avoided ranges work. The fan returns to the BIOS afterwards. Windows asks for permission.</p>
+      <RoleGate unknown={unknown} />
       {pumps.length > 0 && <p className="flex items-center gap-2 text-caption text-text-subtle"><Waves className="size-4" aria-hidden />{pumps.map((p) => p.name).join(", ")}: pump, stays at 100 %, not calibrated.</p>}
       {views.length === 0 && <p className="text-small text-text-subtle">No header is confirmed as a fan yet. Go back and identify one, or skip.</p>}
       <ul className="flex flex-col gap-2">
@@ -110,7 +123,7 @@ function Calibrate({ onNext }: { onNext: () => void }) {
                 {running ? <span className="inline-flex items-center gap-1"><LoaderCircle className="size-3 animate-spin" />Measuring…</span>
                   : range ? `${Math.round(range.min_rpm)}–${Math.round(range.max_rpm)} RPM measured` : state === "faulted" || state === "failed" ? "Calibration failed; returned to BIOS" : "Not calibrated"}
               </span>
-              <Button size="sm" variant="secondary" className="ml-auto" disabled={busy || pending !== null || !v.temperature || !v.rpm} onClick={() => calibrate(v)}>
+              <Button size="sm" variant="secondary" className="ml-auto" disabled={busy || pending !== null || unknown.length > 0 || !v.temperature || !v.rpm} onClick={() => calibrate(v)}>
                 {range ? "Calibrate again (UAC)" : "Calibrate (UAC)"}
               </Button>
             </li>
@@ -128,6 +141,7 @@ function Curves({ onNext }: { onNext: () => void }) {
   const background = useDaemon((s) => s.cooling_background);
   const all = useViews();
   const fans = all.filter((v) => v.role === "fan" && !v.blocked && v.temperature && v.rpm);
+  const unknown = unassignedRoles(all);
   const { pending, error, run } = useAction();
   const [chosen, setChosen] = useState<Record<string, boolean>>(() => Object.fromEntries(fans.map((v) => [v.id, v.saved === null])));
   const proposals = fans.map((v) => ({ view: v, curve: proposeCurve(v.role, floorFor(v, support?.unrestricted_enabled ?? false)) }));
@@ -143,6 +157,7 @@ function Curves({ onNext }: { onNext: () => void }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-small text-text-muted">A starting curve per confirmed fan, following its chip temperature: quiet at idle, 100 % from 78 °C, full speed on a sensor fault. Pumps and unconfirmed headers are left alone. You can fine-tune every curve on the Cooling page afterwards.</p>
+      <RoleGate unknown={unknown} />
       <ul className="flex flex-col gap-2">
         {proposals.map(({ view, curve }) => (
           <li key={view.id} className="flex flex-wrap items-center gap-3 rounded-control border border-border px-3 py-2 text-small">
@@ -158,7 +173,7 @@ function Curves({ onNext }: { onNext: () => void }) {
       {fans.length === 0 && <p className="text-small text-text-subtle">No confirmed fan with RPM and temperature sensors; nothing to propose.</p>}
       {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
       <div className="flex gap-2">
-        <Button variant="primary" disabled={pending !== null || !proposals.some((p) => chosen[p.view.id] && p.curve)} onClick={apply}>Apply selected curves (UAC)</Button>
+        <Button variant="primary" disabled={pending !== null || unknown.length > 0 || !proposals.some((p) => chosen[p.view.id] && p.curve)} onClick={apply}>Apply selected curves (UAC)</Button>
         <Button variant="ghost" onClick={onNext}>Skip</Button>
       </div>
     </div>

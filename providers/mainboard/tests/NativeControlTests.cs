@@ -198,7 +198,7 @@ internal static class NativeControlTests
             var port = new SessionPort { Floor = 40 };
             var session = NativeControlSession.ForTest(port,delegate { return now; },guard);
             // Keep the command lease alive while the independent sensor path fails.
-            for (now = 200; now <= 1600; now += 200)
+            for (now = 200; now <= NativeTelemetryGuard.MaxAgeMs + 200; now += 200)
             {
                 if (failure == "critical") guard.Observe(now,now,80,900);
                 if (failure == "stall") guard.Observe(now,now,40,0);
@@ -215,7 +215,16 @@ internal static class NativeControlTests
         }
         var healthy = new NativeTelemetryGuard(80);
         healthy.Observe(0,0,40,900);
-        Assert(healthy.Check(1500) == null && healthy.Check(1501) == "telemetry_stale","Freshness boundary changed.");
+        Assert(healthy.Check(7000) == null && healthy.Check(7001) == "telemetry_stale","Freshness boundary changed.");
+        // Three-second I/O, stamped before acquisition, followed by a 100 ms
+        // sampler pause: the last completed sample can be 6100 ms old.
+        var slow = new NativeTelemetryGuard(80);
+        slow.Observe(3000,0,73,1700);
+        Assert(slow.Check(6100) == null,"Slow native reader expired before its next acquisition completed.");
+        slow.Observe(6100,3100,73,1700);
+        Assert(slow.Check(10100) == null && slow.Check(10101) == "telemetry_stale","Frozen native reader did not expire at its acquisition-age bound.");
+        slow.Observe(10102,10102,73,1700);
+        Assert(slow.Check(10102) == "telemetry_stale","Fresh data revived a stale native session.");
         var reversal = new NativeTelemetryGuard(80);
         reversal.Observe(100,100,40,900);
         Assert(reversal.Check(99) == "telemetry_clock_fault","Clock reversal accepted.");

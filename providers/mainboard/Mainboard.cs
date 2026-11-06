@@ -97,13 +97,38 @@ internal static class Mainboard
         // are loaded. Motherboard/SuperIO is the only control group; USB is never
         // enabled. Session control ids are restricted to /lpc/ (cooling_sessions.rs).
         computer.GetType().GetProperty("IsMotherboardEnabled").SetValue(computer, true, null);
-        // CPU, GPU and storage (NVMe/SATA SMART) temperatures, read-only, as curve sources.
+        // CPU and GPU temperatures, read-only, as curve sources. Storage stays off:
+        // LHM storage enumeration blocked the first snapshot on the owner board
+        // (COOLING_ACCEPTANCE.md, 2026-11-05) and would starve fan telemetry.
         computer.GetType().GetProperty("IsCpuEnabled").SetValue(computer, true, null);
         computer.GetType().GetProperty("IsGpuEnabled").SetValue(computer, true, null);
-        var storage = computer.GetType().GetProperty("IsStorageEnabled");
-        if (storage != null) storage.SetValue(computer, true, null);
         Invoke(computer, "Open");
         return null;
+    }
+    private static readonly Stopwatch Uptime = Stopwatch.StartNew();
+    private static readonly UpdateCadence cadence = new UpdateCadence();
+    private static readonly Dictionary<string, List<object>> reused = new Dictionary<string, List<object>>();
+    private static bool IsMotherboard(object hardware)
+    {
+        return Get(hardware, "HardwareType").ToString() == "Motherboard";
+    }
+    // Copies cached hardware entries with every sensor aged to `age` ms.
+    private static List<object> Aged(List<object> cached, long age, ref int sensorCount)
+    {
+        var copy = new List<object>();
+        foreach (Dictionary<string, object> hardware in cached)
+        {
+            var sensors = new List<object>();
+            foreach (Dictionary<string, object> sensor in (List<object>)hardware["sensors"])
+            {
+                if (++sensorCount > 1024) throw new InvalidDataException("Sensor count limit exceeded.");
+                var entry = new Dictionary<string, object>(sensor);
+                entry["age_ms"] = age;
+                sensors.Add(entry);
+            }
+            copy.Add(new Dictionary<string, object> { {"id", hardware["id"]}, {"name", hardware["name"]}, {"sensors", sensors} });
+        }
+        return copy;
     }
     private static void Walk(object hardware, List<object> output, Stopwatch clock, int depth, ref int sensorCount)
     {
@@ -250,9 +275,36 @@ internal static class Mainboard
 #endif
         var clock = Stopwatch.StartNew();
         int count = 0;
-        foreach (object item in (IEnumerable)Get(computer, "Hardware")) Walk(item, hardware, clock, 0, ref count);
+        // Motherboard (SuperIO fans/controls) first and on every snapshot; CPU/GPU
+        // on their own measured cadence with their true age (UpdateCadence.cs).
+        var items = new List<object>();
+        foreach (object item in (IEnumerable)Get(computer, "Hardware"))
+            if (IsMotherboard(item)) items.Insert(0, item); else items.Add(item);
+        foreach (object item in items)
+        {
+            string key = Get(item, "Identifier").ToString();
+            long now = Uptime.ElapsedMilliseconds;
+            List<object> cached;
+            if (cadence.Due(key, IsMotherboard(item), now) || !reused.TryGetValue(key, out cached))
+            {
+                var part = new List<object>();
+                Walk(item, part, clock, 0, ref count);
+                cadence.Record(key, now, Uptime.ElapsedMilliseconds - now);
+                reused[key] = part;
+                hardware.AddRange(part);
+            }
+            else hardware.AddRange(Aged(cached, cadence.AgeMs(key, now) + clock.ElapsedMilliseconds, ref count));
+        }
         if (count == 0) return Empty("no_supported_hardware", "No supported motherboard sensor channels were reported; this does not prove no fans are connected.");
-        var ready = Result("ready", "Read-only motherboard channels. Fan/header pairing, PWM/DC mode and physical labels are unconfirmed; RGB uses a separate provider.", hardware);
+        string message = "Read-only motherboard channels. Fan/header pairing, PWM/DC mode and physical labels are unconfirmed; RGB uses a separate provider.";
+        var slow = cadence.Slow();
+        if (slow.Count > 0)
+        {
+            var parts = new List<string>();
+            foreach (var pair in slow) if (parts.Count < 4) parts.Add(pair.Key + " " + pair.Value + " ms");
+            message += " Slow sensor updates (sampled less often): " + String.Join(", ", parts.ToArray()) + ".";
+        }
+        var ready = Result("ready", message, hardware);
         object identity = Board();
         if (identity != null) ready.Add("board", identity);
         return ready;

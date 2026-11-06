@@ -1,5 +1,11 @@
 //! Pure trusted-sampler policy. A fallback decision is not a hardware write.
 
+/// Native acquisition is stamped before I/O. Two consecutive three-second
+/// reads plus the 100 ms sampler pause and transport need more than six seconds.
+/// This is a hard acquisition-age limit, never a receipt/heartbeat timeout.
+/// Keep in sync with NativeTelemetryGuard.MaxAgeMs in NativeControlSession.cs.
+pub const NATIVE_TELEMETRY_MAX_AGE_MS: u64 = 7000;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TelemetryFault {
     Clock,
@@ -22,6 +28,7 @@ pub struct TelemetryGuard {
     temperature_source: String,
     rpm_source: String,
     critical_c: f32,
+    max_age_ms: u64,
     last_now: u64,
     temperature: Option<(u64, f32)>,
     rpm: Option<(u64, f32)>,
@@ -51,6 +58,7 @@ impl TelemetryGuard {
             temperature_source,
             rpm_source,
             critical_c,
+            max_age_ms: 1500,
             last_now: 0,
             temperature: None,
             rpm: None,
@@ -58,6 +66,13 @@ impl TelemetryGuard {
             stall_warning: false,
             fault: None,
         })
+    }
+
+    /// Trusted protected worker only; other samplers retain the strict default.
+    /// Curves still request 100% once temperature age exceeds three seconds.
+    pub fn with_native_cadence(mut self) -> Self {
+        self.max_age_ms = NATIVE_TELEMETRY_MAX_AGE_MS;
+        self
     }
 
     /// Explicit opt-in for unlocked channels (fan stop allowed). Staleness,
@@ -110,7 +125,7 @@ impl TelemetryGuard {
         if !range.contains(&reading.value) {
             return self.latch(TelemetryFault::Invalid);
         }
-        if now_ms - reading.acquired_ms > 1500 {
+        if now_ms - reading.acquired_ms > self.max_age_ms {
             return self.latch(TelemetryFault::Stale);
         }
         if temperature {
@@ -145,7 +160,7 @@ impl TelemetryGuard {
         let (Some((temp_at, _)), Some((rpm_at, _))) = (self.temperature, self.rpm) else {
             return Err(TelemetryFault::Stale);
         };
-        if now_ms - temp_at > 1500 || now_ms - rpm_at > 1500 {
+        if now_ms - temp_at > self.max_age_ms || now_ms - rpm_at > self.max_age_ms {
             return self.latch(TelemetryFault::Stale);
         }
         if !self.stall_warning
@@ -164,6 +179,46 @@ mod tests {
     use super::*;
     fn guard() -> TelemetryGuard {
         TelemetryGuard::new("cpu".into(), "fan".into(), 80.0).unwrap()
+    }
+    #[test]
+    fn native_cadence_allows_slow_acquisition_but_sources_expire_independently() {
+        let mut g = guard().with_native_cadence();
+        for (source, value) in [("cpu", 73.0), ("fan", 1700.0)] {
+            g.observe(
+                Reading {
+                    source,
+                    acquired_ms: 0,
+                    value,
+                },
+                3000,
+            )
+            .unwrap();
+        }
+        assert_eq!(g.check(6100), Ok(()));
+        for (source, value) in [("cpu", 73.0), ("fan", 1700.0)] {
+            g.observe(
+                Reading {
+                    source,
+                    acquired_ms: 3100,
+                    value,
+                },
+                6100,
+            )
+            .unwrap();
+        }
+        // Fresh RPM cannot prolong the older temperature's lifetime.
+        sample(&mut g, "fan", 10_100, 1700.0).unwrap();
+        assert_eq!(g.check(10_100), Ok(()));
+        assert_eq!(g.check(10_101), Err(TelemetryFault::Stale));
+        assert_eq!(
+            sample(&mut g, "cpu", 10_102, 73.0),
+            Err(TelemetryFault::Stale)
+        );
+        let mut hot = guard().with_native_cadence();
+        assert_eq!(
+            sample(&mut hot, "cpu", 0, 80.0),
+            Err(TelemetryFault::Critical)
+        );
     }
     #[test]
     fn allowed_fan_stop_warns_but_heat_and_staleness_still_fault() {

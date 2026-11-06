@@ -19,7 +19,7 @@ Every Celsius reading the daemon caches becomes a curve/custom-sensor input in
 | CPU package/CCD/core | `IsCpuEnabled` (`/amdcpu`, `/intelcpu`) | `k10temp`, `coretemp`, `zenpower` |
 | GPU core/hotspot/memory | `IsGpuEnabled` (`/gpu-nvidia`, `/gpu-amd`, `/gpu-intel`) | `amdgpu`, `nouveau`, `i915`/`xe` |
 | Motherboard | `IsMotherboardEnabled` (`/lpc/<chip>`) | SuperIO/EC drivers |
-| Storage NVMe/SATA | `IsStorageEnabled` (new) | `nvme`, `drivetemp` |
+| Storage NVMe/SATA | not enabled in the protected reader (blocked the first snapshot on the owner board, 2026-11-05) | `nvme`, `drivetemp` |
 | Liquid | Corsair iCUE LINK telemetry (device sensors) | same |
 | File | text-file sensors below | same |
 

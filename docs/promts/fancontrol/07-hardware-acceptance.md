@@ -62,6 +62,40 @@ profile switch and fault notification; steps from prompt 05's report.
 G1. Composite curve on CHA_FAN2 + GPU fan under a varying load script for 2 h;
     afterwards: no stuck channels, no drift beyond calibration, journal clean.
 
+### R. Re-test after prompt 08 (acceptance fixes, branch `cooling/fix-reader-hang`)
+Install the build from the merged PR over the current install (one UAC).
+R1. Installer single instance: start the setup twice quickly; the second must
+    say "Setup is already running" while the first waits behind UAC.
+R2. Broker pipe after upgrade (A1 re-test): right after setup, without
+    `Restart-Service`, `freergb.exe ctl cooling.providers.list` shows
+    `mainboard.lhm` `ready` within 10 s (no `ERROR_PIPE_BUSY`, no permanent
+    `permission_denied`/`starting`).
+R3. Roles: open guided setup; every header with RPM shows a role or
+    "100 % (role unknown)"; Calibrate/Apply stay disabled until all have one.
+    Bind the AIO pump (`control/1`) as `pump`.
+R4. Job origin: `cooling.sessions.status` before any request; every listed job
+    has `origin` (`resume`/`profile`/`api`). Note any unexpected `api` jobs
+    with the desktop app closed vs. open.
+R5. Fine sweep (B1 re-test): `cooling.sessions.start`
+    `{"mode":"calibration","sweep":{"step_percent":5,"lowest_percent":40},...}`
+    on CHA_FAN2 (`control/2`, rpm `fan/2`). Expect 13 `tested` steps,
+    `report.calibration` set, `cooling-fan-support.json` written,
+    `rpm_range` in `cooling.support.get`. If it ends early, record
+    `report.fault` ("Calibration aborted: <reason>") — the reason is now shown.
+R6. Plain calibration (100/80/60/40) on the same channel stores its result.
+R7. Reader stability (item 8): with iCUE running, sample
+    `freergb.exe ctl cooling.providers.list` every 5 s for 2 min; expect
+    `mainboard.lhm` ready in (almost) every sample and no "reader failed"
+    loop. Note any "Slow sensor updates" hint in the message (which hardware,
+    how many ms). Then repeat R5.
+R8. Maintenance drain with a background curve (item 9 / D6): with the
+    CHA_FAN2 background curve running, run the next installer; setup must
+    not fail with "Mainboard-Rückgabe nicht bestätigt"; afterwards the curve
+    runs again (service start).
+R9. Bindings (item 10): `cooling.bindings.get` after one save from the
+    desktop shows one CHA_FAN2 binding (channel-id spelling) and the pump
+    binding; assigning CHA_FAN2 again in guided setup replaces it.
+
 ## Done when
 All steps recorded with commit and result; failures turned into fix tasks;
 STATUS/FAN_COVERAGE/README progress updated only from recorded evidence.

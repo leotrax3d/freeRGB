@@ -38,11 +38,25 @@ export function fanHeaders(channels: CoolingChannel[], sensors: MonitoringSensor
 }
 
 /** Insert or replace the binding of one control; header names stay unique per board. */
+/** Sensor part of a channel id (`["hw","sensor"]` JSON) or the id itself. */
+export function sensorPart(id: string): string {
+  try {
+    const parsed: unknown = JSON.parse(id);
+    if (Array.isArray(parsed) && parsed.length === 2 && typeof parsed[1] === "string") return parsed[1];
+  } catch { /* plain sensor id */ }
+  return id;
+}
+
+/** Same header whether stored as channel id or (legacy) plain sensor id. */
+export function sameChannel(a: string, b: string): boolean {
+  return a === b || sensorPart(a) === sensorPart(b);
+}
+
 export function upsertBinding(bindings: ChannelBinding[], next: ChannelBinding): ChannelBinding[] {
-  const others = bindings.filter((b) => b.control_id !== next.control_id);
+  const others = bindings.filter((b) => !sameChannel(b.control_id, next.control_id));
   if (others.some((b) => b.device_id === next.device_id && b.header.toLowerCase() === next.header.toLowerCase()))
     throw new Error(`The header name "${next.header}" is already used on this board.`);
-  if (next.tachometer_id && others.some((b) => b.tachometer_id === next.tachometer_id))
+  if (next.tachometer_id && others.some((b) => b.tachometer_id != null && sameChannel(b.tachometer_id, next.tachometer_id!)))
     throw new Error("This RPM sensor is already assigned to another header.");
   return [...others, next];
 }

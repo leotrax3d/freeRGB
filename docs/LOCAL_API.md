@@ -662,3 +662,17 @@ motherboard fan headers through the Linux kernel hwmon drivers. Parameters,
 limits and recovery behaviour: [COOLING_LINUX_HWMON.md](COOLING_LINUX_HWMON.md).
 The provider `mainboard.hwmon` is appended to `cooling.providers.list`, its
 channels to `cooling.channels.list` and its readings to `monitoring.sensors.list`.
+
+## Job origin and calibration fixes (additive, 2026-11-05)
+
+* Every job in `cooling.sessions.status` (top level and `jobs[]`) carries
+  `origin`: `"api"` (a client call: desktop app, Classic GUI, CLI),
+  `"resume"` (a remembered continuous assignment restarted at daemon start) or
+  `"profile"` (profile activation, including the boot profile). It is set by
+  the daemon; a `cooling.sessions.start` request cannot carry it. Jobs that
+  appear "before any request" are `resume`/`profile` jobs or calls from an
+  open desktop app (`api`).
+* Fine calibration sweeps (`sweep`) are stored when the response is
+  non-increasing within 2% per step and drops at least 10% overall, so fans
+  that saturate near 100% are kept. An aborted calibration reports its reason
+  in `report.fault` (`"Calibration aborted: <reason>"`).

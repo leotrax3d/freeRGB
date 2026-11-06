@@ -24,6 +24,23 @@ is fan-only and retains its 100/80/60/40 sequence, bounded sampling and final100
 acknowledgement. Existing saved curve formats/ranges are unchanged; unsupported
 runtime limits reject execution rather than silently rewriting saved curves.
 
+Native sessions use a seven-second acquisition-age ceiling in the Rust telemetry
+guard, native receipt decoder and C# native guard (owner R5b, 2026-11-06).
+Acquisition starts before I/O: consecutive three-second reads and the native
+100 ms sampler pause can make the last published reading over six seconds old.
+Other Rust samplers retain their 1500 ms default. The broker inventory reader is
+separate (one-second pause plus snapshot time; five-second cache expiry) and does
+not feed live native sessions. Ready inventory alone cannot validate live timing.
+
+Linear/curve sessions still request 100% at temperature age >3000 ms, bypassing
+shaping/rate limits, and immediately on observed critical heat. At age >7000 ms,
+native supervision latches stale and ends the session, with explicit firmware
+return when supported and existing owned-full-speed recovery otherwise. Sample
+identities/acquisition times never advance merely because tickets or command
+receipts arrive. Command leases, receipt deadlines, stall checks, floors and
+recovery evidence requirements are unchanged. Calibration retains its stricter
+1500 ms measurement-age requirement; this change targets live-session timing.
+
 Native requests run in a separate Tokio task behind a one-slot queue. The control
 loop polls every25ms, refreshes a healthy native session after100ms and imposes a
 150ms pending-receipt deadline. Sensor updates, stop and watchdog checks continue

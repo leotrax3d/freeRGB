@@ -49,4 +49,9 @@ describe("binding updates", () => {
     expect(() => upsertBinding([base], { ...base, control_id: "c2", tachometer_id: "t2", header: "cpu_fan" })).toThrow(/already used/);
     expect(() => upsertBinding([base], { ...base, control_id: "c2", header: "Other" })).toThrow(/RPM sensor/);
   });
+  it("treats a legacy plain id and its channel id as the same header", () => {
+    const legacy = { ...base, control_id: "/lpc/nct6701d/0/control/2", tachometer_id: "/lpc/nct6701d/0/fan/2", header: "CHA_FAN2" };
+    const channel = { ...legacy, control_id: JSON.stringify(["/lpc/nct6701d/0", "/lpc/nct6701d/0/control/2"]), tachometer_id: JSON.stringify(["/lpc/nct6701d/0", "/lpc/nct6701d/0/fan/2"]), header: "Fan #3" };
+    expect(upsertBinding([legacy], channel)).toEqual([channel]);
+  });
 });

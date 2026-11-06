@@ -87,3 +87,16 @@ export const SETUP_STEPS: { id: SetupStep; label: string }[] = [
   { id: "curves", label: "Curves" },
   { id: "done", label: "Done" },
 ];
+
+/**
+ * Headers with a tachometer but no role (fan or pump). Guided setup blocks
+ * every reduction (calibration, curves) until this list is empty; those
+ * headers stay at 100 % (owner acceptance 2026-11-05: after an upgrade no
+ * channel had a role and the pump was not recognized).
+ */
+export function unassignedRoles<T extends { role: "fan" | "pump" | null; rpm?: unknown; rpmValue?: number | null }>(views: T[]): T[] {
+  return views.filter((v) => v.role === null && (v.rpm != null || v.rpmValue != null));
+}
+
+/** Label for a header without a role: it is held at full speed. */
+export const ROLE_UNKNOWN_LABEL = "100 % (role unknown)";

@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32.SafeHandles;
 
@@ -174,6 +175,43 @@ internal static class BrokerTransport
             if (!completed) throw new InvalidOperationException("Pipe I/O cancellation failed; stop the broker.");
         }
         throw new TimeoutException("Broker I/O timed out.");
+    }
+
+    /// <summary>Hard limit for one client exchange (request, reply, acknowledgment).</summary>
+    internal const int ClientDeadlineMs = 5000;
+
+    // Serves one connected client and always leaves the instance disconnected.
+    // A deadline timer disconnects even when pending I/O could not be cancelled,
+    // which aborts that I/O; only a failing Disconnect (lost ownership) escapes.
+    internal static void ServeClient(NamedPipeServerStream connection, Func<string> snapshot, object gate)
+    {
+        int finished = 0;
+        TimerCallback disconnect = delegate
+        {
+            lock (gate)
+            {
+                if (Interlocked.Exchange(ref finished, 1) != 0) return;
+                if (connection.IsConnected) connection.Disconnect();
+            }
+        };
+        using (var deadline = new Timer(delegate { try { disconnect(null); } catch (Exception) { } }, null, ClientDeadlineMs, Timeout.Infinite))
+        {
+            try
+            {
+                if (ReadSnapshotRequest(connection))
+                {
+                    Write(connection, Encoding.UTF8.GetBytes(snapshot() + "\n"));
+                    if (!ReadAcknowledgment(connection)) throw new IOException("Missing reply acknowledgment.");
+                }
+            }
+            catch (Exception error)
+            {
+                if (error is OutOfMemoryException) throw;
+                // Timeout, broken client, failed cancellation or deadline disconnect.
+            }
+        }
+        // Always end disconnected, even if the deadline attempt failed.
+        lock (gate) { Interlocked.Exchange(ref finished, 1); if (connection.IsConnected) connection.Disconnect(); }
     }
 
     internal static void Write(Stream stream, byte[] bytes)

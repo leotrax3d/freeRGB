@@ -73,6 +73,8 @@ fn families() -> Vec<Family> {
 /// Register-level fake of one SuperIO chip.
 struct SimChip {
     quirks: Quirks,
+    /// Owner R5 fan: six-second spin-up and a flat response at 90..100%.
+    slow_flat_top: bool,
     /// One mode register per group; bit `i` of `mode[g]` = software mode of
     /// the i-th member. Channels without a shared group get their own register.
     groups: Vec<Vec<usize>>,
@@ -96,6 +98,7 @@ impl SimChip {
         let firmware_raw = Self::encode(&family.quirks, FIRMWARE_PERCENT);
         Self {
             quirks: family.quirks.clone(),
+            slow_flat_top: false,
             mode: vec![0; groups.len()],
             groups,
             raw: vec![firmware_raw; family.controls],
@@ -148,9 +151,16 @@ impl SimChip {
         for ch in 0..self.raw.len() {
             let target = if self.blocked[ch] {
                 0.0
+            } else if self.slow_flat_top {
+                1700.0 * f64::from(self.effective(ch).min(90)) / 90.0
             } else {
                 Self::fan_rpm(self.effective(ch))
             };
+            if self.slow_flat_top {
+                let step = 700.0 * dt / 6000.0;
+                self.rpm[ch] += (target - self.rpm[ch]).clamp(-step, step);
+                continue;
+            }
             let k = if self.quirks.rpm_lag_ms == 0 {
                 1.0
             } else {
@@ -293,6 +303,36 @@ fn fixture_lists_every_required_family() {
     ] {
         assert!(ids.iter().any(|i| i == required), "{required}");
     }
+}
+
+#[test]
+fn nct6701d_sweep_waits_for_slow_firmware_to_full_speed_ramp() {
+    use freergb_control::calibration::SweepOptions;
+    let family = families().into_iter().find(|f| f.id == "nct6701d").unwrap();
+    let mut chip = SimChip::new(&family);
+    chip.slow_flat_top = true;
+    chip.rpm[2] = 1000.0;
+    let sweep = Calibration::sweep(
+        ChannelRole::Fan,
+        80.0,
+        0,
+        SweepOptions {
+            step_percent: 5,
+            lowest_percent: 40,
+            probe_stall: false,
+        },
+    )
+    .unwrap();
+    let out = measure(&mut chip, 2, sweep);
+    assert_eq!(out.phase, CalibrationPhase::Completed, "{out:?}");
+    let result = out.result.unwrap();
+    assert_eq!(result.tested.len(), 13);
+    assert!(result.tested[..3].iter().all(|t| t.rpm == 1700.0));
+    assert!(result.response_observed && result.monotonic_response);
+    assert!(!result.hardware_verified);
+    assert!(chip.writes.iter().all(|&(ch, duty)| ch == 2 && duty >= 40));
+    assert!(firmware_restored(&chip, 2));
+    assert!(firmware_restored(&chip, 1), "pump channel untouched");
 }
 
 #[test]

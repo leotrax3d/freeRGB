@@ -39,11 +39,23 @@ internal static class MainboardMaintenance
         BrokerService.CheckInstallation(false);
         Write("mainboard-control-capabilities.json",new {version=1,maintenance=true,service_identity=BrokerTransport.CurrentProcessIdentity()});
     }
-    internal static void Service(NativeControlBroker controls)
+    // Maintenance drain order (owner acceptance D6, 2026-11-05): background curves
+    // hold journal entries, so they return to firmware first; on a refused drain
+    // they start again instead of staying off until the next service start.
+    internal static bool Drain(Action stopBackground, Func<bool> service, Action restartBackground)
+    {
+        if (stopBackground != null) stopBackground();
+        bool ready = false;
+        try { ready = service(); }
+        finally { if (!ready && restartBackground != null) restartBackground(); }
+        return ready;
+    }
+    internal static bool Service(NativeControlBroker controls)
     {
 #if NATIVE_CONTROL_TESTS
         throw new InvalidOperationException("No installed service in native unit tests.");
 #else
+        bool ready = false;
         BrokerService.CheckInstallation(false);
         var request=Read("mainboard-maintenance-request.json");
         DateTime expiry;
@@ -60,12 +72,13 @@ internal static class MainboardMaintenance
             {
                 var deadline=System.Diagnostics.Stopwatch.StartNew();
                 while (journal.Pending() != null && deadline.ElapsedMilliseconds < 5000) Thread.Sleep(100);
-                journal.Maintenance(delegate { Write("mainboard-maintenance-ready.json",new {version=1,id=id,ready=true}); });
+                journal.Maintenance(delegate { Write("mainboard-maintenance-ready.json",new {version=1,id=id,ready=true}); ready = true; });
             }
         } catch {
             Write("mainboard-maintenance-ready.json",new {version=1,id=id,ready=false});
             // The failure receipt is authoritative; never assert return or reopen.
         }
+        return ready;
 #endif
     }
     internal static void RequestIfSupported()

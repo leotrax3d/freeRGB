@@ -173,10 +173,83 @@ internal static class BrokerTests
             }
             Assert(serving.Wait(4000), "Persistent server did not finish.");
         }
+        // A client that takes its reply but never acknowledges and never closes
+        // must not keep the single instance busy: the next client gets in.
+        using (var server = BrokerTransport.CreateServer(name, user))
+        {
+            object gate = new object();
+            Task serving = Task.Run(delegate
+            {
+                for (int i = 0; i < 2; i++) { server.WaitForConnection(); BrokerTransport.ServeClient(server, delegate { return Sample; }, gate); }
+            });
+            var stuck = BrokerTransport.Connect(name);
+            BrokerTransport.Write(stuck, Encoding.ASCII.GetBytes("snapshot\n"));
+            Assert(BrokerTransport.ReadReply(stuck, 2000) == Sample, "Stuck client got no reply.");
+            NamedPipeClientStream next = null;
+            var clock = Stopwatch.StartNew();
+            while (next == null && clock.ElapsedMilliseconds < BrokerTransport.ClientDeadlineMs + 3000)
+            {
+                try { next = BrokerTransport.Connect(name); }
+                catch (Win32Exception error) { if (error.NativeErrorCode != 231) throw; Thread.Sleep(20); }
+            }
+            Assert(next != null, "Stuck client kept the broker pipe busy.");
+            using (next)
+            {
+                BrokerTransport.Write(next, Encoding.ASCII.GetBytes("snapshot\n"));
+                Assert(BrokerTransport.ReadReply(next, 2000) == Sample, "Client after a stuck one got no reply.");
+                BrokerTransport.Write(next, new byte[] { 6 });
+            }
+            stuck.Dispose();
+            Assert(serving.Wait(4000), "Supervised server did not finish.");
+        }
     }
-    private static int Main()
+    // A protected worker that never answers must end in "reader failed", never
+    // leave the cache at "starting" (owner acceptance 2026-11-05).
+    private static void SilentWorkerTests()
     {
-        CacheTests(); RequestTests(); PipeTests();
+        var start = new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName, "--silent-worker") {
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true };
+        var cache = new BrokerCache();
+        Assert(cache.Read().Contains("starting"), "Fresh cache must report starting.");
+        using (var child = Process.Start(start))
+        {
+            var clock = Stopwatch.StartNew(); bool failed = false;
+            try { child.StandardInput.WriteLine("snapshot"); child.StandardInput.Flush(); BrokerService.ReadWorkerReply(child, 500); }
+            catch (Exception) { failed = true; cache.Store(BrokerCache.Failure("Isolated motherboard reader failed (fixture)."), BrokerCache.Now); }
+            Assert(failed && clock.ElapsedMilliseconds < 6000, "Silent worker read was not bounded.");
+            Assert(child.WaitForExit(3000), "Silent worker was not killed.");
+        }
+        Assert(cache.Read().Contains("reader failed") && !cache.Read().Contains("starting"), "Silent worker left the reader starting.");
+    }
+    // Item 8: a slow CPU sensor (1.8 s per update) must not stretch every reply;
+    // the motherboard is updated on every snapshot, the CPU about every second snapshot,
+    // and a fast GPU keeps its per-snapshot cadence.
+    private static void CadenceTests()
+    {
+        var cadence = new UpdateCadence();
+        long now = 0, longest = 0; int boardUpdates = 0, cpuUpdates = 0, gpuUpdates = 0;
+        for (int snapshot = 0; snapshot < 30; snapshot++)
+        {
+            long reply = 0;
+            Assert(cadence.Due("/motherboard", true, now), "Motherboard must be updated on every snapshot.");
+            cadence.Record("/motherboard", now, 120); reply += 120; boardUpdates++;
+            if (cadence.Due("/amdcpu/0", false, now + reply)) { cadence.Record("/amdcpu/0", now + reply, 1800); reply += 1800; cpuUpdates++; }
+            if (cadence.Due("/gpu-amd/5", false, now + reply)) { cadence.Record("/gpu-amd/5", now + reply, 40); reply += 40; gpuUpdates++; }
+            longest = Math.Max(longest, reply);
+            Assert(cadence.AgeMs("/amdcpu/0", now + reply) <= 4500, "Reused CPU values grew too old: " + cadence.AgeMs("/amdcpu/0", now + reply));
+            now += reply + 1000; // broker waits 1 s between snapshots
+        }
+        Assert(boardUpdates == 30 && gpuUpdates == 30, "Fast hardware lost its per-snapshot cadence.");
+        Assert(cpuUpdates >= 12 && cpuUpdates <= 16, "Slow CPU was not sampled on its own cadence: " + cpuUpdates);
+        Assert(longest < 6000, "A snapshot exceeded the broker steady deadline.");
+        Assert(cadence.IntervalMs("/amdcpu/0") == UpdateCadence.MaximumIntervalMs && cadence.IntervalMs("/gpu-amd/5") == UpdateCadence.MinimumIntervalMs, "Interval scaling wrong.");
+        var slow = cadence.Slow();
+        Assert(slow.Count == 1 && slow[0].Key == "/amdcpu/0" && slow[0].Value == 1800, "Slow hardware not reported.");
+    }
+    private static int Main(string[] args)
+    {
+        if (args.Length == 1 && args[0] == "--silent-worker") { Thread.Sleep(30000); return 0; }
+        CacheTests(); SilentWorkerTests(); CadenceTests(); RequestTests(); PipeTests();
         Reject(delegate { BrokerService.CheckInstallation(true); }, "Unprotected worker startup accepted.");
         Reject(delegate { NativeProbeJob.Claim(); }, "Unprotected hardware diagnostic admission accepted.");
         Reject(delegate { NativeControl.CreateProtected(new object(), false); }, "Unprotected native control factory accepted.");

@@ -1352,6 +1352,7 @@ impl Engine {
             .take_resumable(|id| identities.get(id).cloned(), ready);
         let mut resumed = Vec::new();
         for mut request in requests {
+            request.origin = Some("resume");
             request.composite_feed = Some(self.controls.composite_feed.clone());
             let control = request.control_id.clone();
             let result = self
@@ -1574,7 +1575,10 @@ impl Engine {
                     continue;
                 }
                 let control = request.control_id.clone();
-                match self.start_cooling(request.clone()) {
+                match self.start_cooling(crate::cooling_sessions::StartRequest {
+                    origin: Some("profile"),
+                    ..request.clone()
+                }) {
                     Ok(_) => started.push(control),
                     Err(error) => self.cooling_assignments.flag(&control, error),
                 }
@@ -1607,7 +1611,7 @@ impl Engine {
             .into_iter()
             .filter_map(|j| j.control_id)
             .collect();
-        for (request, since) in std::mem::take(&mut self.profile_pending) {
+        for (mut request, since) in std::mem::take(&mut self.profile_pending) {
             let control = request.control_id.clone();
             if busy.contains(&control) {
                 if since.elapsed() < Duration::from_secs(10) {
@@ -1621,6 +1625,7 @@ impl Engine {
                 }
                 continue;
             }
+            request.origin = Some("profile");
             if let Err(error) = self.start_cooling(request) {
                 self.cooling_assignments.flag(&control, error);
             }

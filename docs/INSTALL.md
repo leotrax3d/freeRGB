@@ -274,7 +274,7 @@ if you want to drop profiles and settings.
 
 ## Optional sensor and GPU components
 
-Nothing here is mandatory. CPU/GPU/storage temperatures on Windows come from the
+Nothing here is mandatory. CPU/GPU temperatures on Windows come from the
 optional LHM provider below; on Linux from the kernel hwmon drivers (`k10temp`,
 `coretemp`, `amdgpu`, `nvme`, `drivetemp`). NVIDIA GPU fan control uses the NVML
 library that ships with the NVIDIA driver (no extra install) and needs

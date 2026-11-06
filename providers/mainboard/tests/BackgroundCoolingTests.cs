@@ -33,7 +33,21 @@ internal static class BackgroundCoolingTests
         Plausibility();
         Configuration();
         Controller();
+        MaintenanceDrain();
         Console.WriteLine("PASS: background curve parity with Rust vectors, RPM plausibility, strict protected configuration and controller floors/faults. Synthetic only.");
+    }
+    // D6: an active background curve must not refuse the installer drain.
+    private static void MaintenanceDrain()
+    {
+        var order = new List<string>();
+        bool ok = MainboardMaintenance.Drain(delegate { order.Add("stop"); }, delegate { order.Add("drain"); return true; }, delegate { order.Add("restart"); });
+        Assert(ok && String.Join(",", order.ToArray()) == "stop,drain", "Background must stop before the drain and stay off after success.");
+        order.Clear();
+        ok = MainboardMaintenance.Drain(delegate { order.Add("stop"); }, delegate { order.Add("drain"); return false; }, delegate { order.Add("restart"); });
+        Assert(!ok && String.Join(",", order.ToArray()) == "stop,drain,restart", "A refused drain must restart background curves.");
+        order.Clear();
+        Reject(delegate { MainboardMaintenance.Drain(delegate { order.Add("stop"); }, delegate { throw new InvalidOperationException("admission"); }, delegate { order.Add("restart"); }); }, "Drain fault swallowed.");
+        Assert(String.Join(",", order.ToArray()) == "stop,restart", "A faulted drain must restart background curves.");
     }
     private static double D(object raw) { return Convert.ToDouble(raw,System.Globalization.CultureInfo.InvariantCulture); }
     private static void Vectors(string path)

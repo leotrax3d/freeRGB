@@ -56,6 +56,7 @@ pub fn protected_entry(
         linear: None,
         sweep: None,
         shaping: None,
+        origin: None,
         rpm_map: None,
     }
     .plan(policy)?;

@@ -50,6 +50,9 @@ pub struct StartRequest {
     /// on top of curve, manual, linear, composite and RPM modes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shaping: Option<freergb_control::shaping::OutputShaping>,
+    /// Who started the job ("api", "resume", "profile"); engine-owned, never JSON.
+    #[serde(skip)]
+    pub origin: Option<&'static str>,
     /// Measured map for closed-loop RPM targets (engine-owned, never JSON).
     #[serde(skip)]
     pub rpm_map: Option<freergb_control::rpm::RpmMap>,
@@ -498,6 +501,11 @@ pub struct Status {
     /// Mode and native control of the current/last job.
     pub mode: Option<String>,
     pub control_id: Option<String>,
+    /// Who started the job: "api" (a client call such as the desktop app or
+    /// CLI), "resume" (remembered assignment at daemon start) or "profile"
+    /// (profile activation, including the boot profile).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<&'static str>,
     /// All recent jobs (one per channel may run at the same time); the fields
     /// above describe the most recently started one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -551,6 +559,7 @@ fn idle(available: bool) -> Status {
         tier: None,
         mode: None,
         control_id: None,
+        origin: None,
         jobs: Vec::new(),
     }
 }
@@ -647,6 +656,7 @@ impl CoolingSessions {
                     tier: Some(plan.tier.as_str()),
                     mode: Some(plan.request.mode.clone()),
                     control_id: Some(plan.request.control_id.clone()),
+                    origin: Some(plan.request.origin.unwrap_or("api")),
                     jobs: Vec::new(),
                 },
             );
@@ -1300,6 +1310,32 @@ mod tests {
         }
         assert!(sessions.start(request(), &SessionPolicy::legacy()).is_err());
         assert!(receiver.try_recv().is_err());
+    }
+
+    #[test]
+    fn every_job_reports_who_started_it() {
+        let mut sessions = CoolingSessions::default();
+        let (sender, _receiver) = mpsc::channel(8);
+        sessions.sender = Some(sender);
+        sessions.view.lock().unwrap().available = true;
+        // JSON can never claim an origin; client calls are "api".
+        let forged = serde_json::from_value::<StartRequest>(json!({
+            "mode":"calibration", "control_id":"/lpc/nct6701d/0/control/2",
+            "rpm_id":"/lpc/nct6701d/0/fan/2", "temperature_id":"/lpc/nct6701d/0/temperature/1",
+            "confirmed_fan":true, "origin":"resume"
+        }));
+        assert!(forged.is_err(), "origin is engine-owned");
+        sessions.start(request(), &SessionPolicy::legacy()).unwrap();
+        let mut resumed = request();
+        resumed.control_id = "/lpc/nct6701d/0/control/3".into();
+        resumed.rpm_id = "/lpc/nct6701d/0/fan/3".into();
+        resumed.origin = Some("resume");
+        sessions.start(resumed, &SessionPolicy::legacy()).unwrap();
+        let status = sessions.status();
+        assert_eq!(status.origin, Some("resume"));
+        let origins: Vec<_> = status.jobs.iter().map(|j| j.origin).collect();
+        assert_eq!(origins, vec![Some("resume"), Some("api")]);
+        assert_eq!(serde_json::to_value(&status).unwrap()["origin"], "resume");
     }
 
     #[test]

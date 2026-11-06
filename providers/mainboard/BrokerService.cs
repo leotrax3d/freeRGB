@@ -45,7 +45,18 @@ internal sealed class BrokerService : ServiceBase
 #endif
     protected override void OnCustomCommand(int command)
     {
-        if (command == 129) { MainboardMaintenance.Service(controlBroker); return; }
+        if (command == 129)
+        {
+#if BROKER_INSTALLER
+            MainboardMaintenance.Drain(
+                delegate { lock (backgroundGate) { if (background != null) { background.Dispose(); background = null; } } },
+                delegate { return MainboardMaintenance.Service(controlBroker); },
+                StartBackground);
+#else
+            MainboardMaintenance.Service(controlBroker);
+#endif
+            return;
+        }
 #if BROKER_INSTALLER
         if (command == 130) { StartBackground(); return; }
 #endif
@@ -138,7 +149,22 @@ internal sealed class BrokerService : ServiceBase
         readerThread.Start(); pipeThread.Start();
     }
 
+    // Redirected stdout is a synchronous handle, so the read timeout alone may
+    // never fire; killing the worker ends the read (EOF). The caller's catch then
+    // stores "reader failed" instead of leaving the cache at "starting".
+    internal static string ReadWorkerReply(Process child, int timeout)
+    {
+        TimerCallback kill = delegate { try { child.Kill(); } catch (InvalidOperationException) { } catch (System.ComponentModel.Win32Exception) { } };
+        try
+        {
+            using (new Timer(kill, null, timeout + 2000, Timeout.Infinite))
+                return BrokerTransport.ReadReply(child.StandardOutput.BaseStream, timeout);
+        }
+        catch (Exception) { kill(null); throw; }
+    }
+
     private void ReadHardware()
+
     {
         while (!stop.WaitOne(0))
         {
@@ -158,7 +184,7 @@ internal sealed class BrokerService : ServiceBase
                         {
                             long began = BrokerCache.Now;
                             child.StandardInput.WriteLine("snapshot"); child.StandardInput.Flush();
-                            cache.Store(BrokerTransport.ReadReply(child.StandardOutput.BaseStream, first ? 10000 : 3000), began);
+                            cache.Store(ReadWorkerReply(child, first ? 30000 : 6000), began);
 #if BROKER_FIXTURE_CLIENT_AUTH
                             if (first)
                             {
@@ -221,33 +247,24 @@ internal sealed class BrokerService : ServiceBase
             {
                 NamedPipeServerStream connection;
                 lock (gate) { connection = pipe; }
-                try
-                {
-                    connection.WaitForConnection();
-                    if (BrokerTransport.ReadSnapshotRequest(connection))
-                    {
-                        byte[] response = Encoding.UTF8.GetBytes(cache.Read() + "\n");
-                        BrokerTransport.Write(connection, response);
-                        if (!BrokerTransport.ReadAcknowledgment(connection)) throw new IOException("Missing reply acknowledgment.");
-                    }
-                }
-                catch (IOException) { }
-                catch (TimeoutException) { }
-                catch (System.AggregateException) { }
+                connection.WaitForConnection();
+                // One bounded exchange per client; it always ends disconnected, so a
+                // stuck or vanished client can never keep the single instance busy
+                // (owner acceptance 2026-11-05: ERROR_PIPE_BUSY after setup).
                 // Retain the FIRST_PIPE_INSTANCE handle across all clients; otherwise a
                 // disconnect/recreate gap would allow pipe-name takeover or false collisions.
-                lock (gate)
-                {
-                    if (stop.WaitOne(0)) return;
-                    if (connection.IsConnected) connection.Disconnect();
-                }
+                BrokerTransport.ServeClient(connection, cache.Read, gate);
+                if (stop.WaitOne(0)) return;
             }
         }
         catch (Exception error)
         {
             if (error is OutOfMemoryException) throw;
-            // Lost pipe ownership or unexpected transport failure: stop, never serve under a weaker ACL.
-            Stop();
+            // Lost pipe ownership or unexpected transport failure: release the name
+            // first (a dead server must not leave clients ERROR_PIPE_BUSY), then stop;
+            // never serve under a weaker ACL.
+            lock (gate) { try { if (pipe != null) pipe.Dispose(); } catch (Exception) { } }
+            try { Stop(); } catch (Exception) { }
         }
     }
 

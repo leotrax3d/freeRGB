@@ -12,6 +12,8 @@ use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 
 const MAX_MESSAGE: usize = 256 * 1024;
 const STALE_MS: u64 = 5000;
+/// Pause before a new helper session after the provider was unavailable or failed.
+const RETRY: Duration = Duration::from_secs(5);
 
 /// Protected inventory of what a control can reach (no I/O performed for it).
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -251,13 +253,23 @@ impl MainboardProvider {
         self.worker = Some(
             std::thread::Builder::new()
                 .name("mainboard-sensors".into())
-                .spawn(move || {
-                    let result = Session::run(helper, library, &cache, &stop);
+                .spawn(move || loop {
+                    let result = Session::run(helper.clone(), library.clone(), &cache, &stop);
                     if let Err(error) = result {
                         let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
                         cache.status = "faulted".into();
                         cache.message = error;
                         cache.snapshot = None;
+                    }
+                    // The protected broker may start after the daemon (installer,
+                    // boot): retry unavailable or failed sessions until stopped.
+                    let guard = stop.0.lock().unwrap_or_else(|e| e.into_inner());
+                    let (guard, _) = stop
+                        .1
+                        .wait_timeout_while(guard, RETRY, |stop| !*stop)
+                        .unwrap_or_else(|e| e.into_inner());
+                    if *guard {
+                        return;
                     }
                 })
                 .map_err(|e| e.to_string())?,
@@ -429,7 +441,8 @@ impl Session {
             if *stop.0.lock().unwrap_or_else(|e| e.into_inner()) {
                 return Ok(());
             }
-            let timeout = Duration::from_secs(if initial { 10 } else { 3 });
+            // Steady deadline matches the broker worker deadline (6 s, acceptance item 8).
+            let timeout = Duration::from_secs(if initial { 10 } else { 6 });
             let request_at = Instant::now();
             let request = tokio::time::timeout(timeout, async {
                 self.input
@@ -582,7 +595,9 @@ mod tests {
             "oversized",
             "hang",
             "cancel",
+            "denied_then_ready",
         ] {
+            let _ = std::fs::remove_file(directory.join("denied.marker"));
             std::fs::write(directory.join("scenario.txt"), scenario).unwrap();
             let mut provider = MainboardProvider::default();
             provider
@@ -604,6 +619,24 @@ mod tests {
                     shutdown.elapsed() < Duration::from_secs(2),
                     "active native request must be cancellable"
                 );
+                continue;
+            }
+            if scenario == "denied_then_ready" {
+                // The first session reports permission_denied; the 5 s retry must reach ready.
+                let deadline = Instant::now() + Duration::from_secs(15);
+                let mut saw_denied = false;
+                while provider.summary().status != "ready" && Instant::now() < deadline {
+                    saw_denied |= provider.summary().status == "permission_denied";
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                assert!(
+                    saw_denied,
+                    "first helper session must report permission_denied"
+                );
+                assert_eq!(provider.summary().status, "ready", "retry must recover");
+                assert_eq!(provider.sensors()[0].sensor.value, Some(900.0));
+                drop(provider);
+                let _ = std::fs::remove_file(directory.join("denied.marker"));
                 continue;
             }
             let deadline = Instant::now() + Duration::from_secs(12);
