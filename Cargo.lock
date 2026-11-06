@@ -2545,6 +2545,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-zalman-z-sync"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-modules"
 version = "0.1.0"
 dependencies = [

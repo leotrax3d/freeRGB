@@ -177,6 +177,10 @@ jobs:
             node scripts/openrgb/port-turtle-beach-kp7-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-turtle-beach-kp7
             git diff --exit-code -- modules/turtle-beach-kp7/src/devices_table.rs
+          elif [ "$MODULE" = "zalman-z-sync" ]; then
+            node scripts/openrgb/port-zalman-z-sync-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-zalman-z-sync
+            git diff --exit-code -- modules/zalman-z-sync/src/devices_table.rs
           elif [ "$MODULE" = "hyperx-mouse" ]; then
             node scripts/openrgb/port-hyperx-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-hyperx-mouse

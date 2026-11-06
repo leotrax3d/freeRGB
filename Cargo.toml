@@ -44,6 +44,7 @@ members = [
     "modules/nzxt-hue2",
     "modules/nzxt-hue1",
     "modules/turtle-beach-kp7",
+    "modules/zalman-z-sync",
     "modules/hyperx-mouse",
     "modules/areson",
     "modules/annepro2",
