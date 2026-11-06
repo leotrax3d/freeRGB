@@ -307,6 +307,32 @@ fn led_specs(proto: table::Proto) -> Vec<LedSpec> {
                 })
                 .collect()
         }
+        table::Proto::OldApex => {
+            // upstream: RGBController_SteelSeriesOldApex.cpp SetupZones() -
+            // five single-LED zones
+            vec![
+                LedSpec {
+                    name: "QWERTY",
+                    value: 0,
+                },
+                LedSpec {
+                    name: "TenKey",
+                    value: 1,
+                },
+                LedSpec {
+                    name: "FunctionKeys",
+                    value: 2,
+                },
+                LedSpec {
+                    name: "MXKeys",
+                    value: 3,
+                },
+                LedSpec {
+                    name: "Logo",
+                    value: 4,
+                },
+            ]
+        }
         table::Proto::Rival600 => {
             // upstream: leds[0].value = 0x01; wheel led value = 0x00
             [
@@ -374,6 +400,15 @@ fn zones(proto: table::Proto) -> Vec<(&'static str, usize)> {
             };
             table.iter().map(|(name, _)| (*name, 1_usize)).collect()
         }
+        // upstream: RGBController_SteelSeriesOldApex.cpp SetupZones() - five
+        // linear single-LED zones with the same names as the LEDs
+        table::Proto::OldApex => vec![
+            ("QWERTY", 1),
+            ("TenKey", 1),
+            ("FunctionKeys", 1),
+            ("MXKeys", 1),
+            ("Logo", 1),
+        ],
         table::Proto::Rival650 | table::Proto::Rival600 => {
             vec![("Logo", 1), ("Scroll Wheel", 1), ("Mouse", 6)]
         }
@@ -389,6 +424,8 @@ fn kind(proto: table::Proto) -> DeviceKind {
         table::Proto::Qck => DeviceKind::Mousemat,
         // upstream: RGBController_SteelSeriesApex3.cpp type = DEVICE_TYPE_KEYBOARD
         table::Proto::Apex3 { .. } => DeviceKind::Keyboard,
+        // upstream: RGBController_SteelSeriesOldApex.cpp type = DEVICE_TYPE_KEYBOARD
+        table::Proto::OldApex => DeviceKind::Keyboard,
         // upstream: RGBController_SteelSeriesRival*.cpp type = DEVICE_TYPE_MOUSE
         _ => DeviceKind::Mouse,
     }
@@ -504,6 +541,13 @@ impl Module for SteelSeries {
             return Err(err("invalid SteelSeries frame"));
         }
         let proto = self.proto.expect("active implies proto");
+        if proto == table::Proto::OldApex {
+            // upstream: RGBController_SteelSeriesOldApex.cpp
+            // DeviceUpdateLEDs() blasts all five zones in one 33-byte write
+            // (the packet design carries every zone on every update).
+            h.write(&report::oldapex_set_color(c)).map_err(err)?;
+            return Ok(());
+        }
         if let table::Proto::Apex3 { tzone } = proto {
             if tzone {
                 // upstream: RGBController_SteelSeriesApex3.cpp DeviceUpdateLEDs()

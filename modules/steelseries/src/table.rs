@@ -58,6 +58,8 @@ pub enum Proto {
         /// 65-byte protocol
         tzone: bool,
     },
+    /// Old Apex driver: upstream SteelSeriesOldApexController (0x1202/0x1206)
+    OldApex,
 }
 /// Maps an upstream detector callback (REGISTER_HID_DETECTOR_* entry in
 /// SteelSeriesControllerDetect.cpp) to its ported protocol.
@@ -143,6 +145,9 @@ pub fn proto_of_handler(handler: &str) -> Option<Proto> {
         // (Apex 3, interface 3) and Apex3TKL (interface 1, usage 0xFFC0)
         "DetectSteelSeriesApex3Full" => Some(Proto::Apex3 { tzone: true }),
         "DetectSteelSeriesApex3TKL" => Some(Proto::Apex3 { tzone: false }),
+        // upstream: SteelSeriesControllerDetect.cpp DetectSteelSeriesApexOld
+        // (Apex OG/Fnatic 0x1202, Apex 350 0x1206, interface 0)
+        "DetectSteelSeriesApexOld" => Some(Proto::OldApex),
         _ => None,
     }
 }

@@ -740,6 +740,7 @@ fn all_rival_layouts_are_valid() {
         "DetectSteelSeriesMousemat",
         "DetectSteelSeriesApex3Full",
         "DetectSteelSeriesApex3TKL",
+        "DetectSteelSeriesApexOld",
     ] {
         let d = crate::devices_table::DETECTORS
             .iter()
@@ -764,6 +765,38 @@ fn all_rival_layouts_are_valid() {
         m.shutdown(None, &mut h).unwrap();
     }
 }
+#[test]
+fn oldapex_set_color_is_byte_exact() {
+    // upstream: RGBController_SteelSeriesOldApex.cpp DeviceUpdateLEDs() +
+    // SteelSeriesOldApexController.cpp SetColorDetailed()
+    let colors = [
+        Rgb { r: 1, g: 2, b: 3 },
+        Rgb { r: 4, g: 5, b: 6 },
+        Rgb { r: 7, g: 8, b: 9 },
+        Rgb {
+            r: 10,
+            g: 11,
+            b: 12,
+        },
+        Rgb {
+            r: 13,
+            g: 14,
+            b: 15,
+        },
+    ];
+    let p = crate::report::oldapex_set_color(&colors);
+    assert_eq!(p.len(), 33);
+    assert_eq!(&p[..7], &[0, 0x07, 0x00, 1, 2, 3, 0x08]);
+    // five color32 groups: R,G,B, alpha = STEELSERIES_OLDAPEX_DIRECT (0x08)
+    assert_eq!(&p[7..11], &[4, 5, 6, 0x08]);
+    assert_eq!(&p[11..19], &[7, 8, 9, 0x08, 10, 11, 12, 0x08]);
+    assert_eq!(&p[19..23], &[13, 14, 15, 0x08]);
+    assert!(&p[23..].iter().all(|b| *b == 0));
+    // every update blasts all five zones with the alpha value 0x08
+    let full = crate::report::oldapex_set_color(&colors);
+    assert_eq!(full, p);
+}
+
 #[test]
 fn unsupported_pid_is_rejected() {
     let mut m = crate::SteelSeries::default();

@@ -190,7 +190,19 @@ unsupported until the AeroxWireless controller port.
 |---|---:|---|
 | Aerox wireless / Rival 3 Wireless (`SteelSeriesAeroxWirelessController`) | 13 | portiert |
 | QCK (`SteelSeriesQCKMatController`) | 9 | portiert |
-| Apex (`SteelSeriesApex*Controller`, old Apex, Apex M) | 19 | nicht portiert |
+| Apex 3 / Apex 3 TKL (`SteelSeriesApexTZoneController` / `SteelSeriesApex8ZoneController`) | 3 (2 rows) | portiert |
+| Old Apex (`SteelSeriesOldApexController`, 0x1202/0x1206) | 2 | portiert |
+| Apex / Apex M (`SteelSeriesApex*Controller`, `SteelSeriesApexMController`) | 15 | nicht portiert (643/513-byte feature report needs the 112-key scancode table + SKU/region matrix data; see steelseries PROVENANCE below) |
+
+### Old Apex (SteelSeriesOldApexController) - 2 detector rows, ported
+
+Rows: DetectSteelSeriesApexOld, PIDs 0x1202 (Apex OG/Fnatic) and 0x1206
+(Apex 350), interface 0.
+
+| Upstream file/function | Rust | Behavior |
+|---|---|---|
+| `RGBController_SteelSeriesOldApex.cpp` `SetupZones()` | `lib.rs led_specs()` / `zones()` | Five single-LED zones: QWERTY, TenKey, FunctionKeys, MXKeys, Logo |
+| `SteelSeriesOldApexController.cpp` `SetColorDetailed()` | `report::oldapex_set_color()` | One 33-byte write: `[00 07 00]` then five color32 groups R/G/B/alpha with alpha = `STEELSERIES_OLDAPEX_DIRECT` (0x08); every update blasts all zones |
 
 ## Changes
 

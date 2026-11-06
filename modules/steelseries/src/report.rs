@@ -65,6 +65,8 @@ pub fn set_light_effect_all(proto: Proto, effect: u8) -> Vec<Vec<u8>> {
         Proto::Qck => Vec::new(),
         // Apex 3 family Direct sends no separate effect packets
         Proto::Apex3 { .. } => Vec::new(),
+        // Old Apex has only its single 33-byte blast; no effect packets
+        Proto::OldApex => Vec::new(),
         // upstream: RGBController_SteelSeriesSensei.cpp Direct mode sends no
         // effect packets, only per-zone SetColor
         Proto::Sensei => Vec::new(),
@@ -95,6 +97,8 @@ pub fn set_color(proto: Proto, zone_id: u8, c: freergb_core::Rgb) -> Vec<Vec<u8>
         // and Siberia (set_siberia_color) are handled in lib.rs frame()
         Proto::Arctis5 => Vec::new(),
         Proto::ArctisNova3 => Vec::new(),
+        // Old Apex route through oldapex_set_color() in lib.rs frame()
+        Proto::OldApex => Vec::new(),
         // Aerox 3 uses aerox3_set_color(); handled in lib.rs frame()
         Proto::Aerox3 => Vec::new(),
         // Aerox 5 uses aerox5_set_color(); handled in lib.rs frame()
@@ -557,6 +561,24 @@ pub fn qck_set_colors(c0: freergb_core::Rgb, c1: freergb_core::Rgb) -> Vec<Vec<u
     let mut apply = vec![0u8; 65];
     apply[1] = 0x0D;
     vec![buf, apply]
+}
+/// upstream: SteelSeriesOldApexController.cpp SetColorDetailed() called from
+/// RGBController_SteelSeriesOldApex.cpp DeviceUpdateLEDs(): one 33-byte write
+/// (0x00 report-id byte + 32-byte payload) `07 00` followed by five
+/// color32 groups (R, G, B, alpha = STEELSERIES_OLDAPEX_DIRECT 0x08) for
+/// QWERTY, TenKey, FunctionKeys, MXKeys and Logo.
+pub fn oldapex_set_color(colors: &[freergb_core::Rgb]) -> Vec<u8> {
+    let mut p = vec![0u8; 33];
+    p[1] = 0x07;
+    p[2] = 0x00;
+    for (i, c) in colors.iter().enumerate().take(5) {
+        let base = 3 + i * 4;
+        p[base] = c.r;
+        p[base + 1] = c.g;
+        p[base + 2] = c.b;
+        p[base + 3] = 0x08;
+    }
+    p
 }
 /// upstream: SteelSeriesApexTZoneController.cpp SetColor()
 /// Two 33-byte writes: brightness `[00 0A 00 brightness]` then colors
