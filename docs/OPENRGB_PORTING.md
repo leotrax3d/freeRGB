@@ -263,7 +263,44 @@ LED layouts use the optional initialize `zones` parameter documented in
 Last update: DRGB all versions ported.
 ## Agent-Handover (export)
 
-Last known commit: `a825d66` on branch `modules/integration`. Repo stable, tests/builds green.
+Last known commit: `162fcfb` on branch `modules/integration`. Repo stable, tests/builds green.
+
+### Ported in the last session (13 new/sub-controllers)
+| Module | Family | LEDs | Commit |
+|---|---|---:|---|
+| `nvidia-esa` | NvidiaESAController | 5 | `4b56674` |
+| `hp-omen-30l` | HPOmen30LController | 7 | `4a40489` |
+| `cryorig-h7-quad-lumi` | CryorigH7QuadLumiController | 10 | `691cae0` |
+| `msi-optix` | MSIOptixController | 12 | `3b03ba3` |
+| `acer-nitro-hid-led` | AcerNitroHidKeyboardController (0x65) | 1 | `85e97f4` |
+| `acer-nitro-hid-keyboard` | AcerNitroHidKeyboardController (0x21) | 4 | `e771dc1` |
+| `roccat-burst-pro-air` | RoccatBurstProAirController | 4 | `080488d` |
+| `amd-wraith-prism` | AMDWraithPrismController | 17 | `a99a4bb` |
+| `creative-soundblaster-xg6` | CreativeController (XG6) | 1 | `a454574` |
+| `thermaltake-poseidon-z-rgb` | ThermaltakePoseidonZRGBController | 104 | `077f100` |
+| `lenovo-motherboard-led` | LenovoMotherboardController | 2 | `d413283` |
+| `xpg-summoner-keyboard` | XPGSummonerKeyboardController | 104 | `8d220f5` |
+| `intel-arc-a770-le` | IntelArcA770LEController | 91 | `857359e` |
+
+All are Direct-mode only, byte-exact tested with recorded Hid::write/send_feature fakes, no
+hardware touched. `docs/OPENRGB_PORTING.md` ledger contains the corresponding entries with
+their commit hashes.
+
+### Remaining candidates (all "complex", need dedicated handling)
+Simpler single-detector Direct-mode families are exhausted. What is left:
+- TurtleBeachKP7Controller - keepalive thread (omit the thread, port the pages) + EnterDirect init
+- NZXTHue1Controller - init reads + color-index packet structure
+- ZalmanZSyncController - 30 byte reports plus state machine
+- MSIMonitorController - version query and 168-byte 0x72 double-block layout
+- MSI3Zone remaining, OKSController/OKSKeyboard - multi-zone direct with byte-exact mapping
+- Large partial families: CoolerMaster, Roccat (non-Burst), AsusAuraUSB (Mouse/Mat/Stand/Ryuo/ROG/Keyboard/TUF), Logitech, HyperX-Keyboard remaining, Sinowealth, LianLi, Gigabyte RGBFusion2, EVGA, A4Tech, GaiZongGai, EVision V2.
+- Blocked paths that stay blocked: Corsair keyboard STREAM 0x7F (KeyboardLayoutManager), MSI motherboard 185/761, DRGB keepalive (policy).
+
+### Recommended next step
+Use a subagent to return a full byte-exact SPEC for one remaining candidate (same style as the
+ones used for `intel-arc-a770-le`, `hyperx-microphone-v2`, `xpg-summoner-keyboard`), then port it
+in a standalone `modules/<id>` crate, wire it into root `Cargo.toml`, and add the ledger row in
+`docs/OPENRGB_PORTING.md` with `pending` + later the real hash as a second docs commit.
 
 ### Working rules reminder
 - Branch: `modules/integration` only.
@@ -307,6 +344,9 @@ git add modules/<id> scripts/openrgb docs/OPENRGB_PORTING.md Cargo.toml Cargo.lo
 git commit -m "modules: port <family or subcontroller>"
 git push origin modules/integration
 ```
+
+### Status of simple one-shot Direct-mode controllers
+- Exhausted as of the last session. All remaining candidates need the complex handling listed above.
 
 ### Candidate next concrete small device (subagent spec available)
 - None right now from background subagent output; inspect family code directly, or launch a concise subagent that returns one exact candidate and packet bytes.
