@@ -50,6 +50,10 @@ checklist for what is done. Older handoff, roadmap and worklist logs are in
 
 ## Verification
 
+Calibration owner step R5 (2026-11-06) needs a re-test after the bounded RPM
+settling fix; slow spin-up and flat-top behavior are covered in unit tests and
+the NCT6701D simulator. See the [acceptance record](COOLING_ACCEPTANCE.md#owner-session-2026-11-06-r5-calibration-settling).
+
 `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --locked -- -D warnings`,
 `cargo test --workspace --locked`, plus the feature-gated process tests listed in
 `.github/workflows/ci.yml`. Details and history: [TESTING.md](TESTING.md).

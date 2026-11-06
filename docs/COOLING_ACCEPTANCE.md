@@ -144,3 +144,37 @@ Fixes (simulated; re-test in prompt 07 block R): item 8 (reader update
 budget, deadlines), item 9 (drain stops background curves first), item 10
 (binding canonicalization) — see the branch `cooling/fix-reader-hang` log.
 The experimental installer without LHM GPU on the owner PC is not committed.
+
+## Owner session 2026-11-06: R5 calibration settling
+
+Owner hardware: ASUS PRIME X870-P WIFI, NCT6701D, CHA_FAN2
+`/lpc/nct6701d/0/control/2`. A calibration sweep with
+`step_percent:5,lowest_percent:40` faulted after about 10 seconds:
+`Calibration aborted: inconsistent_response`, minimum applied duty 95%,
+initial RPM 1002, last RPM 1709. Earlier channel-test readings were 1685 RPM
+at 100%, 1599 at 70%, and 1222 at 50%: a flat top and slow settling.
+
+The fixed two-second wait sampled the initial 100% stage while the fan was
+still accelerating from firmware duty. The subsequent 95% stage then exceeded
+that underestimated baseline by more than 10%, triggering the consistency guard.
+
+Fix commit: `298225eb9e5964aabbd2579a7f7c582705b4fbfe`
+(Wait for stable RPM during fan calibration). Calibration now waits for five
+distinct readings at least 250 ms apart, within a 3% band and without monotonic
+drift above 0.5%, before accepting their mean. The first stage allows 15 seconds
+after acknowledgment, subsequent stages 10 seconds; failure to settle restores
+full speed with `unstable_or_missing_samples`. The overall budget covers these
+stage deadlines and restart probes. Pump refusal, duty floors, temperature and
+telemetry guards, acknowledgment deadlines and restoration remain enforced.
+
+Regression coverage is simulated only: six- and ten-second 1000-to-1700 RPM
+ramps followed by flat 1700 RPM at 95/90% complete all 13 steps; a genuinely
+increasing settled response still restores and aborts. Narrow monotonic drift
+times out at both stage bounds. The NCT6701D register simulator covers the
+six-second ramp, floor, untouched pump channel and firmware return.
+
+Owner re-test remains open: with the owner present, repeat R5 on CHA_FAN2
+using 5% steps down to 40%; confirm the initial stage waits for steady RPM,
+all 13 duties are recorded, a result is stored and the channel returns to
+firmware with a clear recovery journal. No hardware, UAC, installer or installed
+application files were accessed for this fix. `hardware_verified` remains false.
