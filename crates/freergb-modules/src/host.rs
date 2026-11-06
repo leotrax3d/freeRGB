@@ -39,6 +39,54 @@ fn protocol(message: impl Into<String>) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, message)
 }
 
+fn tick_interval(value: &serde_json::Value) -> Result<Option<Duration>, ModuleError> {
+    Ok(match value.get("timing") {
+        None => None,
+        Some(timing) => {
+            if timing.get("v").and_then(|v| v.as_u64()) != Some(1) {
+                return Err(protocol("unsupported timing extension"));
+            }
+            match timing.get("tick_ms") {
+                None | Some(serde_json::Value::Null) => None,
+                Some(ms) => match ms.as_u64() {
+                    Some(ms)
+                        if (freergb_module_api::MIN_TICK_MS..=freergb_module_api::MAX_TICK_MS)
+                            .contains(&ms) =>
+                    {
+                        Some(Duration::from_millis(ms))
+                    }
+                    _ => return Err(protocol("invalid tick interval")),
+                },
+            }
+        }
+    })
+}
+
+fn sequence_delay(
+    call: &Call,
+    total_ms: &mut u64,
+    deadline: Instant,
+) -> Result<Duration, ModuleError> {
+    let ms = u64::try_from(call.timeout_ms).unwrap_or(u64::MAX);
+    *total_ms = total_ms.saturating_add(ms);
+    if ms == 0
+        || ms > freergb_module_api::MAX_DELAY_MS
+        || *total_ms > freergb_module_api::MAX_SEQUENCE_DELAY_MS
+        || !call.data.is_empty()
+        || call.len != 0
+    {
+        return Err(protocol("invalid or excessive sequence delay"));
+    }
+    let duration = Duration::from_millis(ms);
+    if Instant::now() + duration >= deadline {
+        return Err(ModuleError::new(
+            ErrorCode::Timeout,
+            "sequence delay exceeds request deadline",
+        ));
+    }
+    Ok(duration)
+}
+
 /// One running child process. Lines are read by a helper thread into a
 /// bounded channel so a deadline can be enforced on every read; writes go
 /// through a second thread so a child that stops reading cannot block us.
@@ -189,7 +237,14 @@ impl Process {
             deadline,
         )?;
         let mut calls = 0u32;
+        let mut delay_ms = 0u64;
         loop {
+            if Instant::now() >= deadline {
+                return Err(ModuleError::new(
+                    ErrorCode::Timeout,
+                    "module request deadline expired",
+                ));
+            }
             let message = self.receive(deadline)?;
             if message.get("call").is_some() {
                 let call: Call =
@@ -198,7 +253,21 @@ impl Process {
                 if call.v != MODULE_API || calls > MAX_CALLS_PER_REQUEST {
                     return Err(protocol("invalid or excessive transport call"));
                 }
-                let reply = broker(&call, transport);
+                let reply = if call.op == Op::Delay {
+                    if transport.is_none() {
+                        return Err(protocol("delay without assigned device"));
+                    }
+                    std::thread::sleep(sequence_delay(&call, &mut delay_ms, deadline)?);
+                    CallReply {
+                        v: MODULE_API,
+                        call: call.call,
+                        data: None,
+                        len: Some(0),
+                        error: None,
+                    }
+                } else {
+                    broker(&call, transport)
+                };
                 self.send(&reply, deadline)?;
                 continue;
             }
@@ -276,6 +345,10 @@ pub(crate) fn broker(call: &Call, transport: &mut Option<Box<dyn HidTransport>>)
         }
     };
     let result = match call.op {
+        Op::Delay => {
+            reply.error = Some("delay requires a bounded request context".into());
+            return reply;
+        }
         Op::Write => transport.write(&data).map(|n| (None, n)),
         Op::SendFeature => transport.send_feature(&data).map(|n| (None, n)),
         Op::Read => {
@@ -331,6 +404,8 @@ pub struct ModuleDevice {
     last_error: Option<ModuleError>,
     zones: Option<Vec<Zone>>,
     platform: Option<PlatformIdentity>,
+    tick_interval: Option<Duration>,
+    next_tick: Option<Instant>,
 }
 
 impl ModuleDevice {
@@ -368,6 +443,8 @@ impl ModuleDevice {
             last_error: None,
             zones: None,
             platform: None,
+            tick_interval: None,
+            next_tick: None,
         }
     }
 
@@ -388,6 +465,8 @@ impl ModuleDevice {
     }
 
     fn fault(&mut self, error: ModuleError) -> DeviceError {
+        self.tick_interval = None;
+        self.next_tick = None;
         self.process = None;
         self.failures += 1;
         let gone =
@@ -448,6 +527,15 @@ impl RgbDevice for ModuleDevice {
             INITIALIZE_TIMEOUT,
             &mut self.transport,
         );
+        self.tick_interval = match result
+            .as_ref()
+            .map_err(Clone::clone)
+            .and_then(tick_interval)
+        {
+            Ok(interval) => interval,
+            Err(e) => return Err(self.fault(e)),
+        };
+        self.next_tick = self.tick_interval.map(|interval| Instant::now() + interval);
         let caps: Capabilities = match result
             .and_then(|v| serde_json::from_value(v).map_err(|e| protocol(e.to_string())))
         {
@@ -471,6 +559,20 @@ impl RgbDevice for ModuleDevice {
         self.last_error = None;
         Ok(())
     }
+    fn poll(&mut self) -> Result<(), DeviceError> {
+        if self.status != DeviceStatus::Connected
+            || self.next_tick.is_none_or(|due| Instant::now() < due)
+        {
+            return Ok(());
+        }
+        let process = self.process.as_mut().ok_or(DeviceError::NotConnected)?;
+        if let Err(e) = process.request(Method::Tick, REQUEST_TIMEOUT, &mut self.transport) {
+            return Err(self.fault(e));
+        }
+        // Schedule from completion; never catch up with a burst after a slow request.
+        self.next_tick = self.tick_interval.map(|interval| Instant::now() + interval);
+        Ok(())
+    }
     fn push_frame(&mut self, frame: &Frame) -> Result<(), DeviceError> {
         if self.status != DeviceStatus::Connected {
             return Err(DeviceError::NotConnected);
@@ -484,6 +586,8 @@ impl RgbDevice for ModuleDevice {
         }
     }
     fn disconnect(&mut self, final_color: Option<Rgb>) -> Result<(), DeviceError> {
+        self.tick_interval = None;
+        self.next_tick = None;
         let result = match self.process.as_mut() {
             Some(process) => process
                 .request(
@@ -498,5 +602,76 @@ impl RgbDevice for ModuleDevice {
         self.process = None;
         self.status = DeviceStatus::Disconnected;
         result
+    }
+}
+
+#[cfg(test)]
+mod timing_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn old_capabilities_need_no_timing_and_extension_is_versioned() {
+        assert_eq!(tick_interval(&json!({})).unwrap(), None);
+        assert_eq!(
+            tick_interval(&json!({"timing":{"v":1,"tick_ms":null}})).unwrap(),
+            None
+        );
+        for ms in [500, 10_000] {
+            assert_eq!(
+                tick_interval(&json!({"timing":{"v":1,"tick_ms":ms}})).unwrap(),
+                Some(Duration::from_millis(ms))
+            );
+        }
+        for timing in [
+            json!(null),
+            json!({"v":2,"tick_ms":500}),
+            json!({"v":1,"tick_ms":499}),
+            json!({"v":1,"tick_ms":10001}),
+            json!({"v":1,"tick_ms":-1}),
+            json!({"v":1,"tick_ms":500.5}),
+            json!({"v":1,"tick_ms":"500"}),
+        ] {
+            assert!(tick_interval(&json!({"timing":timing})).is_err());
+        }
+    }
+
+    fn delay(ms: i32) -> Call {
+        Call {
+            v: MODULE_API,
+            call: 1,
+            op: Op::Delay,
+            data: String::new(),
+            len: 0,
+            timeout_ms: ms,
+        }
+    }
+
+    #[test]
+    fn delay_bounds_budget_shape_and_deadline_are_checked_before_sleeping() {
+        let deadline = Instant::now() + REQUEST_TIMEOUT;
+        for ms in [-1, 0, 101, i32::MAX] {
+            assert!(sequence_delay(&delay(ms), &mut 0, deadline).is_err());
+        }
+        assert_eq!(
+            sequence_delay(&delay(13), &mut 0, deadline).unwrap(),
+            Duration::from_millis(13)
+        );
+        let mut total = 900;
+        sequence_delay(&delay(100), &mut total, deadline).unwrap();
+        assert!(sequence_delay(&delay(1), &mut total, deadline).is_err());
+        let mut call = delay(13);
+        call.data = "AA==".into();
+        assert!(sequence_delay(&call, &mut 0, deadline).is_err());
+        call.data.clear();
+        call.len = 1;
+        assert!(sequence_delay(&call, &mut 0, deadline).is_err());
+        assert_eq!(
+            sequence_delay(&delay(13), &mut 0, Instant::now())
+                .unwrap_err()
+                .code,
+            ErrorCode::Timeout
+        );
+        assert!(broker(&delay(13), &mut None).error.is_some());
     }
 }

@@ -85,6 +85,10 @@ pub enum DeviceError {
 
 /// What the engine needs from any RGB device, real or virtual.
 pub trait RgbDevice: Send {
+    /// Worker callback, including while idle; most devices need no maintenance.
+    fn poll(&mut self) -> Result<(), DeviceError> {
+        Ok(())
+    }
     /// Cached USB keyboard usage -> layout LED index; empty when unknown.
     /// Must never infer these indices from RGB wire positions or perform I/O.
     fn key_map(&self) -> std::collections::BTreeMap<u16, usize> {

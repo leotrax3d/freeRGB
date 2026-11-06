@@ -164,6 +164,72 @@ fn platform_context_reaches_identify_and_old_host_omission_is_safe() {
 }
 
 #[test]
+fn periodic_tick_runs_without_frames_and_never_catches_up_in_a_burst() {
+    let wire = Wire::default();
+    let mut d = device("tick", &wire);
+    d.connect().unwrap();
+    d.poll().unwrap();
+    assert_eq!(wire.written.lock().unwrap().len(), 1);
+    std::thread::sleep(std::time::Duration::from_millis(520));
+    let start = Instant::now();
+    d.poll().unwrap();
+    assert!(start.elapsed() >= std::time::Duration::from_millis(13));
+    d.poll().unwrap();
+    assert_eq!(
+        *wire.written.lock().unwrap(),
+        vec![vec![0, 0xAB], vec![3, 0xAB], vec![4, 0xCD]]
+    );
+    // Frames do not reset the maintenance schedule.
+    d.push_frame(&Frame::solid(2, RED)).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(520));
+    d.poll().unwrap();
+    assert_eq!(wire.written.lock().unwrap().len(), 6);
+    d.disconnect(None).unwrap();
+    d.poll().unwrap();
+    assert_eq!(wire.written.lock().unwrap().len(), 7);
+}
+
+#[test]
+fn host_rejects_out_of_range_tick_intervals() {
+    for mode in ["tick-fast", "tick-slow"] {
+        let mut d = device(mode, &Wire::default());
+        assert!(d.connect().is_err());
+        assert!(d
+            .last_error()
+            .unwrap()
+            .message
+            .contains("invalid tick interval"));
+    }
+    let mut d = device("tick-max", &Wire::default());
+    d.connect().unwrap();
+    d.disconnect(None).unwrap();
+}
+
+#[test]
+fn sequence_delay_budget_faults_before_the_frame_write() {
+    let wire = Wire::default();
+    let mut d = device("delay-budget", &wire);
+    d.connect().unwrap();
+    assert!(d.push_frame(&Frame::solid(2, RED)).is_err());
+    assert!(d.last_error().unwrap().message.contains("sequence delay"));
+    assert_eq!(*wire.written.lock().unwrap(), vec![vec![0, 0xAB]]);
+}
+
+#[test]
+fn tick_error_and_hang_fault_the_device() {
+    for mode in ["tick-error", "tick-hang"] {
+        let mut d = device(mode, &Wire::default());
+        d.connect().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(520));
+        assert!(d.poll().is_err());
+        assert!(matches!(
+            d.status(),
+            freergb_device_api::DeviceStatus::Faulted(_)
+        ));
+    }
+}
+
+#[test]
 fn frames_are_bundled_brokered_and_shutdown_releases() {
     let wire = Wire::default();
     let mut d = device("ok", &wire);

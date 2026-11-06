@@ -139,6 +139,53 @@ For future family work this removes the DMI-input blocker for MSI 761's
 remains **blocked: licence/provenance review (SignalRGB-derived), owner
 decision**. Identity availability does not promote any compatibility row.
 
+## Optional HID timing extension, version 1
+
+The outer HID protocol remains version 1. Existing modules work unchanged:
+capabilities without a `timing` member schedule no ticks. New SDK modules add
+`"timing":{"v":1,"tick_ms":500}` (or null to disable) to the initialize
+result. The host rejects unknown timing versions and intervals outside
+500..=10000 ms, including noninteger values. This is independent of API 2
+bus modules and API 3 cooling plugins; their scheduling is unchanged.
+
+Implement `Module::tick_interval_ms` and `Module::tick` to receive
+`{"v":1,"id":N,"method":"tick"}` through the normal request/reply channel.
+The interval is sampled after initialization, so it may depend on detected
+capabilities. Tick I/O is brokered on the same assigned handle as frames.
+The device worker checks maintenance while idle (100 ms polling granularity)
+and before frames. First tick is due one interval after initialize; later
+intervals start when the preceding tick completes. Missed ticks coalesce;
+there is no catch-up burst. Frames do not postpone ticks. Tick failures and
+hangs fault the module and use the existing reconnect policy. Disconnect or
+conflict release drops the schedule; reconnect starts a fresh schedule.
+This is best-effort timing, not a real-time guarantee: worker execution and
+blocking OS HID calls can postpone a tick.
+
+Within any assigned-device request, `Hid::delay_ms(13)` emits
+`{"v":1,"call":M,"op":"delay","data":"","len":0,"timeout_ms":13}`.
+The host sleeps before acknowledging that call, so the next packet follows
+the delay. It holds no HID gate during the sleep. Delays must be positive,
+at most 100 ms each, and at most 1000 ms in total per request. They count
+toward the existing 512-call budget and the existing request deadline
+(2 s, or 10 s for initialize); none extends the deadline. Invalid shape,
+negative/zero/oversized values or an exhausted budget abort the request
+before a later packet can execute. Delay calls without an assigned device
+are rejected. Stop is observed after an in-flight bounded request completes.
+
+Old hosts ignore the optional capabilities member and cannot execute the new
+`delay` operation; timing-dependent modules therefore require a host with
+this extension. The backward compatibility guarantee is old modules on new
+hosts. The SDK's default tick and delay methods keep existing implementations
+source-compatible; mock transports explicitly implement delay support when needed.
+
+Simulated proof: `freergb-module-fixture` exercises idle ticks, ordered writes
+separated by a 13 ms delay, interval bounds, cumulative-delay refusal and
+failed/hung ticks in `freergb-modules/tests/host.rs`. This API unblocks the
+MSI motherboard 185 per-LED path (13 ms packet gaps), Corsair Commander Core
+keepalive and Thermaltake Riing Quad keepalive for the external port authors.
+No family implementation, device table or port ledger status is changed here;
+byte-exact vendor packets and owner hardware acceptance remain their work.
+
 ## Catalog and detection
 
 `catalog.json` (schema 1) lists modules with id, version, family, protocol

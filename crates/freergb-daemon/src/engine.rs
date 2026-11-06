@@ -260,6 +260,15 @@ fn run_worker(
 
         match dev.status() {
             DeviceStatus::Connected => {
+                if let Err(e) = dev.poll() {
+                    publish(dev.as_ref(), &view, Some(Some(e.to_string())));
+                    if e.is_gone() {
+                        return;
+                    }
+                    failures = 1;
+                    next_retry = Some(Instant::now() + backoff(failures));
+                    continue;
+                }
                 let Some(frame) = frame else { continue };
                 match dev.push_frame(&frame) {
                     Ok(()) => {
@@ -1887,6 +1896,46 @@ mod tests {
         e.tick(Instant::now());
         assert!(wait_until(|| log.total() == 3));
         assert_eq!(log.last().unwrap(), Frame::solid(2, Rgb::BLUE));
+    }
+
+    #[test]
+    fn worker_polls_maintenance_while_no_frames_arrive() {
+        struct Maintenance(VirtualDevice, Arc<std::sync::atomic::AtomicUsize>);
+        impl RgbDevice for Maintenance {
+            fn info(&self) -> &DeviceInfo {
+                self.0.info()
+            }
+            fn layout(&self) -> &LedLayout {
+                self.0.layout()
+            }
+            fn status(&self) -> DeviceStatus {
+                self.0.status()
+            }
+            fn connect(&mut self) -> Result<(), DeviceError> {
+                self.0.connect()
+            }
+            fn push_frame(&mut self, frame: &Frame) -> Result<(), DeviceError> {
+                self.0.push_frame(frame)
+            }
+            fn disconnect(&mut self, color: Option<Rgb>) -> Result<(), DeviceError> {
+                self.0.disconnect(color)
+            }
+            fn poll(&mut self) -> Result<(), DeviceError> {
+                self.1.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+        }
+        let polls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let inner = VirtualDevice::new("maintenance", LedLayout::strip(1));
+        let log = inner.frame_log();
+        let mut e = Engine::new(EffectSpec::Solid { color: Rgb::BLUE }, 30);
+        e.add_device(Box::new(Maintenance(inner, polls.clone())));
+        assert!(wait_until(|| polls.load(Ordering::SeqCst) >= 2));
+        assert_eq!(log.total(), 0);
+        e.shutdown();
+        let stopped = polls.load(Ordering::SeqCst);
+        std::thread::sleep(WORKER_POLL * 2);
+        assert_eq!(polls.load(Ordering::SeqCst), stopped);
     }
 
     /// Fails the first `fail_connects` connects; optionally sleeps per frame.

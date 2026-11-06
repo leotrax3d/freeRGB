@@ -33,6 +33,11 @@ pub const MAX_LEDS: usize = 4096;
 pub const MAX_REPORT: usize = 4096;
 /// Transport calls allowed while one host request is open.
 pub const MAX_CALLS_PER_REQUEST: u32 = 512;
+/// Timing extension v1 bounds, enforced by the host.
+pub const MIN_TICK_MS: u64 = 500;
+pub const MAX_TICK_MS: u64 = 10_000;
+pub const MAX_DELAY_MS: u64 = 100;
+pub const MAX_SEQUENCE_DELAY_MS: u64 = 1_000;
 
 /// Read-only platform labels supplied by the host. Never contains serials,
 /// UUIDs, firmware blobs, registry paths or raw hardware handles.
@@ -198,6 +203,8 @@ pub enum Method {
     Frame {
         rgb: String,
     },
+    /// Timing extension v1, sent only after initialize advertises an interval.
+    Tick,
     Status,
     Shutdown {
         final_color: Option<Rgb>,
@@ -212,6 +219,8 @@ pub enum Op {
     Read,
     SendFeature,
     GetFeature,
+    /// Timing extension v1: timeout_ms is a delay without device I/O.
+    Delay,
 }
 
 /// Module -> host transport call.

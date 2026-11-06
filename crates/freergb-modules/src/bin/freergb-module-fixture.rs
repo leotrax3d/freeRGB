@@ -7,6 +7,28 @@ use freergb_module_api::*;
 struct Fixture(String);
 
 impl Module for Fixture {
+    fn tick_interval_ms(&self) -> Option<u64> {
+        match self.0.as_str() {
+            "tick" | "tick-error" | "tick-hang" => Some(MIN_TICK_MS),
+            "tick-fast" => Some(MIN_TICK_MS - 1),
+            "tick-slow" => Some(MAX_TICK_MS + 1),
+            "tick-max" => Some(MAX_TICK_MS),
+            _ => None,
+        }
+    }
+    fn tick(&mut self, hid: &mut dyn Hid) -> Result<(), ModuleError> {
+        match self.0.as_str() {
+            "tick-error" => return Err(ModuleError::new(ErrorCode::Protocol, "tick failed")),
+            "tick-hang" => loop {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            },
+            _ => {}
+        }
+        hid.write(&[3, 0xAB])?;
+        hid.delay_ms(13)?;
+        hid.write(&[4, 0xCD])?;
+        Ok(())
+    }
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
             id: "fixture".into(),
@@ -66,6 +88,11 @@ impl Module for Fixture {
         initialize_inner(&self.0, interface, zones, hid)
     }
     fn frame(&mut self, colors: &[Rgb], hid: &mut dyn Hid) -> Result<(), ModuleError> {
+        if self.0 == "delay-budget" {
+            for _ in 0..11 {
+                hid.delay_ms(MAX_DELAY_MS)?;
+            }
+        }
         match self.0.as_str() {
             "crash-frame" => std::process::exit(3),
             "hang-frame" => loop {
