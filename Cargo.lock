@@ -1871,6 +1871,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "freergb-module-asus-aura-monitor"
+version = "0.1.0"
+dependencies = [
+ "freergb-core",
+ "freergb-module-api",
+ "serde_json",
+]
+
+[[package]]
 name = "freergb-module-asus-aura-mouse"
 version = "0.1.0"
 dependencies = [
@@ -2485,15 +2494,6 @@ dependencies = [
 
 [[package]]
 name = "freergb-module-roccat-kone-pro-air"
-version = "0.1.0"
-dependencies = [
- "freergb-core",
- "freergb-module-api",
- "serde_json",
-]
-
-[[package]]
-name = "freergb-module-roccat-kone-xp"
 version = "0.1.0"
 dependencies = [
  "freergb-core",
