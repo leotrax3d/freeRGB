@@ -14,9 +14,42 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Layout (docs/TESTING.md "CI timings"): the workspace job keeps its check
+# names (windows-latest, ubuntu-latest); the desktop app and the Windows
+# release smoke run as parallel jobs. Caches are written only on main, PRs
+# restore them. Docs-only changes skip the heavy jobs.
 jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        name: Code or docs-only change
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only "$BASE"...HEAD)
+          echo "$changed"
+          # Anything outside docs/, *.md and the website (own workflow) is code.
+          if echo "$changed" | grep -Ev '^(docs/|website/)|\.md$' | grep -q .; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   check:
     name: ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -40,14 +73,13 @@ jobs:
         shell: pwsh
         run: ./scripts/test-installer-process-scope.ps1
 
-      - name: Linux system libraries (udev for hidapi, X11/Wayland/GL for egui)
+      - name: Linux system libraries (udev for hidapi, X11/Wayland/GL for egui, GLib tests)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libudev-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
             libx11-dev libxcursor-dev libxrandr-dev libxi-dev libgl1-mesa-dev \
-            libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev \
-            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+            libpipewire-0.3-dev libspa-0.2-dev libclang-dev libasound2-dev libgbm-dev libglib2.0-dev
 
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action, pinned toolchain below
         with:
@@ -55,29 +87,9 @@ jobs:
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 24.19.0
-      - name: Desktop frontend dependencies
-        working-directory: apps/desktop
-        run: npm ci
-      - name: Desktop frontend tests
-        working-directory: apps/desktop
-        run: npm test
-      - name: Community identity, quota and privacy tests (mock backend)
-        working-directory: appwrite/community
-        run: npm test
-      - name: Desktop frontend build
-        working-directory: apps/desktop
-        run: npm run build
-      - name: Desktop Rust tests
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
-      - name: Desktop formatting
-        run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
-      - name: Desktop clippy
-        run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings
-      - name: Desktop build
-        run: cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features tauri/custom-protocol --locked
+          shared-key: workspace
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: fmt
         run: cargo fmt --all -- --check
@@ -134,7 +146,10 @@ jobs:
         shell: pwsh
         run: ./scripts/test-mainboard-deployment.ps1
 
+      # Linux keeps its release steps here (fast runner); Windows release
+      # build and smoke run in the parallel `windows-release` job.
       - name: release build
+        if: runner.os == 'Linux'
         run: cargo build --workspace --release --locked
       - name: Optimized GLib soundness regression
         if: runner.os == 'Linux'
@@ -148,12 +163,76 @@ jobs:
         if: runner.os == 'Linux'
         run: python3 scripts/test-effect-marketplace.py target/release/freergbd
 
+  windows-release:
+    name: windows release smoke
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action, pinned toolchain below
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        with:
+          shared-key: release
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: release build
+        run: cargo build --workspace --release --locked
       - name: Windows daemon and process plugin smoke test
-        if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/smoke-daemon.ps1 -WithPlugin
-
       - name: Isolated live cooling API disabled/error cases (no hardware)
-        if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/test-cooling-session-api.ps1 -Daemon ./target/release/freergbd.exe
+
+  desktop:
+    name: desktop (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Linux system libraries (WebKitGTK for Tauri)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libxkbcommon-dev libwayland-dev libx11-dev \
+            libgl1-mesa-dev libclang-dev libasound2-dev libpipewire-0.3-dev libspa-0.2-dev \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable action, pinned toolchain below
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@e9d7b9f1e587218970671bac74e5511ed9506e6a # v2
+        with:
+          shared-key: desktop
+          workspaces: apps/desktop/src-tauri -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+      - name: Desktop frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+      - name: Desktop frontend tests
+        working-directory: apps/desktop
+        run: npm test
+      - name: Community identity, quota and privacy tests (mock backend)
+        working-directory: appwrite/community
+        run: npm test
+      - name: Desktop frontend build
+        working-directory: apps/desktop
+        run: npm run build
+      - name: Desktop formatting
+        run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml -- --check
+      - name: Desktop clippy
+        run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+      - name: Desktop Rust tests
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
+      - name: Desktop build
+        run: cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features tauri/custom-protocol --locked
