@@ -169,6 +169,10 @@ jobs:
             node scripts/openrgb/port-nzxt-hue2-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-nzxt-hue2
             git diff --exit-code -- modules/nzxt-hue2/src/devices_table.rs
+          elif [ "$MODULE" = "nzxt-hue1" ]; then
+            node scripts/openrgb/port-nzxt-hue1-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-nzxt-hue1
+            git diff --exit-code -- modules/nzxt-hue1/src/devices_table.rs
           elif [ "$MODULE" = "hyperx-mouse" ]; then
             node scripts/openrgb/port-hyperx-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-hyperx-mouse

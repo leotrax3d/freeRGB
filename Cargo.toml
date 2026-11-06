@@ -42,6 +42,7 @@ members = [
     "modules/asus-monitor",
     "modules/drgb",
     "modules/nzxt-hue2",
+    "modules/nzxt-hue1",
     "modules/hyperx-mouse",
     "modules/areson",
     "modules/annepro2",
