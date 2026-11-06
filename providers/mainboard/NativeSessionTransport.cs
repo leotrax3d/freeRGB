@@ -45,7 +45,7 @@ internal static class NativeSessionTransport
             var watchdog = new Thread(delegate() {
                 try { while (!stop.WaitOne(25) && session.Poll()) { } }
                 catch { session.Fault("watchdog_failed"); }
-            }) { IsBackground = true, Name = "freeRGB native session lease" };
+            }) { IsBackground = true, Priority = ThreadPriority.AboveNormal, Name = "freeRGB native session lease" };
             watchdog.Start();
             try
             {

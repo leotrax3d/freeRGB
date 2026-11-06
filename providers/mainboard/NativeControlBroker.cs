@@ -12,8 +12,9 @@ using System.Web.Script.Serialization;
 internal sealed class NativeControlBroker : IDisposable
 {
     internal const string PipeName="freergb-mainboard-control-v1";
-    // Set by the service: an interactive session first stops the background
-    // curve on the same channel (explicit return), then resumes it afterwards.
+    // Initialization happens before a session/ticket exists. Never reuse for commands.
+    internal const int StartupReadyMs = 20000, InitialReceiptMs = 5000, RelayStartupMs = 25000;
+    // Set by the service: stop the background curve on the same channel first.
     internal static Action<string> SuspendBackground = null, ResumeBackground = null;
     // Pause returns every background channel to firmware; resume restarts only
     // the configuration the user already authorized (UAC). Neither widens rights.
@@ -164,7 +165,7 @@ internal sealed class NativeControlBroker : IDisposable
                     try
                     {
                         try {
-                            if (BrokerTransport.ReadRecord(worker.StandardOutput.BaseStream,10000,64).TrimEnd('\r') != "ready") throw new InvalidDataException("Native worker not ready.");
+                            if (BrokerTransport.ReadRecord(worker.StandardOutput.BaseStream,StartupReadyMs,64).TrimEnd('\r') != "ready") throw new InvalidDataException("Native worker not ready.");
                         } catch {
                             if (worker.WaitForExit(100)) {
                                 string detail=worker.StandardError.ReadToEnd();
@@ -178,7 +179,7 @@ internal sealed class NativeControlBroker : IDisposable
                             var owner=(SecurityIdentifier)native.GetAccessControl().GetOwner(typeof(SecurityIdentifier));
                             if (!owner.IsWellKnown(WellKnownSidType.LocalSystemSid) || !BrokerTransport.IsExpectedWorker(native,(uint)worker.Id))
                                 throw new InvalidOperationException("Unexpected protected control worker.");
-                            string reply=BrokerTransport.ReadRecord(native,2000,2048);
+                            string reply=BrokerTransport.ReadRecord(native,InitialReceiptMs,2048);
                             stage="session";
                             try
                             {
@@ -273,7 +274,7 @@ internal sealed class NativeControlBroker : IDisposable
             bool first=true;
             while (true)
             {
-                string reply=BrokerTransport.ReadRecord(connection,12000,2048);
+                string reply=BrokerTransport.ReadRecord(connection,first ? RelayStartupMs : 2000,2048);
                 if (first) { Console.WriteLine("ready"); Console.Out.Flush(); first=false; }
                 Console.WriteLine(reply); Console.Out.Flush();
                 var result=new JavaScriptSerializer { MaxJsonLength=2048 }.DeserializeObject(reply) as Dictionary<string,object>;

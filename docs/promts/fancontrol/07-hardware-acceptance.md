@@ -93,6 +93,17 @@ R5. Fine sweep (B1 re-test): `cooling.sessions.start`
     `report.calibration` set, `cooling-fan-support.json` written,
     `rpm_range` in `cooling.support.get`. If it ends early, record
     `report.fault` ("Calibration aborted: <reason>") — the reason is now shown.
+R5c. Loaded native startup/acknowledgement re-test (owner present): on the
+    confirmed CHA_FAN2 fan, repeat R5 at idle, then with four concurrent Cargo
+    builds (record Tctl and CPU load). Record time to the first active receipt,
+    session status and any broker stage/error. Expect one acquisition, startup
+    within 30 s and no immediate acknowledgement block; complete all 13 steps.
+    Stop explicitly and verify firmware return plus a clear journal. Repeat a
+    start/stop under load. A genuine command/ticket/lease timeout must still
+    stop safely and retain recovery intent until authenticated return evidence;
+    never restart a blocked session automatically. Record commit and outcome in
+    COOLING_ACCEPTANCE.md. Synthetic silent-worker tests cover timeout behavior;
+    do not suspend/kill a real worker during this calibration re-test.
 R6. Plain calibration (100/80/60/40) on the same channel stores its result.
 R7. Reader stability (item 8): with iCUE running, sample
     `freergb.exe ctl cooling.providers.list` every 5 s for 2 min; expect

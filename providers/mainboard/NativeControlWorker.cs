@@ -54,7 +54,7 @@ internal static class NativeControlWorker
             var sampler=new Thread(delegate() {
                 try { while (!stop.WaitOne(100)) sample(); }
                 catch { /* No freshness renewal: the independent guard expires. */ }
-            }) { IsBackground=true,Name="freeRGB checked native telemetry" };
+            }) { IsBackground=true,Priority=ThreadPriority.AboveNormal,Name="freeRGB checked native telemetry" };
             sampler.Start();
             try
             {

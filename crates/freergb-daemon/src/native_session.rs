@@ -161,8 +161,12 @@ fn token(value: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-async fn read<T: AsyncRead + Unpin>(transport: &mut T) -> Result<Reply, String> {
-    let bytes = timeout(Duration::from_secs(2), async {
+// Startup includes worker initialization/acquisition at 100%; it is not a duty lease.
+pub(crate) const NATIVE_STARTUP_BUDGET: Duration = Duration::from_secs(30);
+const INITIAL_RECEIPT_BUDGET: Duration = Duration::from_secs(5);
+
+async fn read<T: AsyncRead + Unpin>(transport: &mut T, budget: Duration) -> Result<Reply, String> {
+    let bytes = timeout(budget, async {
         let mut bytes = Vec::new();
         for _ in 0..2048 {
             let byte = transport
@@ -222,7 +226,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
     /// Cancellation/drop closes the transport; no reconnect or command replay.
     pub async fn from_authenticated_transport(mut transport: T) -> Result<Self, String> {
         let began = Instant::now();
-        let reply = read(&mut transport).await?;
+        let reply = read(&mut transport, INITIAL_RECEIPT_BUDGET).await?;
         if reply.state != SessionState::Active || reply.sequence != 0 || reply.duty_percent != 100 {
             return Err("Unsafe initial native session".into());
         }
@@ -288,7 +292,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> NativeSessionClient<T> {
         .await
         .map_err(|_| "Native command timed out")?
         .map_err(|_| "Native command disconnected")?;
-        let reply = read(&mut transport).await?;
+        let reply = read(&mut transport, Duration::from_secs(2)).await?;
         let next_observation = observation(reply.telemetry, began, self.observation)?;
         if self.observation.is_some()
             && next_observation.is_none()
@@ -394,6 +398,30 @@ mod tests {
             .await
             .unwrap();
     }
+    #[tokio::test]
+    async fn initial_receipt_allows_slow_initialization_without_command_replay() {
+        for delay_ms in [2000, 4000] {
+            let (transport, mut worker) = tokio::io::duplex(4096);
+            let peer = tokio::spawn(async move {
+                // Simulate work before acquisition/ticket issue, not an expired active lease.
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                write(&mut worker, reply(0, 'b', "active", 100, true)).await;
+                let mut worker = BufReader::new(worker);
+                let mut line = String::new();
+                worker.read_line(&mut line).await.unwrap();
+                let command: Value = serde_json::from_str(&line).unwrap();
+                assert_eq!(command["action"], "close");
+                assert_eq!(command["sequence"], 1);
+                write(worker.get_mut(), reply(1, 'c', "closed", 100, false)).await;
+            });
+            let mut client = NativeSessionClient::from_authenticated_transport(transport)
+                .await
+                .unwrap();
+            assert_eq!(client.close().await.unwrap().state, SessionState::Closed);
+            peer.await.unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn real_stream_set_and_close_preserve_callback_only_evidence() {
         let (client, mut worker) = tokio::io::duplex(4096);

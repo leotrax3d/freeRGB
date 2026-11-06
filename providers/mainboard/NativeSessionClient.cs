@@ -77,7 +77,7 @@ internal sealed class NativeSessionClient : IDisposable
     private Dictionary<string, object> Read(Dictionary<string, object> prior, int? expected)
     {
         var value = new JavaScriptSerializer { MaxJsonLength = 2048, RecursionLimit = 8 }
-            .DeserializeObject(BrokerTransport.ReadRecord(pipe,2000,2048)) as Dictionary<string,object>;
+            .DeserializeObject(BrokerTransport.ReadRecord(pipe,prior == null ? NativeControlBroker.InitialReceiptMs : 2000,2048)) as Dictionary<string,object>;
         if (value == null || !value.ContainsKey("version") || !Object.Equals(value["version"],1) ||
             !value.ContainsKey("session") || !Token(value["session"]) || !value.ContainsKey("ticket") || !Token(value["ticket"]) ||
             !value.ContainsKey("sequence") || !(value["sequence"] is int) || (int)value["sequence"] < 0 ||

@@ -2,7 +2,7 @@
 //! The Windows service transport must supply an authenticated factory and trusted
 //! sampler. This module does not authorize hardware or expose a public listener.
 use crate::cooling_runtime::{self, ControlMode, RuntimeLimits, RuntimeReport, SamplerFrame};
-use crate::native_session::NativeSessionClient;
+use crate::native_session::{NativeSessionClient, NATIVE_STARTUP_BUDGET};
 use freergb_control::maintenance::{
     MaintenanceGate, MaintenanceState, ReleaseEvidence, SessionToken,
 };
@@ -101,7 +101,7 @@ impl CoolingHost {
         let (stop, stopped) = oneshot::channel();
         let epoch = self.epoch;
         let task = tokio::spawn(async move {
-            let client = tokio::time::timeout(Duration::from_secs(12), acquire)
+            let client = tokio::time::timeout(NATIVE_STARTUP_BUDGET, acquire)
                 .await
                 .map_err(|_| "Protected native startup timed out; inspect recovery state")??;
             let initial = SamplerFrame::from_native(
@@ -283,6 +283,75 @@ mod tests {
     async fn maintenance_drains_actual_runtime_and_requires_native_return_proof() {
         exercise(true).await;
         exercise(false).await;
+    }
+
+    // A slow first receipt models initialization BEFORE acquisition/ticket issue.
+    // Once active, a 2-4 s command acknowledgement must still fail the 1 s lease.
+    #[tokio::test]
+    async fn slow_initial_receipts_succeed_but_missing_receipt_blocks_recovery() {
+        for delay_ms in [Some(2000), Some(4000), None] {
+            let (transport, worker) = tokio::io::duplex(4096);
+            let (ready, startup) = oneshot::channel();
+            let peer = tokio::spawn(async move {
+                let mut worker = BufReader::new(worker);
+                if let Some(delay_ms) = delay_ms {
+                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                    let _ = ready.send(()); // Relay emits ready only after initial worker receipt.
+                    let mut reply = json!({"version":1,"session":"a".repeat(32),"ticket":"b".repeat(32),
+                        "sequence":0,"state":"active","reason":null,"duty_percent":100,"ticket_ms":250,
+                        "lease_ms":1000,"owned":true,"physical_write_verified":false,
+                        "telemetry":{"sequence":1,"temperature_c":40.0,"rpm":900.0,"age_ms":0}});
+                    worker
+                        .get_mut()
+                        .write_all(format!("{reply}\n").as_bytes())
+                        .await
+                        .unwrap();
+                    let mut line = String::new();
+                    worker.read_line(&mut line).await.unwrap();
+                    let command: Value = serde_json::from_str(&line).unwrap();
+                    assert_eq!(command["action"], "close");
+                    reply["sequence"] = command["sequence"].clone();
+                    reply["state"] = json!("closed");
+                    reply["owned"] = json!(false);
+                    reply["firmware_return_verified"] = json!(true);
+                    reply["journal_cleared"] = json!(true);
+                    worker
+                        .get_mut()
+                        .write_all(format!("{reply}\n").as_bytes())
+                        .await
+                        .unwrap();
+                } else {
+                    // Model a ready relay whose first receipt never arrives.
+                    let _ = ready.send(());
+                    let mut line = String::new();
+                    // Timeout drops the original pipe; no retry/acquire or fake close.
+                    assert_eq!(worker.read_line(&mut line).await.unwrap(), 0);
+                }
+            });
+            let mut host = CoolingHost::new(true, Instant::now());
+            host.start_native(
+                async move {
+                    startup.await.map_err(|_| "Fixture startup lost")?;
+                    NativeSessionClient::from_authenticated_transport(transport).await
+                },
+                ControlMode::Calibration { critical_c: 80.0 },
+                RuntimeLimits::default(),
+            )
+            .unwrap();
+            let result = host.prepare_maintenance(8000).await;
+            if delay_ms.is_some() {
+                assert!(result.is_ok(), "{result:?}");
+                assert_eq!(host.state(), MaintenanceState::Ready);
+                assert!(host.last_report().unwrap().maintenance_authorized);
+            } else {
+                assert!(result.unwrap_err().contains("Native reply timed out"));
+                assert_eq!(host.state(), MaintenanceState::Blocked);
+                assert_eq!(host.gate.unresolved_count(), 1);
+                assert!(host.last_report().is_none());
+                assert!(host.prepare_maintenance(100).await.is_err());
+            }
+            peer.await.unwrap();
+        }
     }
 
     #[tokio::test]

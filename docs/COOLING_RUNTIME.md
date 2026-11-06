@@ -43,10 +43,22 @@ recovery evidence requirements are unchanged. Calibration retains its stricter
 
 Native requests run in a separate Tokio task behind a one-slot queue. The control
 loop polls every25ms, refreshes a healthy native session after100ms and imposes a
-150ms pending-receipt deadline. Sensor updates, stop and watchdog checks continue
+750ms pending-receipt deadline (R5c), below the independent 1000ms lease. Sensor updates, stop and watchdog checks continue
 while native I/O awaits a response. Dropping/cancelling the runtime aborts its
 native task and closes the transport; the native worker must independently handle
 EOF/lease expiry. A hung kernel/driver is not solved by cancelling an async task.
+
+Startup has its own bounded budget: the Rust native host allows 30 seconds for
+acquisition, the relay allows 25 seconds for initial readiness, and the broker
+allows 20 seconds for worker initialization plus 5 seconds for its first receipt.
+LHM loading, discovery and the initial checked sample run before worker readiness;
+100% acquisition precedes ticket issue. Both peers use the 5-second receipt bound
+only for the initial greeting. A first *command* already has an active lease and
+gets the same 750ms acknowledgement deadline as every later command. A delayed
+2-4-second command must fail safely. No timeout triggers reconnect or reacquisition.
+The dedicated worker runs at AboveNormal process priority, with AboveNormal
+sampler/watchdog threads, to reduce starvation by bulk CPU work. All safety and
+recovery requirements remain independent of that scheduling preference.
 
 Explicit stop and normal calibration completion request native close, which first
 requests100 then returns control. A native closed callback is reported separately

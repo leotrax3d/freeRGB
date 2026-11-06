@@ -198,6 +198,8 @@ internal static class NativeSessionTests
     }
     internal static void Run()
     {
+        SlowStartup(2000); SlowStartup(4000); SlowStartup(-1);
+        Console.WriteLine("PASS: 2/4-second initialization receipts, bounded missing greeting, single acquisition and explicit return. Synthetic only.");
         Policy(); Pipe(false,false); Pipe(true,false); Pipe(false,true);
         Client(false,false); Client(true,false); Client(false,true);
         for (int fault = 0; fault < 3; fault++) CorruptResponse(fault);
@@ -236,6 +238,41 @@ internal static class NativeSessionTests
             Assert(serving.Wait(4000),"Native client cancellation did not finish the session.");
             if (stale || detach) Assert(port.Owned && port.Writes[port.Writes.Length-1] == 100,"Client error silently released emergency ownership.");
             else Assert(!port.Owned && port.Writes[port.Writes.Length-1] == -1,"Valid typed close did not restore firmware.");
+        }
+    }
+    private static void SlowStartup(int delayMs)
+    {
+        string name = "freergb-native-startup-fixture-"+Guid.NewGuid().ToString("N");
+        var port = new SessionPort { Floor = 40 };
+        using (var server = BrokerTransport.CreateServer(name,WindowsIdentity.GetCurrent().User))
+        {
+            NativeControlSession session = null;
+            var serving = Task.Run(delegate {
+                server.WaitForConnection();
+                if (delayMs < 0) {
+                    // Never acknowledge: wait for the bounded client timeout/EOF.
+                    try {
+                        BrokerTransport.ReadRecord(server,8000,2048);
+                        throw new Exception("Unexpected command before greeting.");
+                    } catch (System.IO.EndOfStreamException) { }
+                    return;
+                }
+                Thread.Sleep(delayMs); // LHM/init scheduling before acquisition.
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                session = NativeControlSession.ForTest(port,delegate { return timer.ElapsedMilliseconds; });
+                NativeSessionTransport.RunForTest(server,session);
+            });
+            bool timedOut = false;
+            try {
+                using (var client = NativeSessionClient.ForTest(BrokerTransport.Connect(name),delegate { return 0; })) {
+                    Assert(client.Last.State == "active","Slow initialization failed.");
+                    Assert(client.Close().State == "closed","Slow startup lost explicit return.");
+                }
+            } catch (TimeoutException) { timedOut = true; }
+            Assert(timedOut == (delayMs < 0),"Startup budget did not bound missing greeting.");
+            Assert(serving.Wait(3000),"Startup fixture did not finish.");
+            Assert(delayMs < 0 ? port.Writes.Length == 0 : port.Writes.Length == 3 && !port.Owned,
+                "Startup retried acquisition or failed to return the channel.");
         }
     }
     private static void CorruptResponse(int fault)

@@ -76,7 +76,7 @@ pub async fn connect(
     );
     let mut ready = Vec::new();
     tokio::time::timeout(
-        Duration::from_secs(11),
+        Duration::from_secs(25),
         (&mut output).take(64).read_until(b'\n', &mut ready),
     )
     .await

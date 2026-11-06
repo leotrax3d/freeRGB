@@ -580,7 +580,9 @@ pub async fn run_with_limits<T: AsyncRead + AsyncWrite + Unpin + Send + 'static>
         .map_err(|_| "Native I/O queue unavailable; preserve recovery intent")?;
         pending = Some(Pending {
             reply: receiver,
-            deadline_ms: at.saturating_add(150),
+            // Scheduling/IPC allowance stays below the independent 1000 ms lease.
+            // Startup is completed before this runtime; no first-command exception.
+            deadline_ms: at.saturating_add(750),
             calibration_sequence,
             closing,
         });
@@ -1465,6 +1467,85 @@ mod tests {
             sampler.await.unwrap();
         }
     }
+    #[tokio::test]
+    async fn command_scheduling_allowance_is_separate_from_startup() {
+        for delay_ms in [300, 3000] {
+            let (transport, mut worker) = tokio::io::duplex(4096);
+            let mut reply = json!({"version":1,"session":"a".repeat(32),"ticket":"b".repeat(32),
+                "sequence":0,"state":"active","reason":null,"duty_percent":100,"ticket_ms":250,
+                "lease_ms":1000,"owned":true,"physical_write_verified":false});
+            worker
+                .write_all(format!("{reply}\n").as_bytes())
+                .await
+                .unwrap();
+            let client = NativeSessionClient::from_authenticated_transport(transport)
+                .await
+                .unwrap();
+            let epoch = Instant::now();
+            let (stop, stopped) = oneshot::channel();
+            let (samples, incoming) = mpsc::channel(1);
+            let peer = tokio::spawn(async move {
+                let mut worker = BufReader::new(worker);
+                let mut line = String::new();
+                worker.read_line(&mut line).await.unwrap();
+                let command: serde_json::Value = serde_json::from_str(&line).unwrap();
+                assert_eq!(command["action"], "set");
+                assert_eq!(command["duty_percent"], 100);
+                if delay_ms > 1000 {
+                    // A 3 s *command* reply is never covered by the startup budget.
+                    line.clear();
+                    assert_eq!(worker.read_line(&mut line).await.unwrap(), 0);
+                    return;
+                }
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                reply["sequence"] = command["sequence"].clone();
+                reply["ticket"] = json!("c".repeat(32));
+                worker
+                    .get_mut()
+                    .write_all(format!("{reply}\n").as_bytes())
+                    .await
+                    .unwrap();
+                let _ = stop.send(());
+                line.clear();
+                worker.read_line(&mut line).await.unwrap();
+                let command: serde_json::Value = serde_json::from_str(&line).unwrap();
+                assert_eq!(command["action"], "close");
+                reply["sequence"] = command["sequence"].clone();
+                reply["state"] = json!("closed");
+                reply["owned"] = json!(false);
+                worker
+                    .get_mut()
+                    .write_all(format!("{reply}\n").as_bytes())
+                    .await
+                    .unwrap();
+            });
+            let result = run(
+                client,
+                ControlMode::Calibration { critical_c: 80.0 },
+                SamplerFrame {
+                    temperature_c: 40.0,
+                    temperature_at_ms: 0,
+                    rpm: 900.0,
+                    rpm_at_ms: 0,
+                },
+                incoming,
+                stopped,
+                epoch,
+            )
+            .await;
+            if delay_ms < 1000 {
+                assert!(result.unwrap().native_closed);
+            } else {
+                assert!(result
+                    .unwrap_err()
+                    .contains("Native acknowledgement deadline exceeded"));
+                assert!(epoch.elapsed() < Duration::from_secs(2));
+            }
+            drop(samples);
+            peer.await.unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn sensor_emergency_does_not_wait_for_stuck_native_receipt() {
         let (transport, mut worker) = tokio::io::duplex(4096);

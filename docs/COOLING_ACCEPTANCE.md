@@ -252,3 +252,74 @@ Local validation for R5b:
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-mainboard-control.ps1`:
   passed; synthetic native callbacks/ports and test-directory journal storage,
   without opening hardware or installing a service/driver.
+
+
+## Owner session 2026-11-06: R5c native acknowledgement under CPU load
+
+Owner evidence: ASUS PRIME X870-P WIFI / NCT6701D / CHA_FAN2, four concurrent
+Cargo builds, Tctl about 70 C. `mode:calibration` immediately blocked with
+`Native acknowledgement deadline exceeded; preserve recovery intent`.
+The broker recorded `stage:session`, `kind:EndOfStreamException`; recovery was
+null after the channel returned cleanly. Idle sessions started successfully.
+
+The exact daemon message comes from `cooling_runtime`'s **150 ms per-command**
+receipt deadline, after `CoolingHost::start_native` has already acquired a client.
+It is not the LHM startup timeout. CPU scheduling/IPC latency can exhaust this
+small allowance; cancellation drops the relay and explains the broker EOF.
+Per-command timings were not recorded, so this is the source-based explanation,
+not a measured attribution of the owner's delay to a particular native call.
+
+The startup path also had mismatched nested limits: Rust host 12 s, relay-ready
+11 s, broker worker-ready 10 s and initial worker receipt 2 s. `Mainboard.Main`
+loads/opens LHM and finds the control before `NativeControlWorker.Run`; that
+worker validates its binding and takes its first checked sample before `ready`.
+Authenticated acquisition requests 100%, then issues the first ticket and starts
+the one-second lease. None of that initialization belongs in a steady-state
+command allowance. The first *set command* already uses an active ticket/lease;
+it cannot safely take 2-4 s, even if it only requests 100%.
+
+Fix (this commit): bound whole acquisition at 30 s, relay startup at 25 s,
+worker initialization at 20 s and initial receipt at 5 s. Both Rust and C# peers
+allow the initial receipt budget only once; command reads retain their 2 s
+transport bound. Runtime acknowledgements allow 750 ms for scheduling and IPC,
+below the independent 1000 ms lease. Calibration acknowledgements remain bounded
+at 1000 ms. Tickets remain 250 ms (client sends within 200 ms); this change does
+not make a ticket delayed in transit valid. Worker process priority is AboveNormal
+before LHM initialization; telemetry and lease-watchdog threads also use
+AboveNormal, never realtime. No reconnect, replay or second acquisition is added.
+
+Startup timeout/cancellation closes the original transport and leaves daemon
+admission blocked with unresolved recovery intent. EOF alone never proves release.
+Once acquired, the native watchdog, critical/stale checks, pump/floor rules and
+100%-then-firmware return policy remain in force. Driver hangs still require the
+existing external recovery path; priority is not independent fault supervision.
+
+Regression coverage is synthetic only: Rust duplex/host and C# named-pipe fixtures
+cover 2/4-second initialization/first-receipt delays and explicit close; a silent
+worker times out, closes the same transport and leaves Rust maintenance blocked
+with one unresolved token and no return report. Existing anti-replay, slow-write,
+lease-expiry, telemetry, disconnect and recovery fixtures continue to apply.
+
+Owner re-test R5c remains open (prompt 07). No hardware, UAC, installer, service
+changes or installed application files were accessed. Hardware acceptance and
+`hardware_verified` remain unchanged.
+
+Local validation for R5c:
+
+- `cargo fmt --all --check`: passed.
+- `cargo clippy --workspace --all-targets --locked -- -D warnings`: failed on
+  two pre-existing `modules/drgb` lints: `manual_is_multiple_of`
+  (`src/report.rs:167`) and `unnecessary_map_or` (`src/lib.rs:66`). Both expressions
+  are unchanged from the parent commit; no unrelated module changes were made.
+- `cargo clippy -p freergb-control -p freergb-daemon --all-targets --locked -- -D warnings`:
+  passed.
+- `cargo test -p freergb-control -p freergb-daemon --locked`: passed (246 tests,
+  7 existing fixture-dependent tests ignored, doctests passed). The initial run
+  lacked the sibling effect-worker binary required by marketplace tests; after
+  `cargo build -p freergb-effect-host --bin freergb-effect-worker --locked`, the
+  complete requested command passed.
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-mainboard-control.ps1`:
+  passed, including 2/4-second startup and silent-worker fixtures.
+- `scripts/build-mainboard-helper.ps1 -OutputDirectory E:/freergb-build/ack/mainboard`:
+  production helper/service compilation and hardware-free serialization self-test
+  passed. Nothing was installed.

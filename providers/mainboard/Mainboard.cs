@@ -385,6 +385,9 @@ internal static class Mainboard
             // Only the registered protected service launches this dedicated worker.
             // No fan is acquired until the service-only pipe peer authenticates.
             BrokerService.CheckInstallation(true);
+            // Give the control worker scheduling preference over bulk builds,
+            // including LHM initialization before NativeControlWorker.Run.
+            Process.GetCurrentProcess().PriorityClass=ProcessPriorityClass.AboveNormal;
             library=BrokerService.RuntimePath; direct=true;
             if (!System.Text.RegularExpressions.Regex.IsMatch(args[2],"^/lpc/[a-z0-9]+/[0-9]+/control/[0-6]$")) return 2;
             object unavailable=Initialize();
