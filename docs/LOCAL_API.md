@@ -1,5 +1,12 @@
 # Local API
 
+`modules.modes` controls optional hardware effect modes using
+`{"device":"<engine-id>","command":{"op":"list"}}`. Commands are `list`,
+`set` with a `selection`, `direct`, and a separate `save` with explicit
+`confirmed:true`. The response is `{catalog,active}`. See
+[hardware effect modes](HARDWARE_MODULES.md#hardware-effect-modes-hid-api-1-optional-extension-version-1)
+for the versioned catalog, parameter schema, validation and save-consent contract.
+
 Implemented in `crates/freergb-daemon/src/{api,ipc}.rs`, API version **1**.
 
 ## Transport

@@ -50,7 +50,14 @@ struct View {
 /// Newest pending frame for a worker (`None` = nothing new).
 type Slot = Arc<(Mutex<Option<Frame>>, Condvar)>;
 
+pub(crate) struct ModeWork {
+    pub command: Value,
+    pub deadline: Instant,
+    pub reply: std::sync::mpsc::SyncSender<Result<Value, String>>,
+}
+
 struct Worker {
+    modes: std::sync::mpsc::SyncSender<ModeWork>,
     id: DeviceId,
     view: Arc<Mutex<View>>,
     slot: Slot,
@@ -201,6 +208,7 @@ fn run_worker(
     slot: Slot,
     stop: Arc<AtomicBool>,
     retry_interval: Duration,
+    modes: std::sync::mpsc::Receiver<ModeWork>,
 ) {
     let publish = |dev: &dyn RgbDevice, view: &Mutex<View>, err: Option<Option<String>>| {
         let mut v = guard(view);
@@ -256,6 +264,17 @@ fn run_worker(
         };
         if stop.load(Ordering::SeqCst) {
             break;
+        }
+
+        if let Ok(work) = modes.try_recv() {
+            let result = if Instant::now() >= work.deadline {
+                Err("hardware mode request expired before execution".into())
+            } else {
+                dev.hardware_mode_command(work.command)
+                    .map_err(|e| e.to_string())
+            };
+            publish(dev.as_ref(), &view, None);
+            let _ = work.reply.send(result);
         }
 
         match dev.status() {
@@ -633,9 +652,20 @@ impl Engine {
         self.workers.iter().any(|w| &w.id == id)
     }
 
-    /// Hands the device to its own worker thread, which connects it and
-    /// retries on failure.
+    /// Clones only the bounded control sender; the worker retains device ownership.
+    pub(crate) fn hardware_mode_sender(
+        &self,
+        id: &str,
+    ) -> Option<std::sync::mpsc::SyncSender<ModeWork>> {
+        self.workers
+            .iter()
+            .find(|w| w.id.0 == id)
+            .map(|w| w.modes.clone())
+    }
+
+    /// Hands the device to its own worker thread, which connects and retries.
     pub fn add_device(&mut self, dev: Box<dyn RgbDevice>) {
+        let (mode_tx, mode_rx) = std::sync::mpsc::sync_channel(1);
         let id = dev.info().id.clone();
         let id_str = id.0.clone();
         tracing::info!(device = %id, name = %dev.info().name, "device added");
@@ -661,10 +691,11 @@ impl Engine {
             );
             std::thread::Builder::new()
                 .name(format!("dev-{id}"))
-                .spawn(move || run_worker(dev, view, slot, stop, retry))
+                .spawn(move || run_worker(dev, view, slot, stop, retry, mode_rx))
                 .expect("spawn device worker")
         };
         self.workers.push(Worker {
+            modes: mode_tx,
             id,
             view,
             slot,

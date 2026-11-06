@@ -27,6 +27,47 @@ fn module_call(
     method: &str,
     params: &Value,
 ) -> Result<Value, (i64, String)> {
+    if method == "modules.modes" {
+        let id = params["device"]
+            .as_str()
+            .ok_or_else(|| invalid_params("expected device id"))?;
+        let command: freergb_module_api::modes::Command =
+            serde_json::from_value(params["command"].clone()).map_err(invalid_params)?;
+        if matches!(
+            command,
+            freergb_module_api::modes::Command::Save { confirmed: false }
+        ) {
+            return Err((-32005, "save requires explicit user confirmation".into()));
+        }
+        let sender = {
+            let engine = lock(engine);
+            if !matches!(command, freergb_module_api::modes::Command::List)
+                && (engine.lighting_paused() || !engine.conflicts().is_empty())
+            {
+                return Err((-32005, "hardware control is paused".into()));
+            }
+            engine
+                .hardware_mode_sender(id)
+                .ok_or((-32004, "device not found".into()))?
+        };
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        sender
+            .try_send(crate::engine::ModeWork {
+                command: serde_json::to_value(command).map_err(invalid_params)?,
+                deadline: std::time::Instant::now() + std::time::Duration::from_secs(1),
+                reply: tx,
+            })
+            .map_err(|_| (-32005, "device control busy or stopped".into()))?;
+        return rx
+            .recv_timeout(std::time::Duration::from_secs(4))
+            .map_err(|_| {
+                (
+                    -32005,
+                    "device control timed out or stopped; inspect state before retry".into(),
+                )
+            })?
+            .map_err(|e| (-32005, e));
+    }
     let manager = lock(engine)
         .modules
         .clone()

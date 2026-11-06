@@ -103,6 +103,80 @@ Writing a module: depend on `freergb-module-api`, implement
 `modules/razer-chroma` and the fixture in
 `crates/freergb-modules/src/bin/freergb-module-fixture.rs`.
 
+## Hardware effect modes (HID API 1, optional extension version 1)
+
+Modules may implement `sdk::Module::hardware_modes`, `set_hardware_mode`,
+`resume_direct` and `save_hardware_mode`. Defaults preserve existing modules.
+After successful initialize, the SDK adds `hardware_modes: {version:1,modes:[...]}`
+only for a nonempty catalog. Old hosts ignore this field; new hosts send no new
+requests to modules that omit it. The HID envelope and package API stay at 1;
+bus API 2 and cooling API 3 are unaffected. Unknown extension versions fail closed.
+
+Each descriptor contains `id` (stable module-local string), `name`, `value`
+(upstream mode value), `flags`, optional `speed`/`brightness` ranges `{min,max}`,
+and `colors:{min,max}`. At most 128 modes, unique bounded IDs, and at most 4096
+colors are accepted. Speed and brightness preserve native integer units and
+reversed endpoints (e.g. speed min=5/max=1); both endpoints are inclusive.
+These are whole-device operations; there is no per-zone selection in version 1.
+
+The contract maps the pinned OpenRGB `RGBController/RGBControllerInterface.h`
+mode semantics without importing controller implementation code:
+
+| OpenRGB meaning | Extension representation |
+|---|---|
+| speed, brightness | Flag bits 0, 4; corresponding range and required selection value |
+| left/right, up/down, horizontal/vertical, diagonal | Flag bits 1, 2, 3, 11; selection `direction` values 0..9 in upstream order |
+| per-LED, mode-specific, random colors | Flag bits 5, 6, 7; `color_type` 1, 2, 3 (0 means none) |
+| color count | Per-LED requires the layout LED count; mode-specific uses the declared inclusive min/max; random/none require an empty color vector |
+| manual save | Flag bit 8; enables the separate confirmed save command |
+| automatic save | Flag bit 9 is **rejected**: selection must be volatile |
+| requires entire device | Flag bit 10; all extension operations already apply to the entire assigned device |
+
+Selection is `{id,speed?,brightness?,direction?,color_type,colors:[{r,g,b},...]}`.
+Unsupported parameters must be absent/null; supported speed, brightness and
+direction must be supplied. No defaults or silent clamping are inferred.
+Unknown IDs, flags, fields, invalid color types/counts and out-of-range values
+are rejected before transport I/O by both host and SDK.
+
+Wire request: `hardware_modes {version:1,command:...}`. Commands are
+`{op:"list"}`, `{op:"set",selection:...}`, `{op:"direct"}` and
+`{op:"save",confirmed:true}`. Responses contain `{catalog,active}`; `active`
+is null in direct mode. Initialize/reconnect starts direct with no remembered
+selection. The host serves list from the validated cached catalog without I/O.
+Set/direct/save run on the device's owning worker between frames, using the
+existing daemon-owned HID handle and broker limits. A one-slot command queue
+rejects overload; queued commands expire after one second before execution.
+The local API waits at most four seconds, without holding the engine mutex.
+
+After acknowledged set, the host suppresses streamed frames until acknowledged
+direct; the SDK independently rejects frames while a mode is selected. The
+module's direct hook must restore its volatile streaming state. Runtime selection
+is not persisted to host state/profiles, replayed on reconnect, or saved during
+shutdown. A failed transition faults the module process through existing recovery.
+
+Local API `modules.modes` accepts `{device:<engine-id>,command:<above>}`.
+For example, `freergb ctl modules.modes '{"device":"module:fixture:test","command":{"op":"list"}}'`.
+Errors follow the existing local API convention: -32602 malformed parameters,
+-32004 missing device, -32005 refused/unavailable/busy/timeout. Mutating commands
+are refused while lighting is paused or a software conflict is present.
+
+**Saving requires a separate user action and confirmation.** A UI must explain
+that device storage will be written and then send `save` with `confirmed:true`.
+Missing/false confirmation, no active mode, or missing manual-save capability
+is refused. Set, direct, frame, shutdown and reconnect must never save implicitly.
+Families whose firmware always saves on selection cannot advertise that path.
+Signed native modules remain trusted programs, not a sandbox: a dishonest module
+can mislabel its packets. Catalog validation does not prove physical persistence.
+
+Proof is simulation-only: the original MIT fixture in
+`freergb-module-fixture` emits synthetic packets, and host tests assert their
+exact bytes including a save packet only after confirmation. Daemon tests cover
+local RPC and worker serialization without render ticks. See the fixture
+[provenance and owner acceptance](../crates/freergb-modules/tests/fixtures/hardware-modes/PROVENANCE.md).
+This removes the API blocker for future Redragon, SteelSeries Rival, ViewSonic
+and Holtek hardware effects; no family implementation or compatibility row is
+promoted by this change.
+
 ## Read-only platform identity (API 1 additive extension)
 
 `identify` and `initialize` accept an optional `params.platform` object:

@@ -57,3 +57,12 @@
     hardware write authority. This enables future DMI-gated detection without
     adding family ports or claiming hardware acceptance. See
     [HARDWARE_MODULES.md](HARDWARE_MODULES.md#read-only-platform-identity-api-1-additive-extension).
+17. **Opt-in hardware effect modes (2026-11-06).** Keep HID API 1 and negotiate
+    a separately versioned catalog in initialize output. Old modules retain the
+    existing wire shape and default SDK hooks. Validate OpenRGB-compatible mode
+    metadata and parameters in host and SDK; execute commands on the owning
+    worker through the existing broker. Hardware animation suspends streamed
+    frames until explicit direct mode. Saving is a separate confirmed operation;
+    automatically persistent modes are refused. No selection persistence or
+    reconnect replay. Original fixture and virtual-device tests only, no family
+    ports or hardware acceptance. See HARDWARE_MODULES.md, hardware effect modes.

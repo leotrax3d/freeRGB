@@ -236,3 +236,206 @@ fn unplugged_device_is_reported_gone() {
     let error = d.push_frame(&Frame::solid(2, RED)).unwrap_err();
     assert!(error.is_gone(), "{error}");
 }
+
+#[test]
+fn hardware_modes_are_volatile_until_confirmed_save_and_direct_resumes_frames() {
+    use serde_json::json;
+    let wire = Wire::default();
+    let mut d = device("hardware-modes", &wire);
+    assert!(d.hardware_mode_command(json!({"op":"list"})).is_err());
+    d.connect().unwrap();
+    let catalog = d.hardware_mode_command(json!({"op":"list"})).unwrap();
+    assert_eq!(catalog["catalog"]["version"], 1);
+    assert_eq!(catalog["catalog"]["modes"][0]["value"], 7);
+    let command = json!({"op":"set", "selection": {
+        "id":"wave", "speed":3, "direction":1, "brightness":75,
+        "color_type":2, "colors":[{"r":10,"g":20,"b":30}]
+    }});
+    let mut invalid = command.clone();
+    invalid["selection"]["speed"] = json!(6);
+    assert!(d.hardware_mode_command(invalid).is_err());
+    assert!(d
+        .hardware_mode_command(json!({"op":"save", "confirmed":true}))
+        .is_err());
+    assert_eq!(wire.written.lock().unwrap().len(), 1);
+    let selected = d.hardware_mode_command(command.clone()).unwrap();
+    assert_eq!(selected["active"], command["selection"]);
+    d.push_frame(&Frame::solid(2, RED)).unwrap();
+    assert!(d
+        .hardware_mode_command(json!({"op":"save", "confirmed":false}))
+        .is_err());
+    assert!(d.hardware_mode_command(json!({"op":"save"})).is_err());
+    assert_eq!(
+        *wire.written.lock().unwrap(),
+        [vec![0, 0xAB], vec![3, 7, 3, 1, 75, 1, 10, 20, 30]]
+    );
+    d.hardware_mode_command(json!({"op":"save", "confirmed":true}))
+        .unwrap();
+    d.hardware_mode_command(json!({"op":"direct"})).unwrap();
+    d.push_frame(&Frame::solid(2, RED)).unwrap();
+    d.disconnect(None).unwrap();
+    assert_eq!(
+        *wire.written.lock().unwrap(),
+        [
+            vec![0, 0xAB],
+            vec![3, 7, 3, 1, 75, 1, 10, 20, 30],
+            vec![5],
+            vec![4],
+            vec![1, 255, 0, 0, 255, 0, 0],
+            vec![2, 0]
+        ]
+    );
+    d.connect().unwrap();
+    assert!(d.hardware_mode_command(json!({"op":"list"})).unwrap()["active"].is_null());
+    d.disconnect(None).unwrap();
+    let mut legacy = device("ok", &Wire::default());
+    legacy.connect().unwrap();
+    assert!(legacy.hardware_mode_command(json!({"op":"list"})).is_err());
+    legacy.push_frame(&Frame::solid(2, RED)).unwrap();
+    legacy.disconnect(None).unwrap();
+}
+
+#[test]
+fn sdk_enforces_version_initialization_and_confirmation_even_without_host_validation() {
+    use freergb_module_api::{modes, Method};
+    use freergb_modules::host::Process;
+    let wire = Wire::default();
+    let dir = std::env::temp_dir().join(format!("freergb-mode-sdk-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("fixture-mode"), "hardware-modes").unwrap();
+    let mut child = Process::spawn(&Launch {
+        module_id: "fixture".into(),
+        executable: env!("CARGO_BIN_EXE_freergb-module-fixture").into(),
+        directory: dir.clone(),
+    })
+    .unwrap();
+    child.hello().unwrap();
+    let mut transport = Some(Box::new(Echo(wire.clone(), None)) as Box<dyn HidTransport>);
+    let list = Method::HardwareModes {
+        version: 1,
+        command: modes::Command::List,
+    };
+    assert!(child
+        .request(list.clone(), REQUEST_TIMEOUT, &mut transport)
+        .is_err());
+    child
+        .request(
+            Method::Initialize {
+                interface: InterfaceInfo {
+                    vid: 1,
+                    pid: 2,
+                    interface: 0,
+                    usage_page: 1,
+                    usage: 2,
+                    product: None,
+                },
+                platform: None,
+                zones: None,
+            },
+            REQUEST_TIMEOUT,
+            &mut transport,
+        )
+        .unwrap();
+    assert!(child
+        .request(
+            Method::HardwareModes {
+                version: 2,
+                command: modes::Command::List
+            },
+            REQUEST_TIMEOUT,
+            &mut transport
+        )
+        .is_err());
+    child
+        .request(list, REQUEST_TIMEOUT, &mut transport)
+        .unwrap();
+    assert!(child
+        .request(
+            Method::HardwareModes {
+                version: 1,
+                command: modes::Command::Save { confirmed: false }
+            },
+            REQUEST_TIMEOUT,
+            &mut transport
+        )
+        .is_err());
+    assert_eq!(*wire.written.lock().unwrap(), [vec![0, 0xAB]]);
+    let selection = modes::Selection {
+        id: "wave".into(),
+        speed: Some(2),
+        direction: Some(0),
+        brightness: Some(25),
+        color_type: 2,
+        colors: vec![RED],
+    };
+    child
+        .request(
+            Method::HardwareModes {
+                version: 1,
+                command: modes::Command::Set {
+                    selection: selection.clone(),
+                },
+            },
+            REQUEST_TIMEOUT,
+            &mut transport,
+        )
+        .unwrap();
+    assert!(child
+        .request(
+            Method::Frame {
+                rgb: freergb_module_api::pack_rgb(&[RED, RED])
+            },
+            REQUEST_TIMEOUT,
+            &mut transport
+        )
+        .is_err());
+    assert!(child
+        .request(
+            Method::HardwareModes {
+                version: 1,
+                command: modes::Command::Save { confirmed: false }
+            },
+            REQUEST_TIMEOUT,
+            &mut transport
+        )
+        .is_err());
+    assert!(child
+        .request(
+            Method::HardwareModes {
+                version: 1,
+                command: modes::Command::Set {
+                    selection: modes::Selection {
+                        speed: Some(9),
+                        ..selection
+                    }
+                }
+            },
+            REQUEST_TIMEOUT,
+            &mut transport
+        )
+        .is_err());
+    assert_eq!(
+        *wire.written.lock().unwrap(),
+        [vec![0, 0xAB], vec![3, 7, 2, 0, 25, 1, 255, 0, 0]]
+    );
+    child
+        .request(
+            Method::HardwareModes {
+                version: 1,
+                command: modes::Command::Direct,
+            },
+            REQUEST_TIMEOUT,
+            &mut transport,
+        )
+        .unwrap();
+    child
+        .request(
+            Method::Shutdown { final_color: None },
+            REQUEST_TIMEOUT,
+            &mut transport,
+        )
+        .unwrap();
+    drop(child);
+    std::fs::remove_file(dir.join("fixture-mode")).unwrap();
+    std::fs::remove_dir(dir).unwrap();
+}

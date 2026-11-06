@@ -18,6 +18,7 @@
 
 pub mod bus;
 pub mod cooling;
+pub mod modes;
 pub mod sdk;
 
 use base64::Engine as _;
@@ -199,6 +200,11 @@ pub enum Method {
         rgb: String,
     },
     Status,
+    /// Optional extension; sent only after an initialize catalog advertises it.
+    HardwareModes {
+        version: u32,
+        command: modes::Command,
+    },
     Shutdown {
         final_color: Option<Rgb>,
     },
