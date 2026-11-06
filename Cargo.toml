@@ -47,6 +47,8 @@ members = [
     "modules/zalman-z-sync",
     "modules/msi-monitor72",
     "modules/asus-aura-mouse",
+    "modules/asus-aura-mousemat",
+    "modules/asus-aura-mousemat",
     "modules/roccat-elo",
     "modules/roccat-horde-aimo",
     "modules/roccat-sense-aimo",

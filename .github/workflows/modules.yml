@@ -189,6 +189,14 @@ jobs:
             node scripts/openrgb/port-asus-aura-mouse-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-asus-aura-mouse
             git diff --exit-code -- modules/asus-aura-mouse/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-mousemat" ]; then
+            node scripts/openrgb/port-asus-aura-mousemat-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-mousemat
+            git diff --exit-code -- modules/asus-aura-mousemat/src/devices_table.rs
+          elif [ "$MODULE" = "asus-aura-mousemat" ]; then
+            node scripts/openrgb/port-asus-aura-mousemat-devices.mjs openrgb "$OPENRGB_COMMIT"
+            cargo fmt --package freergb-module-asus-aura-mousemat
+            git diff --exit-code -- modules/asus-aura-mousemat/src/devices_table.rs
           elif [ "$MODULE" = "roccat-elo" ]; then
             node scripts/openrgb/port-roccat-elo-devices.mjs openrgb "$OPENRGB_COMMIT"
             cargo fmt --package freergb-module-roccat-elo
