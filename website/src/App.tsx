@@ -1,13 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react"
 import {
-  Activity, ArrowUpRight, AudioLines, BookOpen, Cable, Check, CircleHelp, Cpu, Download, Fan,
+  Activity, ArrowUpRight, Play, AudioLines, BookOpen, Cable, Check, CircleHelp, Cpu, Download, Fan,
   Github, Keyboard, Layers, LayoutDashboard, Monitor, MonitorUp, Package, PlugZap,
-  Search, ScanSearch, Settings, ShieldCheck, Sparkles, Terminal, type LucideIcon,
+  Search, ScanSearch, Settings, Sparkles, Terminal, type LucideIcon,
 } from "lucide-react"
 import wordmark from "../../assets/brand/wordmark-dark.svg"
 import appIcon from "../../assets/icons/freergb-32.png"
 import bundledWebsiteContent from "../../docs/WEBSITE_CONTENT.md?raw"
-import { LiveDemo } from "./components/LiveDemo"
+import { EffectPlayground } from "./components/EffectPlayground"
+import { ProductTour } from "./components/ProductTour"
 import { HardwareCheck } from "./components/HardwareCheck"
 import { FanCoverage, RgbCoverage } from "./components/Coverage"
 
@@ -31,15 +32,13 @@ type Group = {
   id: string
   nav: string
   title: string
-  description: string
   icon: LucideIcon
   features: Feature[]
 }
 
 const groups: Group[] = [
   {
-    id: "light", nav: "Light", title: "Light", icon: Sparkles,
-    description: "Create one lighting system from every supported device.",
+    id: "light", nav: "Lighting", title: "Lighting", icon: Sparkles,
     features: [
       { icon: Sparkles, title: "Lighting", color: "green" },
       { icon: LayoutDashboard, title: "Layout", color: "purple" },
@@ -48,7 +47,6 @@ const groups: Group[] = [
   },
   {
     id: "hardware", nav: "Hardware", title: "Hardware", icon: Cpu,
-    description: "See what is connected, what it is doing, and how it is being cooled.",
     features: [
       { icon: Cpu, title: "Devices", color: "blue" },
       { icon: Fan, title: "Cooling", color: "cyan" },
@@ -57,7 +55,6 @@ const groups: Group[] = [
   },
   {
     id: "automation", nav: "Automation", title: "Automation", icon: Keyboard,
-    description: "Make lighting respond to sound, the screen, or a sequence you define.",
     features: [
       { icon: AudioLines, title: "Audio reactive", color: "red" },
       { icon: MonitorUp, title: "Screen ambience", color: "purple" },
@@ -65,12 +62,10 @@ const groups: Group[] = [
     ],
   },
   {
-    id: "platform", nav: "Open platform", title: "Open platform", icon: PlugZap,
-    description: "Extend freeRGB without giving up local control or opening a network service.",
+    id: "platform", nav: "Open platform", title: "Integrations", icon: PlugZap,
     features: [
       { icon: Cable, title: "Local API", color: "blue" },
       { icon: PlugZap, title: "Plugin system", color: "purple" },
-      { icon: ShieldCheck, title: "Safety and privacy", color: "green" },
     ],
   },
 ]
@@ -109,12 +104,12 @@ export default function App() {
   const [activeSection, setActiveSection] = useState("overview")
   const [platform, setPlatform] = useState<Platform>("other")
   const [release, setRelease] = useState<ReleaseInfo | null | undefined>(undefined)
-  const [websiteData, setWebsiteData] = useState<WebsiteData>(bundledWebsiteData)
+  const websiteData = bundledWebsiteData
   const sections = [
     { id: "overview", label: "Overview", icon: Sparkles },
     { id: "demo", label: "Live demo", icon: Monitor },
     ...groups.slice(0, 3).map(({ id, nav: label, icon }) => ({ id, label, icon })),
-    { id: "check", label: "Check your hardware", icon: ScanSearch },
+    { id: "check", label: "Hardware search", icon: ScanSearch },
     { id: "compatibility", label: "Compatibility", icon: Search },
     { id: "coverage", label: "Coverage", icon: Fan },
     { id: "guide", label: "User guide", icon: BookOpen },
@@ -141,16 +136,6 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    fetch("https://raw.githubusercontent.com/leotrax3d/FreeRGB/main/docs/WEBSITE_CONTENT.md", { cache: "no-cache" })
-      .then((response) => {
-        if (!response.ok) throw new Error(`GitHub returned ${response.status}`)
-        return response.text()
-      })
-      .then((markdown) => setWebsiteData(parseWebsiteContent(markdown)))
-      .catch(() => { /* The bundled Markdown remains the offline/private-repository fallback. */ })
-  }, [])
-
-  useEffect(() => {
     // /releases/latest skips prereleases, so take the newest published entry (betas included).
     fetch("https://api.github.com/repos/leotrax3d/FreeRGB/releases?per_page=10", { headers: { Accept: "application/vnd.github+json" } })
       .then(async (response) => {
@@ -173,9 +158,8 @@ export default function App() {
       requestAnimationFrame(() => {
         const marker = window.scrollY + window.innerHeight * 0.32
         let current = sections[0].id
-        for (const { id } of sections) {
-          const element = document.getElementById(id)
-          if (element && element.offsetTop <= marker) current = id
+        for (const element of document.querySelectorAll<HTMLElement>("main section[id]")) {
+          if (element.getBoundingClientRect().top + window.scrollY <= marker) current = element.id
         }
         setActiveSection(current)
         queued = false
@@ -188,6 +172,7 @@ export default function App() {
   }, [])
 
   return <div className="site-frame">
+    <a className="skip-link" href="#overview">Skip to content</a>
     <header className="mobile-header">
       <div className="mobile-top"><a href="#overview"><img src={wordmark} alt="freeRGB" /></a><span>{activeLabel}</span><a className="icon-link" href={repo} target="_blank" rel="noreferrer" aria-label="Open GitHub"><Github size={18} /></a></div>
       <nav aria-label="Current website section">{sections.map(({ id, label }) => <a key={id} href={`#${id}`} className={activeSection === id ? "active" : ""} aria-current={activeSection === id ? "location" : undefined}>{label}</a>)}</nav>
@@ -201,7 +186,7 @@ export default function App() {
         <SideLink href="#demo" icon={Monitor} active={activeSection === "demo"}>Live demo</SideLink>
         {groups.slice(0, 3).map((group) => <SideLink key={group.id} href={`#${group.id}`} icon={group.icon} active={activeSection === group.id}>{group.nav}</SideLink>)}
         <span className="nav-label second">Project</span>
-        <SideLink href="#check" icon={ScanSearch} active={activeSection === "check"}>Check your hardware</SideLink>
+        <SideLink href="#check" icon={ScanSearch} active={activeSection === "check"}>Hardware search</SideLink>
         <SideLink href="#compatibility" icon={Search} active={activeSection === "compatibility"}>Compatibility</SideLink>
         <SideLink href="#coverage" icon={Fan} active={activeSection === "coverage"}>Coverage</SideLink>
         <SideLink href="#guide" icon={BookOpen} active={activeSection === "guide"}>User guide</SideLink>
@@ -215,66 +200,60 @@ export default function App() {
     </aside>
 
     <main className="workspace">
-      <section id="overview" className="overview view-section">
+      <section id="overview" className="overview view-section" aria-labelledby="hero-title">
         <div className="overview-copy">
-          <h1>Control lighting, cooling, and devices from one place.</h1>
-          <p className="lead">freeRGB runs on your machine and talks directly to supported hardware. It does not require an account, telemetry, or an open network port.</p>
-          <div className="actions"><a className="button primary" href="#light">Explore features</a><a className="button secondary" href={installTarget.href} target={platform === "other" ? undefined : "_blank"} rel={platform === "other" ? undefined : "noreferrer"}><Download size={15} />{installTarget.label}</a></div>
+          <h1 id="hero-title">Control your<br />RGB lighting.</h1>
+          <p className="lead">Set RGB effects and fan curves from one app.</p>
+          <div className="actions"><a className="button primary" href={`${import.meta.env.BASE_URL}demo/`} target="_blank" rel="noreferrer"><Play size={15} />Try the live demo</a><a className="button secondary" href={installTarget.href} target={platform === "other" ? undefined : "_blank"} rel={platform === "other" ? undefined : "noreferrer"}><Download size={15} />{installTarget.label}</a></div>
         </div>
-        <div className="overview-index">
-          {groups.map((group) => <a href={`#${group.id}`} key={group.id}><group.icon size={17} /><span><b>{group.title}</b><small>{group.description}</small></span><ArrowUpRight size={14} /></a>)}
-        </div>
+        <EffectPlayground />
       </section>
 
-      <LiveDemo />
-      {groups.slice(0, 3).map((group) => <section id={group.id} className="catalog view-section" key={group.id}>
-        <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2><p>{group.description}</p></div></header>
-        <div className="feature-list">{group.features.map((feature) => <FeatureRow key={feature.title} feature={feature} content={websiteData.featureDetails[feature.title]} />)}</div>
-      </section>)}
-
-      <section id="check" className="catalog view-section">
-        <header className="view-header"><div className="view-symbol"><ScanSearch size={18} /></div><div><h2>Check your hardware</h2><p>Search for your exact keyboard, mouse, fan controller, AIO or motherboard and see whether freeRGB supports it.</p></div></header>
+      <ProductTour />
+      <section id="check" className="hardware-spotlight view-section">
+        <header className="view-header"><div className="view-symbol"><ScanSearch size={20} /></div><div><h2>Hardware search</h2></div></header>
         <HardwareCheck />
       </section>
 
+      {groups.slice(0, 3).map((group) => <section id={group.id} className="catalog view-section" key={group.id}>
+        <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2></div></header>
+        <div className="feature-list">{group.features.map((feature) => <FeatureRow key={feature.title} feature={feature} content={websiteData.featureDetails[feature.title]} />)}</div>
+      </section>)}
+
       <section id="compatibility" className="catalog view-section">
-        <header className="view-header"><div className="view-symbol"><Search size={18} /></div><div><h2>Hardware support</h2><p>See which hardware classes and capabilities are currently available.</p></div></header>
+        <header className="view-header"><div className="view-symbol"><Search size={18} /></div><div><h2>Device capabilities</h2></div></header>
         <div className="device-list">
           <div className="device-head"><span>Hardware class</span><span>Current scope</span></div>
           {websiteData.devices.map((device) => <article className="device-row" key={device.name}><div><b>{device.name}</b><code>{device.id}</code></div><p>{device.scope}</p></article>)}
         </div>
-        <p className="section-note">Availability depends on the underlying protocol and safety validation. See the device documentation for exact limitations.</p>
       </section>
 
       <section id="coverage" className="catalog view-section">
-        <header className="view-header"><div className="view-symbol"><Fan size={18} /></div><div><h2>Lighting and fan coverage</h2><p>Generated from the project's compatibility data: how many devices and fan controller chips are covered, and how well.</p></div></header>
+        <header className="view-header"><div className="view-symbol"><Fan size={18} /></div><div><h2>Compatibility data</h2></div></header>
+        <details className="coverage-details"><summary>Explore RGB devices and fan controller chips <span>+</span></summary>
         <h3 className="cov-title">RGB devices</h3>
         <RgbCoverage />
         <h3 className="cov-title">Fan controller chips</h3>
         <FanCoverage />
+        </details>
       </section>
 
       <section id="guide" className="catalog view-section">
-        <header className="view-header"><div className="view-symbol"><BookOpen size={18} /></div><div><h2>User guide</h2><p>Install, first run, lighting, profiles, macros, fan control safety and troubleshooting.</p></div></header>
+        <header className="view-header"><div className="view-symbol"><BookOpen size={18} /></div><div><h2>User guide</h2></div></header>
         <div className="install-list">
-          <a href={`${repo}/blob/main/docs/USER_GUIDE.md`} target="_blank" rel="noreferrer"><BookOpen size={20} /><span><b>Read the user guide</b><small>Includes "motherboard reader is starting" and pipe-busy recovery</small></span><ArrowUpRight size={15} /></a>
+          <a href={`${repo}/blob/main/docs/USER_GUIDE.md`} target="_blank" rel="noreferrer"><BookOpen size={20} /><span><b>Read the user guide</b><small>Setup, fan control safety and connection troubleshooting</small></span><ArrowUpRight size={15} /></a>
           <a href={`${repo}/blob/main/docs/INSTALL.md`} target="_blank" rel="noreferrer"><Download size={20} /><span><b>Installation details</b><small>Windows installer, source builds, Linux</small></span><ArrowUpRight size={15} /></a>
         </div>
       </section>
 
       {groups.slice(3).map((group) => <section id={group.id} className="catalog view-section" key={group.id}>
-        <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2><p>{group.description}</p></div></header>
+        <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2></div></header>
         <div className="feature-list">{group.features.map((feature) => <FeatureRow key={feature.title} feature={feature} content={websiteData.featureDetails[feature.title]} />)}</div>
       </section>)}
 
       <section id="install" className="install view-section">
-        <header className="view-header"><div className="view-symbol"><Download size={18} /></div><div><h2>Install freeRGB</h2><p>The recommended download is selected for this operating system.</p></div></header>
-        <div className="release-panel">
-          <div className="release-icon"><Package size={20} /></div>
-          {release === undefined ? <div><h3>Checking GitHub Releases…</h3><p>Version and release notes are loaded directly from GitHub.</p></div>
-            : release === null ? <div><h3>No published release yet</h3><p>Installers are currently produced by GitHub Actions. The website will switch to the published installer automatically when the first release is available.</p></div>
-              : <div><p><time dateTime={release.publishedAt}>{new Date(release.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</time></p><h3>{release.name} <small>{release.tag}</small></h3><p>{release.notes}</p><a href={release.url} target="_blank" rel="noreferrer">Full release notes <ArrowUpRight size={13} /></a></div>}
-        </div>
+        <header className="view-header"><div className="view-symbol"><Download size={18} /></div><div><h2>Install freeRGB</h2></div></header>
+        {release && <div className="release-panel"><div className="release-icon"><Package size={20} /></div><div><h3>{release.name}</h3><p>{release.notes}</p><a href={release.url} target="_blank" rel="noreferrer">Release notes <ArrowUpRight size={13} /></a></div></div>}
         <div className="install-list">
           <a className={platform === "windows" ? "recommended" : ""} href={windowsAsset?.url ?? websiteData.downloads.windows.url} target="_blank" rel="noreferrer"><Monitor size={20} /><span><b>{websiteData.downloads.windows.label}</b><small>{platform === "windows" ? `Recommended · ${windowsAsset ? "Download latest installer" : websiteData.downloads.windows.note}` : websiteData.downloads.windows.note}</small></span><ArrowUpRight size={15} /></a>
           <a className={platform === "linux" ? "recommended" : ""} href={websiteData.downloads.linux.url} target="_blank" rel="noreferrer"><Terminal size={20} /><span><b>{websiteData.downloads.linux.label}</b><small>{platform === "linux" ? `Recommended · ${websiteData.downloads.linux.note}` : websiteData.downloads.linux.note}</small></span><ArrowUpRight size={15} /></a>
@@ -283,7 +262,7 @@ export default function App() {
       </section>
 
       <section id="faq" className="faq view-section">
-        <header className="view-header"><div className="view-symbol"><CircleHelp size={18} /></div><div><h2>Frequently asked questions</h2><p>Practical answers about setup, privacy, conflicts, and hardware support.</p></div></header>
+        <header className="view-header"><div className="view-symbol"><CircleHelp size={18} /></div><div><h2>Frequently asked questions</h2></div></header>
         <div className="faq-list">{websiteData.faq.map(({ question, answer }) => <details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>)}</div>
       </section>
 

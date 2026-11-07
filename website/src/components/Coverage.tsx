@@ -45,7 +45,7 @@ export function RgbCoverage() {
       <Stat label="Devices known to OpenRGB" value={rgbDevices.length} />
       {byStatus.map(([status, n]) => <Stat key={status} label={RGB_LABEL[status] ?? status} value={n} />)}
     </div>
-    <p className="section-note">Counts come from the generated OpenRGB comparison for commit {openrgb.openrgb_commit.slice(0, 8)}. "Implemented" means the protocol is ported and covered by simulated tests; it is not a promise that every unit works until confirmed on real hardware. Use "Check your hardware" for a specific model.</p>
+    <p className="section-note">OpenRGB reference commit: {openrgb.openrgb_commit.slice(0, 8)}. "Implemented" means the protocol is ported and covered by simulated tests; it is not a promise that every unit works until confirmed on real hardware. Use "Check your hardware" for a specific model.</p>
     <div className="device-list">
       <div className="device-head"><span>Largest ported controller families</span><span>Devices</span></div>
       {families.map(([name, n]) => <article className="device-row" key={name}><div><b>{name}</b></div><p>{n}</p></article>)}
@@ -70,11 +70,11 @@ export function FanCoverage() {
       <Stat label="Read-only" value={s.status.unsupported} />
       <Stat label="Supported board EC models" value={s.ec_boards} />
     </div>
-    <p className="section-note">Fan control is gated behind a safety acknowledgement and guided channel setup. Almost all chips are covered by simulation and reference behaviour; very few are confirmed on real hardware. Source: LibreHardwareMonitor {fans.lhm_version}.</p>
+    <p className="section-note">Fan control requires a safety acknowledgement and guided channel setup. Almost all chips are covered by simulation and reference behaviour; very few are confirmed on real hardware. Source: LibreHardwareMonitor {fans.lhm_version}.</p>
     <label className="check-input"><Search size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search a chip, e.g. NCT6798 or ITE" aria-label="Search fan controller chips" /></label>
     <div className="device-list">
       <div className="device-head"><span>Chip</span><span>Support</span></div>
-      {shown.map((c) => <article className="device-row" key={c.chip}><div><b>{c.name}</b><code>{c.controls} controls · {c.fans} fan inputs</code></div><p>{TIER_LABEL[c.tier] ?? c.tier} — {STATUS_LABEL[c.status] ?? c.status}</p></article>)}
+      {shown.map((c) => <article className="device-row" key={c.chip}><div><b>{c.name}</b><code>{c.controls} controls · {c.fans} fan inputs</code></div><p>{TIER_LABEL[c.tier] ?? c.tier}; {STATUS_LABEL[c.status] ?? c.status}</p></article>)}
       {shown.length === 0 && <article className="device-row"><div><b>No chip found</b></div><p>freeRGB reads the exact chip at runtime under Diagnostics.</p></article>}
     </div>
   </div>

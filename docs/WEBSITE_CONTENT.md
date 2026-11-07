@@ -2,8 +2,8 @@
 
 This file is the canonical source for website content that changes with the product.
 Update it when feature details, hardware support, download routes or FAQ answers
-change. The website fetches the current file from GitHub and falls back to
-the bundled copy when offline.
+change. The website bundles this file at build time so copy changes ship with the reviewed
+website version. Rebuild the website after editing this file.
 
 Version numbers and release notes do not belong here. They come from GitHub
 Releases.
@@ -11,18 +11,88 @@ Releases.
 ```json
 {
   "featureDetails": {
-    "Lighting": { "description": "Choose an effect, tune its parameters, and control global brightness from one view.", "details": ["11 built-in effects", "Up to 8 custom layers", "Colour, speed, direction, and scale"] },
-    "Layout": { "description": "Place devices on a shared canvas so effects move naturally across the whole desk.", "details": ["Drag-and-drop placement", "Device regions", "Shared effect coordinates"] },
-    "Profiles": { "description": "Save complete lighting states and switch between them without rebuilding your setup.", "details": ["Effect and brightness", "Named profiles", "Local storage"] },
-    "Devices": { "description": "Inspect connected hardware, firmware, status, and per-device brightness.", "details": ["Automatic discovery", "Connection status", "Conflict detection"] },
-    "Cooling": { "description": "Control fans and pumps from the temperature sources that matter to your system.", "details": ["Interpolated fan curves", "Minimum output", "Critical-temperature fallback"] },
-    "Monitoring": { "description": "Follow temperatures and speeds with history, warning rules, and diagnostics.", "details": ["Sensor history", "Warnings with hysteresis", "Redacted diagnostic export"] },
-    "Audio reactive": { "description": "Turn local system audio into pulse and spectrum effects without sending it anywhere.", "details": ["Audio Pulse", "Audio Spectrum", "Windows capture"] },
-    "Screen ambience": { "description": "Map the main display onto the device layout at roughly 30 frames per second.", "details": ["Local screen capture", "Shared device canvas", "Windows capture"] },
-    "Macros": { "description": "Build repeatable sequences from lighting, timing, text, and keyboard steps.", "details": ["Colour, effect, text and key steps", "Focused recording and device macro keys", "Native acceptance pending"] },
-    "Local API": { "description": "Use JSON-RPC through Windows named pipes or Unix sockets for your own integrations.", "details": ["No open network port", "Structured state and events", "Local clients only"] },
-    "Plugin system": { "description": "Add hardware definitions and optional process integrations without changing the core.", "details": ["Declarative TOML devices", "Signed WASM effect plugins with hot reload", "Hardware acceptance pending"] },
-    "Safety and privacy": { "description": "Keep control on the machine with defensive hardware access and no account requirement.", "details": ["Known adapters only", "Conflict protection", "No cloud or telemetry"] }
+    "Lighting": {
+      "description": "Pick an effect and adjust its colour, speed and brightness in one view.",
+      "details": [
+        "11 built-in effects",
+        "Up to 8 custom layers"
+      ]
+    },
+    "Layout": {
+      "description": "Place your devices on a shared canvas. Each device shows its part of the effect.",
+      "details": [
+        "Drag-and-drop placement"
+      ]
+    },
+    "Profiles": {
+      "description": "Save your lighting and brightness as a profile, then switch back whenever you like.",
+      "details": [
+        "Stored locally"
+      ]
+    },
+    "Devices": {
+      "description": "Check connected devices, firmware and connection status. Adjust brightness for each device.",
+      "details": [
+        "Automatic discovery",
+        "Conflict detection"
+      ]
+    },
+    "Cooling": {
+      "description": "Set fan and pump speeds from your chosen temperature sources.",
+      "details": [
+        "Minimum fan output",
+        "Critical-temperature fallback"
+      ]
+    },
+    "Monitoring": {
+      "description": "Track temperatures and fan speeds over time.",
+      "details": [
+        "Warning thresholds",
+        "Diagnostic export with sensitive data removed"
+      ]
+    },
+    "Audio reactive": {
+      "description": "Let your lighting follow system audio with pulse and spectrum effects. Audio stays on your machine.",
+      "details": [
+        "Audio pulse and spectrum",
+        "Capture on Windows"
+      ]
+    },
+    "Screen ambience": {
+      "description": "Extend the colours on your main display across your device layout at roughly 30 frames per second.",
+      "details": [
+        "Capture on Windows"
+      ]
+    },
+    "Macros": {
+      "description": "Combine lighting changes, delays, text and key presses into a sequence you can run again.",
+      "details": [
+        "Macro keys and recording",
+        "Native hardware validation pending"
+      ]
+    },
+    "Local API": {
+      "description": "Connect your own tools through JSON-RPC over Windows named pipes or Unix sockets.",
+      "details": [
+        "State and event access"
+      ]
+    },
+    "Plugin system": {
+      "description": "Add hardware definitions and optional process integrations without changing the core.",
+      "details": [
+        "TOML hardware definitions",
+        "Signed WASM effects with hot reload",
+        "Hardware validation pending"
+      ]
+    },
+    "Safety and privacy": {
+      "description": "Control hardware locally. freeRGB checks for access conflicts and does not require an account.",
+      "details": [
+        "Known adapters only",
+        "Conflict protection",
+        "No cloud or telemetry"
+      ]
+    }
   },
   "devices": [
     {
@@ -60,7 +130,7 @@ Releases.
     "windows": {
       "label": "Windows 10 / 11",
       "url": "https://github.com/leotrax3d/FreeRGB/actions",
-      "note": "Latest installer build from GitHub Actions"
+      "note": "Installer builds on GitHub Actions; sign-in may be required"
     },
     "linux": {
       "label": "Linux",
@@ -76,27 +146,27 @@ Releases.
   "faq": [
     {
       "question": "Can other RGB software run at the same time?",
-      "answer": "Software that controls the same hardware should be closed first. freeRGB detects common access conflicts and leaves affected hardware alone until the conflict is resolved."
+      "answer": "Close other software that controls the same hardware before starting freeRGB. When freeRGB detects a common access conflict, it leaves the affected device alone until you resolve it."
     },
     {
       "question": "Does freeRGB require an account?",
-      "answer": "No. Profiles, settings, macros, and device state stay on your machine."
+      "answer": "No. Your profiles, settings, macros and device state stay on your machine."
     },
     {
       "question": "Does freeRGB work without internet access?",
-      "answer": "Yes. Lighting, monitoring, automation, and the local API run without an internet connection. Internet access is only needed for downloads and update checks."
+      "answer": "Yes. Lighting, monitoring, automation and the local API work offline. Downloads and update checks need internet access."
     },
     {
       "question": "Which hardware is supported?",
-      "answer": "Support is tracked by hardware class and capability. Some integrations provide full control, while others may currently offer limited or detection-only support."
+      "answer": "Search for your exact model in the hardware check. Capabilities vary: some devices have full control, while others support fewer functions or detection only. Protocol tests and confirmation on real hardware are tracked separately."
     },
     {
       "question": "Something does not work. Where do I start?",
-      "answer": "Read the troubleshooting section of the user guide. It covers missing devices, the motherboard reader that stays in the starting state, and recovery when the daemon pipe is busy."
+      "answer": "Start with the user guide. Its troubleshooting section covers missing devices, a motherboard reader stuck at startup, and a busy connection to the background service."
     },
     {
       "question": "Is Linux hardware access validated?",
-      "answer": "Not yet. The shared core, audio/screen/evdev capture, udev rules, systemd user unit and .deb/.rpm/AppImage packaging are implemented and fixture-tested, but real Linux hardware and package installation acceptance remain open."
+      "answer": "Real Linux hardware and package installation have not yet passed acceptance testing. The shared core, audio and screen capture, evdev input capture, udev rules, systemd user service and .deb, .rpm and AppImage packaging are implemented and tested with fixtures."
     }
   ]
 }
