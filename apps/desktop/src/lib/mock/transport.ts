@@ -137,7 +137,7 @@ export function mockTransport(): Transport {
   const mockJobs = new Map<number, CoolingSession>();
   const setJob = (job: CoolingSession) => { mockJobs.set(job.job_id!, job); session = job; emit("cooling_session"); };
   let unrestricted = false;
-  let onboarding: OnboardingStatus = { completed: false, safety_text_version: 1, safety_acknowledged: false, safety_acknowledged_unix: null };
+  let onboarding: OnboardingStatus = { completed: false, safety_text_version: 2, safety_acknowledged: false, safety_acknowledged_unix: null };
   // Demo: three identified headers (two fans, one pump) and two live channels.
   const demoBinding = (index: number, header: string, role: "fan" | "pump"): ChannelBinding => ({
     provider: "mainboard.lhm", device_id: "mainboard.lhm:/lpc/nct6701d/0", control_id: JSON.stringify(["/lpc/nct6701d/0", `/lpc/nct6701d/0/control/${index}`]),
@@ -365,7 +365,7 @@ export function mockTransport(): Transport {
           onboarding = { ...onboarding, completed: false }; emit("onboarding");
           return true as T;
         case "safety.acknowledge":
-          if (p.accepted !== true || p.version !== 1) fail("The current safety notice must be read and accepted");
+          if (p.accepted !== true || p.version !== 2) fail("The current safety notice must be read and accepted");
           onboarding = { ...onboarding, safety_acknowledged: true, safety_acknowledged_unix: Math.floor(Date.now() / 1000) }; emit("onboarding");
           return true as T;
         case "safety.revoke":

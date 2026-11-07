@@ -117,9 +117,9 @@ describe("pseudo-locale regression guard", () => {
     expect(hardcodedUi('<button title="Delete">Continue</button>')).toHaveLength(2);
     expect(scanHardcodedUi()).toEqual([]);
   });
-  it("keeps the versioned English safety notice unchanged", () => {
+  it("keeps the versioned English safety notice at its current version", () => {
     const safety = readFileSync(new URL("../../features/onboarding/safety.ts", import.meta.url), "utf8");
-    expect(safety).toContain('SAFETY_TEXT_VERSION = 1');
+    expect(safety).toContain('SAFETY_TEXT_VERSION = 2');
     expect(safety).toContain('Hardware damage and overheating');
   });
 });

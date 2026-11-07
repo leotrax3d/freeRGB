@@ -102,8 +102,11 @@ internal sealed class NativeControlSession
     private readonly INativeControlPort port;
     private readonly Func<long> clock;
     private readonly NativeTelemetryGuard telemetry;
-    // Null keeps the legacy (verified) receipt shape. Lower tiers return to the
-    // firmware mode captured in this worker's own LHM context on any fault.
+    // Null keeps the legacy (verified) receipt shape. On a fault the verified
+    // tier writes 100% and deliberately KEEPS the reservation (no firmware
+    // return). Only lower tiers attempt a return to the firmware mode captured in
+    // this worker's own LHM context, and that return is not proven for process,
+    // OS or power failure.
     private readonly string tier;
     private readonly bool returnOnFault;
     private bool faultReturned;
@@ -182,8 +185,9 @@ internal sealed class NativeControlSession
             catch { state = "recovery_failed"; reason = fault + ":return_failed"; }
             return;
         }
-        // Keep the reservation. An authenticated supervisor must explicitly
-        // resolve/restore this channel; a lost client cannot silently release it.
+        // Verified tier: hold 100% and keep the reservation. An authenticated
+        // supervisor must explicitly resolve/restore this channel; a lost client
+        // cannot silently release it. No firmware return is claimed here.
     }
     internal void Fault(string fault) { lock (gate) Latch(fault); }
     internal bool Poll()
