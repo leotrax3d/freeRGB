@@ -49,6 +49,11 @@ pub trait GpuBackend: Send {
     fn set_duty(&mut self, fan_id: &str, percent: f32) -> Result<(), String>;
     /// Hands the fan back to the driver's automatic policy.
     fn release(&mut self, fan_id: &str) -> Result<(), String>;
+    /// GPU temperature for the Manual-mode interlock. `None` (the default,
+    /// also for a failed read) forces Manual duty to 100%.
+    fn temperature_c(&mut self, _fan_id: &str) -> Option<f32> {
+        None
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -101,6 +106,9 @@ struct Active {
     backend: usize,
     assignment: GpuAssignment,
     applied: Option<f32>,
+    /// Manual duty is honoured only with a fresh temperature and a live loop.
+    interlock: freergb_control::manual_interlock::ManualInterlock,
+    interlocked: Option<freergb_control::manual_interlock::InterlockReason>,
 }
 
 #[derive(Default)]
@@ -116,6 +124,7 @@ pub struct GpuCooling {
     state_dir: Option<PathBuf>,
     paused: bool,
     started: bool,
+    epoch: Option<Instant>,
 }
 
 impl GpuCooling {
@@ -309,6 +318,8 @@ impl GpuCooling {
                     backend,
                     assignment: assignment.clone(),
                     applied: None,
+                    interlock: Default::default(),
+                    interlocked: None,
                 },
             );
             if let Err(error) = self.write_journal() {
@@ -391,15 +402,24 @@ impl GpuCooling {
             return;
         }
         let ids: Vec<String> = self.active.keys().cloned().collect();
+        let epoch = *self.epoch.get_or_insert(now);
+        let mono = now.saturating_duration_since(epoch).as_millis() as u64;
         for id in ids {
             let floor = self.floor(&id);
             let active = self.active.get_mut(&id).expect("listed above");
+            let backend = &mut self.backends[active.backend];
             let target = match &active.assignment.mode {
-                GpuMode::Manual { percent } => *percent,
+                GpuMode::Manual { percent } => {
+                    // Backend-independent safety: missing/stale/critical
+                    // temperature or a stalled loop forces 100%.
+                    active.interlock.observe(mono, backend.temperature_c(&id));
+                    let decision = active.interlock.evaluate(*percent, mono);
+                    active.interlocked = decision.interlock;
+                    decision.duty_percent
+                }
                 GpuMode::Composite { output } => feed.duty(output, now),
             }
             .clamp(floor, 100.0);
-            let backend = &mut self.backends[active.backend];
             match backend.set_duty(&id, target) {
                 Ok(()) => active.applied = Some(target),
                 Err(error) => {
@@ -431,6 +451,7 @@ impl GpuCooling {
                     "floor_percent": self.floor(&f.id),
                     "assignment": active.map(|a| &a.assignment),
                     "applied_percent": active.and_then(|a| a.applied),
+                    "interlock": active.and_then(|a| a.interlocked),
                     "fault": self.faults.get(&f.id),
                 })
             })
@@ -463,6 +484,8 @@ pub mod simulated {
         pub duty: f32,
         pub fail_writes: bool,
         pub writes: u32,
+        /// Simulated GPU temperature; `None` models a missing sensor.
+        pub temp_c: Option<f32>,
     }
 
     /// Shared state so a test can inspect fans after the controller is dropped.
@@ -477,6 +500,7 @@ pub mod simulated {
                     (*id).into(),
                     SimFan {
                         duty: 30.0,
+                        temp_c: Some(45.0),
                         ..SimFan::default()
                     },
                 );
@@ -540,6 +564,9 @@ pub mod simulated {
                 f.duty = 30.0;
                 Ok(())
             })
+        }
+        fn temperature_c(&mut self, id: &str) -> Option<f32> {
+            self.with(id, |f| f.temp_c.ok_or_else(String::new)).ok()
         }
     }
 }
@@ -778,6 +805,52 @@ mod tests {
         );
         assert!(!state.join("gpu-control-journal.json").exists());
         drop(gpu);
+    }
+
+    fn duty_after_tick(gpu: &mut GpuCooling, sim: &SimulatedGpu, at: Instant) -> f32 {
+        gpu.tick(&CompositeFeed::default(), at);
+        sim.fan("sim:gpu0/fan0").duty
+    }
+
+    fn set_temp(sim: &SimulatedGpu, value: Option<f32>) {
+        sim.0
+            .lock()
+            .unwrap()
+            .get_mut("sim:gpu0/fan0")
+            .unwrap()
+            .temp_c = value;
+    }
+
+    #[test]
+    fn manual_interlock_forces_full_duty_without_a_trusted_sensor() {
+        let sim = SimulatedGpu::with_fans(&["sim:gpu0/fan0"]);
+        let mut gpu = controller(&sim, &dir("interlock"));
+        let t0 = Instant::now();
+        let at = |ms: u64| t0 + std::time::Duration::from_millis(ms);
+        gpu.assign(manual(60.0)).unwrap();
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(0)), 60.0);
+        // Critical temperature.
+        set_temp(&sim, Some(90.0));
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(1000)), 100.0);
+        assert_eq!(gpu.view()["fans"][0]["interlock"], "critical");
+        set_temp(&sim, Some(50.0));
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(2000)), 60.0);
+        // Missing sensor reaches the safe state within the documented bound.
+        set_temp(&sim, None);
+        let bound =
+            freergb_control::manual_interlock::ManualInterlock::default().worst_case_bound_ms(1000);
+        let mut t = 2000;
+        while duty_after_tick(&mut gpu, &sim, at(t)) < 100.0 {
+            t += 1000;
+            assert!(t - 2000 <= bound, "bound exceeded");
+        }
+        // A suspended loop (60 s gap) is safe until a fresh sample arrives.
+        set_temp(&sim, Some(50.0));
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(t + 1000)), 60.0);
+        set_temp(&sim, None);
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(t + 61_000)), 100.0);
+        set_temp(&sim, Some(50.0));
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(t + 62_000)), 60.0);
     }
 
     #[test]

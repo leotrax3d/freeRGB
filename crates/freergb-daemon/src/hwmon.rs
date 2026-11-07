@@ -330,6 +330,14 @@ struct Active {
     controller: CurveController,
     stall: u32,
     reasserted: bool,
+    /// Manual mode honours its duty only while a fresh temperature and a live
+    /// loop vouch for it (`freergb_control::manual_interlock`).
+    interlock: freergb_control::manual_interlock::ManualInterlock,
+}
+
+fn mono_ms() -> u64 {
+    static EPOCH: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    EPOCH.get_or_init(Instant::now).elapsed().as_millis() as u64
 }
 
 struct Shared {
@@ -592,6 +600,7 @@ impl HwmonProvider {
                 controller: CurveController::default(),
                 stall: 0,
                 reasserted: false,
+                interlock: Default::default(),
             },
         );
         // Journal durably before the first write: a crash between the two then
@@ -931,6 +940,18 @@ fn tick(shared: &mut Shared) -> bool {
         .scanned
         .is_some_and(|at| at.elapsed() <= Duration::from_millis(3000));
     let unrestricted = shared.unrestricted;
+    let mono = mono_ms();
+    let hottest = fresh
+        .then(|| {
+            shared
+                .chips
+                .iter()
+                .flat_map(|c| &c.temps)
+                .filter_map(|t| t.celsius)
+                .map(|c| c as f32)
+                .fold(None, |m: Option<f32>, c| Some(m.map_or(c, |m| m.max(c))))
+        })
+        .flatten();
     let inputs: Vec<(String, Inputs)> = shared
         .active
         .iter()
@@ -970,8 +991,16 @@ fn tick(shared: &mut Shared) -> bool {
         } else {
             FAN_FLOOR
         };
+        let mut interlocked = None;
         let requested = match &assignment.mode {
-            Mode::Manual { percent } => *percent,
+            Mode::Manual { percent } => {
+                // Backend-independent safety: a missing, stale or critical
+                // temperature (or a stalled loop) forces 100%.
+                active.interlock.observe(mono, hottest);
+                let decision = active.interlock.evaluate(*percent, mono);
+                interlocked = decision.interlock;
+                decision.duty_percent
+            }
             Mode::Curve { curve, .. } => {
                 active
                     .controller
@@ -1028,7 +1057,10 @@ fn tick(shared: &mut Shared) -> bool {
         } else {
             active.stall = 0;
         }
-        let state = if input.temperature.is_none()
+        let state = if let Some(reason) = interlocked {
+            message.get_or_insert_with(|| format!("manual interlock ({reason:?}): 100%"));
+            "fallback_full"
+        } else if input.temperature.is_none()
             && matches!(active.assignment.mode, Mode::Curve { .. })
         {
             message.get_or_insert_with(|| "temperature input unavailable: 100%".into());
@@ -1406,6 +1438,33 @@ mod tests {
             pump: false,
             allow_stop: false,
         }
+    }
+
+    #[test]
+    fn manual_without_a_fresh_temperature_goes_full() {
+        let f = Fixture::new("interlock");
+        let mut p = f.provider();
+        p.start(true).unwrap();
+        let a = manual_70(&p);
+        p.assign(a).unwrap();
+        assert_eq!(f.read("pwm1"), "179");
+        // Every temperature input disappears (driver unload / sensor loss).
+        let dir = f.root.join("class/hwmon0");
+        for name in ["temp1_input", "temp2_input"] {
+            std::fs::remove_file(dir.join(name)).unwrap();
+        }
+        for _ in 0..12 {
+            std::thread::sleep(Duration::from_millis(500));
+            if f.read("pwm1") == "255" {
+                return;
+            }
+        }
+        panic!(
+            "manual duty never reached the safe state: pwm1={} enable={} status={:?}",
+            f.read("pwm1"),
+            f.read("pwm1_enable"),
+            lock(&p.shared).status
+        );
     }
 
     #[test]

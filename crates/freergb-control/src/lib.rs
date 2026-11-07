@@ -8,6 +8,7 @@ pub mod cooling_safety;
 pub mod curves;
 pub mod fan_support;
 pub mod maintenance;
+pub mod manual_interlock;
 pub mod plausibility;
 pub mod rpm;
 pub mod sensor_sources;
