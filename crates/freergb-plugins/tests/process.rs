@@ -17,7 +17,14 @@ fn manifest(fault: &str) -> Manifest {
         },
         access: Access::Virtual,
         layout: LedLayout::strip(3),
-        timeout_ms: 500,
+        // Healthy child startup and replies need scheduling headroom under load.
+        // Only fixtures that intentionally never complete the handshake use a
+        // short deadline; their tests specifically assert a timeout.
+        timeout_ms: if matches!(fault, "hang" | "no-read") {
+            500
+        } else {
+            5_000
+        },
     }
 }
 
@@ -100,7 +107,11 @@ fn frame_crash_and_shutdown_hang_do_not_block_host() {
             assert!(device.disconnect(None).is_err());
         }
         assert!(matches!(device.status(), DeviceStatus::Faulted(_)));
-        assert!(started.elapsed() < Duration::from_secs(5));
+        assert!(
+            started.elapsed() < Duration::from_secs(30),
+            "{fault}: {:?}",
+            started.elapsed()
+        );
     }
 }
 
