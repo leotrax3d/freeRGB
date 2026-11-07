@@ -77,8 +77,8 @@ export function ErrorState({ title, children, action }: { title?: string; childr
         <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
         <span>{title ?? t("common.errorTitle")}</span>
       </p>
-      <div className="break-words pl-6 text-text-muted">{children}</div>
-      {action && <div className="pl-6">{action}</div>}
+      <div className="break-words ps-6 text-text-muted">{children}</div>
+      {action && <div className="ps-6">{action}</div>}
     </div>
   );
 }

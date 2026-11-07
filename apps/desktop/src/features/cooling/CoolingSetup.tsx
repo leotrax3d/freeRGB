@@ -124,7 +124,7 @@ function Calibrate({ onNext }: { onNext: () => void }) {
                 {running ? <span className="inline-flex items-center gap-1"><LoaderCircle className="size-3 animate-spin" />{t("cooling.coolingSetup.measuring")}</span>
                   : range ? t("cooling.coolingSetup.valueValueRpmMeasured", { p0: Math.round(range.min_rpm), p1: Math.round(range.max_rpm) }) : state === "faulted" || state === "failed" ? t("cooling.coolingSetup.calibrationFailedReturnedToBios") : t("cooling.coolingSetup.notCalibrated")}
               </span>
-              <Button size="sm" variant="secondary" className="ml-auto" disabled={busy || pending !== null || unknown.length > 0 || !v.temperature || !v.rpm} onClick={() => calibrate(v)}>
+              <Button size="sm" variant="secondary" className="ms-auto" disabled={busy || pending !== null || unknown.length > 0 || !v.temperature || !v.rpm} onClick={() => calibrate(v)}>
                 {range ? t("cooling.coolingSetup.calibrateAgainUac") : t("cooling.coolingSetup.calibrateUac")}
               </Button>
             </li>

@@ -76,7 +76,7 @@ export default function MacrosView() {
       {running && (
         <Banner tone="info">
           <Zap className="size-4" /> {t("macros.running", { name: running })}
-          <Button size="sm" variant="secondary" className="ml-auto" onClick={() => run("cancel", () => rpc("macros.cancel"), t("macros.macrosView.macroStopped"))}>
+          <Button size="sm" variant="secondary" className="ms-auto" onClick={() => run("cancel", () => rpc("macros.cancel"), t("macros.macrosView.macroStopped"))}>
             <Square /> {t("macros.macrosView.stop")} </Button>
         </Banner>
       )}
@@ -91,7 +91,7 @@ export default function MacrosView() {
                   type="button"
                   onClick={() => open(n)}
                   className={cn(
-                    "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control px-3 text-left text-body transition-colors",
+                    "flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control px-3 text-start text-body transition-colors",
                     name === n ? "bg-surface-raised" : "text-text-muted hover:bg-surface-raised hover:text-text",
                   )}
                 >

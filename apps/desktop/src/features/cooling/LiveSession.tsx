@@ -37,7 +37,7 @@ export function LiveChannels() {
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-small">{t("cooling.live.count", { active, max: list?.max_active ?? 16 })}</span>
-        <Button variant="danger" className="ml-auto" disabled={!connected || active === 0 || pending !== null}
+        <Button variant="danger" className="ms-auto" disabled={!connected || active === 0 || pending !== null}
           onClick={() => run("stop_all", () => rpc("cooling.sessions.stop_all"))}><OctagonX />{t("cooling.liveSession.stopAllAndReturnToBios")}</Button>
       </div>
       {rows.length > 0 && (
@@ -48,7 +48,7 @@ export function LiveChannels() {
               <span className={r.state === "fault" || r.state === "needs_attention" ? "text-danger-text" : "text-text-muted"}>{r.label}</span>
               {r.error && <span className="basis-full text-caption text-text-subtle">{r.error}</span>}
               {r.job_id !== null && ["starting", "curve", "manual", "test"].includes(r.state) && (
-                <Button size="sm" variant="secondary" className="ml-auto" disabled={!connected || pending !== null}
+                <Button size="sm" variant="secondary" className="ms-auto" disabled={!connected || pending !== null}
                   onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: r.control_id }))}>{t("cooling.liveSession.stop")}</Button>
               )}
             </li>

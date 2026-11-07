@@ -84,12 +84,12 @@ function LanguageSettings() {
           id="language-select"
           value={preference}
           onChange={(e) => setPreference(e.target.value as LocalePreference)}
-          className="h-9 rounded-control border border-border bg-surface-sunken px-3 text-small"
+          className="min-h-9 max-w-full rounded-control border border-border bg-surface-sunken px-3 py-2 text-small"
         >
           <option value="auto">{t("settings.language.auto")}</option>
           {LOCALES.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.label}
+            <option key={l.id} value={l.id} lang={l.id} dir="auto">
+              {l.label}{l.machineTranslated ? ` ? ${t("settings.language.machineTranslated")}` : ""}
             </option>
           ))}
         </select>

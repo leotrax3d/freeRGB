@@ -186,7 +186,7 @@ function Palette() {
                   <Icon className="size-4 shrink-0 text-text-subtle" />
                   <span className="truncate">{item.label}</span>
                   {item.hint && <span className="truncate text-caption text-text-subtle">{item.hint}</span>}
-                  {i === active && <CornerDownLeft className="ml-auto size-3.5 shrink-0 text-text-subtle" />}
+                  {i === active && <CornerDownLeft className="ms-auto size-3.5 shrink-0 text-text-subtle" />}
                 </div>
               </li>
             );

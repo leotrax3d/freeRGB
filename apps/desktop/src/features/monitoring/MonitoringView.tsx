@@ -58,12 +58,12 @@ function DeviceSensors() {
       ) : (
         <div className="overflow-hidden rounded-card bg-surface-sunken">
           <table className="w-full text-small">
-            <thead className="text-left text-caption text-text-subtle">
+            <thead className="text-start text-caption text-text-subtle">
               <tr>
                 <th scope="col" className="px-4 py-2 font-normal">{t("monitoring.col.device")}</th>
                 <th scope="col" className="px-4 py-2 font-normal">{t("monitoring.col.sensor")}</th>
-                <th scope="col" className="px-4 py-2 text-right font-normal">{t("monitoring.col.value")}</th>
-                <th scope="col" className="px-4 py-2 text-right font-normal">{t("monitoring.col.age")}</th>
+                <th scope="col" className="px-4 py-2 text-end font-normal">{t("monitoring.col.value")}</th>
+                <th scope="col" className="px-4 py-2 text-end font-normal">{t("monitoring.col.age")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -74,10 +74,10 @@ function DeviceSensors() {
                     <tr key={`${d.info.id}/${s.id}`}>
                       <td className="px-4 py-2 text-text-muted">{d.info.name}</td>
                       <td className="px-4 py-2">{s.name}</td>
-                      <td className="px-4 py-2 text-right tabular">
+                      <td className="px-4 py-2 text-end tabular">
                         {s.value === null || stale ? <span className="text-[#fbbf24]">{stale ? t("monitoring.stale") : "—"}</span> : `${num(s.value, 1)} ${s.unit}`}
                       </td>
-                      <td className="px-4 py-2 text-right text-text-subtle tabular">{num(s.age_ms / 1000, 1)} s</td>
+                      <td className="px-4 py-2 text-end text-text-subtle tabular">{num(s.age_ms / 1000, 1)} s</td>
                     </tr>
                   );
                 }),

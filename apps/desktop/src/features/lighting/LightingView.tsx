@@ -40,7 +40,7 @@ function Brightness() {
           onValueChange={([v]) => change(v!)}
           onValueCommit={([v]) => commit(v!)}
         />
-        <span className="w-10 text-right text-small text-text-muted tabular">{Math.round(value * 100)}%</span>
+        <span className="w-10 text-end text-small text-text-muted tabular">{Math.round(value * 100)}%</span>
       </div>
       {error && <InlineError>{error}</InlineError>}
     </div>
@@ -98,13 +98,13 @@ const EffectTile = memo(function EffectTile({
       disabled={busy}
       onClick={() => onSelect(name)}
       className={cn(
-        "group flex flex-col gap-2 rounded-card p-1.5 pb-2.5 text-left transition-colors duration-(--duration-fast)",
+        "group flex flex-col gap-2 rounded-card p-1.5 pb-2.5 text-start transition-colors duration-(--duration-fast)",
         active ? "bg-surface-raised ring-1 ring-accent/60" : "hover:bg-surface-raised",
       )}
     >
       <div className="relative h-14 overflow-hidden rounded-control opacity-90 transition-opacity group-hover:opacity-100" style={{ background: effectPreview(spec) }}>
         {active && (
-          <span className="absolute right-2 top-2 grid size-5 place-items-center rounded-full bg-accent text-black">
+          <span className="absolute end-2 top-2 grid size-5 place-items-center rounded-full bg-accent text-black">
             <Check className="size-3.5" strokeWidth={3} />
           </span>
         )}

@@ -23,7 +23,7 @@ function Fields({ step, onChange }: { step: MacroStep; onChange: (s: MacroStep) 
       return (
         <div className="flex items-center gap-3">
           <Slider aria-label={t("macros.stepEditor.brightness")} min={0} max={1} step={0.01} value={[step.value]} onValueChange={([v]) => onChange({ ...step, value: v! })} />
-          <span className="w-10 text-right text-small text-text-muted tabular">{Math.round(step.value * 100)}%</span>
+          <span className="w-10 text-end text-small text-text-muted tabular">{Math.round(step.value * 100)}%</span>
         </div>
       );
     case "effect":
@@ -107,7 +107,7 @@ export function StepRow({
   const def = STEP_TYPES.find((t) => t.type === step.type)!;
   return (
     <li className="flex items-start gap-3 px-3 py-2.5">
-      <span className="mt-1.5 w-5 text-right text-caption text-text-subtle tabular">{index + 1}</span>
+      <span className="mt-1.5 w-5 text-end text-caption text-text-subtle tabular">{index + 1}</span>
       <Select
         label={t("macros.stepEditor.stepType")}
         className="w-36 shrink-0"

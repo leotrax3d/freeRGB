@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 // Primary is light-on-dark on purpose: white text on the accent green fails
 // WCAG AA (see docs/GUI_MODERNIZATION.md §4.4).
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-control text-body font-medium transition-[background-color,color,opacity] duration-(--duration-fast) ease-(--ease-out) disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 max-w-full whitespace-normal rounded-control text-body font-medium transition-[background-color,color,opacity] duration-(--duration-fast) ease-(--ease-out) disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -16,8 +16,8 @@ const buttonVariants = cva(
         danger: "bg-danger/15 text-danger-text hover:bg-danger/25",
       },
       size: {
-        sm: "h-8 px-3 text-small",
-        md: "h-9 px-4",
+        sm: "min-h-8 px-3 py-1 text-small",
+        md: "min-h-9 px-4 py-1.5",
         icon: "size-9",
       },
     },

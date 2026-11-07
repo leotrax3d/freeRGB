@@ -136,7 +136,7 @@ export function PluginChannelsSection() {
               .map((s) => (
                 <li key={s.id} className="flex items-center gap-4 px-4 py-2">
                   <span className="min-w-0 flex-1 truncate text-small">{s.name}</span>
-                  <span className="w-24 text-right text-small tabular">
+                  <span className="w-24 text-end text-small tabular">
                     {s.value != null ? `${num(s.value, s.unit === "celsius" ? 1 : 0)} ${s.unit === "celsius" ? "°C" : s.unit === "rpm" ? "RPM" : "%"}` : <span className="text-[#fbbf24]">{t("cooling.pluginsSection.unavailable")}</span>}
                   </span>
                 </li>

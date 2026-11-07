@@ -100,7 +100,7 @@ export function Shell() {
           e.preventDefault();
           main.current?.focus();
         }}
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-control focus:bg-text focus:px-4 focus:py-2 focus:text-black"
+        className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[100] focus:rounded-control focus:bg-text focus:px-4 focus:py-2 focus:text-black"
       >
         {t("a11y.skip")}
       </a>
@@ -110,7 +110,7 @@ export function Shell() {
         ref={main}
         tabIndex={-1}
         aria-label={t(def.label)}
-        className="my-2 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-panel bg-surface outline-none"
+        className="my-2 me-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-panel bg-surface outline-none"
       >
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-6xl flex-col gap-6 px-8 py-8">

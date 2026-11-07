@@ -126,7 +126,7 @@ export function RegionCanvas({
             }}
           >
             {!compact && (
-              <span className="pointer-events-none absolute left-2 top-1.5 right-2 truncate text-caption font-medium text-text">
+              <span className="pointer-events-none absolute start-2 top-1.5 end-2 truncate text-caption font-medium text-text">
                 {item.label}
               </span>
             )}

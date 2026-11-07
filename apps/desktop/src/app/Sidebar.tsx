@@ -23,7 +23,7 @@ function NavItem({ view, active, onSelect }: { view: ViewDef; active: boolean; o
       )}
     >
       <Icon className={cn("size-4", active ? "text-text" : "text-text-subtle group-hover:text-text-muted")} />
-      <span className="flex-1 text-left">{t(view.label)}</span>
+      <span className="flex-1 text-start">{t(view.label)}</span>
     </button>
   );
 }
@@ -74,7 +74,7 @@ export function Sidebar() {
         className="mb-4 flex h-9 items-center gap-2.5 rounded-control border border-border px-3 text-small text-text-subtle transition-colors hover:border-border-strong hover:text-text-muted"
       >
         <Search className="size-4" />
-        <span className="flex-1 text-left">{t("nav.search")}</span>
+        <span className="flex-1 text-start">{t("nav.search")}</span>
         <kbd className="rounded-chip bg-surface px-1.5 font-sans text-caption" aria-hidden>Ctrl K</kbd>
       </button>
       <div data-tour="nav" className="flex flex-col">

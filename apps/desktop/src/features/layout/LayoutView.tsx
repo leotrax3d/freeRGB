@@ -156,7 +156,7 @@ export default function LayoutView() {
                     <button
                       type="button"
                       onClick={() => setSelected(item.id)}
-                      className="flex h-9 w-full items-center gap-3 rounded-control px-2 text-left text-body hover:bg-surface-raised"
+                      className="flex h-9 w-full items-center gap-3 rounded-control px-2 text-start text-body hover:bg-surface-raised"
                     >
                       <span className="size-3 rounded-full" style={{ background: item.color }} />
                       <span className="truncate">{item.label}</span>

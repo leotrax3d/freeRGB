@@ -114,7 +114,7 @@ export function KeyRecorder({
         onBlur={() => setRecording(false)}
         onKeyDown={onKeyDown}
         className={cn(
-          "flex h-10 min-w-44 items-center gap-1.5 rounded-control border px-2 text-left outline-none transition-colors duration-(--duration-fast)",
+          "flex h-10 min-w-44 items-center gap-1.5 rounded-control border px-2 text-start outline-none transition-colors duration-(--duration-fast)",
           recording ? "border-info bg-info/10" : "border-dashed border-border-strong hover:border-text-subtle",
         )}
       >
@@ -131,7 +131,7 @@ export function KeyRecorder({
             {recording ? t("keys.recording") : placeholder}
           </span>
         )}
-        {recording && shown.length > 0 && <span className="ml-1 text-caption text-info-text">…</span>}
+        {recording && shown.length > 0 && <span className="ms-1 text-caption text-info-text">…</span>}
       </button>
       {value.length > 0 && !recording && (
         <button type="button" aria-label={t("keys.clear", { label })} onClick={() => onChange([])} className="rounded-chip p-1 text-text-subtle hover:text-text">

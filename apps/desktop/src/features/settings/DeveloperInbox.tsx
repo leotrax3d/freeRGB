@@ -60,7 +60,7 @@ export function DeveloperInbox() {
           <button
             key={item.id}
             disabled={busy}
-            className="flex items-center justify-between gap-3 rounded-control border border-border bg-surface-sunken p-3 text-left text-small"
+            className="flex items-center justify-between gap-3 rounded-control border border-border bg-surface-sunken p-3 text-start text-small"
             onClick={() =>
               void run(async () => {
                 setThread(await rpc<Thread>("community.thread", { submission_id: item.id }));

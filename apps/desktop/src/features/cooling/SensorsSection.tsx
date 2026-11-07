@@ -194,7 +194,7 @@ export function SensorsSection() {
                   onChange={(next) => update({ ...graph.nodes, [name]: next })}
                 />
               </div>
-              <span className="w-24 shrink-0 text-right text-small tabular" title={reading?.error ?? undefined}>
+              <span className="w-24 shrink-0 text-end text-small tabular" title={reading?.error ?? undefined}>
                 {dirty ? (
                   <span className="text-text-subtle">{t("cooling.sensorsSection.unsaved")}</span>
                 ) : reading?.value != null ? (

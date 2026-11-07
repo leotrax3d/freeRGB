@@ -220,7 +220,7 @@ export function CompositeCurvesSection() {
               <div className="min-w-0 flex-1">
                 <NodeFields node={node} others={names.filter((n) => n !== name)} sensors={sensors} onChange={(next) => update({ ...set.nodes, [name]: next })} />
               </div>
-              <span className="w-24 shrink-0 text-right text-small tabular">
+              <span className="w-24 shrink-0 text-end text-small tabular">
                 {dirty ? (
                   <span className="text-text-subtle">{t("cooling.compositeCurvesSection.unsaved")}</span>
                 ) : out ? (

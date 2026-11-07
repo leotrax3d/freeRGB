@@ -103,7 +103,7 @@ export function CurvesSection() {
                 type="button"
                 onClick={() => open(n)}
                 className={cn(
-                  "flex h-9 w-full items-center gap-2 rounded-control px-3 text-left text-body transition-colors",
+                  "flex h-9 w-full items-center gap-2 rounded-control px-3 text-start text-body transition-colors",
                   name === n ? "bg-surface-raised" : "text-text-muted hover:bg-surface-raised hover:text-text",
                 )}
               >
@@ -116,7 +116,7 @@ export function CurvesSection() {
             <li className="flex h-9 items-center gap-2 rounded-control bg-surface-raised px-3 text-body animate-[view-in_var(--duration-base)_var(--ease-out)]">
               <span className="size-2 rounded-full bg-creative" aria-hidden />
               <span className="truncate">{title || t("cooling.curvesSection.untitledCurve")}</span>
-              <span className="ml-auto text-caption text-text-subtle">{t("cooling.curvesSection.unsaved")}</span>
+              <span className="ms-auto text-caption text-text-subtle">{t("cooling.curvesSection.unsaved")}</span>
             </li>
           )}
           <li>
@@ -204,7 +204,7 @@ export function CurvesSection() {
                 <span className="text-small text-text-muted">{t("cooling.curvesSection.thisIsTheDefaultCurveChangeIt")}</span>
                 <Button
                   variant="primary"
-                  className="ml-auto"
+                  className="ms-auto"
                   onClick={() => {
                     // Keep the edits made to the default curve.
                     setName("");

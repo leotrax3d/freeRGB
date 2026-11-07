@@ -101,8 +101,8 @@ export function FanCard({ view, index }: { view: FanView; index: number }) {
           <h3 className="truncate font-medium">{view.name}</h3>
           <StatusDot tone={view.tone} label={view.status} />
         </div>
-        <div className="text-right tabular">
-          <div className="text-title font-semibold">{view.rpmValue !== null ? Math.round(view.rpmValue) : "—"}<span className="ml-1 text-small font-normal text-text-subtle">RPM</span></div>
+        <div className="text-end tabular">
+          <div className="text-title font-semibold">{view.rpmValue !== null ? Math.round(view.rpmValue) : "—"}<span className="ms-1 text-small font-normal text-text-subtle">RPM</span></div>
           <div className="text-caption text-text-subtle">{view.duty !== null ? `${Math.round(view.duty)} %` : ""}</div>
         </div>
       </header>
@@ -178,7 +178,7 @@ export function FanCard({ view, index }: { view: FanView; index: number }) {
               <Button size="sm" variant="danger" disabled={pending !== null}
                 onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: view.id }))}>{t("cooling.fanCard.stopLive")}</Button>
             )}
-            <span className="ml-auto flex items-center gap-2 text-caption text-text-subtle">
+            <span className="ms-auto flex items-center gap-2 text-caption text-text-subtle">
               <SupportBadge tier={view.tier} coverage={view.evidence?.coverage} />
               <button type="button" className="underline-offset-2 hover:underline" onClick={() => void assign(null)}>{t("cooling.fanCard.reassign")}</button>
             </span>

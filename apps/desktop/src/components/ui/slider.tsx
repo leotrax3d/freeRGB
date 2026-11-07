@@ -1,10 +1,12 @@
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import type { ComponentProps } from "react";
+import { currentLocale, direction } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export function Slider({ className, ...props }: ComponentProps<typeof SliderPrimitive.Root>) {
   return (
     <SliderPrimitive.Root
+      dir={direction(currentLocale())}
       className={cn("relative flex h-5 w-full touch-none select-none items-center", className)}
       {...props}
     >

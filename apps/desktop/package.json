@@ -8,9 +8,10 @@
     "build": "tsc -b && vite build",
     "build:demo": "tsc -b && vite build --mode demo",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "node ../../scripts/validate-i18n.mjs all && vitest run",
     "typecheck": "tsc -b",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "i18n:validate": "node ../../scripts/validate-i18n.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

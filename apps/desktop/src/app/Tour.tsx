@@ -143,11 +143,11 @@ export function Tour() {
         style={card}
         key={step}
       >
-        <button type="button" onClick={stop} aria-label={t("tour.close")} className="absolute right-3 top-3 rounded-chip p-1 text-text-subtle hover:text-text">
+        <button type="button" onClick={stop} aria-label={t("tour.close")} className="absolute end-3 top-3 rounded-chip p-1 text-text-subtle hover:text-text">
           <X className="size-4" aria-hidden />
         </button>
         {!rect && <BrandRing size={32} className="mb-3" />}
-        <h2 id="tour-title" className="pr-6 text-title font-semibold">
+        <h2 id="tour-title" className="pe-6 text-title font-semibold">
           {t(current.title)}
         </h2>
         <p className="mt-1.5 text-small text-text-muted">{t(simulated ? current.demoText ?? current.text : current.text)}</p>
@@ -157,7 +157,7 @@ export function Tour() {
               <span key={i} className={i === step ? "h-1.5 w-4 rounded-full bg-text" : "size-1.5 rounded-full bg-white/20"} />
             ))}
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="ms-auto flex gap-2">
             {step > 0 && (
               <Button size="sm" variant="ghost" onClick={back}>
                 {t("common.back")}

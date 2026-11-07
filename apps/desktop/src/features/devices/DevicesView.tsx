@@ -49,7 +49,7 @@ function DeviceBrightness({ device }: { device: DeviceSummary }) {
           onValueChange={([v]) => change(v!)}
           onValueCommit={([v]) => commit(v!)}
         />
-        <span className="w-10 text-right text-caption text-text-muted tabular">{Math.round(value * 100)}%</span>
+        <span className="w-10 text-end text-caption text-text-muted tabular">{Math.round(value * 100)}%</span>
       </div>
       {error && <InlineError>{error}</InlineError>}
     </div>

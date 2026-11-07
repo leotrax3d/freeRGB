@@ -1,6 +1,6 @@
 import * as S from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
-import { t } from "@/lib/i18n";
+import { t, currentLocale, direction } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export interface Option<T extends string> {
@@ -29,15 +29,15 @@ export function Select<T extends string>({
   className?: string;
 }) {
   return (
-    <S.Root value={value || undefined} onValueChange={(v) => onChange(v as T)}>
+    <S.Root dir={direction(currentLocale())} value={value || undefined} onValueChange={(v) => onChange(v as T)}>
       <S.Trigger
         aria-label={label}
         className={cn(
-          "inline-flex h-8 min-w-0 items-center justify-between gap-2 rounded-chip border border-border-strong bg-surface px-2.5 text-small text-text outline-none transition-colors hover:bg-surface-raised focus-visible:border-info data-[placeholder]:text-text-subtle",
+          "inline-flex min-h-8 py-1 min-w-0 items-center justify-between gap-2 rounded-chip border border-border-strong bg-surface px-2.5 text-small text-text outline-none transition-colors hover:bg-surface-raised focus-visible:border-info data-[placeholder]:text-text-subtle",
           className,
         )}
       >
-        <span className="truncate">
+        <span className="min-w-0 whitespace-normal text-start">
           <S.Value placeholder={placeholder} />
         </span>
         <S.Icon>
@@ -57,9 +57,9 @@ export function Select<T extends string>({
                 key={o.value}
                 value={o.value}
                 disabled={o.disabled}
-                className="relative flex h-8 cursor-pointer select-none items-center rounded-chip pl-7 pr-3 text-small text-text-muted outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-white/8 data-[highlighted]:text-text data-[state=checked]:text-text"
+                className="relative flex min-h-8 py-1 cursor-pointer select-none items-center rounded-chip ps-7 pe-3 text-small text-text-muted outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-40 data-[highlighted]:bg-white/8 data-[highlighted]:text-text data-[state=checked]:text-text"
               >
-                <S.ItemIndicator className="absolute left-2">
+                <S.ItemIndicator className="absolute start-2">
                   <Check className="size-3.5 text-accent" />
                 </S.ItemIndicator>
                 <S.ItemText>{o.label}</S.ItemText>

@@ -180,7 +180,7 @@ export function ColorField({
         <button
           type="button"
           aria-label={`${label}: ${toHex(value)}`}
-          className="flex h-10 w-full items-center gap-3 rounded-control px-2 text-left transition-colors duration-(--duration-fast) hover:bg-surface-raised data-[state=open]:bg-surface-raised"
+          className="flex h-10 w-full items-center gap-3 rounded-control px-2 text-start transition-colors duration-(--duration-fast) hover:bg-surface-raised data-[state=open]:bg-surface-raised"
         >
           <span className="size-6 shrink-0 rounded-chip border border-border-strong" style={{ background: toHex(value) }} />
           <span className="flex-1 text-body">{label}</span>

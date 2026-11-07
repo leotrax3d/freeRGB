@@ -1,3 +1,4 @@
+import { t } from "./messages";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleCheck, CircleSlash, Fan, LoaderCircle, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
   useEffect(() => {
     if (!active || session?.job_id !== active.job) return;
     if (["completed", "stopped", "faulted", "failed", "blocked"].includes(session.state)) {
-      if (session.state !== "completed" && session.state !== "stopped") setError(session.error ?? `The ${active.mode === "identify" ? "identification" : "channel test"} ended: ${session.state}. The header was returned to firmware control.`);
+      if (session.state !== "completed" && session.state !== "stopped") setError(session.error ?? t("onboarding.fanStep.theModeEndedStateTheHeaderWasReturnedTo", { mode: active.mode === "identify" ? t("onboarding.fanStep.identification") : t("onboarding.fanStep.channelTest"), state: session.state }));
       else if (active.mode === "identify") {
         const auto = correlateTach(before, peak);
         if (auto) setTach((t) => ({ ...t, [active.id]: auto }));
@@ -87,7 +88,7 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
     try {
       if (outcome !== "none") {
         const name = (names[header.control.reading.id] ?? header.control.name).trim();
-        if (!name) throw new Error("Give the header a name, for example CPU_FAN or Front intake.");
+        if (!name) throw new Error(t("onboarding.fanStep.giveTheHeaderANameForExampleCPUFANOr"));
         const binding: ChannelBinding = {
           provider: "mainboard.lhm", device_id: header.control.device_id, control_id: header.control.id,
           tachometer_id: tachometers.find((t) => t.reading.id === tach[header.control.reading.id])?.id ?? header.rpm?.id ?? null, header: name.slice(0, 64), role: outcome, electrical_mode: "unknown",
@@ -113,10 +114,10 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
       <div className="flex flex-col gap-4">
         <p className="text-body text-text-muted">
           {provider && provider.status !== "disabled" && provider.status !== "ready"
-            ? `The motherboard service is not ready (${provider.status}): ${provider.message}`
-            : "No controllable motherboard fan headers were found. Fan control may be unavailable on this board, or the motherboard components were not installed. Run Setup again to retry."}
+            ? t("onboarding.fanStep.theMotherboardServiceIsNotReadyStatusMessage", { status: provider.status, message: provider.message ?? "" })
+            : t("onboarding.fanStep.noControllableMotherboardFanHeadersWereFoundFanControl")}
         </p>
-        <div><Button variant="primary" onClick={finish}>Continue</Button></div>
+        <div><Button variant="primary" onClick={finish}>{t("onboarding.fanStep.continue")}</Button></div>
       </div>
     );
   }
@@ -124,7 +125,7 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
   return (
     <div className="flex flex-col gap-5">
       <p className="text-body text-text-muted">
-        Test one header at a time. freeRGB holds it at <strong className="text-text">100 %</strong> for {IDENTIFY_SECONDS} seconds — it never slows anything down here — then hands it back to the motherboard. Listen and watch which fan or pump speeds up, then tell freeRGB what it was. Windows asks for permission for each test.
+        {t("onboarding.fanStep.testOneHeaderAtATimeFreeRGBHoldsIt", { seconds: IDENTIFY_SECONDS })}
       </p>
       {error && <Banner tone="error">{error}</Banner>}
       <ul className="flex flex-col gap-3">
@@ -140,13 +141,13 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
               <div className="flex flex-wrap items-center gap-3">
                 <Fan className={`size-5 ${running ? "animate-spin text-accent" : "text-text-subtle"}`} aria-hidden />
                 <span className="font-medium">{h.control.name}</span>
-                <span className="text-caption text-text-subtle">{tierLabel(h.control.support?.tier ?? null)} · {h.rpm ? `${Math.round(h.rpm.reading.value ?? 0)} RPM` : "no RPM sensor"}</span>
-                <span className="ml-auto text-small">
-                  {h.blocked ? <span className="inline-flex items-center gap-1 text-text-subtle"><CircleSlash className="size-4" />Not testable</span>
-                    : outcome === "fan" ? <span className="inline-flex items-center gap-1 text-accent"><CircleCheck className="size-4" />Fan{tested === "passed" ? " · test passed" : ""}</span>
-                    : outcome === "pump" ? <span className="inline-flex items-center gap-1 text-[#fbbf24]"><Waves className="size-4" />Pump · stays at 100 %</span>
-                    : outcome === "none" ? <span className="text-text-subtle">Nothing reacted · not assigned</span>
-                    : running ? <span className="inline-flex items-center gap-1 text-info-text"><LoaderCircle className="size-4 animate-spin" />{active!.mode === "identify" ? `Full speed · ${remaining}s` : "Channel test 100 → 70 → 50 %"}</span>
+                <span className="text-caption text-text-subtle">{tierLabel(h.control.support?.tier ?? null)} · {h.rpm ? `${Math.round(h.rpm.reading.value ?? 0)} RPM` : t("onboarding.fanStep.noRPMSensor")}</span>
+                <span className="ms-auto text-small">
+                  {h.blocked ? <span className="inline-flex items-center gap-1 text-text-subtle"><CircleSlash className="size-4" />{t("onboarding.fanStep.notTestable")}</span>
+                    : outcome === "fan" ? <span className="inline-flex items-center gap-1 text-accent"><CircleCheck className="size-4" />{t("onboarding.fanStep.fan")}{tested === "passed" ? t("onboarding.fanStep.testPassed") : ""}</span>
+                    : outcome === "pump" ? <span className="inline-flex items-center gap-1 text-[#fbbf24]"><Waves className="size-4" />{t("onboarding.fanStep.pumpStaysAt100")}</span>
+                    : outcome === "none" ? <span className="text-text-subtle">{t("onboarding.fanStep.nothingReactedNotAssigned")}</span>
+                    : running ? <span className="inline-flex items-center gap-1 text-info-text"><LoaderCircle className="size-4 animate-spin" />{active!.mode === "identify" ? t("onboarding.fanStep.fullSpeedSecondss", { seconds: remaining ?? 0 }) : t("onboarding.fanStep.channelTest1007050")}</span>
                     : null}
                 </span>
               </div>
@@ -154,32 +155,32 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
               {!h.blocked && asking === id && (
                 <div className="flex flex-col gap-3 animate-[fade-in_var(--duration-base)_var(--ease-out)]">
                   <label className="flex flex-col gap-1 text-small">
-                    <span>Name of this header (as printed on the board or where the fan sits)</span>
+                    <span>{t("onboarding.fanStep.nameOfThisHeaderAsPrintedOnTheBoard")}</span>
                     <input className="max-w-sm rounded-control border border-border bg-surface-sunken px-3 py-2" maxLength={64}
-                      value={names[id] ?? h.control.name} onChange={(e) => setNames((n) => ({ ...n, [id]: e.target.value }))} aria-label="Header name" />
+                      value={names[id] ?? h.control.name} onChange={(e) => setNames((n) => ({ ...n, [id]: e.target.value }))} aria-label={t("onboarding.fanStep.headerName")} />
                   </label>
                   <label className="flex flex-col gap-1 text-small">
-                    <span>RPM sensor of this header{paired[id] ? " (paired automatically from the speed-up)" : " (no clear speed-up seen; pick it manually)"}</span>
-                    <select className="max-w-sm rounded-control border border-border bg-surface-sunken px-3 py-2" aria-label="RPM sensor"
+                    <span>{t("onboarding.fanStep.rPMSensorOfThisHeader")}{paired[id] ? t("onboarding.fanStep.pairedAutomaticallyFromTheSpeedup") : t("onboarding.fanStep.noClearSpeedupSeenPickItManually")}</span>
+                    <select className="max-w-sm rounded-control border border-border bg-surface-sunken px-3 py-2" aria-label={t("onboarding.fanStep.rPMSensor")}
                       value={tach[id] ?? h.rpm?.reading.id ?? ""} onChange={(e) => setTach((t) => ({ ...t, [id]: e.target.value }))}>
-                      <option value="">None</option>
-                      {tachometers.map((t) => <option key={t.reading.id} value={t.reading.id}>{t.name} · {Math.round(t.reading.value ?? 0)} RPM{peak[t.reading.id] !== undefined && before[t.reading.id] !== undefined ? ` (peak ${Math.round(peak[t.reading.id]!)})` : ""}</option>)}
+                      <option value="">{t("onboarding.fanStep.none")}</option>
+                      {tachometers.map((sensor) => <option key={sensor.reading.id} value={sensor.reading.id}>{sensor.name} · {Math.round(sensor.reading.value ?? 0)} RPM{peak[sensor.reading.id] !== undefined && before[sensor.reading.id] !== undefined ? t("onboarding.fanStep.peakRpm", { rpm: Math.round(peak[sensor.reading.id]!) }) : ""}</option>)}
                     </select>
                   </label>
-                  <span className="text-small">What sped up?</span>
+                  <span className="text-small">{t("onboarding.fanStep.whatSpedUp")}</span>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="primary" onClick={() => void answer(h, "fan")}><Fan />A normal fan</Button>
-                    <Button onClick={() => void answer(h, "pump")}><Waves />A pump / AIO</Button>
-                    <Button variant="ghost" onClick={() => void answer(h, "none")}>Nothing changed</Button>
-                    <Button variant="ghost" disabled={busy} onClick={() => void start(h, "identify")}>Repeat</Button>
+                    <Button variant="primary" onClick={() => void answer(h, "fan")}><Fan />{t("onboarding.fanStep.aNormalFan")}</Button>
+                    <Button onClick={() => void answer(h, "pump")}><Waves />{t("onboarding.fanStep.aPumpAIO")}</Button>
+                    <Button variant="ghost" onClick={() => void answer(h, "none")}>{t("onboarding.fanStep.nothingChanged")}</Button>
+                    <Button variant="ghost" disabled={busy} onClick={() => void start(h, "identify")}>{t("onboarding.fanStep.repeat")}</Button>
                   </div>
                 </div>
               )}
               {!h.blocked && asking !== id && (
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" disabled={busy} onClick={() => void start(h, "identify")}>{outcome ? "Test again" : "Spin up to identify"}</Button>
+                  <Button size="sm" disabled={busy} onClick={() => void start(h, "identify")}>{outcome ? t("onboarding.fanStep.testAgain") : t("onboarding.fanStep.spinUpToIdentify")}</Button>
                   {outcome === "fan" && tested !== "passed" && (
-                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void start(h, "channel_test")}>Run channel test (100 → 70 → 50 %)</Button>
+                    <Button size="sm" variant="secondary" disabled={busy} onClick={() => void start(h, "channel_test")}>{t("onboarding.fanStep.runChannelTest1007050")}</Button>
                   )}
                 </div>
               )}
@@ -187,9 +188,9 @@ export function FanStep({ onDone }: { onDone: (outcomes: Record<string, FanOutco
           );
         })}
       </ul>
-      <p className="text-caption text-text-subtle">Pumps and headers you did not confirm are never slowed down. The channel test runs only on confirmed normal fans, never below 50 %, and returns the fan to firmware control afterwards.</p>
+      <p className="text-caption text-text-subtle">{t("onboarding.fanStep.pumpsAndHeadersYouDidNotConfirmAreNever")}</p>
       <div className="flex justify-end">
-        <Button variant="primary" disabled={busy} onClick={finish}>{Object.keys(outcomes).length ? "Continue" : "Skip fan setup"}</Button>
+        <Button variant="primary" disabled={busy} onClick={finish}>{Object.keys(outcomes).length ? t("onboarding.fanStep.continue") : t("onboarding.fanStep.skipFanSetup")}</Button>
       </div>
     </div>
   );

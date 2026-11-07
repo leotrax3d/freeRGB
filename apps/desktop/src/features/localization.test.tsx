@@ -1,3 +1,5 @@
+import en from "@/lib/i18n/locales/en.json";
+import de from "@/lib/i18n/locales/de.json";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DaemonState } from "@/lib/store/daemon";
@@ -40,6 +42,18 @@ describe("cooling, macros and motherboard RGB localization", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("renders full simulated views with expanded pseudo messages", async () => {
+    Object.assign(state, await mockTransport().snapshot());
+    useLocale.getState().setPreference("en-XA");
+    for (const view of [<CoolingView />, <MacrosView />]) {
+      const html = renderToStaticMarkup(view);
+      expect(html).toContain("\u27e6");
+      expect(html).toContain("~");
+      expect(html).not.toMatch(/\{p\d+\}|cooling\.[a-z]|macros\.[a-z]/);
+    }
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("updates helper labels and plurals after the feature modules are already loaded", () => {
     useLocale.getState().setPreference("en");
     expect(roleUnknownLabel()).toBe("100 % (role unknown)");
@@ -58,7 +72,7 @@ describe("cooling, macros and motherboard RGB localization", () => {
 
   it("localizes validation and ARGB labels without changing user or device identifiers", () => {
     useLocale.getState().setPreference("de");
-    expect(curveProblem({ ...DEFAULT_CURVE, minimum_percent: -1 })).toBe("Minimaler Stellwert muss 0–100 % betragen.");
+    expect(curveProblem({ ...DEFAULT_CURVE, minimum_percent: -1 })).toBe([de["validation.minimumDuty"], "", `English: ${en["validation.minimumDuty"]}`].join("\n"));
     expect(macroProblem({ repeat: 1, steps: [{ type: "key_up", key: "a" }] })).toBe("Schritt 1: Loslassen ohne vorheriges Drücken.");
     expect(mainboard("mainboardRgb.mainboardRgb.argbHeaderValueName", { p0: 2 })).toBe("Name von ARGB-Anschluss 2");
     expect(mainboard("mainboardRgb.vendorRunning", { names: "Vendor App" })).toContain("Vendor App läuft");

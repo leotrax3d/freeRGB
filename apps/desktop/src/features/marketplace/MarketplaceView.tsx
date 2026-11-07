@@ -33,7 +33,7 @@ function EffectCard({ pkg, installed, status, disabled, run }: {
     <article className={cn("flex flex-col overflow-hidden rounded-card border bg-surface-sunken", active ? "border-accent/60" : "border-border")}>
       <div className="relative h-28" style={{ background: `linear-gradient(125deg, ${pkg.preview[0]}, ${pkg.preview[1]})` }} aria-hidden>
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-3 left-4 right-4 flex justify-between text-caption text-white">
+        <div className="absolute bottom-3 start-4 end-4 flex justify-between text-caption text-white">
           <span>{pkg.category}</span><span>{pkg.version}</span>
         </div>
       </div>
@@ -113,7 +113,7 @@ export default function MarketplaceView() {
       {status?.runtime_error && <p role="alert" className="rounded-control border border-danger-text/30 p-3 text-small text-danger-text">{status.runtime_error_code && <strong>{status.runtime_error_code}: </strong>}{status.runtime_error} {t("market.err.runtime")}
         {status.runtime_error_code && <Button variant="secondary" className="mt-2" onClick={() => setReportKind("runtime")}>{t("market.err.review")}</Button>}</p>}
       {status?.packages.ratings.error && <p role="alert" className="text-small text-danger-text">{status.packages.ratings.error} {t("market.err.ratings")}</p>}
-      <div className="flex flex-wrap items-center gap-4"><label className="relative min-w-48 flex-1"><Search className="absolute left-3 top-2.5 size-4 text-text-subtle" aria-hidden /><input aria-label={t("market.search")} placeholder={t("market.searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-control border border-border bg-surface-sunken pl-9 pr-3 text-small" /></label><span className="text-caption text-text-subtle">{t("market.installedCount", { n: installed.size })}</span></div>
+      <div className="flex flex-wrap items-center gap-4"><label className="relative min-w-48 flex-1"><Search className="absolute start-3 top-2.5 size-4 text-text-subtle" aria-hidden /><input aria-label={t("market.search")} placeholder={t("market.searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-control border border-border bg-surface-sunken ps-9 pe-3 text-small" /></label><span className="text-caption text-text-subtle">{t("market.installedCount", { n: installed.size })}</span></div>
       <div className="flex items-center gap-3 text-small"><span>{t("market.sortBy")}</span><Select<SortOrder> label={t("market.sortAria")} value={sortOrder} onChange={setSortOrder} options={[{value:"downloads",label:t("market.sort.downloads")},{value:"rating",label:t("market.sort.rating")},{value:"name",label:t("market.sort.name")},{value:"installed",label:t("market.sort.installed")},{value:"updates",label:t("market.sort.updates")}]} />{status?.packages.ratings.configured && <Button variant="ghost" aria-label={t("market.refreshRatings")} disabled={status.packages.ratings.loading || !!status.packages.ratings.saving} onClick={() => void run("marketplace.ratings.refresh")}><RefreshCw className={cn("size-4",status.packages.ratings.loading && "animate-spin")} /></Button>}</div>
       {!status && mode !== "mock" && !error && <p role="status" className="text-small text-text-muted">{t("market.connecting")}</p>}
       {status && visible.length === 0 && <p className="py-10 text-center text-small text-text-muted">{t("market.noMatch")}</p>}

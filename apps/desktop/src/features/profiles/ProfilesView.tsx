@@ -24,14 +24,14 @@ function ProfileRow({
   const busy = pending === name;
   return (
     <li className={cn("group relative flex items-center transition-colors duration-(--duration-fast)", state ? "bg-surface-raised/60" : "hover:bg-surface-raised/40")}>
-      {state && <span className={cn("absolute inset-y-2 left-0 w-1 rounded-r-full", state === "active" ? "bg-accent" : "bg-warning")} aria-hidden />}
+      {state && <span className={cn("absolute inset-y-2 start-0 w-1 rounded-e-full", state === "active" ? "bg-accent" : "bg-warning")} aria-hidden />}
       <button
         type="button"
         onClick={onLoad}
         disabled={pending !== null}
         aria-current={state === "active" ? "true" : undefined}
         title={state === "active" ? t("profileview.running") : t("profileview.load", { name })}
-        className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left outline-none focus-visible:bg-surface-raised disabled:cursor-wait"
+        className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-start outline-none focus-visible:bg-surface-raised disabled:cursor-wait"
       >
         <Bookmark className={cn("size-4 shrink-0", state === "active" ? "fill-accent text-accent" : "text-text-subtle group-hover:text-text-muted")} aria-hidden />
         <span className="truncate text-body">{name}</span>
@@ -44,7 +44,7 @@ function ProfileRow({
         )}
       </button>
       {/* Delete stays out of the way until the row is hovered or focused. */}
-      <div className="pr-2 opacity-0 transition-opacity duration-(--duration-fast) focus-within:opacity-100 group-hover:opacity-100">
+      <div className="pe-2 opacity-0 transition-opacity duration-(--duration-fast) focus-within:opacity-100 group-hover:opacity-100">
         <ConfirmButton label={t("profileview.delete", { name })} icon={<Trash2 />} disabled={pending !== null} onConfirm={onDelete} />
       </div>
     </li>

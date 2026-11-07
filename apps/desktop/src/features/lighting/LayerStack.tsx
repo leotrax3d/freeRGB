@@ -53,7 +53,7 @@ function LayerCard({
           type="button"
           onClick={onToggle}
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-chip px-1 py-1 text-left"
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-chip px-1 py-1 text-start"
         >
           <span className="h-6 w-9 shrink-0 rounded-chip" style={{ background: effectPreview(layer.effect) }} />
           <span className="flex min-w-0 flex-col">

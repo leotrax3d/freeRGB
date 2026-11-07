@@ -33,7 +33,7 @@
   --color-creative: #a855f7;
   --color-creative-text: #c084fc;
 
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Noto Sans", "Noto Sans CJK SC", "Noto Sans CJK TC", "Noto Sans CJK JP", "Noto Sans CJK KR", "Yu Gothic UI", "Microsoft YaHei UI", "Malgun Gothic", "Noto Sans Thai", "Leelawadee UI", "Noto Sans Devanagari", "Noto Sans Bengali", "Noto Sans Tamil", "Noto Sans Telugu", "Noto Sans Gujarati", "Noto Sans Gurmukhi", "Noto Sans Kannada", "Noto Sans Malayalam", "Noto Sans Sinhala", "Noto Sans Oriya", "Noto Sans Arabic", "Noto Sans Hebrew", "Nirmala UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
 
   --text-caption: 12px;
@@ -150,3 +150,10 @@
 @keyframes preview-breathe { 0%, 100% { filter: brightness(.12); } 50% { filter: brightness(1); } }
 @keyframes preview-cycle { from { filter: hue-rotate(0deg); } to { filter: hue-rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .effect-preview { animation: none !important; } }
+
+/* Allow expanded translations and scripts with different word boundaries. */
+@layer base {
+  :where(button, label, p, h1, h2, h3, option) { overflow-wrap: anywhere; }
+  :where(input, select, textarea) { min-inline-size: 0; max-inline-size: 100%; }
+  :where(p) { white-space: pre-line; }
+}

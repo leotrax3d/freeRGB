@@ -31,7 +31,7 @@ export function CustomEffects() {
             <li
               key={name}
               className={cn(
-                "group flex items-center gap-1 rounded-control bg-surface-sunken py-1 pl-1 pr-1 transition-colors duration-(--duration-fast) hover:bg-surface-raised",
+                "group flex items-center gap-1 rounded-control bg-surface-sunken py-1 ps-1 pe-1 transition-colors duration-(--duration-fast) hover:bg-surface-raised",
                 pending === name && "opacity-60",
               )}
             >
