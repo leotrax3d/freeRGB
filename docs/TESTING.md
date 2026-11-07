@@ -1,11 +1,124 @@
 # Testing
 
 ## Automated
+```powershell
+./scripts/setup-worktree-build.ps1
+./scripts/gate.ps1
+# During development: explicitly name affected packages and their consumers.
+./scripts/gate.ps1 -Fast -Package freergb-core,freergb-effects
 ```
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+
+Install the user-level tools once (no administrator session required):
+
+```powershell
+cargo install --locked sccache
+cargo install --locked cargo-nextest
 ```
+
+Run setup separately from each worktree. It preserves an existing `target-dir`
+line unless `-TargetDir` is supplied; new configs default to
+`E:/freergb-build/<worktree-name>`. It sets `build.rustc-wrapper = "sccache"`,
+`target.x86_64-pc-windows-msvc.linker = "rust-lld"`, and forces
+`SCCACHE_DIR=E:/freergb-build/sccache` through Cargo's `[env]` configuration.
+The generated `.cargo/config.toml` must be locally ignored. If necessary, add
+`.cargo/config.toml` to the file reported by `git rev-parse --git-path info/exclude`
+before setup. Do not commit machine-specific build paths. Other worktrees must
+run setup themselves; this task only configures its own worktree.
+
+Use `./scripts/setup-worktree-build.ps1 -UseDefaultLinker` to select `link.exe`
+if rust-lld fails on a toolchain or native dependency. In Windows PowerShell
+with scripts disabled, invoke these scripts using
+`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gate.ps1` (or the
+setup script); this changes policy only for that process.
+
+The full gate fails on the first unsuccessful command and runs:
+
+```text
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo nextest run --workspace --locked
+cargo test --doc --workspace --locked
+cargo test -p freergb-daemon --features cooling-fixture --test cooling_guard_process --locked
+cargo test -p freergb-daemon --features bus-fixture --test bus_process --locked
+cargo build -p freergb-cooling-virtual --locked
+cargo test -p freergb-modules --test cooling_e2e --locked -- --ignored
+```
+
+Nextest skips doctests, so the separate doctest command is mandatory. Fast mode
+uses `-p` for Clippy, nextest and doctests; formatting still checks the workspace.
+Pass all affected consumers explicitly, including `freergb-daemon` when its
+dependencies change: fast mode does not calculate reverse dependencies. The
+daemon fixtures run when that package is selected; the virtual plugin e2e runs
+when `freergb-modules` or `freergb-cooling-virtual` is selected. Use the full gate
+before committing. This Rust gate does not replace the remaining CI jobs,
+including the C# boundary scripts, disposable-runner keyboard lifecycle,
+desktop app, packaging and release smoke checks.
+
+Sccache shares eligible Rust compilations across worktrees. Executables,
+incremental compilations, procedural macros and native build scripts may remain
+uncached; a clean first build is not a warm-cache speedup claim. Inspect
+`sccache --show-stats` to distinguish hits from non-cacheable work. No Defender
+exclusions or machine-level settings are needed.
+
+### Local build measurements (S20, 2026-11-07)
+
+Windows x86_64 MSVC, Rust/Cargo 1.99.1, sccache 0.19.0, revision `f71df4d`.
+Each measurement used `cargo build --workspace --all-targets --locked` in this
+worktree, overriding `CARGO_TARGET_DIR` to
+`E:/freergb-build/buildspeed-measure`. The target directory was absent at the
+start of each build. Dependencies were already downloaded; these are clean
+target builds, not cold filesystem or download benchmarks. Elapsed time was
+measured around Cargo with a PowerShell stopwatch; setup, tool installation,
+directory deletion and test execution were excluded.
+
+| Configuration | Wall time | Result |
+|---|---:|---|
+| Original config: no wrapper, default MSVC linker | 185.196 s | All workspace binaries/test targets linked |
+| sccache + rust-lld, empty compiler cache | 264.848 s | All workspace binaries/test targets linked |
+| sccache + rust-lld, populated compiler cache, target deleted again | 169.727 s | All workspace binaries/test targets linked |
+
+The first cache-backed build was **43.0% slower**, so this run establishes no
+cold-build speedup. Sccache reported 287 Rust misses and zero hits, with no
+cache errors/timeouts; 352 calls were ineligible because of incremental
+compilation, 159 because they were binaries and 17 because they were procedural
+macros. Default Cargo incremental settings were retained. A single run per
+configuration is descriptive, not a controlled performance guarantee.
+
+The additional populated-cache clean rebuild was **8.4% faster than baseline**
+and **35.9% faster than the empty-cache build**. It reused the compiler cache
+populated by the preceding build and validation commands, while deleting the
+target directory again: **265 Rust hits, 22 misses (92.33% hit rate)**, no cache
+errors/timeouts. This isolates target-directory reuse from compiler-cache
+reuse; it does not measure cross-worktree cache hit rates. Build logs, stopwatch
+results and cache statistics are local under `E:/freergb-build/buildspeed-*`.
+The disposable measurement and tool-install target directories were deleted
+after validation; the shared sccache directory and original worktree target-dir
+setting were retained.
+
+Validation with rust-lld: formatting and workspace/all-target Clippy with denied
+warnings passed. `cargo test --workspace --locked` completed with **982 passed,
+9 ignored**, including its doctest phase. The additional synthetic CI fixtures
+passed: cooling watchdog **8**, signed bus process **5**, ignored virtual cooling
+e2e **1**. No linker fallback was needed. No real hardware, drivers, keyboard
+capture, UAC or Defender changes were used.
+
+**Local blocker:** `cargo nextest run --workspace --locked` stalled after its
+successful build, before reporting a test list. The blocked listing commands
+included the control and daemon test binaries; running those same binaries with
+`--list --format terse` directly succeeded. The stall reproduced with nextest
+0.9.151, a temporary 0.9.144 compatibility check, without PowerShell output
+redirection, and with `TOKIO_WORKER_THREADS=1`. The diagnostics were stopped;
+the user installation was restored to **0.9.151**. A focused latest-nextest run
+for `freergb-control` passed **92 tests**. The ordinary Cargo workspace run above
+is the full-suite runtime evidence; **the full nextest gate is not green**.
+The actual fast gate, `./scripts/gate.ps1 -Fast -Package freergb-core`, passed
+formatting, denied-warning Clippy, latest-nextest **16 tests** and doctests.
+Use the ordinary Cargo workspace suite plus the explicit fixture commands above
+while investigating this local runner issue. No unconfirmed cause is attributed
+to the linker or antivirus. A diagnostic build overlapped the ordinary test run
+and hit Windows executable locks; it was stopped and is not counted as a linker
+compatibility failure or a timed build.
+
 2026-10-18: 94 tests passing on Windows 11 (Rust 1.99.1). CI (`.github/workflows/ci.yml`) builds and tests on Windows and Ubuntu; Linux hardware access is untested.
 
 Categories:
