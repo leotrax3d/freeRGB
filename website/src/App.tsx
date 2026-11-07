@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import {
   Activity, ArrowUpRight, Play, AudioLines, BookOpen, Cable, Check, CircleHelp, Cpu, Download, Fan,
   Github, Keyboard, Layers, LayoutDashboard, Monitor, MonitorUp, Package, PlugZap,
-  Search, ScanSearch, Settings, Sparkles, Terminal, type LucideIcon,
+  ScanSearch, Settings, Sparkles, Terminal, type LucideIcon,
 } from "lucide-react"
 import wordmark from "../../assets/brand/wordmark-dark.svg"
 import appIcon from "../../assets/icons/freergb-32.png"
@@ -10,7 +10,6 @@ import bundledWebsiteContent from "../../docs/WEBSITE_CONTENT.md?raw"
 import { EffectPlayground } from "./components/EffectPlayground"
 import { ProductTour } from "./components/ProductTour"
 import { HardwareCheck } from "./components/HardwareCheck"
-import { FanCoverage, RgbCoverage } from "./components/Coverage"
 
 const repo = "https://github.com/leotrax3d/FreeRGB"
 
@@ -23,7 +22,6 @@ type Feature = {
 
 type WebsiteData = {
   featureDetails: Record<string, { description: string; details: string[] }>
-  devices: { name: string; id: string; scope: string }[]
   downloads: Record<"windows" | "linux" | "source", { label: string; url: string; note: string }>
   faq: { question: string; answer: string }[]
 }
@@ -110,8 +108,6 @@ export default function App() {
     { id: "demo", label: "Live demo", icon: Monitor },
     ...groups.slice(0, 3).map(({ id, nav: label, icon }) => ({ id, label, icon })),
     { id: "check", label: "Hardware search", icon: ScanSearch },
-    { id: "compatibility", label: "Compatibility", icon: Search },
-    { id: "coverage", label: "Coverage", icon: Fan },
     { id: "guide", label: "User guide", icon: BookOpen },
     { id: "platform", label: "Open platform", icon: PlugZap },
     { id: "install", label: "Install", icon: Download },
@@ -187,8 +183,6 @@ export default function App() {
         {groups.slice(0, 3).map((group) => <SideLink key={group.id} href={`#${group.id}`} icon={group.icon} active={activeSection === group.id}>{group.nav}</SideLink>)}
         <span className="nav-label second">Project</span>
         <SideLink href="#check" icon={ScanSearch} active={activeSection === "check"}>Hardware search</SideLink>
-        <SideLink href="#compatibility" icon={Search} active={activeSection === "compatibility"}>Compatibility</SideLink>
-        <SideLink href="#coverage" icon={Fan} active={activeSection === "coverage"}>Coverage</SideLink>
         <SideLink href="#guide" icon={BookOpen} active={activeSection === "guide"}>User guide</SideLink>
         <SideLink href="#platform" icon={PlugZap} active={activeSection === "platform"}>Open platform</SideLink>
         <SideLink href="#install" icon={Download} active={activeSection === "install"}>Install</SideLink>
@@ -219,24 +213,6 @@ export default function App() {
         <header className="view-header"><div className="view-symbol"><group.icon size={18} /></div><div><h2>{group.title}</h2></div></header>
         <div className="feature-list">{group.features.map((feature) => <FeatureRow key={feature.title} feature={feature} content={websiteData.featureDetails[feature.title]} />)}</div>
       </section>)}
-
-      <section id="compatibility" className="catalog view-section">
-        <header className="view-header"><div className="view-symbol"><Search size={18} /></div><div><h2>Device capabilities</h2></div></header>
-        <div className="device-list">
-          <div className="device-head"><span>Hardware class</span><span>Current scope</span></div>
-          {websiteData.devices.map((device) => <article className="device-row" key={device.name}><div><b>{device.name}</b><code>{device.id}</code></div><p>{device.scope}</p></article>)}
-        </div>
-      </section>
-
-      <section id="coverage" className="catalog view-section">
-        <header className="view-header"><div className="view-symbol"><Fan size={18} /></div><div><h2>Compatibility data</h2></div></header>
-        <details className="coverage-details"><summary>Explore RGB devices and fan controller chips <span>+</span></summary>
-        <h3 className="cov-title">RGB devices</h3>
-        <RgbCoverage />
-        <h3 className="cov-title">Fan controller chips</h3>
-        <FanCoverage />
-        </details>
-      </section>
 
       <section id="guide" className="catalog view-section">
         <header className="view-header"><div className="view-symbol"><BookOpen size={18} /></div><div><h2>User guide</h2></div></header>

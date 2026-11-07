@@ -2,7 +2,6 @@ name: README progress
 on:
   push:
     branches: [main]
-    paths: ['README.md', 'docs/**', 'scripts/update-readme-progress.py', '.github/workflows/readme-progress.yml']
   pull_request:
     paths: ['README.md', 'docs/**', 'scripts/update-readme-progress.py', '.github/workflows/readme-progress.yml']
   workflow_dispatch:
@@ -34,20 +33,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Generate and publish text progress
+      - name: Download pinned code counter
+        run: curl --fail --silent --show-error --location https://raw.githubusercontent.com/AlDanial/cloc/v2.08/cloc --output "$RUNNER_TEMP/cloc.pl"
+      - name: Generate and publish README metrics
         shell: bash
         run: |
           for attempt in 1 2 3; do
             git fetch origin main
             git reset --hard origin/main
             python scripts/update-readme-progress.py
-            if git diff --quiet -- README.md; then
+            python scripts/update-code-metrics.py --cloc "$RUNNER_TEMP/cloc.pl"
+            if git diff --quiet -- README.md assets/badges/code-lines.svg; then
               exit 0
             fi
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add README.md
-            git commit -m "docs: refresh delivery checklist progress"
+            git add README.md assets/badges/code-lines.svg
+            git commit -m "docs: refresh README progress and code metrics"
             if git push origin HEAD:main; then
               exit 0
             fi
