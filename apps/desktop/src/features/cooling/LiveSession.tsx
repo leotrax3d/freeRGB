@@ -9,7 +9,7 @@ import { Banner } from "@/components/status";
 import { SupportBadge } from "./SupportBadge";
 import { channelTier, controlRefusal, tierLabel } from "./support";
 import { floorFor } from "./fanModel";
-import { activeCount, clampDuty, liveChannels, liveConfirmation, type SessionList } from "./liveModel";
+import { activeCount, clampDuty, isActive, jobsOf, liveChannels, liveConfirmation, type SessionList } from "./liveModel";
 import type { CurveSet } from "@/lib/api/control";
 import { EMPTY_SHAPING, shapingPayload, type ShapingDraft } from "./shapingModel";
 
@@ -46,7 +46,7 @@ export function LiveChannels() {
               <span className={r.state === "fault" || r.state === "needs_attention" ? "text-danger-text" : "text-text-muted"}>{r.label}</span>
               {r.error && <span className="basis-full text-caption text-text-subtle">{r.error}</span>}
               {r.job_id !== null && ["starting", "curve", "manual", "test"].includes(r.state) && (
-                <Button size="sm" variant="secondary" className="ml-auto" disabled={pending !== null}
+                <Button size="sm" variant="secondary" className="ml-auto" disabled={!connected || pending !== null}
                   onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: r.control_id }))}>Stop</Button>
               )}
             </li>
@@ -86,7 +86,8 @@ export function LiveSession() {
   const { pending, error, run } = useAction();
   const [asking, setAsking] = useState<null | (() => void)>(null);
   // Several channels can run at once; only the selected channel's own job blocks it.
-  const busy = (status?.jobs ?? []).some((j) => j.control_id === control && ["authorizing", "executing", "stopping"].includes(j.state));
+  const selectedJob = jobsOf(status).find((j) => j.control_id === control);
+  const busy = selectedJob != null && isActive(selectedJob);
   const curve = curves?.[curveName];
   const selected = channels?.find((c) => c.kind === "control" && c.reading.id === control);
   const tier = channelTier(selected);
@@ -207,11 +208,11 @@ export function LiveSession() {
         )}
       </>}
       <div className="flex items-center gap-3 text-small">
-        <span>Session: {status?.state ?? "unavailable"}{status?.job_id != null ? ` · ${status.job_id}` : ""}{status?.tier ? ` · ${tierLabel(status.tier)}` : ""}</span>
+        <span>Session: {selectedJob?.state ?? "unavailable"}{selectedJob?.job_id != null ? ` · ${selectedJob.job_id}` : ""}{selectedJob?.tier ? ` · ${tierLabel(selectedJob.tier)}` : ""}</span>
         <Button variant="secondary" disabled={!connected || !busy || pending !== null} onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: control }))}>Stop this channel</Button>
       </div>
-      {(error || status?.error) && <p role="alert" className="text-small text-danger-text">{error || status?.error}</p>}
-      {status?.report != null && <details className="text-small"><summary>Last execution / calibration result</summary><pre className="overflow-auto whitespace-pre-wrap text-caption">{JSON.stringify(status.report, null, 2)}</pre></details>}
+      {(error || selectedJob?.error || status?.error) && <p role="alert" className="text-small text-danger-text">{error || selectedJob?.error || status?.error}</p>}
+      {selectedJob?.report != null && <details className="text-small"><summary>Last execution / calibration result</summary><pre className="overflow-auto whitespace-pre-wrap text-caption">{JSON.stringify(selectedJob.report, null, 2)}</pre></details>}
     </Section>
   );
 }

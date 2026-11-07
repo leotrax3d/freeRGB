@@ -33,6 +33,9 @@ pub const ALLOWED: &[&str] = &[
     "cooling.sessions.status",
     "cooling.sessions.start",
     "cooling.sessions.stop",
+    "cooling.sessions.list",
+    "cooling.sessions.stop_channel",
+    "cooling.sessions.stop_all",
     "cooling.background.get",
     "cooling.background.apply",
     "cooling.support.get",
@@ -268,5 +271,52 @@ mod tests {
     fn daemon_shutdown_is_not_allowed() {
         assert!(!ALLOWED.contains(&"daemon.shutdown"));
         assert!(!ALLOWED.contains(&"daemon.shutdown_if"));
+    }
+
+    #[test]
+    fn public_cooling_sessions_are_allowed_and_preserve_order() {
+        let (tx, rx) = channel();
+        let requests = [
+            (
+                "cooling.sessions.start",
+                json!({"mode": "manual", "control_id": "fan-a", "duty_percent": 60}),
+            ),
+            (
+                "cooling.sessions.start",
+                json!({"mode": "curve", "control_id": "fan-b"}),
+            ),
+            ("cooling.sessions.status", Value::Null),
+            ("cooling.sessions.list", Value::Null),
+            (
+                "cooling.sessions.stop_channel",
+                json!({"control_id": "fan-a"}),
+            ),
+            ("cooling.sessions.stop", json!({"job_id": 2})),
+            ("cooling.sessions.stop_all", Value::Null),
+        ];
+        let mut replies = Vec::new();
+        for (method, params) in &requests {
+            assert!(ALLOWED.contains(method), "{method} must be public");
+            let (request, reply) = job(method, params.clone());
+            tx.send(request).unwrap();
+            replies.push(reply);
+        }
+        drop(tx);
+        let mut calls = Vec::new();
+        run(
+            rx,
+            |method, params| {
+                calls.push((method.to_string(), params.clone()));
+                Ok(params)
+            },
+            || {},
+        );
+        assert_eq!(
+            calls,
+            requests.map(|(method, params)| (method.to_string(), params))
+        );
+        for (reply, (_, params)) in replies.into_iter().zip(calls) {
+            assert_eq!(reply.recv().unwrap(), Ok(params));
+        }
     }
 }
