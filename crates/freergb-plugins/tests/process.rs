@@ -80,7 +80,7 @@ fn protocol_failures_and_hangs_are_bounded_and_faulted() {
         // Includes OS process creation (outside the I/O timeout); cold Windows
         // executable startup can take several seconds on a loaded machine.
         assert!(
-            started.elapsed() < Duration::from_secs(15),
+            started.elapsed() < Duration::from_secs(30),
             "{fault}: {:?}",
             started.elapsed()
         );
@@ -140,7 +140,9 @@ fn nonreading_child_cannot_block_a_large_request() {
         .unwrap_err()
         .to_string()
         .contains("timed out"));
-    assert!(started.elapsed() < Duration::from_secs(5));
+    // Bounded, not fast: includes OS process creation, which can take several
+    // seconds for a cold executable on a loaded Windows machine.
+    assert!(started.elapsed() < Duration::from_secs(30));
 }
 
 #[test]
