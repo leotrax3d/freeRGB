@@ -973,7 +973,7 @@ mod community_tests {
     }
     /// A manager whose community client points at a local listener that
     /// records every connection attempt.
-    fn manager(root: &Path, release: &Path) -> (Arc<Manager>, TcpListener) {
+    fn with_client(root: &Path, release: &Path) -> (Arc<Manager>, TcpListener) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}/v1", listener.local_addr().unwrap());
@@ -1025,7 +1025,7 @@ mod community_tests {
     #[test]
     fn defaults_are_off_and_install_creates_no_identity_or_download_record() {
         let (root, release) = (directory("off"), release());
-        let (manager, listener) = manager(&root, &release);
+        let (manager, listener) = with_client(&root, &release);
         assert_eq!(
             manager.community_settings(),
             crate::ratings::CommunitySettings::default()
@@ -1051,7 +1051,7 @@ mod community_tests {
     #[test]
     fn online_without_counting_never_sends_or_queues_a_download_receipt() {
         let (root, release) = (directory("nocount"), release());
-        let (manager, listener) = manager(&root, &release);
+        let (manager, listener) = with_client(&root, &release);
         // Counting cannot be enabled while the service is off.
         assert!(manager.set_community(None, Some(true)).is_err());
         manager.set_community(Some(true), None).unwrap();
@@ -1070,7 +1070,7 @@ mod community_tests {
     #[test]
     fn counting_is_opt_in_persisted_and_revocable() {
         let (root, release) = (directory("count"), release());
-        let (manager, listener) = manager(&root, &release);
+        let (manager, listener) = with_client(&root, &release);
         manager.set_community(Some(true), Some(true)).unwrap();
         install(&manager);
         assert!(
@@ -1087,7 +1087,7 @@ mod community_tests {
         manager.set_community(None, Some(false)).unwrap();
         assert!(!queue.exists());
         drop(manager);
-        let (reopened, _listener) = manager(&root, &release);
+        let (reopened, _listener) = with_client(&root, &release);
         assert!(reopened.community_settings().online);
         assert!(!reopened.community_settings().count_downloads);
         reopened.set_community(Some(false), None).unwrap();
@@ -1098,7 +1098,7 @@ mod community_tests {
     fn corrupt_settings_file_means_off() {
         let (root, release) = (directory("corrupt"), release());
         std::fs::write(root.join("community.json"), b"{not json").unwrap();
-        let (manager, _listener) = manager(&root, &release);
+        let (manager, _listener) = with_client(&root, &release);
         assert!(!manager.community_settings().online);
     }
 }
