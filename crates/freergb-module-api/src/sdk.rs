@@ -7,6 +7,13 @@ use std::io::{BufRead, Read, Write};
 
 /// Brokered access to the single interface the host assigned.
 pub trait Hid {
+    /// Ask the host to wait between packets without holding the HID gate.
+    fn delay_ms(&mut self, _ms: u64) -> Result<(), ModuleError> {
+        Err(ModuleError::new(
+            ErrorCode::Unsupported,
+            "transport has no timing extension",
+        ))
+    }
     fn write(&mut self, report: &[u8]) -> Result<usize, ModuleError>;
     fn read(&mut self, len: usize, timeout_ms: i32) -> Result<Vec<u8>, ModuleError>;
     fn send_feature(&mut self, report: &[u8]) -> Result<usize, ModuleError>;
@@ -15,6 +22,13 @@ pub trait Hid {
 }
 
 pub trait Module {
+    /// Periodic callback interval, sampled after initialize (500..=10000 ms).
+    fn tick_interval_ms(&self) -> Option<u64> {
+        None
+    }
+    fn tick(&mut self, _hid: &mut dyn Hid) -> Result<(), ModuleError> {
+        Ok(())
+    }
     fn info(&self) -> ModuleInfo;
     /// Table lookup only. Must not assume an identity it cannot prove.
     fn identify(&self, interface: &InterfaceInfo) -> Identification;
@@ -172,6 +186,12 @@ impl<R: BufRead, W: Write> Host<R, W> {
 }
 
 impl<R: BufRead, W: Write> Hid for Host<R, W> {
+    fn delay_ms(&mut self, ms: u64) -> Result<(), ModuleError> {
+        if ms == 0 || ms > MAX_DELAY_MS {
+            return Err(protocol("invalid packet delay"));
+        }
+        self.call(Op::Delay, &[], 0, ms as i32).map(|_| ())
+    }
     fn write(&mut self, report: &[u8]) -> Result<usize, ModuleError> {
         Ok(self.call(Op::Write, report, 0, 0)?.len.unwrap_or(0))
     }
@@ -275,13 +295,23 @@ pub fn serve<M: Module, R: BufRead, W: Write>(module: &mut M, input: R, output: 
                             return Err(protocol("module reported an invalid layout"));
                         }
                         leds = Some(caps.layout.leds.len());
-                        serde_json::to_value(caps).map_err(|e| protocol(e.to_string()))
+                        let mut value =
+                            serde_json::to_value(caps).map_err(|e| protocol(e.to_string()))?;
+                        value["timing"] =
+                            serde_json::json!({"v": 1, "tick_ms": module.tick_interval_ms()});
+                        Ok(value)
                     }),
                 Method::Frame { rgb } => match leds {
                     None => Err(protocol("frame before initialize")),
                     Some(n) => unpack_rgb(rgb, n)
                         .and_then(|colors| module.frame(&colors, &mut host))
                         .map(|_| serde_json::Value::Bool(true)),
+                },
+                Method::Tick => match leds {
+                    Some(_) => module
+                        .tick(&mut host)
+                        .map(|_| serde_json::Value::Bool(true)),
+                    None => Err(protocol("tick before initialize")),
                 },
                 Method::Status => {
                     serde_json::to_value(module.status()).map_err(|e| protocol(e.to_string()))
@@ -438,5 +468,28 @@ mod platform_tests {
             assert_eq!(caps.layout.leds.len(), 3);
             assert_eq!(caps.zones[0].name, "Configured");
         }
+    }
+}
+
+#[cfg(test)]
+mod timing_tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn delay_call_uses_the_existing_bounded_call_reply_channel() {
+        let input = Cursor::new(b"{\"v\":1,\"call\":1,\"len\":0}\n");
+        let mut host = Host::new(input, Vec::new());
+        host.delay_ms(13).unwrap();
+        let call: Call = serde_json::from_slice(&host.output).unwrap();
+        assert_eq!(call.op, Op::Delay);
+        assert_eq!(call.timeout_ms, 13);
+        assert!(call.data.is_empty());
+        assert_eq!(call.len, 0);
+        assert_eq!(host.calls, 1);
+        for ms in [0, MAX_DELAY_MS + 1, u64::MAX] {
+            assert!(host.delay_ms(ms).is_err());
+        }
+        assert_eq!(host.calls, 1);
     }
 }

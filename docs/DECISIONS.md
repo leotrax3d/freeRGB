@@ -68,3 +68,13 @@
     Protocols needing output writes for identity (Logitech receiver HID++ name)
     remain outside this extension. Family ports are separate external work.
     See HARDWARE_MODULES.md, "Read-only identity probes".
+18. **Host-driven HID module timing (2026-11-06).** Keep outer protocol v1
+    compatible with old modules, and version an optional initialize-result
+    timing extension independently. Device workers call maintenance even without
+    frames; modules never spawn timer threads or receive device handles. Host
+    intervals are 500 ms to 10 s, with no catch-up bursts. Brokered per-packet
+    delays release the HID gate, consume the existing call/deadline budget,
+    and are capped at 100 ms each / 1 s total per request. API 2 bus and API 3
+    cooling scheduling remain unchanged. Simulated fixture tests establish the
+    generic timing contract; external port authors own vendor packet and
+    hardware acceptance. See HARDWARE_MODULES.md.
