@@ -65,6 +65,28 @@ impl VerifiedBus {
     }
 }
 
+/// API 4 transport package reverified by Store.
+pub struct VerifiedTransport {
+    pub(crate) verified: Verified,
+}
+impl VerifiedTransport {
+    pub fn policy(&self) -> &freergb_module_api::transport::Policy {
+        self.verified
+            .manifest
+            .transport
+            .as_ref()
+            .expect("validated transport policy")
+    }
+    /// Explicit fixture/development route; no production setup integration.
+    pub fn unpackaged(verified: Verified) -> Result<Self> {
+        verified.manifest.validate()?;
+        if verified.manifest.transport.is_none() {
+            return Err(invalid("not a transport manifest"));
+        }
+        Ok(Self { verified })
+    }
+}
+
 /// API 3 cooling plugin reverified by Store. Not constructible by a plugin.
 pub struct VerifiedCooling {
     pub(crate) verified: Verified,
@@ -99,6 +121,7 @@ enum Kind {
     Hid,
     Bus,
     Cooling,
+    Transport,
 }
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
@@ -179,6 +202,7 @@ impl Store {
             Kind::Hid => entry.compatible(),
             Kind::Bus => entry.bus_artifact(),
             Kind::Cooling => entry.cooling_artifact(),
+            Kind::Transport => entry.transport_artifact(),
         }
         .map_err(invalid)?;
         if std::fs::metadata(package_path)?.len() != artifact.size
@@ -197,6 +221,12 @@ impl Store {
     /// Installation grants no device access and does not run the executable.
     pub fn install_bus(&self, entry: &ModuleEntry, package_path: &Path) -> Result<()> {
         self.install_for(entry, package_path, Kind::Bus)
+    }
+
+    /// Explicit simulation route from a signature-verified schema-4 catalog.
+    /// Installation neither grants consent nor starts a module.
+    pub fn install_transport(&self, entry: &ModuleEntry, package_path: &Path) -> Result<()> {
+        self.install_for(entry, package_path, Kind::Transport)
     }
 
     /// Caller supplies an entry from a signature-verified schema-3 catalog.
@@ -315,6 +345,12 @@ impl Store {
         })
     }
 
+    pub fn verified_transport(&self, id: &str) -> Result<VerifiedTransport> {
+        Ok(VerifiedTransport {
+            verified: self.verified_for(id, Kind::Transport)?,
+        })
+    }
+
     pub fn verified_cooling(&self, id: &str) -> Result<VerifiedCooling> {
         Ok(VerifiedCooling {
             verified: self.verified_for(id, Kind::Cooling)?,
@@ -334,6 +370,11 @@ impl Store {
         let directory = self.version_dir(id, &installed.active);
         let manifest = self.verify_dir(&directory, sha)?;
         let compatible = match kind {
+            Kind::Transport => {
+                manifest.schema == 4
+                    && manifest.api == [freergb_module_api::transport::API]
+                    && manifest.transport.is_some()
+            }
             Kind::Bus => {
                 manifest.schema == 2
                     && manifest.api == [freergb_module_api::bus::API]

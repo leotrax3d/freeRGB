@@ -22,6 +22,7 @@ pub mod layout;
 pub mod modes;
 pub mod probe;
 pub mod sdk;
+pub mod transport;
 
 use base64::Engine as _;
 use freergb_core::{LedLayout, Rgb};

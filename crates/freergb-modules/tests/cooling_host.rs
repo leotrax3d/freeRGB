@@ -115,6 +115,7 @@ fn start(mode: &str) -> (Result<CoolingPlugin, String>, Wire) {
         bus: None,
         cooling: Some(policy()),
         probe: None,
+        transport: None,
         files: [
             ("fixture".to_owned(), sha.clone()),
             ("PROVENANCE.md".to_owned(), sha.clone()),

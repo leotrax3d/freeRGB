@@ -5,12 +5,14 @@
 pub mod bus_host;
 pub mod catalog;
 pub mod cooling_host;
+pub mod hid_group;
 pub mod host;
 pub mod package;
 pub mod platform;
 pub mod setup;
 pub mod source;
 pub mod store;
+pub mod transport_host;
 pub mod trust;
 
 pub type Result<T> = std::io::Result<T>;

@@ -63,6 +63,7 @@ fn signed_catalog_to_installed_virtual_plugin() {
         bus: None,
         cooling: Some(policy),
         probe: None,
+        transport: None,
         files: Default::default(),
     };
     let files = vec![

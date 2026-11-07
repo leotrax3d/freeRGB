@@ -86,6 +86,7 @@ impl Harness {
             bus: Some(policy),
             cooling: None,
             probe: None,
+            transport: None,
             files: Default::default(),
         };
         let archive = root.join("fixture.zip");

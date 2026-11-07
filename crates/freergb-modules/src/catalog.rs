@@ -10,6 +10,7 @@ pub const CATALOG_SCHEMA: u32 = 1;
 pub const BUS_CATALOG_SCHEMA: u32 = 2;
 /// Adds API 3 cooling plugins (no device matches; policy in the package).
 pub const COOLING_CATALOG_SCHEMA: u32 = 3;
+pub const TRANSPORT_CATALOG_SCHEMA: u32 = 4;
 pub const MAX_CATALOG: usize = 1024 * 1024;
 pub const MAX_PACKAGE: u64 = 64 * 1024 * 1024;
 
@@ -165,7 +166,7 @@ impl Catalog {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if !(CATALOG_SCHEMA..=COOLING_CATALOG_SCHEMA).contains(&self.schema) {
+        if !(CATALOG_SCHEMA..=TRANSPORT_CATALOG_SCHEMA).contains(&self.schema) {
             return Err(invalid("unsupported catalog schema"));
         }
         let mut ids = std::collections::BTreeSet::new();
@@ -179,16 +180,20 @@ impl Catalog {
             let bus = self.schema >= BUS_CATALOG_SCHEMA
                 && m.api == [freergb_module_api::bus::API]
                 && m.devices.is_empty();
-            let cooling = self.schema == COOLING_CATALOG_SCHEMA
+            let cooling = self.schema >= COOLING_CATALOG_SCHEMA
                 && m.api == [freergb_module_api::cooling::API]
+                && m.devices.is_empty();
+            let transport = self.schema == TRANSPORT_CATALOG_SCHEMA
+                && m.api == [freergb_module_api::transport::API]
                 && m.devices.is_empty();
             if !valid_version(&m.version)
                 || m.api.is_empty()
-                || (m.devices.is_empty() && !bus && !cooling)
+                || (m.devices.is_empty() && !bus && !cooling && !transport)
                 || (self.schema >= BUS_CATALOG_SCHEMA
                     && m.api.contains(&freergb_module_api::bus::API)
                     && !bus)
                 || (m.api.contains(&freergb_module_api::cooling::API) && !cooling)
+                || (m.api.contains(&freergb_module_api::transport::API) && !transport)
             {
                 return Err(invalid(format!(
                     "module {} has invalid version/api/devices",
@@ -240,6 +245,14 @@ fn valid_sha_like_commit(s: &str) -> bool {
 }
 
 impl ModuleEntry {
+    /// API 4 fixture/simulation route; never used by HID setup/discovery.
+    pub fn transport_artifact(&self) -> std::result::Result<&Artifact, String> {
+        if self.api != [freergb_module_api::transport::API] || !self.devices.is_empty() {
+            return Err("not an API 4 transport module".into());
+        }
+        self.artifact()
+            .ok_or_else(|| "no transport package for this target".into())
+    }
     /// Explicit opt-in installation route; never used by HID setup/discovery.
     pub fn bus_artifact(&self) -> std::result::Result<&Artifact, String> {
         if self.api != [freergb_module_api::bus::API] || !self.devices.is_empty() {
