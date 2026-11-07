@@ -1,9 +1,37 @@
 {
+  "bg": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "cs": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "da": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "de": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "el": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "en": {
     "reviewed": true,
     "machineTranslated": false
   },
-  "de": {
+  "et": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "fr": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ga": {
     "reviewed": false,
     "machineTranslated": true
   }
