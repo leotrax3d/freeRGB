@@ -1,0 +1,19 @@
+freeRGB
+Copyright (c) freeRGB contributors
+https://github.com/leotrax3d/FreeRGB
+
+The freeRGB core application is licensed under either the MIT License
+(LICENSE-MIT) or the Apache License, Version 2.0 (LICENSE-APACHE), at your
+option.
+
+This product includes third-party software. Their names, declared licenses
+and license texts are listed in THIRD_PARTY_NOTICES.md. That file is generated
+from the locked dependency graphs by scripts/gen-notices.py.
+
+Downloadable hardware modules are separate programs under their own licenses
+(for example GPL-2.0-or-later for modules ported from OpenRGB). They are not
+part of this package. See SOURCE_OFFER.md and each module's PROVENANCE.md.
+
+freeRGB is not affiliated with, endorsed by or sponsored by any hardware
+vendor or other RGB software project. Product and company names belong to
+their respective owners.
