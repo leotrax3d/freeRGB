@@ -1,8 +1,9 @@
-//! API 4: signed, atomic transport recipes. Simulation only; no native handles.
+//! API 4: signed, atomic transport recipes. Non-HID simulation and host-owned HID groups.
 use crate::bus::{forbidden, Error, PciId};
 use serde::{Deserialize, Serialize};
 use std::net::Ipv4Addr;
 
+pub mod hid;
 pub mod sdk;
 pub const API: u32 = 4;
 pub const MAX_STEPS: usize = 128;
@@ -12,6 +13,10 @@ pub const MAX_TRANSACTION_BYTES: usize = 16384;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Identity {
+    /// One logical device; interface slots are indices into this signed list.
+    HidGroup {
+        device: hid::Device,
+    },
     Bus {
         pci: PciId,
         backend: BusBackend,
@@ -80,6 +85,10 @@ impl Subnet {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Operation {
+    Hid {
+        interface: u8,
+        operation: hid::Operation,
+    },
     SmbusWriteByte {
         address: u8,
     },
@@ -141,6 +150,7 @@ pub enum Operation {
 impl Operation {
     pub fn reads(&self) -> bool {
         match self {
+            Self::Hid { operation, .. } => operation.reads(),
             Self::SmbusReadByteData { .. }
             | Self::SmbusReadWordData { .. }
             | Self::SmbusReadBlockData { .. }
@@ -216,6 +226,13 @@ impl Step {
         }
         match (&self.operation, identity) {
             (
+                Hid {
+                    interface,
+                    operation,
+                },
+                Identity::HidGroup { device },
+            ) => device.valid_step(*interface, operation, &self.data, self.read_len),
+            (
                 SmbusWriteByte { .. } | SmbusReadByteData { .. } | SmbusWriteByteData { .. },
                 Identity::Bus { .. },
             ) => n == 1,
@@ -261,7 +278,7 @@ pub struct Recipe {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
-    /// Must remain simulation. Native backend selection is a separate decision.
+    /// Non-HID transports use simulation; grouped HID uses host-supplied handles.
     pub backend: String,
     pub identities: Vec<Identity>,
     pub subnets: Vec<Subnet>,
@@ -269,7 +286,17 @@ pub struct Policy {
 }
 impl Policy {
     pub fn validate(&self) -> Result<(), Error> {
-        if self.backend != "simulation"
+        if !matches!(self.backend.as_str(), "simulation" | "hid")
+            || (self.backend == "simulation"
+                && self
+                    .identities
+                    .iter()
+                    .any(|i| matches!(i, Identity::HidGroup { .. })))
+            || (self.backend == "hid"
+                && self
+                    .identities
+                    .iter()
+                    .any(|i| !matches!(i, Identity::HidGroup { .. })))
             || self.identities.is_empty()
             || self.identities.len() > 1024
             || self.recipes.is_empty()
@@ -283,6 +310,9 @@ impl Policy {
         }
         for identity in &self.identities {
             match identity {
+                Identity::HidGroup { device } if !device.valid() => {
+                    return Err(Error::InvalidPolicy)
+                }
                 Identity::Serial { com, baud, .. }
                     if *com == 0 || *baud == 0 || *baud > 4_000_000 =>
                 {
@@ -321,6 +351,20 @@ impl Policy {
             {
                 return Err(Error::InvalidPolicy);
             }
+            if self.identities.iter().any(|identity| match identity {
+                Identity::HidGroup { device } if device.hidpp.is_some() => {
+                    r.steps.iter().zip(&r.masks).any(|(step, masks)| {
+                        matches!(step.operation, Operation::Hid { .. })
+                            && !step.operation.reads()
+                            // The index is checked against the bound identity;
+                            // feature indices may be discovered at runtime.
+                            && (masks.first() != Some(&0) || masks.get(3) != Some(&0))
+                    })
+                }
+                _ => false,
+            }) {
+                return Err(Error::InvalidPolicy);
+            }
             // Repeated starts cannot bridge to SMBus or another address.
             if r.steps.windows(2).any(|w| {
                 !w[0].operation.stop()
@@ -332,6 +376,18 @@ impl Policy {
                 return Err(Error::InvalidPolicy);
             }
         }
+        if self
+            .identities
+            .iter()
+            .any(|i| matches!(i, Identity::HidGroup { .. }))
+            && !["claim", "release"].iter().all(|id| {
+                self.recipes
+                    .iter()
+                    .any(|r| r.id == *id && r.steps.iter().any(|s| !s.operation.reads()))
+            })
+        {
+            return Err(Error::InvalidPolicy);
+        }
         Ok(())
     }
     pub fn authorize(
@@ -340,7 +396,7 @@ impl Policy {
         recipe: &str,
         steps: &[Step],
     ) -> Result<(), Error> {
-        if !self.identities.contains(identity) {
+        if !self.allows_identity(identity) {
             return Err(Error::Denied);
         }
         let r = self
@@ -364,6 +420,15 @@ impl Policy {
             return Err(Error::Denied);
         }
         Ok(())
+    }
+
+    pub fn allows_identity(&self, actual: &Identity) -> bool {
+        self.identities.iter().any(|signed| match (signed, actual) {
+            (Identity::HidGroup { device }, Identity::HidGroup { device: actual }) => {
+                device.matches(actual)
+            }
+            _ => signed == actual,
+        })
     }
 }
 

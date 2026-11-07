@@ -37,7 +37,7 @@ pub struct PackageManifest {
     /// Signed permission for the optional read-only HID identity extension.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub probe: Option<freergb_module_api::probe::Policy>,
-    /// Schema 4 non-HID simulation recipes, authenticated by the package digest.
+    /// Schema 4 transport recipes, authenticated by the package digest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transport: Option<freergb_module_api::transport::Policy>,
     /// Every other file in the package with its SHA-256.

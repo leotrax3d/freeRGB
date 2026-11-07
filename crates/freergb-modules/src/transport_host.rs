@@ -1,4 +1,5 @@
-//! Bounded API 4 child process lifecycle. No native bus implementation.
+//! Bounded API 4 child process lifecycle. Simulated non-HID and host-owned HID groups.
+use crate::hid_group::HidGroup;
 use crate::host::{Launch, Process, INITIALIZE_TIMEOUT, REQUEST_TIMEOUT};
 use crate::store::VerifiedTransport;
 use freergb_module_api::bus::Error;
@@ -88,13 +89,59 @@ pub struct Broker {
     capability: u64,
     revoked: bool,
     last_call: u64,
+    hid: Option<HidBinding>,
 }
+
+struct HidBinding {
+    group: HidGroup,
+    device: freergb_module_api::transport::hid::Device,
+    claimed: bool,
+}
+
 impl Broker {
     pub fn new(policy: Policy, identity: Identity, bus: SimulatedBus) -> Result<Self, ModuleError> {
+        if policy.backend != "simulation" || matches!(identity, Identity::HidGroup { .. }) {
+            return Err(protocol("simulated non-HID transport required"));
+        }
+        Self::construct(policy, identity, bus)
+    }
+
+    /// Binds only pre-opened host handles matching the complete signed group.
+    pub fn new_hid(
+        policy: Policy,
+        device: freergb_module_api::transport::hid::Device,
+        group: HidGroup,
+    ) -> Result<Self, ModuleError> {
+        if policy.backend != "hid" {
+            return Err(protocol("HID backend required"));
+        }
+        let mut broker = Self::construct(
+            policy,
+            Identity::HidGroup {
+                device: device.clone(),
+            },
+            SimulatedBus::default(),
+        )?;
+        group
+            .reserve(&device, broker.capability)
+            .map_err(|_| protocol("HID group is mismatched, claimed or faulted"))?;
+        broker.hid = Some(HidBinding {
+            group,
+            device,
+            claimed: false,
+        });
+        Ok(broker)
+    }
+
+    fn construct(
+        policy: Policy,
+        identity: Identity,
+        bus: SimulatedBus,
+    ) -> Result<Self, ModuleError> {
         policy
             .validate()
             .map_err(|_| protocol("invalid transport policy"))?;
-        if !policy.identities.contains(&identity) {
+        if !policy.allows_identity(&identity) {
             return Err(protocol("identity denied"));
         }
         static NEXT: Mutex<u64> = Mutex::new(1);
@@ -110,15 +157,27 @@ impl Broker {
             capability,
             revoked: false,
             last_call: 0,
+            hid: None,
         })
     }
     pub fn capability(&self) -> u64 {
         self.capability
     }
     pub fn revoke(&mut self) {
+        if !self.revoked {
+            if let Some(hid) = &self.hid {
+                if hid.claimed {
+                    hid.group.fault();
+                }
+                hid.group.release(&hid.device, self.capability);
+            }
+        }
         self.revoked = true;
     }
     pub fn fault(&mut self) {
+        if let Some(hid) = &self.hid {
+            hid.group.fault();
+        }
         self.revoke();
         self.bus.0.model.lock().unwrap().faulted = true;
     }
@@ -144,6 +203,24 @@ impl Broker {
         self.last_call = call.call;
         self.policy
             .authorize(&self.identity, &call.recipe, &call.steps)?;
+        if let Some(hid) = &mut self.hid {
+            match call.recipe.as_str() {
+                "claim" if !hid.claimed => {}
+                "probe" if !hid.claimed => {}
+                "release" if hid.claimed => {}
+                "claim" | "release" => return Err(Error::Denied),
+                _ if !hid.claimed => return Err(Error::Denied),
+                _ => {}
+            }
+            let replies = hid.group.transact(&hid.device, &call.steps, deadline)?;
+            if call.recipe == "claim" {
+                hid.claimed = true;
+            }
+            if call.recipe == "release" {
+                hid.claimed = false;
+            }
+            return Ok(replies);
+        }
         let _admission = self.bus.admit(deadline)?;
         // All policy checks precede dispatch. Admission spans the entire recipe.
         // try_lock plus deadline bounds waiting; simulator operations never block.
@@ -192,6 +269,12 @@ impl Broker {
     }
 }
 
+impl Drop for Broker {
+    fn drop(&mut self) {
+        self.revoke();
+    }
+}
+
 fn protocol(message: &str) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, message)
 }
@@ -213,14 +296,41 @@ impl TransportProcess {
         bus: SimulatedBus,
         consent: bool,
     ) -> Result<(Self, Capabilities), ModuleError> {
-        let manifest = &verified.verified.manifest;
-        if !consent || !verified.policy().identities.contains(&identity) {
+        if !consent || !verified.policy().allows_identity(&identity) {
             return Err(ModuleError::new(
                 ErrorCode::Permission,
                 "transport identity or consent denied",
             ));
         }
-        let mut transport = Broker::new(verified.policy().clone(), identity.clone(), bus)?;
+        let transport = Broker::new(verified.policy().clone(), identity.clone(), bus)?;
+        Self::launch(verified, identity, transport)
+    }
+
+    pub fn start_hid(
+        verified: VerifiedTransport,
+        device: freergb_module_api::transport::hid::Device,
+        group: HidGroup,
+        consent: bool,
+    ) -> Result<(Self, Capabilities), ModuleError> {
+        let identity = Identity::HidGroup {
+            device: device.clone(),
+        };
+        if !consent || !verified.policy().allows_identity(&identity) {
+            return Err(ModuleError::new(
+                ErrorCode::Permission,
+                "HID group or consent denied",
+            ));
+        }
+        let transport = Broker::new_hid(verified.policy().clone(), device, group)?;
+        Self::launch(verified, identity, transport)
+    }
+
+    fn launch(
+        verified: VerifiedTransport,
+        identity: Identity,
+        mut transport: Broker,
+    ) -> Result<(Self, Capabilities), ModuleError> {
+        let manifest = &verified.verified.manifest;
         let launch = Launch {
             module_id: manifest.id.clone(),
             executable: verified.verified.executable.clone(),
@@ -282,6 +392,9 @@ impl TransportProcess {
                 return Err(protocol("invalid bus layout"));
             }
             host.leds = caps.layout.leds.len();
+            if host.transport.hid.as_ref().is_some_and(|h| !h.claimed) {
+                return Err(protocol("HID software control was not claimed"));
+            }
             Ok(caps)
         })();
         match result {
@@ -377,9 +490,13 @@ impl TransportProcess {
     }
 
     pub fn shutdown(&mut self) -> Result<(), ModuleError> {
-        let result = self
+        let mut result = self
             .request(Method::Shutdown, REQUEST_TIMEOUT, true)
             .map(|_| ());
+        if self.transport.hid.as_ref().is_some_and(|h| h.claimed) {
+            self.fault();
+            result = Err(protocol("HID software control was not released"));
+        }
         self.close();
         result
     }
