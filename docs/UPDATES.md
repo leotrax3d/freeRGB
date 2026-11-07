@@ -29,7 +29,26 @@ releases, accept only the same prerelease channel or promotion to stable, and
 select by SemVer. Drafts, rolling/non-version tags, other prerelease channels and
 downgrades are excluded. A newer eligible release with invalid asset metadata
 fails closed rather than silently falling back. The exact versioned Windows
-installer and GitHub asset SHA-256 digest are required.
+installer and GitHub asset SHA-256 digest are required. A detached signature asset
+named `<installer filename>.sig` must contain exactly 64 raw Ed25519 signature
+bytes. The signature covers the UTF-8 message (including the final newline):
+
+```text
+freeRGB-installer-v1
+windows-x86_64
+<canonical SemVer version>
+<decimal size in bytes>
+<lowercase SHA-256 hex>
+```
+
+The verifier uses only the public key pinned in the updater binary, never a key
+from online metadata, configuration or environment. Verification is offline and
+required before staging and again before launch, alongside hashing the actual
+installer. The signature is retained in serialized update state. GitHub metadata
+alone cannot authorize installation, even when its size and hash match a payload.
+No production key is provisioned in this source revision: installation fails
+closed until a separately reviewed change pins a release public key and release
+tooling supplies the detached signature. Tests generate fixture keys only.
 
 HTTPS downloads are bounded to 256 MiB and use exclusively created staging files.
 The installer is hashed before staging and again before launch. On Windows the
@@ -55,9 +74,9 @@ installer Authenticode status and shipped executable hashes. The module source
 archive is independently built with a normalized lock containing only original
 package versions/checksums. This is not a claim of bit-identical executable builds.
 
-No freeRGB publisher Authenticode certificate is configured. SHA-256 and GitHub
-release metadata provide integrity within that distribution channel, not an
-independent publisher signature. SmartScreen, signed publication, cross-version
+No freeRGB publisher Authenticode certificate is configured. The detached Ed25519
+verification above is independent of GitHub metadata and does not establish an
+Authenticode/SmartScreen identity. SmartScreen, signed publication, cross-version
 upgrade/rollback and native installer/UAC validation remain release decisions or
 gates described in `BETA_READINESS_AUDIT.md`.
 
@@ -74,8 +93,12 @@ A separate disk-backed installer model upgrades synthetic 0.1.0 bytes to 0.2.0,
 rejects a partial image before swapping, restores the exact old bytes after a
 simulated failed start, and succeeds on retry. It executes no installer or child
 process. This is model evidence, not implementation or acceptance of automatic
-rollback in Windows Setup. Installer SHA-256 checks are not publisher signatures;
-bad Ed25519 signatures are tested for module catalogs separately.
+rollback in Windows Setup. Updater tests reject missing, malformed, wrong-key and
+altered signatures and changes to signed metadata; they never launch an installer.
+
+Native modules and plugins are trusted executable code. Separate processes and
+broker protocol checks do not provide an OS sandbox against malicious native code.
+Signatures establish authorization by a trusted key, not confinement or code safety.
 
 ### Owner acceptance steps
 
