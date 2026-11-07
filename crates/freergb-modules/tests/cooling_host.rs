@@ -92,6 +92,12 @@ fn policy() -> Policy {
 }
 
 fn start(mode: &str) -> (Result<CoolingPlugin, String>, Wire) {
+    let wire = Wire::default();
+    let plugin = start_with(mode, Box::new(wire.clone()));
+    (plugin, wire)
+}
+
+fn start_with(mode: &str, transport: Box<dyn HidTransport>) -> Result<CoolingPlugin, String> {
     let dir = std::env::temp_dir().join(format!("freergb-cooling-{mode}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("fixture-mode"), mode).unwrap();
@@ -129,10 +135,88 @@ fn start(mode: &str) -> (Result<CoolingPlugin, String>, Wire) {
         directory: dir,
     })
     .unwrap();
-    let wire = Wire::default();
-    let plugin =
-        CoolingPlugin::start(&verified, Some(Box::new(wire.clone()))).map_err(|e| e.message);
-    (plugin, wire)
+    CoolingPlugin::start(&verified, Some(transport)).map_err(|e| e.message)
+}
+
+/// Misbehaves only for the fail-safe report; everything else is a clean write.
+#[derive(Clone, Copy)]
+enum Fault {
+    Zero,
+    Short,
+    Fail,
+    Hang,
+}
+
+struct FaultyFailsafe(Fault, Arc<Mutex<Vec<Vec<u8>>>>);
+
+impl HidTransport for FaultyFailsafe {
+    fn write(&mut self, report: &[u8]) -> Result<usize, TransportError> {
+        self.1.lock().unwrap().push(report.to_vec());
+        if report != FAILSAFE {
+            return Ok(report.len());
+        }
+        match self.0 {
+            Fault::Zero => Ok(0),
+            Fault::Short => Ok(report.len() - 1),
+            Fault::Fail => Err(TransportError::Io("synthetic transfer error".into())),
+            Fault::Hang => {
+                std::thread::sleep(Duration::from_secs(8));
+                Ok(report.len())
+            }
+        }
+    }
+    fn read_timeout(&mut self, _: &mut [u8], _: i32) -> Result<usize, TransportError> {
+        Ok(0)
+    }
+    fn output_report_len(&self) -> usize {
+        64
+    }
+    fn input_report_len(&self) -> usize {
+        64
+    }
+}
+
+#[test]
+fn zero_short_error_and_hung_failsafe_transfers_are_never_success() {
+    for (fault, name) in [
+        (Fault::Zero, "zero"),
+        (Fault::Short, "short"),
+        (Fault::Fail, "error"),
+        (Fault::Hang, "hang"),
+    ] {
+        let attempts = Arc::new(Mutex::new(Vec::new()));
+        let plugin = start_with(
+            "crash-sample",
+            Box::new(FaultyFailsafe(fault, attempts.clone())),
+        );
+        let mut plugin = plugin.unwrap();
+        let started = Instant::now();
+        assert!(plugin.sample(started).is_err(), "{name}");
+        let outcome = plugin.status().failsafe.unwrap();
+        assert_eq!(outcome.reports, 1, "{name}");
+        assert_eq!(outcome.written, 0, "{name}: must not count as written");
+        assert!(!outcome.complete && outcome.unresolved, "{name}");
+        assert!(!outcome.errors.is_empty(), "{name}");
+        assert!(
+            started.elapsed()
+                < freergb_modules::cooling_host::DRIVER_TIMEOUT + Duration::from_secs(4),
+            "{name}: bounded"
+        );
+        assert!(
+            attempts.lock().unwrap().contains(&FAILSAFE.to_vec()),
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn exact_and_padded_failsafe_transfers_are_complete() {
+    let (plugin, _wire) = start("crash-sample");
+    let mut plugin = plugin.unwrap();
+    assert!(plugin.sample(Instant::now()).is_err());
+    let outcome = plugin.status().failsafe.unwrap();
+    assert!(outcome.complete && !outcome.unresolved);
+    assert_eq!((outcome.written, outcome.reports), (1, 1));
 }
 
 fn failsafe_written(wire: &Wire) -> bool {
