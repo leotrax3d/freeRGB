@@ -531,6 +531,7 @@ pub struct ModuleDevice {
     probe: Option<freergb_module_api::probe::Policy>,
     tick_interval: Option<Duration>,
     next_tick: Option<Instant>,
+    modes: freergb_module_api::modes::State,
 }
 
 impl ModuleDevice {
@@ -572,6 +573,7 @@ impl ModuleDevice {
             probe: None,
             tick_interval: None,
             next_tick: None,
+            modes: Default::default(),
         }
     }
 
@@ -617,6 +619,39 @@ impl ModuleDevice {
 }
 
 impl RgbDevice for ModuleDevice {
+    fn hardware_mode_command(
+        &mut self,
+        value: serde_json::Value,
+    ) -> Result<serde_json::Value, DeviceError> {
+        use freergb_module_api::modes::{Command, VERSION};
+        if self.status != DeviceStatus::Connected {
+            return Err(DeviceError::NotConnected);
+        }
+        let command: Command =
+            serde_json::from_value(value).map_err(|e| DeviceError::Refused(e.to_string()))?;
+        self.modes
+            .check(&command, self.layout.len())
+            .map_err(|e| DeviceError::Refused(e.to_string()))?;
+        if !matches!(command, Command::List) {
+            let result = self
+                .process
+                .as_mut()
+                .ok_or(DeviceError::NotConnected)?
+                .request(
+                    Method::HardwareModes {
+                        version: VERSION,
+                        command: command.clone(),
+                    },
+                    REQUEST_TIMEOUT,
+                    &mut self.transport,
+                );
+            match result {
+                Ok(_) => self.modes.acknowledge(&command),
+                Err(e) => return Err(self.fault(e)),
+            }
+        }
+        serde_json::to_value(&self.modes).map_err(|e| DeviceError::Protocol(e.to_string()))
+    }
     fn info(&self) -> &DeviceInfo {
         &self.info
     }
@@ -686,9 +721,21 @@ impl RgbDevice for ModuleDevice {
             Err(e) => return Err(self.fault(e)),
         };
         self.next_tick = self.tick_interval.map(|interval| Instant::now() + interval);
-        let caps: Capabilities = match result
-            .and_then(|v| serde_json::from_value(v).map_err(|e| protocol(e.to_string())))
-        {
+        let caps: Capabilities = match result.and_then(|v| {
+            let catalog = v
+                .get("hardware_modes")
+                .cloned()
+                .map(serde_json::from_value::<freergb_module_api::modes::Catalog>)
+                .transpose()
+                .map_err(|e| protocol(e.to_string()))?
+                .unwrap_or_default();
+            catalog.validate()?;
+            self.modes = freergb_module_api::modes::State {
+                catalog,
+                active: None,
+            };
+            serde_json::from_value(v).map_err(|e| protocol(e.to_string()))
+        }) {
             Ok(c) => c,
             Err(e) => return Err(self.fault(e)),
         };
@@ -728,6 +775,10 @@ impl RgbDevice for ModuleDevice {
             return Err(DeviceError::NotConnected);
         }
         check_frame(&self.layout, frame)?;
+        // Firmware owns animation until an explicit direct-mode transition.
+        if self.modes.active.is_some() {
+            return Ok(());
+        }
         let rgb = pack_rgb(frame.colors());
         let process = self.process.as_mut().ok_or(DeviceError::NotConnected)?;
         match process.request(Method::Frame { rgb }, REQUEST_TIMEOUT, &mut self.transport) {

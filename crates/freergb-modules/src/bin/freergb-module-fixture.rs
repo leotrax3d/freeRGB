@@ -32,6 +32,55 @@ impl Module for Fixture {
         hid.write(&[4, 0xCD])?;
         Ok(())
     }
+    fn hardware_modes(&self) -> modes::Catalog {
+        if self.mode != "hardware-modes" {
+            return modes::Catalog::default();
+        }
+        modes::Catalog {
+            version: modes::VERSION,
+            modes: vec![modes::Mode {
+                id: "wave".into(),
+                name: "Fixture wave".into(),
+                value: 7,
+                flags: modes::SPEED
+                    | modes::DIRECTION_LR
+                    | modes::BRIGHTNESS
+                    | modes::MODE_COLOR
+                    | modes::MANUAL_SAVE,
+                speed: Some(modes::Range { min: 1, max: 5 }),
+                brightness: Some(modes::Range { min: 0, max: 100 }),
+                colors: modes::Range { min: 1, max: 2 },
+            }],
+        }
+    }
+    fn set_hardware_mode(
+        &mut self,
+        s: &modes::Selection,
+        hid: &mut dyn Hid,
+    ) -> Result<(), ModuleError> {
+        // Synthetic protocol, deliberately unrelated to any real device.
+        let mut report = vec![
+            3,
+            7,
+            s.speed.unwrap() as u8,
+            s.direction.unwrap() as u8,
+            s.brightness.unwrap() as u8,
+            s.colors.len() as u8,
+        ];
+        for c in &s.colors {
+            report.extend([c.r, c.g, c.b]);
+        }
+        hid.write(&report)?;
+        Ok(())
+    }
+    fn resume_direct(&mut self, hid: &mut dyn Hid) -> Result<(), ModuleError> {
+        hid.write(&[4])?;
+        Ok(())
+    }
+    fn save_hardware_mode(&mut self, hid: &mut dyn Hid) -> Result<(), ModuleError> {
+        hid.write(&[5])?;
+        Ok(())
+    }
     fn info(&self) -> ModuleInfo {
         ModuleInfo {
             id: "fixture".into(),

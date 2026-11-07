@@ -18,6 +18,7 @@
 
 pub mod bus;
 pub mod cooling;
+pub mod modes;
 pub mod probe;
 pub mod sdk;
 
@@ -212,6 +213,11 @@ pub enum Method {
     /// Timing extension v1, sent only after initialize advertises an interval.
     Tick,
     Status,
+    /// Optional extension; sent only after an initialize catalog advertises it.
+    HardwareModes {
+        version: u32,
+        command: modes::Command,
+    },
     Shutdown {
         final_color: Option<Rgb>,
     },

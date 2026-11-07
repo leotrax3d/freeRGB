@@ -29,6 +29,33 @@ pub trait Module {
     fn tick(&mut self, _hid: &mut dyn Hid) -> Result<(), ModuleError> {
         Ok(())
     }
+    /// Optional catalog, queried after initialize. Empty keeps legacy wire output.
+    fn hardware_modes(&self) -> modes::Catalog {
+        modes::Catalog::default()
+    }
+    /// Apply volatile settings only. Saving is a separate confirmed command.
+    fn set_hardware_mode(
+        &mut self,
+        _: &modes::Selection,
+        _: &mut dyn Hid,
+    ) -> Result<(), ModuleError> {
+        Err(ModuleError::new(
+            ErrorCode::Unsupported,
+            "hardware modes unavailable",
+        ))
+    }
+    fn resume_direct(&mut self, _: &mut dyn Hid) -> Result<(), ModuleError> {
+        Err(ModuleError::new(
+            ErrorCode::Unsupported,
+            "direct transition unavailable",
+        ))
+    }
+    fn save_hardware_mode(&mut self, _: &mut dyn Hid) -> Result<(), ModuleError> {
+        Err(ModuleError::new(
+            ErrorCode::Unsupported,
+            "saving unavailable",
+        ))
+    }
     fn info(&self) -> ModuleInfo;
     /// Table lookup only. Must not assume an identity it cannot prove.
     fn identify(&self, interface: &InterfaceInfo) -> Identification;
@@ -241,6 +268,7 @@ impl<R: BufRead, W: Write> Host<R, W> {
 pub fn serve<M: Module, R: BufRead, W: Write>(module: &mut M, input: R, output: W) {
     let mut host = Host::new(input, output);
     let mut leds = None::<usize>;
+    let mut modes = modes::State::default();
     loop {
         let line = match host.read_line() {
             Ok(Some(line)) => line,
@@ -295,14 +323,43 @@ pub fn serve<M: Module, R: BufRead, W: Write>(module: &mut M, input: R, output: 
                             return Err(protocol("module reported an invalid layout"));
                         }
                         leds = Some(caps.layout.leds.len());
+                        modes = modes::State {
+                            catalog: module.hardware_modes(),
+                            active: None,
+                        };
+                        modes.catalog.validate()?;
                         let mut value =
                             serde_json::to_value(caps).map_err(|e| protocol(e.to_string()))?;
+                        if !modes.catalog.modes.is_empty() {
+                            value["hardware_modes"] = serde_json::to_value(&modes.catalog)
+                                .map_err(|e| protocol(e.to_string()))?;
+                        }
                         value["timing"] =
                             serde_json::json!({"v": 1, "tick_ms": module.tick_interval_ms()});
                         Ok(value)
                     }),
+                Method::HardwareModes { version, command } => (|| {
+                    let n = leds.ok_or_else(|| protocol("modes before initialize"))?;
+                    if *version != modes::VERSION {
+                        return Err(protocol("unsupported mode extension version"));
+                    }
+                    modes.check(command, n)?;
+                    match command {
+                        modes::Command::List => {}
+                        modes::Command::Set { selection } => {
+                            module.set_hardware_mode(selection, &mut host)?
+                        }
+                        modes::Command::Direct => module.resume_direct(&mut host)?,
+                        modes::Command::Save { .. } => module.save_hardware_mode(&mut host)?,
+                    }
+                    modes.acknowledge(command);
+                    serde_json::to_value(&modes).map_err(|e| protocol(e.to_string()))
+                })(),
                 Method::Frame { rgb } => match leds {
                     None => Err(protocol("frame before initialize")),
+                    Some(_) if modes.active.is_some() => {
+                        Err(protocol("frame while hardware mode active"))
+                    }
                     Some(n) => unpack_rgb(rgb, n)
                         .and_then(|colors| module.frame(&colors, &mut host))
                         .map(|_| serde_json::Value::Bool(true)),
@@ -463,6 +520,15 @@ mod platform_tests {
                 .collect();
             assert_eq!(replies.len(), 3);
             assert!(replies.iter().all(|r| r.error.is_none()));
+            assert!(
+                replies[1]
+                    .result
+                    .as_ref()
+                    .unwrap()
+                    .get("hardware_modes")
+                    .is_none(),
+                "legacy initialize wire shape stays unchanged"
+            );
             let caps: Capabilities =
                 serde_json::from_value(replies[1].result.clone().unwrap()).unwrap();
             assert_eq!(caps.layout.leds.len(), 3);

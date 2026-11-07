@@ -89,6 +89,14 @@ pub trait RgbDevice: Send {
     fn poll(&mut self) -> Result<(), DeviceError> {
         Ok(())
     }
+    /// Optional hardware-mode control, executed by the owning worker between
+    /// frames. JSON keeps the generic device layer independent of module SDKs.
+    fn hardware_mode_command(
+        &mut self,
+        _: serde_json::Value,
+    ) -> Result<serde_json::Value, DeviceError> {
+        Err(DeviceError::Refused("hardware modes unavailable".into()))
+    }
     /// Cached USB keyboard usage -> layout LED index; empty when unknown.
     /// Must never infer these indices from RGB wire positions or perform I/O.
     fn key_map(&self) -> std::collections::BTreeMap<u16, usize> {
