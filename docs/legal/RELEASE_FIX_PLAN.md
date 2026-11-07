@@ -76,3 +76,8 @@ On main: plan, OWNER_DECISIONS.md, FR-013, FR-011. Pushed, NOT merged, none pass
 Still to do: OPEN_WORK.md, HANDOFF.md entries, hardware items into
 `docs/promts/fancontrol/07-hardware-acceptance.md`. Merge order suggestion: notices, privacy, fr005
 (fr005 and privacy may both touch locale files and onboarding code; check conflicts).
+
+FR-005 branch notes (task/legal-fr005, 66d9b66): safety text v2 per backend, pinned in mock and
+tests; claims-to-evidence table and unsafe-exception section in COOLING_SAFETY.md. cargo test and
+npm/vitest NOT run (no node_modules there). Conflict risks: the translations branch also edits
+safety.ts; fr012 edits onboarding.rs. FR-005 row stays `wip` until the gate passes.
