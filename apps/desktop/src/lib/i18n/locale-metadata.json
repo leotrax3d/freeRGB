@@ -1,5 +1,13 @@
 {
+  "ar": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "bg": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "bn": {
     "reviewed": false,
     "machineTranslated": true
   },
@@ -43,6 +51,10 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "hi": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "hr": {
     "reviewed": false,
     "machineTranslated": true
@@ -51,7 +63,15 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "id": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "it": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ja": {
     "reviewed": false,
     "machineTranslated": true
   },
@@ -60,6 +80,58 @@
     "machineTranslated": true
   },
   "lv": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ms": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "mt": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "nl": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "pl": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "pt-PT": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ro": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ru": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "sl": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "sv": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ur": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "vi": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "zh-Hans": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "zh-Hant": {
     "reviewed": false,
     "machineTranslated": true
   }
