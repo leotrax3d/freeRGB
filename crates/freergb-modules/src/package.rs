@@ -37,6 +37,9 @@ pub struct PackageManifest {
     /// Signed permission for the optional read-only HID identity extension.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub probe: Option<freergb_module_api::probe::Policy>,
+    /// Schema 4 non-HID simulation recipes, authenticated by the package digest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport: Option<freergb_module_api::transport::Policy>,
     /// Every other file in the package with its SHA-256.
     pub files: BTreeMap<String, String>,
 }
@@ -63,21 +66,28 @@ impl PackageManifest {
                 .validate()
                 .map_err(|_| invalid("invalid probe policy"))?;
         }
-        match (self.schema, &self.bus, &self.cooling) {
-            (1, None, None) if !self.devices.is_empty() => {}
-            (2, Some(policy), None)
+        match (self.schema, &self.bus, &self.cooling, &self.transport) {
+            (1, None, None, None) if !self.devices.is_empty() => {}
+            (2, Some(policy), None, None)
                 if self.api == [freergb_module_api::bus::API] && self.devices.is_empty() =>
             {
                 policy
                     .validate()
                     .map_err(|_| invalid("invalid bus policy"))?;
             }
-            (3, None, Some(policy))
+            (3, None, Some(policy), None)
                 if self.api == [freergb_module_api::cooling::API] && self.devices.is_empty() =>
             {
                 policy
                     .validate()
                     .map_err(|_| invalid("invalid cooling policy"))?;
+            }
+            (4, None, None, Some(policy))
+                if self.api == [freergb_module_api::transport::API] && self.devices.is_empty() =>
+            {
+                policy
+                    .validate()
+                    .map_err(|_| invalid("invalid transport policy"))?;
             }
             _ => return Err(invalid("unsupported manifest schema or transport")),
         }

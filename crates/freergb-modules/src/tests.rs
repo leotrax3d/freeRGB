@@ -73,6 +73,7 @@ fn manifest(version: &str) -> PackageManifest {
         bus: None,
         cooling: None,
         probe: None,
+        transport: None,
         files: Default::default(),
     }
 }

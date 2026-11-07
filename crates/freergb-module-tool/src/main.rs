@@ -265,6 +265,7 @@ fn run(command: Cmd) -> Result<()> {
                 probe: probe_policy
                     .map(|p| -> Result<_> { Ok(serde_json::from_slice(&std::fs::read(p)?)?) })
                     .transpose()?,
+                transport: None,
                 files: Default::default(),
             };
             package::build(manifest, &contents, &out)?;
