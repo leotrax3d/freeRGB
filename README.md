@@ -31,7 +31,9 @@
 - **Effects and integrations:** sandboxed Rust effect packages, device plugins and a local JSON-RPC API.
 
 The background engine keeps running when the GUI closes. Ordinary lighting needs
-no cloud account or vendor application. Windows capture and input features do not
+no cloud account or vendor application. Online effect ratings and reports are optional and
+off by default; effect, module and update downloads use GitHub (see
+[docs/PRIVACY.md](docs/PRIVACY.md), a draft that has not been legally reviewed). Windows capture and input features do not
 yet have full Linux parity.
 
 ## Gallery

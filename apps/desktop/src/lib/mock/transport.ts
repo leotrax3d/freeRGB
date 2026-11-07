@@ -532,7 +532,7 @@ export function mockTransport(): Transport {
         case "modules.catalog.refresh":
           return true as T;
         case "marketplace.status":
-          return { packages: { source: "Browser preview — official examples", catalog: effectCatalog.effects, installed: [], job: null, error: null, failure: null, ratings: { configured: false, by_effect: {}, mine: {}, updated_at: null, loading: false, saving: null, error: null } }, active: effect, runtime_error: null, runtime_error_code: null } as T;
+          return { packages: { source: "Browser preview — official examples", catalog: effectCatalog.effects, installed: [], job: null, error: null, failure: null, ratings: { configured: false, by_effect: {}, mine: {}, updated_at: null, loading: false, saving: null, error: null }, community: { online: false, count_downloads: false } }, active: effect, runtime_error: null, runtime_error_code: null } as T;
         case "cooling.curve_set.get":
           return curveSet as T;
         case "cooling.curve_set.save":

@@ -30,6 +30,29 @@ Public defaults are built in. Override with `FREERGB_APPWRITE_ENDPOINT` and
 `FREERGB_APPWRITE_PROJECT_ID`; set both empty to disable. Distributed builds
 require HTTPS. The GUI never receives tokens or connects directly to Appwrite.
 
+## Client switches, retention and deletion
+
+The desktop client contacts this service only when the user turned on
+"Online community and privacy" in the Marketplace page; download counting is a
+second opt-in. Both default to off (`effect-marketplace/community.json`). See
+[PRIVACY.md](PRIVACY.md) for the draft notice and data-flow table.
+
+Retention as deployed (no decision has been taken on periods):
+
+| Table | Cleanup today |
+|---|---|
+| `quota_slots` | `community-maintenance` function (`src/cleanup.js`), 60-minute interval, removes rows expired more than 24 h ago (up to 20 batches of 100 per run); `admin.cleanup` does one batch of 100 on request |
+| `ratings` | user withdrawal only (`stars: null`) |
+| `submissions`, `messages` | operator `admin.delete` only |
+| `downloads`, `audit`, `blocked_users`, Appwrite anonymous users/sessions | none |
+
+Missing: per-table retention periods with scheduled deletion, an erase-by-user
+operation covering ratings, downloads, reports, messages, blocked entry and the
+Appwrite user, a way for a person to learn their anonymous ID, an access/export
+procedure, and verified Appwrite log/session retention settings. These are open
+owner decisions (OWNER_DECISIONS D4); do not describe the service as having a
+deletion process until they exist.
+
 ## Access
 
 All tables disable row security. Ratings/downloads grant no client permissions.
