@@ -60,3 +60,19 @@ Release key, signing, publishing and real-hardware tests are out of scope here.
 
 Codex workers are unavailable until about 15:43 on 2026-11-07. Wave 1 (max 3 at
 once): notices, fr005, privacy. Wave 2: linux-ci, then fr012 once coolsafety is on main.
+
+## State at shutdown (2026-11-07)
+
+On main: plan, OWNER_DECISIONS.md, FR-013, FR-011. Pushed, NOT merged, none passed the full
+`cargo test --workspace --locked` gate yet (fmt and clippy passed for notices and privacy):
+
+| Branch | Content | Next |
+|---|---|---|
+| task/legal-notices | gen-notices.py, THIRD_PARTY_NOTICES.md, NOTICE, SOURCE_OFFER.md (draft), installer/Linux staging, SBOM licences, provenance gap report | run workspace tests, review, merge. Not run: Inno compile, desktop npm tests |
+| task/legal-fr005 | WIP safety claims text (safety.ts, COOLING_SAFETY.md, NativeControlSession.cs comments, onboarding.rs, mock transport) | review the diff, bump/verify text version, run full gate incl. desktop tests; mark items pending task/coolsafety |
+| task/legal-privacy | community.json switches (online/count default off), GUI toggle, docs/PRIVACY.md draft, truthful README/website text | run workspace tests, merge |
+| fr012 | not started | start after task/coolsafety is on main |
+
+Still to do: OPEN_WORK.md, HANDOFF.md entries, hardware items into
+`docs/promts/fancontrol/07-hardware-acceptance.md`. Merge order suggestion: notices, privacy, fr005
+(fr005 and privacy may both touch locale files and onboarding code; check conflicts).
