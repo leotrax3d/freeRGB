@@ -7,8 +7,12 @@
 //! Arc control is not implemented (read-only temperatures via LHM/hwmon).
 //!
 //! Invariants, mirroring the motherboard providers:
-//! * a fan id is journaled *before* the first write, so a crashed daemon hands
-//!   every journaled fan back to driver auto on its next start;
+//! * a fan id is journaled durably (fsync + atomic rename) *before* the first
+//!   write, so a crashed daemon hands every journaled fan back to driver auto
+//!   on its next start; no journal (no state dir, I/O error) means no control;
+//! * an entry leaves the journal only after a successful release: failed
+//!   returns, unknown fans and unreadable journals stay unresolved and block
+//!   new acquisition of that fan until recovery is proven;
 //! * release, pause, daemon shutdown (`Drop`) and every write fault restore
 //!   driver auto;
 //! * duty never goes below the fan's floor (40% or the driver minimum);
@@ -16,7 +20,7 @@
 use crate::composite_feed::CompositeFeed;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -45,6 +49,11 @@ pub trait GpuBackend: Send {
     fn set_duty(&mut self, fan_id: &str, percent: f32) -> Result<(), String>;
     /// Hands the fan back to the driver's automatic policy.
     fn release(&mut self, fan_id: &str) -> Result<(), String>;
+    /// GPU temperature for the Manual-mode interlock. `None` (the default,
+    /// also for a failed read) forces Manual duty to 100%.
+    fn temperature_c(&mut self, _fan_id: &str) -> Option<f32> {
+        None
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -67,6 +76,26 @@ pub struct GpuAssignment {
     pub mode: GpuMode,
 }
 
+/// Write-temp, fsync, atomic rename, best-effort directory fsync.
+pub(crate) fn durable_write(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("json.tmp");
+    {
+        let mut file = std::fs::File::create(&tmp)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+    }
+    std::fs::rename(&tmp, path)?;
+    #[cfg(unix)]
+    if let Some(dir) = path.parent().and_then(|d| std::fs::File::open(d).ok()) {
+        let _ = dir.sync_all();
+    }
+    Ok(())
+}
+
 #[derive(Default, Deserialize, Serialize)]
 struct Journal {
     version: u32,
@@ -77,6 +106,9 @@ struct Active {
     backend: usize,
     assignment: GpuAssignment,
     applied: Option<f32>,
+    /// Manual duty is honoured only with a fresh temperature and a live loop.
+    interlock: freergb_control::manual_interlock::ManualInterlock,
+    interlocked: Option<freergb_control::manual_interlock::InterlockReason>,
 }
 
 #[derive(Default)]
@@ -85,9 +117,14 @@ pub struct GpuCooling {
     fans: Vec<(usize, GpuFan)>,
     active: BTreeMap<String, Active>,
     faults: BTreeMap<String, String>,
+    /// Fans whose return to driver auto is not proven; kept in the journal.
+    unresolved: BTreeSet<String>,
+    /// Set when a present journal could not be read: all acquisition blocked.
+    journal_fault: Option<String>,
     state_dir: Option<PathBuf>,
     paused: bool,
     started: bool,
+    epoch: Option<Instant>,
 }
 
 impl GpuCooling {
@@ -120,41 +157,95 @@ impl GpuCooling {
             .map(|d| d.join("gpu-control-journal.json"))
     }
 
-    fn write_journal(&self) {
+    /// Persists active + unresolved fans. An empty set removes the file.
+    /// Failure is returned so callers can refuse hardware access.
+    fn write_journal(&self) -> Result<(), String> {
+        let fans: BTreeSet<String> = self
+            .active
+            .keys()
+            .chain(self.unresolved.iter())
+            .cloned()
+            .collect();
         let Some(path) = self.journal_path() else {
-            return;
+            return if fans.is_empty() {
+                Ok(())
+            } else {
+                Err("no state directory: durable GPU recovery journal unavailable".into())
+            };
         };
-        let journal = Journal {
-            version: 1,
-            fans: self.active.keys().cloned().collect(),
+        let result = if fans.is_empty() {
+            match std::fs::remove_file(&path) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+                _ => Ok(()),
+            }
+        } else {
+            let journal = Journal {
+                version: 1,
+                fans: fans.into_iter().collect(),
+            };
+            serde_json::to_vec(&journal)
+                .map_err(std::io::Error::other)
+                .and_then(|bytes| durable_write(&path, &bytes))
         };
-        let tmp = path.with_extension("json.tmp");
-        let result = serde_json::to_vec(&journal)
-            .map_err(std::io::Error::other)
-            .and_then(|bytes| std::fs::write(&tmp, bytes))
-            .and_then(|()| std::fs::rename(&tmp, &path));
-        if let Err(error) = result {
-            tracing::warn!(%error, "GPU control journal not written");
-        }
+        result.map_err(|error| {
+            tracing::error!(%error, "GPU control journal not durable");
+            format!("GPU recovery journal not durable: {error}")
+        })
     }
 
     /// Releases fans a crashed daemon left in manual mode, then discovers.
+    /// Entries stay journaled until their release succeeds.
     pub fn start(&mut self) {
         self.started = true;
         self.rescan();
-        if let Some(path) = self.journal_path() {
-            let journal = std::fs::read(&path)
-                .ok()
-                .filter(|b| b.len() <= 64 * 1024)
-                .and_then(|b| serde_json::from_slice::<Journal>(&b).ok());
-            for fan_id in journal.map(|j| j.fans).unwrap_or_default() {
-                if let Some(backend) = self.backend_of(&fan_id) {
-                    if let Err(error) = self.backends[backend].release(&fan_id) {
-                        tracing::warn!(%fan_id, %error, "journaled GPU fan not released");
+        let Some(path) = self.journal_path() else {
+            return;
+        };
+        match std::fs::read(&path) {
+            Ok(bytes) => {
+                match Some(bytes)
+                    .filter(|b| b.len() <= 64 * 1024)
+                    .and_then(|b| serde_json::from_slice::<Journal>(&b).ok())
+                {
+                    Some(journal) => self.unresolved.extend(journal.fans),
+                    None => {
+                        // Keep the evidence; refuse control until a human looks.
+                        let mut kept = path.clone();
+                        kept.set_extension("json.corrupt");
+                        let _ = std::fs::rename(&path, &kept);
+                        self.journal_fault = Some(format!(
+                            "GPU recovery journal unreadable (kept as {})",
+                            kept.display()
+                        ));
+                        tracing::error!("GPU recovery journal unreadable; GPU control blocked");
+                        return;
                     }
                 }
             }
-            let _ = std::fs::remove_file(path);
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                self.journal_fault = Some(format!("GPU recovery journal unreadable: {error}"));
+                return;
+            }
+        }
+        self.retry_unresolved();
+        if let Err(error) = self.write_journal() {
+            self.journal_fault = Some(error);
+        }
+    }
+
+    /// Tries to return every unresolved fan; only successes leave the set.
+    fn retry_unresolved(&mut self) {
+        for fan_id in self.unresolved.clone() {
+            let Some(backend) = self.backend_of(&fan_id) else {
+                continue;
+            };
+            match self.backends[backend].release(&fan_id) {
+                Ok(()) => {
+                    self.unresolved.remove(&fan_id);
+                }
+                Err(error) => tracing::warn!(%fan_id, %error, "journaled GPU fan not released"),
+            }
         }
     }
 
@@ -206,25 +297,42 @@ impl GpuCooling {
             _ => {}
         }
         if !self.active.contains_key(&fan.id) {
+            if let Some(fault) = &self.journal_fault {
+                return Err(fault.clone());
+            }
             if self.active.len() >= MAX_ASSIGNMENTS {
                 return Err("too many GPU fan assignments".into());
             }
-            // Journal first: a crash between take_control and the next tick must
-            // still be recoverable.
+            if self.unresolved.contains(&fan.id) {
+                self.retry_unresolved();
+                self.write_journal()?;
+                if self.unresolved.contains(&fan.id) {
+                    return Err("previous return to driver auto is unresolved; retry later".into());
+                }
+            }
+            // Journal first and durably: a crash between take_control and the
+            // next tick must still be recoverable. No journal, no hardware access.
             self.active.insert(
                 fan.id.clone(),
                 Active {
                     backend,
                     assignment: assignment.clone(),
                     applied: None,
+                    interlock: Default::default(),
+                    interlocked: None,
                 },
             );
-            self.write_journal();
+            if let Err(error) = self.write_journal() {
+                self.active.remove(&fan.id);
+                return Err(error);
+            }
             if !self.paused {
                 if let Err(error) = self.backends[backend].take_control(&fan.id) {
-                    let _ = self.backends[backend].release(&fan.id);
                     self.active.remove(&fan.id);
-                    self.write_journal();
+                    if self.backends[backend].release(&fan.id).is_err() {
+                        self.unresolved.insert(fan.id.clone());
+                    }
+                    let _ = self.write_journal();
                     return Err(error);
                 }
             }
@@ -246,11 +354,14 @@ impl GpuCooling {
         for id in &ids {
             if let Some(active) = self.active.remove(id) {
                 if let Err(e) = self.backends[active.backend].release(id) {
+                    self.unresolved.insert(id.clone());
                     errors.push(format!("{id}: {e}"));
                 }
             }
         }
-        self.write_journal();
+        if let Err(e) = self.write_journal() {
+            errors.push(e);
+        }
         if errors.is_empty() {
             Ok(ids.len())
         } else {
@@ -291,19 +402,31 @@ impl GpuCooling {
             return;
         }
         let ids: Vec<String> = self.active.keys().cloned().collect();
+        let epoch = *self.epoch.get_or_insert(now);
+        let mono = now.saturating_duration_since(epoch).as_millis() as u64;
         for id in ids {
             let floor = self.floor(&id);
             let active = self.active.get_mut(&id).expect("listed above");
+            let backend = &mut self.backends[active.backend];
             let target = match &active.assignment.mode {
-                GpuMode::Manual { percent } => *percent,
+                GpuMode::Manual { percent } => {
+                    // Backend-independent safety: missing/stale/critical
+                    // temperature or a stalled loop forces 100%.
+                    active.interlock.observe(mono, backend.temperature_c(&id));
+                    let decision = active.interlock.evaluate(*percent, mono);
+                    active.interlocked = decision.interlock;
+                    decision.duty_percent
+                }
                 GpuMode::Composite { output } => feed.duty(output, now),
             }
             .clamp(floor, 100.0);
-            let backend = &mut self.backends[active.backend];
             match backend.set_duty(&id, target) {
                 Ok(()) => active.applied = Some(target),
                 Err(error) => {
                     let released = backend.release(&id);
+                    if released.is_err() {
+                        self.unresolved.insert(id.clone());
+                    }
                     self.active.remove(&id);
                     let message = match released {
                         Ok(()) => format!("write failed, returned to driver auto: {error}"),
@@ -311,7 +434,7 @@ impl GpuCooling {
                     };
                     tracing::warn!(fan = %id, %message, "GPU fan fault");
                     self.faults.insert(id, message);
-                    self.write_journal();
+                    let _ = self.write_journal();
                 }
             }
         }
@@ -328,6 +451,7 @@ impl GpuCooling {
                     "floor_percent": self.floor(&f.id),
                     "assignment": active.map(|a| &a.assignment),
                     "applied_percent": active.and_then(|a| a.applied),
+                    "interlock": active.and_then(|a| a.interlocked),
                     "fault": self.faults.get(&f.id),
                 })
             })
@@ -360,6 +484,8 @@ pub mod simulated {
         pub duty: f32,
         pub fail_writes: bool,
         pub writes: u32,
+        /// Simulated GPU temperature; `None` models a missing sensor.
+        pub temp_c: Option<f32>,
     }
 
     /// Shared state so a test can inspect fans after the controller is dropped.
@@ -374,6 +500,7 @@ pub mod simulated {
                     (*id).into(),
                     SimFan {
                         duty: 30.0,
+                        temp_c: Some(45.0),
                         ..SimFan::default()
                     },
                 );
@@ -437,6 +564,9 @@ pub mod simulated {
                 f.duty = 30.0;
                 Ok(())
             })
+        }
+        fn temperature_c(&mut self, id: &str) -> Option<f32> {
+            self.with(id, |f| f.temp_c.ok_or_else(String::new)).ok()
         }
     }
 }
@@ -675,6 +805,52 @@ mod tests {
         );
         assert!(!state.join("gpu-control-journal.json").exists());
         drop(gpu);
+    }
+
+    fn duty_after_tick(gpu: &mut GpuCooling, sim: &SimulatedGpu, at: Instant) -> f32 {
+        gpu.tick(&CompositeFeed::default(), at);
+        sim.fan("sim:gpu0/fan0").duty
+    }
+
+    fn set_temp(sim: &SimulatedGpu, value: Option<f32>) {
+        sim.0
+            .lock()
+            .unwrap()
+            .get_mut("sim:gpu0/fan0")
+            .unwrap()
+            .temp_c = value;
+    }
+
+    #[test]
+    fn manual_interlock_forces_full_duty_without_a_trusted_sensor() {
+        let sim = SimulatedGpu::with_fans(&["sim:gpu0/fan0"]);
+        let mut gpu = controller(&sim, &dir("interlock"));
+        let t0 = Instant::now();
+        let at = |ms: u64| t0 + std::time::Duration::from_millis(ms);
+        gpu.assign(manual(60.0)).unwrap();
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(0)), 60.0);
+        // Critical temperature.
+        set_temp(&sim, Some(90.0));
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(1000)), 100.0);
+        assert_eq!(gpu.view()["fans"][0]["interlock"], "critical");
+        set_temp(&sim, Some(50.0));
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(2000)), 60.0);
+        // Missing sensor reaches the safe state within the documented bound.
+        set_temp(&sim, None);
+        let bound =
+            freergb_control::manual_interlock::ManualInterlock::default().worst_case_bound_ms(1000);
+        let mut t = 2000;
+        while duty_after_tick(&mut gpu, &sim, at(t)) < 100.0 {
+            t += 1000;
+            assert!(t - 2000 <= bound, "bound exceeded");
+        }
+        // A suspended loop (60 s gap) is safe until a fresh sample arrives.
+        set_temp(&sim, Some(50.0));
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(t + 1000)), 60.0);
+        set_temp(&sim, None);
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(t + 61_000)), 100.0);
+        set_temp(&sim, Some(50.0));
+        assert_eq!(duty_after_tick(&mut gpu, &sim, at(t + 62_000)), 60.0);
     }
 
     #[test]
