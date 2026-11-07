@@ -1,17 +1,18 @@
+import { t } from "./messages";
 import type { MacroStep } from "@/lib/api/control";
 import fixtures from "@/lib/api/fixtures/effects.json";
 import type { EffectSpec } from "@/lib/api/types";
 
 export const STEP_TYPES: { type: MacroStep["type"]; label: string; input?: boolean }[] = [
-  { type: "color", label: "Set colour" },
-  { type: "brightness", label: "Set brightness" },
-  { type: "effect", label: "Set effect" },
-  { type: "delay", label: "Wait" },
-  { type: "text", label: "Type text", input: true },
-  { type: "key", label: "Press key", input: true },
-  { type: "key_down", label: "Key down", input: true },
-  { type: "key_up", label: "Key up", input: true },
-  { type: "chord", label: "Shortcut", input: true },
+  { type: "color", get label() { return t("macros.steps.setColour"); } },
+  { type: "brightness", get label() { return t("macros.steps.setBrightness"); } },
+  { type: "effect", get label() { return t("macros.steps.setEffect"); } },
+  { type: "delay", get label() { return t("macros.steps.wait"); } },
+  { type: "text", get label() { return t("macros.steps.typeText"); }, input: true },
+  { type: "key", get label() { return t("macros.steps.pressKey"); }, input: true },
+  { type: "key_down", get label() { return t("macros.steps.keyDown"); }, input: true },
+  { type: "key_up", get label() { return t("macros.steps.keyUp"); }, input: true },
+  { type: "chord", get label() { return t("macros.steps.shortcut"); }, input: true },
 ];
 
 export function blankStep(type: MacroStep["type"]): MacroStep {
