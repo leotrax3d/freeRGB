@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { ArrowUpRight } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs"
 import lighting from "../../../docs/screenshots/lighting.png"
 import layout from "../../../docs/screenshots/layout.png"
@@ -14,11 +13,10 @@ const screens = [
 export function ProductTour() {
   const [screen, setScreen] = useState("lighting")
   return <section id="demo" className="product-tour view-section">
-    <header className="tour-heading"><h2>Explore freeRGB</h2><a className="text-link" href={`${import.meta.env.BASE_URL}demo/`} target="_blank" rel="noreferrer">Open the full demo <ArrowUpRight size={16} /></a></header>
+    <header className="tour-heading"><h2>Explore freeRGB</h2></header>
     <Tabs value={screen} onValueChange={setScreen}>
       <TabsList className="tour-tabs" aria-label="Explore the freeRGB interface">{screens.map((item) => <TabsTrigger className="tour-tab" key={item.id} value={item.id}>{item.label}</TabsTrigger>)}</TabsList>
       {screens.map((item) => <TabsContent className="tour-content" key={item.id} value={item.id}><div className="tour-caption"><p>{item.text}</p></div><div className="app-screenshot"><img src={item.image} width="1440" height="1000" alt={item.alt} loading="lazy" /></div></TabsContent>)}
     </Tabs>
-    <details className="demo-disclosure"><summary>Demo limitations</summary><p>The full browser demo uses simulated devices. Audio capture, screen capture and macro execution are unavailable. Changes reset when you reload.</p></details>
   </section>
 }
