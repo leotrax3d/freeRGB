@@ -28,6 +28,9 @@ Legend: HW = needs real hardware/UAC/installer/release key (collect in
 | S14 | Audit P1 FR-008/009: independent update signature (online metadata alone not enough for elevated code); correct sandbox claims in docs | updates | updater crate, `docs/UPDATES.md`, `docs/SECURITY.md` | S9 | audit | no |
 | S15 | Audit P0.3: correct safety claims in wizard/docs to what is actually implemented | docs/GUI text | `docs/COOLING*.md`, guided setup texts | after S11/S12 | audit | no |
 | S16 | Linux screen-capture CI step (snippet in PR #29) — add to `.github/workflows/ci.yml` | CI | `.github/workflows/ci.yml` | none (CI billing currently off) | HANDOFF WS3 | no |
+| S17 | i18n preparation: JSON locale catalogs, CLDR plurals, RTL, font fallbacks, validation script, pseudo-locale, language picker with machine-translated marker, English safety warnings, `docs/I18N.md` | desktop GUI / scripts | `apps/desktop/**`, `scripts/`, `docs/I18N.md` | after S6 merged | owner | no |
+| S18 | Translate catalogs to ~50 languages (one BEAM agent per language, batches of 8-10; text only), all pass S17 validation, marked machine-translated | locales | `apps/desktop/**/locales/*.json` | after S17 | owner | no |
+| S19 | Classic GUI small i18n from same JSON, daemon/tray error codes translated in GUI, USER_GUIDE and website guide pages via BEAM (developer docs stay English) | classic GUI / docs | classic GUI crate, `docs/USER_GUIDE.md`, website guides | after S18 | owner | no |
 
 ## Not for this machine / owner decisions
 
