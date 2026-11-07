@@ -330,6 +330,14 @@ struct Active {
     controller: CurveController,
     stall: u32,
     reasserted: bool,
+    /// Manual mode honours its duty only while a fresh temperature and a live
+    /// loop vouch for it (`freergb_control::manual_interlock`).
+    interlock: freergb_control::manual_interlock::ManualInterlock,
+}
+
+fn mono_ms() -> u64 {
+    static EPOCH: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+    EPOCH.get_or_init(Instant::now).elapsed().as_millis() as u64
 }
 
 struct Shared {
@@ -340,6 +348,8 @@ struct Shared {
     unrestricted: bool,
     paused: bool,
     error: Option<String>,
+    /// Headers whose return to firmware is not proven; they stay journaled.
+    unresolved: Vec<Original>,
 }
 
 pub struct HwmonProvider {
@@ -396,6 +406,7 @@ impl HwmonProvider {
                 unrestricted: false,
                 paused: false,
                 error: None,
+                unresolved: Vec::new(),
             })),
             stop: Arc::new((Mutex::new(false), Condvar::new())),
             worker: None,
@@ -426,11 +437,13 @@ impl HwmonProvider {
         if !self.root.is_dir() {
             return Err(format!("{} is not available", self.root.display()));
         }
+        if let Some(journal) = self.journal_path() {
+            // An unreadable journal or an I/O fault blocks control entirely.
+            let unresolved = recover_journal(&journal)?;
+            lock(&self.shared).unresolved = unresolved;
+        }
         self.started = true;
         self.board = board(&self.dmi);
-        if let Some(journal) = self.journal_path() {
-            recover_journal(&journal);
-        }
         lock(&self.shared).chips = scan(&self.root);
         lock(&self.shared).scanned = Some(Instant::now());
         if let Some(config) = self.load_config() {
@@ -467,7 +480,7 @@ impl HwmonProvider {
                     shared.chips = chips;
                     shared.scanned = Some(Instant::now());
                     if tick(&mut shared) {
-                        write_journal(journal.as_deref(), &shared);
+                        let _ = write_journal(journal.as_deref(), &shared);
                     }
                 })
                 .map_err(|e| e.to_string())?,
@@ -559,6 +572,26 @@ impl HwmonProvider {
             raw: pwm.raw.ok_or("pwm value unreadable")?,
         };
         let id = assignment.channel_id.clone();
+        if shared
+            .unresolved
+            .iter()
+            .any(|u| u.pwm_path == original.pwm_path)
+        {
+            // Retry the proven return first; refuse while it still fails.
+            let pending = std::mem::take(&mut shared.unresolved);
+            shared.unresolved = pending
+                .into_iter()
+                .filter(|u| restore(u).is_err())
+                .collect();
+            let _ = write_journal(self.journal_path().as_deref(), &shared);
+            if shared
+                .unresolved
+                .iter()
+                .any(|u| u.pwm_path == original.pwm_path)
+            {
+                return Err("Previous return to firmware is unresolved; retry later".into());
+            }
+        }
         shared.active.insert(
             id.clone(),
             Active {
@@ -567,17 +600,24 @@ impl HwmonProvider {
                 controller: CurveController::default(),
                 stall: 0,
                 reasserted: false,
+                interlock: Default::default(),
             },
         );
-        // Journal before the first write: a crash between the two then
-        // restores a header that was never changed, which is harmless.
-        write_journal(self.journal_path().as_deref(), &shared);
+        // Journal durably before the first write: a crash between the two then
+        // restores a header that was never changed, which is harmless. No
+        // journal, no write.
+        if let Err(error) = write_journal(self.journal_path().as_deref(), &shared) {
+            shared.active.remove(&id);
+            return Err(error);
+        }
         let result = write_attr(&enable_path(&original.pwm_path), 1)
             .and_then(|()| write_attr(&original.pwm_path, 255));
         if let Err(error) = result {
             shared.active.remove(&id);
-            let _ = restore(&original);
-            write_journal(self.journal_path().as_deref(), &shared);
+            if restore(&original).is_err() {
+                shared.unresolved.push(original.clone());
+            }
+            let _ = write_journal(self.journal_path().as_deref(), &shared);
             return Err(error);
         }
         mark_manual(&mut shared, &id);
@@ -598,12 +638,15 @@ impl HwmonProvider {
         for id in &ids {
             if let Some(active) = shared.active.remove(id) {
                 if let Err(e) = restore(&active.original) {
+                    shared.unresolved.push(active.original.clone());
                     errors.push(e);
                 }
                 shared.status.remove(id);
             }
         }
-        write_journal(self.journal_path().as_deref(), &shared);
+        if let Err(e) = write_journal(self.journal_path().as_deref(), &shared) {
+            errors.push(e);
+        }
         drop(shared);
         self.save_config()?;
         if errors.is_empty() {
@@ -864,6 +907,9 @@ struct Inputs {
 fn fault(shared: &mut Shared, id: &str, message: String) {
     if let Some(active) = shared.active.remove(id) {
         let restored = restore(&active.original);
+        if restored.is_err() {
+            shared.unresolved.push(active.original.clone());
+        }
         tracing::warn!(channel = id, %message, ?restored, "hwmon channel returned to firmware");
         let message = match restored {
             Ok(()) => format!("{message}; returned to firmware control"),
@@ -894,6 +940,18 @@ fn tick(shared: &mut Shared) -> bool {
         .scanned
         .is_some_and(|at| at.elapsed() <= Duration::from_millis(3000));
     let unrestricted = shared.unrestricted;
+    let mono = mono_ms();
+    let hottest = fresh
+        .then(|| {
+            shared
+                .chips
+                .iter()
+                .flat_map(|c| &c.temps)
+                .filter_map(|t| t.celsius)
+                .map(|c| c as f32)
+                .fold(None, |m: Option<f32>, c| Some(m.map_or(c, |m| m.max(c))))
+        })
+        .flatten();
     let inputs: Vec<(String, Inputs)> = shared
         .active
         .iter()
@@ -933,8 +991,16 @@ fn tick(shared: &mut Shared) -> bool {
         } else {
             FAN_FLOOR
         };
+        let mut interlocked = None;
         let requested = match &assignment.mode {
-            Mode::Manual { percent } => *percent,
+            Mode::Manual { percent } => {
+                // Backend-independent safety: a missing, stale or critical
+                // temperature (or a stalled loop) forces 100%.
+                active.interlock.observe(mono, hottest);
+                let decision = active.interlock.evaluate(*percent, mono);
+                interlocked = decision.interlock;
+                decision.duty_percent
+            }
             Mode::Curve { curve, .. } => {
                 active
                     .controller
@@ -991,7 +1057,10 @@ fn tick(shared: &mut Shared) -> bool {
         } else {
             active.stall = 0;
         }
-        let state = if input.temperature.is_none()
+        let state = if let Some(reason) = interlocked {
+            message.get_or_insert_with(|| format!("manual interlock ({reason:?}): 100%"));
+            "fallback_full"
+        } else if input.temperature.is_none()
             && matches!(active.assignment.mode, Mode::Curve { .. })
         {
             message.get_or_insert_with(|| "temperature input unavailable: 100%".into());
@@ -1018,58 +1087,87 @@ fn tick(shared: &mut Shared) -> bool {
     changed
 }
 
-fn write_journal(path: Option<&Path>, shared: &Shared) {
-    let Some(path) = path else { return };
-    let originals: Vec<&Original> = shared.active.values().map(|a| &a.original).collect();
+/// Persists active + unresolved headers; an empty set removes the file. The
+/// error is returned so callers refuse hardware writes without a durable journal.
+fn write_journal(path: Option<&Path>, shared: &Shared) -> Result<(), String> {
+    let originals: Vec<&Original> = shared
+        .active
+        .values()
+        .map(|a| &a.original)
+        .chain(shared.unresolved.iter())
+        .collect();
+    let Some(path) = path else {
+        return if originals.is_empty() {
+            Ok(())
+        } else {
+            Err("no state directory: durable hwmon recovery journal unavailable".into())
+        };
+    };
     let result = if originals.is_empty() {
         match std::fs::remove_file(path) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
             _ => Ok(()),
         }
     } else {
-        let temporary = path.with_extension("json.tmp");
-        path.parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| {
-                std::fs::write(
-                    &temporary,
-                    serde_json::to_vec(&originals).unwrap_or_default(),
-                )
-            })
-            .and_then(|()| std::fs::rename(&temporary, path))
+        serde_json::to_vec(&originals)
             .map_err(|e| e.to_string())
+            .and_then(|bytes| {
+                crate::gpu_cooling::durable_write(path, &bytes).map_err(|e| e.to_string())
+            })
     };
-    if let Err(error) = result {
-        tracing::error!(%error, "hwmon control journal not written");
-    }
+    result.map_err(|error| {
+        tracing::error!(%error, "hwmon control journal not durable");
+        format!("hwmon recovery journal not durable: {error}")
+    })
 }
 
-/// Restores headers a previous (crashed) daemon left in manual mode.
-fn recover_journal(path: &Path) {
-    let Ok(bytes) = std::fs::read(path) else {
-        return;
+/// Restores headers a previous (crashed) daemon left in manual mode. Headers
+/// that cannot be restored stay journaled and are returned as unresolved. An
+/// unreadable journal is kept as `.corrupt` and blocks the provider.
+fn recover_journal(path: &Path) -> Result<Vec<Original>, String> {
+    let bytes = match std::fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("hwmon recovery journal unreadable: {e}")),
     };
-    match serde_json::from_slice::<Vec<Original>>(&bytes) {
-        Ok(originals) => {
-            for original in originals.iter().take(MAX_ASSIGNMENTS) {
-                // Only sysfs pwm attributes are ever written from the journal.
-                let valid = original.pwm_path.starts_with("/sys/")
-                    || cfg!(test)
-                    || std::env::var_os("FREERGB_HWMON_ROOT").is_some();
-                if valid {
-                    if let Err(error) = restore(original) {
-                        tracing::warn!(%error, "hwmon crash recovery failed");
-                    }
-                }
-            }
-            tracing::warn!(
-                count = originals.len(),
-                "restored hwmon headers after unclean shutdown"
-            );
+    let originals = match serde_json::from_slice::<Vec<Original>>(&bytes) {
+        Ok(originals) if originals.len() <= 4 * MAX_ASSIGNMENTS => originals,
+        _ => {
+            let mut kept = path.to_path_buf();
+            kept.set_extension("json.corrupt");
+            let _ = std::fs::rename(path, &kept);
+            return Err(format!(
+                "hwmon recovery journal unreadable (kept as {})",
+                kept.display()
+            ));
         }
-        Err(error) => tracing::error!(%error, "invalid hwmon control journal ignored"),
+    };
+    let mut unresolved = Vec::new();
+    for original in originals {
+        // Only sysfs pwm attributes are ever written from the journal.
+        let valid = original.pwm_path.starts_with("/sys/")
+            || cfg!(test)
+            || std::env::var_os("FREERGB_HWMON_ROOT").is_some();
+        if !valid {
+            unresolved.push(original);
+            continue;
+        }
+        if let Err(error) = restore(&original) {
+            tracing::warn!(%error, "hwmon crash recovery failed; entry stays journaled");
+            unresolved.push(original);
+        }
     }
-    let _ = std::fs::remove_file(path);
+    if unresolved.is_empty() {
+        tracing::warn!("restored hwmon headers after unclean shutdown");
+        std::fs::remove_file(path)
+            .map_err(|e| format!("hwmon recovery journal not cleared: {e}"))?;
+    } else {
+        let refs: Vec<&Original> = unresolved.iter().collect();
+        let bytes = serde_json::to_vec(&refs).map_err(|e| e.to_string())?;
+        crate::gpu_cooling::durable_write(path, &bytes)
+            .map_err(|e| format!("hwmon recovery journal not durable: {e}"))?;
+    }
+    Ok(unresolved)
 }
 
 impl Drop for HwmonProvider {
@@ -1092,16 +1190,14 @@ impl HwmonProvider {
             .into_values()
             .map(|a| a.original)
             .collect();
-        let mut clean = true;
         for original in &originals {
             if let Err(error) = restore(original) {
-                clean = false;
+                shared.unresolved.push(original.clone());
                 tracing::error!(%error, "hwmon header not restored on shutdown");
             }
         }
-        if clean {
-            write_journal(self.journal_path().as_deref(), &shared);
-        }
+        // Unresolved headers stay in the journal for the next start.
+        let _ = write_journal(self.journal_path().as_deref(), &shared);
     }
 }
 
@@ -1333,6 +1429,112 @@ mod tests {
         }
         assert!(lock(&p.shared).active.is_empty());
         assert_eq!(f.read("pwm1"), "128");
+    }
+
+    fn manual_70(p: &HwmonProvider) -> Assignment {
+        Assignment {
+            channel_id: channel_id(&chip_id(p), 1),
+            mode: Mode::Manual { percent: 70.0 },
+            pump: false,
+            allow_stop: false,
+        }
+    }
+
+    #[test]
+    fn manual_without_a_fresh_temperature_goes_full() {
+        let f = Fixture::new("interlock");
+        let mut p = f.provider();
+        p.start(true).unwrap();
+        let a = manual_70(&p);
+        p.assign(a).unwrap();
+        assert_eq!(f.read("pwm1"), "179");
+        // Every temperature input disappears (driver unload / sensor loss).
+        let dir = f.root.join("class/hwmon0");
+        for name in ["temp1_input", "temp2_input"] {
+            std::fs::remove_file(dir.join(name)).unwrap();
+        }
+        for _ in 0..12 {
+            std::thread::sleep(Duration::from_millis(500));
+            if f.read("pwm1") == "255" {
+                return;
+            }
+        }
+        panic!(
+            "manual duty never reached the safe state: pwm1={} enable={} status={:?}",
+            f.read("pwm1"),
+            f.read("pwm1_enable"),
+            lock(&p.shared).status
+        );
+    }
+
+    #[test]
+    fn unavailable_journal_blocks_first_write() {
+        let f = Fixture::new("nojournal");
+        let mut p = f.provider();
+        p.start(true).unwrap();
+        // The state path is a file: the journal cannot be made durable.
+        std::fs::remove_dir_all(f.root.join("state")).ok();
+        std::fs::write(f.root.join("state"), b"x").unwrap();
+        let a = manual_70(&p);
+        assert!(p.assign(a).is_err());
+        assert_eq!(f.read("pwm1_enable"), "5", "no write without a journal");
+        assert_eq!(f.read("pwm1"), "128");
+        assert!(lock(&p.shared).active.is_empty());
+        // No state directory at all behaves the same.
+        let mut p = HwmonProvider::new(f.root.join("class"), f.root.join("dmi"), None);
+        p.start(true).unwrap();
+        let a = manual_70(&p);
+        assert!(p.assign(a).is_err());
+        assert_eq!(f.read("pwm1_enable"), "5");
+    }
+
+    #[test]
+    fn failed_restore_stays_journaled_until_proven() {
+        let f = Fixture::new("unresolved");
+        let mut p = f.provider();
+        p.start(true).unwrap();
+        let a = manual_70(&p);
+        let id = a.channel_id.clone();
+        p.assign(a.clone()).unwrap();
+        // Make restore fail: the pwm_enable attribute becomes a directory.
+        let enable = f.root.join("class/hwmon0/pwm1_enable");
+        let saved = std::fs::read(&enable).unwrap();
+        std::fs::remove_file(&enable).unwrap();
+        std::fs::create_dir(&enable).unwrap();
+        assert!(p.release(Some(&id)).is_err());
+        let journal = f.root.join("state/hwmon-control-journal.json");
+        assert!(journal.exists(), "unresolved header must stay journaled");
+        assert!(
+            p.assign(a.clone()).is_err(),
+            "unresolved header is not re-acquired"
+        );
+        std::mem::forget(p); // crash before any proof
+        let mut p = f.provider();
+        p.start(true).unwrap();
+        assert!(
+            journal.exists(),
+            "restart keeps the entry while restore fails"
+        );
+        std::mem::forget(p);
+        std::fs::remove_dir(&enable).unwrap();
+        std::fs::write(&enable, saved).unwrap();
+        let mut p = f.provider();
+        p.start(true).unwrap();
+        assert!(!journal.exists(), "proven return clears the journal");
+        assert_eq!(f.read("pwm1_enable"), "5");
+    }
+
+    #[test]
+    fn unreadable_journal_blocks_provider_and_is_kept() {
+        let f = Fixture::new("corrupt");
+        std::fs::create_dir_all(f.root.join("state")).unwrap();
+        std::fs::write(f.root.join("state/hwmon-control-journal.json"), b"{nope").unwrap();
+        let mut p = f.provider();
+        assert!(p.start(true).is_err());
+        assert!(f
+            .root
+            .join("state/hwmon-control-journal.json.corrupt")
+            .exists());
     }
 
     #[test]

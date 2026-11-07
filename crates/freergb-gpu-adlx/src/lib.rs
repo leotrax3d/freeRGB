@@ -15,6 +15,9 @@
 #![allow(unsafe_code)]
 use std::ffi::{c_char, c_void, CStr};
 
+mod sensors;
+pub use sensors::AdlxSensors;
+
 /// One ADLX fan (one per GPU). `id` is stable across restarts
 /// (`adlx:<unique id>/fan0`).
 #[derive(Clone, Debug, PartialEq)]
@@ -71,6 +74,8 @@ struct SystemVtbl {
     _log: Slot,
     _settings3d: Slot,
     tuning: unsafe extern "system" fn(P<SystemVtbl>, *mut P<TuningVtbl>) -> Result_,
+    performance:
+        unsafe extern "system" fn(P<SystemVtbl>, *mut P<sensors::PerformanceVtbl>) -> Result_,
 }
 
 #[repr(C)]
@@ -211,6 +216,24 @@ pub fn clamp_speed(percent: f32, range_min: i32, range_max: i32) -> i32 {
     (percent.round() as i32).clamp(lo, hi)
 }
 
+fn checked_speed(percent: f32, range: IntRange) -> Result<i32, String> {
+    let floor = range.min.max(40);
+    if range.min < 0 || range.max > 100 || range.max < floor || !(0..=100).contains(&range.step) {
+        return Err("invalid or unsafe ADLX fan speed range".into());
+    }
+    if !percent.is_finite() || percent < floor as f32 || percent > 100.0 {
+        return Err(format!("fan duty must be {floor}..100 percent"));
+    }
+    // Round upward to the driver's step so quantization cannot cross the floor.
+    let step = range.step.max(1);
+    let speed = percent.ceil() as i32;
+    let aligned = range.min + (speed - range.min + step - 1) / step * step;
+    if aligned > range.max {
+        return Err("requested fan duty exceeds the ADLX speed range".into());
+    }
+    Ok(aligned)
+}
+
 /// Flat curve for a manual duty: the captured temperatures, every speed equal.
 pub fn flat_curve(points: &[(i32, i32)], speed: i32) -> Vec<(i32, i32)> {
     points.iter().map(|&(_, t)| (speed, t)).collect()
@@ -234,6 +257,7 @@ pub struct Adlx {
     _lib: libloading::Library,
     terminate: unsafe extern "C" fn() -> Result_,
     services: P<TuningVtbl>,
+    performance: P<sensors::PerformanceVtbl>,
     gpus: Vec<P<GpuVtbl>>,
     fans: Vec<Fan>,
 }
@@ -271,9 +295,21 @@ impl Adlx {
                 terminate();
                 return Err("ADLXInitialize returned no system".into());
             }
+            // Metrics are optional: fan tuning can work without monitoring.
+            let mut performance = std::ptr::null_mut();
+            let r = ((*(*system).vtbl).performance)(system, &mut performance);
+            if !ok(r) {
+                if !performance.is_null() {
+                    ((*(*performance).vtbl).release)(performance);
+                }
+                performance = std::ptr::null_mut();
+            }
             let mut services: P<TuningVtbl> = std::ptr::null_mut();
             let r = ((*(*system).vtbl).tuning)(system, &mut services);
             if !ok(r) || services.is_null() {
+                if !performance.is_null() {
+                    ((*(*performance).vtbl).release)(performance);
+                }
                 terminate();
                 return Err(check(r, "GPU tuning services")
                     .err()
@@ -295,10 +331,30 @@ impl Adlx {
                 _lib: lib,
                 terminate,
                 services,
+                performance,
                 gpus,
                 fans: Vec::new(),
             })
         }
+    }
+
+    /// Read current temperatures and fan RPM, without starting metric tracking
+    /// or changing tuning. Unsupported/failed readings are `None`, never cached.
+    /// GPU identities match the `adlx:<unique id>` prefix of fan IDs.
+    pub fn sensors(&mut self) -> Vec<AdlxSensors> {
+        self.gpus
+            .iter()
+            .filter_map(|&gpu| {
+                // SAFETY: GPU and optional monitoring service are held by self.
+                unsafe {
+                    let mut unique = 0;
+                    if !ok(((*(*gpu).vtbl).unique_id)(gpu, &mut unique)) {
+                        return None;
+                    }
+                    Some(sensors::read(self.performance, gpu, unique))
+                }
+            })
+            .collect()
     }
 
     pub fn discover(&mut self) -> Vec<AdlxFan> {
@@ -353,20 +409,26 @@ impl Adlx {
                 }
                 let tuning = tuning as P<FanVtbl>;
                 let (mut speed, mut temp) = (IntRange::default(), IntRange::default());
-                let _ = ((*(*tuning).vtbl).ranges)(tuning, &mut speed, &mut temp);
+                let range_result = check(
+                    ((*(*tuning).vtbl).ranges)(tuning, &mut speed, &mut temp),
+                    "read fan ranges",
+                );
                 let current = read_states(tuning).ok();
+                let range_error = range_result
+                    .err()
+                    .or_else(|| checked_speed(speed.min.max(40) as f32, speed).err());
                 out.push(AdlxFan {
                     id: id.clone(),
                     gpu_name,
                     index: 0,
-                    duty_percent: current
-                        .as_ref()
-                        .and_then(|s| s.iter().map(|p| p.0).max())
-                        .map(|s| s as f32),
-                    controllable: current.is_some(),
-                    reason: current
-                        .is_none()
-                        .then(|| "Fan tuning states unreadable".into()),
+                    // Curve points describe future targets, not live duty.
+                    duty_percent: None,
+                    controllable: current.is_some() && range_error.is_none(),
+                    reason: range_error.or_else(|| {
+                        current
+                            .is_none()
+                            .then(|| "Fan tuning states unreadable".into())
+                    }),
                     min_percent: speed.min.clamp(0, 100) as f32,
                 });
                 self.fans.push(Fan {
@@ -421,7 +483,10 @@ impl Adlx {
 
     pub fn set_duty(&mut self, id: &str, percent: f32) -> Result<(), String> {
         let fan = self.fan(id)?;
-        let speed = clamp_speed(percent, fan.speed_range.min, fan.speed_range.max);
+        if fan.captured.is_none() {
+            return Err("take_control is required before setting ADLX fan duty".into());
+        }
+        let speed = checked_speed(percent, fan.speed_range)?;
         // SAFETY: tuning pointer acquired in `discover`.
         unsafe { write_states(fan.tuning, |points| flat_curve(points, speed)) }
     }
@@ -490,19 +555,37 @@ unsafe fn read_states(tuning: P<FanVtbl>) -> Result<Vec<(i32, i32)>, String> {
     if list.is_null() {
         return Err("read fan curve: empty".into());
     }
+    read_state_list(list)
+}
+
+/// Consumes the acquired list reference, including on a partial read failure.
+unsafe fn read_state_list(list: P<StateListVtbl>) -> Result<Curve, String> {
     let mut out = Vec::new();
-    let n = ((*(*list).vtbl).size)(list).min(16);
+    let n = ((*(*list).vtbl).size)(list);
+    if n == 0 || n > 16 {
+        ((*(*list).vtbl).release)(list);
+        return Err("read fan curve: invalid state count".into());
+    }
+    let mut result = Ok(());
     for i in 0..n {
         let mut state: P<StateVtbl> = std::ptr::null_mut();
         if ok(((*(*list).vtbl).at_state)(list, i, &mut state)) && !state.is_null() {
             let (mut speed, mut temp) = (0, 0);
-            let _ = ((*(*state).vtbl).get_speed)(state, &mut speed);
-            let _ = ((*(*state).vtbl).get_temperature)(state, &mut temp);
-            out.push((speed, temp));
+            let a = ((*(*state).vtbl).get_speed)(state, &mut speed);
+            let b = ((*(*state).vtbl).get_temperature)(state, &mut temp);
             ((*(*state).vtbl).release)(state);
+            result = check(a, "read fan speed").and(check(b, "read fan temperature"));
+            if result.is_err() {
+                break;
+            }
+            out.push((speed, temp));
+        } else {
+            result = Err("read fan curve: state unavailable".into());
+            break;
         }
     }
     ((*(*list).vtbl).release)(list);
+    result?;
     if out.is_empty() {
         return Err("read fan curve: no states".into());
     }
@@ -568,10 +651,16 @@ impl Drop for Adlx {
                 ((*(*gpu).vtbl).release)(gpu);
             }
             ((*(*self.services).vtbl).release)(self.services);
+            if !self.performance.is_null() {
+                ((*(*self.performance).vtbl).release)(self.performance);
+            }
             (self.terminate)();
         }
     }
 }
+
+#[cfg(test)]
+mod curve_tests;
 
 #[cfg(test)]
 mod tests {
@@ -588,6 +677,67 @@ mod tests {
             100,
             "bogus ranges stay within 0..100"
         );
+    }
+
+    #[test]
+    fn manual_speed_rejects_unsafe_inputs_and_rounds_up_to_driver_steps() {
+        let range = IntRange {
+            min: 15,
+            max: 100,
+            step: 5,
+        };
+        assert_eq!(checked_speed(40.1, range), Ok(45));
+        assert_eq!(checked_speed(100.0, range), Ok(100));
+        for percent in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY, 0.0, 39.9, 100.1] {
+            assert!(checked_speed(percent, range).is_err());
+        }
+        for range in [
+            IntRange {
+                min: -1,
+                max: 100,
+                step: 1,
+            },
+            IntRange {
+                min: 15,
+                max: 39,
+                step: 1,
+            },
+            IntRange {
+                min: 80,
+                max: 70,
+                step: 1,
+            },
+            IntRange {
+                min: 15,
+                max: 101,
+                step: 1,
+            },
+            IntRange {
+                min: 15,
+                max: 100,
+                step: i32::MAX,
+            },
+        ] {
+            assert!(checked_speed(60.0, range).is_err());
+        }
+        assert!(checked_speed(
+            100.0,
+            IntRange {
+                min: 20,
+                max: 99,
+                step: 1
+            }
+        )
+        .is_err());
+        assert!(checked_speed(
+            40.0,
+            IntRange {
+                min: 50,
+                max: 100,
+                step: 1
+            }
+        )
+        .is_err());
     }
 
     #[test]

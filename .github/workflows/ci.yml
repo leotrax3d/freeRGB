@@ -163,6 +163,16 @@ jobs:
         if: runner.os == 'Linux'
         run: python3 scripts/test-effect-marketplace.py target/release/freergbd
 
+      - name: Linux package staging and Debian package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get install -y dpkg-dev
+          bash packaging/linux/test-stage.sh
+          bash packaging/linux/build.sh deb
+          dpkg-deb --info target/linux-packages/*.deb
+          dpkg-deb --contents target/linux-packages/*.deb
+
   windows-release:
     name: windows release smoke
     needs: changes

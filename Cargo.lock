@@ -2884,6 +2884,7 @@ name = "freergb-update"
 version = "0.1.0-beta.4"
 dependencies = [
  "dunce",
+ "ed25519-dalek",
  "reqwest",
  "semver",
  "serde",
