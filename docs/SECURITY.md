@@ -5,7 +5,8 @@
 * Built-in hardware writes only via validated adapters; property writes via allowlist.
 * No firmware, flash, driver or SMBus writes without explicit user approval.
 * Devices are returned to hardware mode on disconnect and daemon exit.
-* `unsafe_code = "forbid"` across the workspace.
+* Most crates forbid unsafe code; the updater permits a documented Windows shell
+  call for explicit elevation. This is not a workspace-wide unsafe-code prohibition.
 * Local API: IPC only (named pipe without remote clients / Unix socket `0600`), no TCP port.
 * No personal data from SignalRGB logs (e.g. machine ID) is copied into the project.
 * Installing `freergbd` as a system service or autostart is a system change and requires
@@ -45,3 +46,20 @@ report IDs and maximum lengths, and denies string reads in all other phases.
 Probe strings are transient and are not added to diagnostics or setup state;
 modules must not echo them in errors/results. See HARDWARE_MODULES.md for the
 wire contract, package compatibility and trusted-native-process limitation.
+
+## Updates and native trust
+
+The updater requires an offline-verifiable Ed25519 signature under a public key
+pinned in the binary, binding version, Windows target, size and SHA-256 digest.
+Online release metadata cannot supply or replace that key. The actual installer
+is hashed and its signature checked again before requesting elevation. No release
+key is provisioned yet, so installation fails closed; tests use generated fixture
+keys only. See `UPDATES.md` for the signature format and release prerequisites.
+
+Native hardware/effect modules execute trusted code with their host process's
+OS privileges. Signatures and broker validation authorize code and constrain
+cooperative protocol requests; they do not confine arbitrary native instructions,
+file/network access, direct OS calls or child processes. A separate process can
+contain ordinary crashes, but no OS-enforced sandbox for hostile native modules
+is implemented or claimed. User consent and signature verification do not prove
+that signed code is harmless.
