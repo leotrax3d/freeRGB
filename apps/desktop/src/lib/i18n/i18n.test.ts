@@ -6,6 +6,7 @@ import { createElement } from "react";
 import { Button } from "@/components/ui/button";
 import en from "./locales/en.json";
 import de from "./locales/de.json";
+import metadata from "./locale-metadata.json";
 import { defineMessages, direction, LOCALES, pickLocale, pluralCategory, registeredKeys, resolveLocale, t, tn, useLocale } from "./index";
 import { pseudoCatalog } from "./pseudo";
 import { wrapIndex } from "../a11y";
@@ -25,7 +26,10 @@ beforeEach(() => useLocale.getState().setPreference("en"));
 describe("locale selection", () => {
   it("matches exact tags, base language and English fallback", () => {
     expect(pickLocale(["de-AT", "en"])).toBe("de");
-    expect(pickLocale(["fr-FR", "en-GB"])).toBe("en");
+    expect(pickLocale(["fr-FR", "en-GB"])).toBe("fr");
+    expect(pickLocale(["zz-ZZ", "en-GB"])).toBe("en");
+    expect(pickLocale(["pt-BR", "pt-PT"])).toBe("pt-BR");
+    expect(pickLocale(["zh-Hant", "zh-Hans"])).toBe("zh-Hant");
     expect(pickLocale([])).toBe("en");
     expect(resolveLocale("de", ["en-US"])).toBe("de");
     expect(resolveLocale("missing")).toBe("en");
@@ -81,6 +85,14 @@ describe("translation", () => {
   });
 });
 describe("catalog validation", () => {
+  it("explicitly marks generated catalogs as machine-translated and unreviewed", () => {
+    const provenance: Record<string, { machineTranslated: boolean; reviewed: boolean }> = metadata;
+    for (const locale of LOCALES.filter((l) => l.id !== "en" && l.id !== "en-XA")) {
+      expect(provenance[locale.id], locale.id).toEqual({ machineTranslated: true, reviewed: false });
+      expect(locale.machineTranslated, locale.id).toBe(true);
+      expect(locale.reviewed, locale.id).toBe(false);
+    }
+  });
   it("validates all shipped catalogs without importing feature views", () => {
     expect(validateLocales("all")).toEqual([]);
     expect(validateLocales("de")).toEqual([]);
