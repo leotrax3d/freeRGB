@@ -27,7 +27,7 @@ Lead files must not be edited until those branches are merged:
 | notices | FR-007, FR-018 (SBOM/notice part), FR-010 (tooling + gap report) | `NOTICE`, `THIRD_PARTY_NOTICES.md`, `scripts/gen-notices.py`, `docs/legal/SBOM*`, `packaging/windows/freergb.iss`, `packaging/linux/**` notice install, source-offer file | none | todo |
 | fr005 | FR-005 (P0.3) | `apps/desktop/src/features/onboarding/safety.ts`, `docs/COOLING_SAFETY.md`, `providers/mainboard/NativeControlSession.cs` comment text, wizard text version; en/de locale only | `docs/SECURITY.md` part waits for updater merge | todo |
 | privacy | FR-006 (P0.4 engineering part) | `crates/freergb-effect-host/src/{ratings,marketplace}.rs`, `appwrite/community/**`, `docs/WEBSITE_CONTENT.md`, `docs/PRIVACY.md` (new draft), offline/no-count switch | none | todo |
-| linux-ci | FR-013, FR-011 | `packaging/linux/60-freergb.rules`, a fixture test, `.github/workflows/modules.yml`, release allowlist file | none | todo |
+| linux-ci | FR-013 (done), FR-011 | `packaging/linux/60-freergb.rules`, a fixture test, `.github/workflows/modules.yml`, release allowlist file | none | FR-013 merged, FR-011 todo |
 | docs | FR-015, FR-016, FR-017, FR-018 (test plan), P0.5, P0.7 | `docs/legal/OWNER_DECISIONS.md`, `docs/legal/RELEASE_FIX_PLAN.md`, `docs/promts/fancontrol/07-hardware-acceptance.md` | none | wip (lead) |
 | fr012 | FR-012 | `crates/freergb-daemon/src/{api,onboarding,hwmon,main}.rs` | coolsafety merged (hwmon.rs conflict) | todo (blocked) |
 
@@ -43,7 +43,7 @@ Lead files must not be edited until those branches are merged:
 | FR-010 | MED | notices | Provenance generator + gap report; per-module upstream review is manual | todo (partly owner) |
 | FR-011 | MED | linux-ci | Allowlist-driven build and source job | todo |
 | FR-012 | MED | fr012 | Revoke stops channels; startup honours safety state | blocked |
-| FR-013 | MED | linux-ci | Exact pwmN / pwmN_enable only, fixture test | todo |
+| FR-013 | MED | linux-ci | Exact pwmN / pwmN_enable only, fixture test | merged (scripts/test-udev-pwm-glob.sh) |
 | FR-015 | UNCLEAR | docs | Lawyer brief + file list; no clean-room claim | owner |
 | FR-016 | UNCLEAR | docs | Applicability matrix draft (CRA, product liability) | owner |
 | FR-017 | UNCLEAR | docs | Asset provenance checklist; trademark/patent search tasks | owner |
