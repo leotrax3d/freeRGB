@@ -72,6 +72,7 @@ fn manifest(version: &str) -> PackageManifest {
         devices: vec![device_match(0x00A3), device_match(0x00AF)],
         bus: None,
         cooling: None,
+        probe: None,
         files: Default::default(),
     }
 }
@@ -548,4 +549,47 @@ fn failed_download_reports_cause_and_can_be_cancelled() {
     assert_eq!(card.error.unwrap().code, "invalid_package");
     assert!(manager.configured().is_empty());
     assert!(manager.store().all_verified().is_empty());
+}
+#[test]
+fn probe_manifest_is_optional_versioned_and_cannot_escape_hid_policy() {
+    use freergb_module_api::probe::{Feature, Policy};
+    let mut m = manifest("1.0.0");
+    for name in ["module.exe", "LICENSE", "PROVENANCE.md"] {
+        m.files.insert(name.into(), "0".repeat(64));
+    }
+    m.validate().unwrap();
+    let legacy = serde_json::to_vec(&m).unwrap();
+    assert!(!String::from_utf8_lossy(&legacy).contains("probe"));
+    assert!(serde_json::from_slice::<PackageManifest>(&legacy)
+        .unwrap()
+        .probe
+        .is_none());
+    m.probe = Some(Policy {
+        version: 1,
+        serial: true,
+        product: false,
+        features: vec![Feature {
+            report_id: 0x52,
+            max_len: 200,
+        }],
+    });
+    m.validate().unwrap();
+    let bytes = serde_json::to_vec(&m).unwrap();
+    let signature = sign(&key(), &bytes);
+    assert_eq!(
+        serde_json::from_slice::<PackageManifest>(&bytes).unwrap(),
+        m
+    );
+    m.probe.as_mut().unwrap().features[0].max_len = 201;
+    assert!(keys()
+        .verify(&serde_json::to_vec(&m).unwrap(), signature.as_bytes())
+        .is_err());
+    m.probe.as_mut().unwrap().version = 2;
+    assert!(m.validate().is_err());
+    m.probe.as_mut().unwrap().version = 1;
+    m.schema = 2;
+    assert!(m.validate().is_err());
+    m.schema = 1;
+    m.api = vec![1, 2];
+    assert!(m.validate().is_err());
 }

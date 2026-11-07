@@ -114,6 +114,7 @@ fn start(mode: &str) -> (Result<CoolingPlugin, String>, Wire) {
         devices: vec![],
         bus: None,
         cooling: Some(policy()),
+        probe: None,
         files: [
             ("fixture".to_owned(), sha.clone()),
             ("PROVENANCE.md".to_owned(), sha.clone()),

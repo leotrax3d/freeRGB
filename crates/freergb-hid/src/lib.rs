@@ -164,6 +164,15 @@ impl HidTransport for HidapiTransport {
         self.dev.get_feature_report(buf).map_err(io)
     }
 
+    fn serial_string(&mut self) -> Result<Option<String>, TransportError> {
+        let _gate = io_gate();
+        self.dev.get_serial_number_string().map_err(io)
+    }
+    fn product_string(&mut self) -> Result<Option<String>, TransportError> {
+        let _gate = io_gate();
+        self.dev.get_product_string().map_err(io)
+    }
+
     fn output_report_len(&self) -> usize {
         self.sizes.output_with_id()
     }

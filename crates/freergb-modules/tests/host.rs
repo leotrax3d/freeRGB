@@ -11,6 +11,7 @@ use std::time::Instant;
 struct Wire {
     written: Arc<Mutex<Vec<Vec<u8>>>>,
     unplugged: Arc<Mutex<bool>>,
+    reads: Arc<Mutex<Vec<String>>>,
 }
 
 struct Echo(Wire, Option<Vec<u8>>);
@@ -28,6 +29,26 @@ impl HidTransport for Echo {
         let data = self.1.take().unwrap_or_default();
         buf[..data.len()].copy_from_slice(&data);
         Ok(data.len())
+    }
+    fn serial_string(&mut self) -> Result<Option<String>, TransportError> {
+        self.0.reads.lock().unwrap().push("serial".into());
+        assert!(
+            self.0.written.lock().unwrap().is_empty(),
+            "probe precedes writes"
+        );
+        Ok(Some("7D03-test".into()))
+    }
+    fn product_string(&mut self) -> Result<Option<String>, TransportError> {
+        self.0.reads.lock().unwrap().push("product".into());
+        Ok(Some("Simulated controller".into()))
+    }
+    fn get_feature(&mut self, buf: &mut [u8]) -> Result<usize, TransportError> {
+        assert_eq!(buf.len(), 200);
+        assert_eq!(buf[0], 0x52);
+        assert!(buf[1..].iter().all(|b| *b == 0));
+        self.0.reads.lock().unwrap().push("feature:52:200".into());
+        buf[..4].copy_from_slice(&[0x52, 1, 2, 3]);
+        Ok(4)
     }
     fn output_report_len(&self) -> usize {
         64
@@ -235,4 +256,67 @@ fn unplugged_device_is_reported_gone() {
     *wire.unplugged.lock().unwrap() = true;
     let error = d.push_frame(&Frame::solid(2, RED)).unwrap_err();
     assert!(error.is_gone(), "{error}");
+}
+
+fn probe_policy() -> freergb_module_api::probe::Policy {
+    freergb_module_api::probe::Policy {
+        version: 1,
+        serial: true,
+        product: true,
+        features: vec![freergb_module_api::probe::Feature {
+            report_id: 0x52,
+            max_len: 200,
+        }],
+    }
+}
+
+#[test]
+fn read_only_probe_runs_in_child_before_initialize_and_repeats_on_reconnect() {
+    let wire = Wire::default();
+    let mut d = device("probe-ok", &wire);
+    d.set_probe_policy(Some(probe_policy()));
+    d.connect().unwrap();
+    assert_eq!(
+        *wire.reads.lock().unwrap(),
+        ["serial", "product", "feature:52:200"]
+    );
+    assert_eq!(
+        d.info().serial,
+        None,
+        "serial stays out of device diagnostics"
+    );
+    d.push_frame(&Frame::solid(2, RED)).unwrap();
+    d.disconnect(None).unwrap();
+    wire.written.lock().unwrap().clear();
+    d.connect().unwrap();
+    assert_eq!(wire.reads.lock().unwrap().len(), 6);
+    d.disconnect(None).unwrap();
+}
+
+#[test]
+fn probe_refusal_and_denied_feature_never_initialize_or_write() {
+    for (mode, max_len) in [("probe-refuse", 200), ("probe-denied", 199)] {
+        let wire = Wire::default();
+        let mut d = device(mode, &wire);
+        let mut policy = probe_policy();
+        policy.features[0].max_len = max_len;
+        d.set_probe_policy(Some(policy));
+        assert!(d.connect().is_err());
+        assert!(wire.written.lock().unwrap().is_empty());
+        assert_eq!(d.info().serial, None);
+        if max_len == 199 {
+            assert_eq!(*wire.reads.lock().unwrap(), ["serial", "product"]);
+        }
+    }
+}
+
+#[test]
+fn module_probe_errors_do_not_expose_serial_in_device_diagnostics() {
+    let wire = Wire::default();
+    let mut d = device("probe-error", &wire);
+    d.set_probe_policy(Some(probe_policy()));
+    let error = d.connect().unwrap_err();
+    assert!(!error.to_string().contains("7D03-test"));
+    assert!(!format!("{:?} {:?}", d.status(), d.last_error()).contains("7D03-test"));
+    assert!(wire.written.lock().unwrap().is_empty());
 }

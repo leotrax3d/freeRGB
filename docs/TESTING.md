@@ -443,3 +443,15 @@ upgrade's `stop-installed-daemon` returned when the pipe closed while
 `freergbd.exe` was still exiting, so Restart Manager could not close it and the
 silent setup aborted. `freergb stop-installed-daemon` now also waits (max 15 s)
 until the installed daemon image is no longer locked.
+
+## Read-only module identity probes
+
+The module API policy tests reject unknown versions, duplicate IDs and invalid
+lengths. Broker tests call the untrusted wire boundary directly and verify that
+writes, input reads, unlisted IDs, oversized buffers and arbitrary prefixes never
+reach the simulated transport. The real fixture child in
+`freergb-modules/tests/host.rs` reads synthetic serial/product strings and a
+byte-exact 0x52 feature report before initialization, repeats the probe on
+reconnect, and refuses initialization without writes on denial or unsupported
+identity. Existing lifecycle tests exercise packages/modules without the extension.
+No family port or hardware validation is included.

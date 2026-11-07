@@ -34,6 +34,9 @@ pub struct PackageManifest {
     /// Schema 3 cooling plugin policy (sensors, channels, HID allowlist, fail-safe).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cooling: Option<freergb_module_api::cooling::Policy>,
+    /// Signed permission for the optional read-only HID identity extension.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe: Option<freergb_module_api::probe::Policy>,
     /// Every other file in the package with its SHA-256.
     pub files: BTreeMap<String, String>,
 }
@@ -51,6 +54,14 @@ impl PackageManifest {
     pub fn validate(&self) -> Result<()> {
         if !valid_id(&self.id) || self.api.is_empty() {
             return Err(invalid("invalid package manifest"));
+        }
+        if let Some(policy) = &self.probe {
+            if self.schema != 1 || self.api != [freergb_module_api::MODULE_API] {
+                return Err(invalid("probe policy requires HID API 1"));
+            }
+            policy
+                .validate()
+                .map_err(|_| invalid("invalid probe policy"))?;
         }
         match (self.schema, &self.bus, &self.cooling) {
             (1, None, None) if !self.devices.is_empty() => {}

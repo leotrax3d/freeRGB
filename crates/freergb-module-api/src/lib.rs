@@ -18,6 +18,7 @@
 
 pub mod bus;
 pub mod cooling;
+pub mod probe;
 pub mod sdk;
 
 use base64::Engine as _;
@@ -47,7 +48,7 @@ pub struct PlatformIdentity {
 }
 
 /// What the daemon knows about one HID interface. No serial number or path is
-/// ever sent to a module.
+/// sent in this payload. Opt-in probes can read identity strings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InterfaceInfo {
     pub vid: u16,
@@ -186,6 +187,11 @@ pub enum Method {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         platform: Option<PlatformIdentity>,
     },
+    /// Optional read-only identity extension.
+    Probe {
+        version: u32,
+        interface: InterfaceInfo,
+    },
     Initialize {
         interface: InterfaceInfo,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -212,6 +218,8 @@ pub enum Op {
     Read,
     SendFeature,
     GetFeature,
+    SerialString,
+    ProductString,
 }
 
 /// Module -> host transport call.

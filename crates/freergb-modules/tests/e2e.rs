@@ -105,6 +105,7 @@ fn signed_catalog_to_installed_module_driving_a_simulated_cobra() {
         devices: vec![cobra],
         bus: None,
         cooling: None,
+        probe: None,
         files: Default::default(),
     };
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../modules/razer-chroma");

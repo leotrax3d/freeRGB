@@ -45,6 +45,14 @@ pub trait HidTransport: Send {
         ))
     }
 
+    /// Read-only identity strings. Unsupported transports fail closed.
+    fn serial_string(&mut self) -> Result<Option<String>, TransportError> {
+        Err(TransportError::Io("serial string is not supported".into()))
+    }
+    fn product_string(&mut self) -> Result<Option<String>, TransportError> {
+        Err(TransportError::Io("product string is not supported".into()))
+    }
+
     /// Discards pending input reports.
     fn drain(&mut self) -> Result<(), TransportError> {
         let mut buf = vec![0u8; self.input_report_len().max(1)];
