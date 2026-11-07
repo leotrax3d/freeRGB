@@ -177,6 +177,7 @@ internal static class NativeControlTests
         EvidenceTests();
         NativeSessionTests.Run();
         TelemetryTests();
+        NativeReaderTemperatureTests.Run();
         NativeJournalTests.Run(delegate(ControlSink sink) { return NativeControl.ForTest(Create(sink),false); });
         NativeTierTests.Run(delegate(ControlSink sink) { return Create(sink); });
         NativeMultiChannelTests.Run(delegate(ControlSink sink) { return Create(sink); });

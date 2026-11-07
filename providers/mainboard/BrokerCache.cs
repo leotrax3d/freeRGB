@@ -41,6 +41,11 @@ internal sealed class BrokerCache
                 object age = sensor["age_ms"];
                 if (!(age is int) && !(age is long)) throw new ArgumentException("Invalid sensor age.");
                 if (Convert.ToInt64(age) < 0) throw new ArgumentException("Negative sensor age.");
+                object acquired;
+                if (sensor.TryGetValue("acquired_ms",out acquired) &&
+                    ((!(acquired is int) && !(acquired is long)) || Convert.ToInt64(acquired) < 0 ||
+                    Convert.ToInt64(acquired) > (long)(Now * 1000.0 / Stopwatch.Frequency)))
+                    throw new ArgumentException("Invalid sensor acquisition time.");
             }
         }
         return result;
@@ -64,8 +69,15 @@ internal sealed class BrokerCache
         foreach (Dictionary<string, object> device in (IEnumerable)result["hardware"])
             foreach (Dictionary<string, object> sensor in (IEnumerable)device["sensors"])
             {
+                object acquired;
                 long age = Convert.ToInt64(sensor["age_ms"]);
-                sensor["age_ms"] = age > Int64.MaxValue - elapsed ? Int64.MaxValue : age + elapsed;
+                // New readers provide the actual boot-local acquisition time.
+                // Adding the entire request latency to their sensor age would
+                // count a slow CPU/GPU refresh twice. Older readers keep their
+                // conservative age-based contract.
+                sensor["age_ms"] = sensor.TryGetValue("acquired_ms",out acquired)
+                    ? (long)(Now * 1000.0 / Stopwatch.Frequency) - Convert.ToInt64(acquired)
+                    : (age > Int64.MaxValue - elapsed ? Int64.MaxValue : age + elapsed);
                 if ((long)sensor["age_ms"] >= 5000) sensor["value"] = null;
             }
         string response = new JavaScriptSerializer { MaxJsonLength = BrokerTransport.Limit }.Serialize(result);

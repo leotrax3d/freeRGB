@@ -29,10 +29,10 @@ internal static class NativeIsa
         finally { release.Invoke(null,null); }
     }
     // Several temperature sources (hottest wins). Sources on the control's own
-    // chip are read inside the checked ISA refresh; CPU/GPU sources are refreshed
-    // through their own LHM hardware (their own bus locks). A missing or
+    // chip are read inside the checked ISA refresh; CPU/GPU sources come from
+    // the authenticated inventory reader, without a second LHM refresh. A missing or
     // unreadable source throws: the independent guard then expires.
-    internal static void ReadSources(object control, string[] temperatureIds, string rpmId, Func<string,object> find, out double temperature, out double rpm)
+    internal static void ReadSources(object control, string[] temperatureIds, string rpmId, Func<string,object> find, Func<string,double> external, out double temperature, out double rpm)
     {
         if (temperatureIds.Length == 1 && find == null)
         {
@@ -66,6 +66,12 @@ internal static class NativeIsa
         foreach (string id in temperatureIds)
         {
             if (id.StartsWith(chip,StringComparison.Ordinal)) continue;
+            if (!id.StartsWith("/lpc/",StringComparison.Ordinal))
+            {
+                if (external == null) throw new InvalidOperationException("Trusted reader temperature required.");
+                hottest=Math.Max(hottest,external(id));
+                continue;
+            }
             object sensor = find == null ? null : find(id);
             if (sensor == null) throw new InvalidOperationException("Selected temperature source is not available.");
             object owner = sensor.GetType().GetProperty("Hardware").GetValue(sensor,null);

@@ -51,6 +51,16 @@ struct NativeTelemetry {
     temperature_c: f32,
     rpm: f32,
     age_ms: u64,
+    #[serde(default)]
+    sources: Option<NativeSourceTimes>,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+struct NativeSourceTimes {
+    temperature_sequence: u64,
+    rpm_sequence: u64,
+    temperature_age_ms: u64,
+    rpm_age_ms: u64,
 }
 
 #[derive(Clone, Copy)]
@@ -58,6 +68,8 @@ pub struct NativeObservation {
     pub temperature_c: f32,
     pub rpm: f32,
     pub acquired: Instant,
+    pub temperature_acquired: Instant,
+    pub rpm_acquired: Instant,
 }
 
 fn observation(
@@ -81,22 +93,85 @@ fn observation(
         {
             return Err("Native sample identity changed or reversed".into());
         }
-        if raw.sequence == old.sequence {
+        if raw.sources.is_some() != old.sources.is_some() {
+            return Err("Native telemetry source format changed".into());
+        }
+        if raw.sequence == old.sequence && raw.sources.is_none() {
             return Ok(Some((raw, observed)));
         }
     }
     // Request start is conservative: transport latency never makes data newer.
-    let acquired = began
-        .checked_sub(Duration::from_millis(raw.age_ms))
-        .ok_or("Native sample time overflow")?;
+    let (temperature_acquired, rpm_acquired) = if let Some(sources) = raw.sources {
+        if raw.age_ms != sources.temperature_age_ms.max(sources.rpm_age_ms)
+            || raw.sequence != sources.rpm_sequence
+        {
+            return Err("Inconsistent native source ages or identity".into());
+        }
+        let previous =
+            previous.and_then(|(old, observed)| old.sources.map(|times| (times, old, observed)));
+        (
+            source_acquisition(
+                sources.temperature_sequence,
+                sources.temperature_age_ms,
+                raw.temperature_c,
+                began,
+                previous.map(|(times, old, observed)| {
+                    (
+                        times.temperature_sequence,
+                        old.temperature_c,
+                        observed.temperature_acquired,
+                    )
+                }),
+            )?,
+            source_acquisition(
+                sources.rpm_sequence,
+                sources.rpm_age_ms,
+                raw.rpm,
+                began,
+                previous.map(|(times, old, observed)| {
+                    (times.rpm_sequence, old.rpm, observed.rpm_acquired)
+                }),
+            )?,
+        )
+    } else {
+        let acquired = began
+            .checked_sub(Duration::from_millis(raw.age_ms))
+            .ok_or("Native sample time overflow")?;
+        (acquired, acquired)
+    };
     Ok(Some((
         raw,
         NativeObservation {
             temperature_c: raw.temperature_c,
             rpm: raw.rpm,
-            acquired,
+            acquired: temperature_acquired.min(rpm_acquired),
+            temperature_acquired,
+            rpm_acquired,
         },
     )))
+}
+
+fn source_acquisition(
+    sequence: u64,
+    age_ms: u64,
+    value: f32,
+    began: Instant,
+    previous: Option<(u64, f32, Instant)>,
+) -> Result<Instant, String> {
+    if age_ms > NATIVE_TELEMETRY_MAX_AGE_MS {
+        return Err("Invalid trusted native source age".into());
+    }
+    if let Some((old_sequence, old_value, acquired)) = previous {
+        if sequence < old_sequence || (sequence == old_sequence && value != old_value) {
+            return Err("Native source identity changed or reversed".into());
+        }
+        if sequence == old_sequence {
+            return Ok(acquired);
+        }
+    }
+    began
+        .checked_sub(Duration::from_millis(age_ms))
+        .ok_or_else(|| "Native source time overflow".into())
 }
 
 // Intentionally no Debug/Serialize: ticket/session secrets must not enter logs.
@@ -338,6 +413,65 @@ mod tests {
     use serde_json::{json, Value};
     use tokio::io::{AsyncBufReadExt, BufReader};
     #[test]
+    fn fresh_rpm_cannot_renew_a_shared_temperature_or_change_its_identity() {
+        let began = Instant::now();
+        let raw = NativeTelemetry {
+            sequence: 10,
+            temperature_c: 45.0,
+            rpm: 900.0,
+            age_ms: 1000,
+            sources: Some(NativeSourceTimes {
+                temperature_sequence: 1,
+                rpm_sequence: 10,
+                temperature_age_ms: 1000,
+                rpm_age_ms: 0,
+            }),
+        };
+        let first = observation(Some(raw), began, None).unwrap().unwrap();
+        let times = NativeSourceTimes {
+            rpm_sequence: 11,
+            temperature_age_ms: 1100,
+            ..raw.sources.unwrap()
+        };
+        let newer = NativeTelemetry {
+            sequence: 11,
+            rpm: 901.0,
+            age_ms: 1100,
+            sources: Some(times),
+            ..raw
+        };
+        let next = observation(Some(newer), began + Duration::from_millis(100), Some(first))
+            .unwrap()
+            .unwrap();
+        assert_eq!(first.1.temperature_acquired, next.1.temperature_acquired);
+        assert!(next.1.rpm_acquired > first.1.rpm_acquired);
+        assert_eq!(next.1.acquired, first.1.acquired);
+        assert!(observation(
+            Some(NativeTelemetry {
+                temperature_c: 46.0,
+                ..newer
+            }),
+            began,
+            Some(first)
+        )
+        .is_err());
+        assert!(observation(
+            Some(NativeTelemetry {
+                sources: None,
+                ..newer
+            }),
+            began,
+            Some(first)
+        )
+        .is_err());
+        assert!(observation(
+            Some(NativeTelemetry { age_ms: 0, ..newer }),
+            began,
+            Some(first)
+        )
+        .is_err());
+    }
+    #[test]
     fn native_cached_sample_identity_cannot_refresh_acquisition_time() {
         let began = Instant::now();
         let raw = NativeTelemetry {
@@ -345,6 +479,7 @@ mod tests {
             temperature_c: 40.0,
             rpm: 900.0,
             age_ms: 50,
+            sources: None,
         };
         let first = observation(Some(raw), began, None).unwrap().unwrap();
         let repeated = observation(

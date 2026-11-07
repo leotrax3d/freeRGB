@@ -104,12 +104,14 @@ impl CoolingHost {
             let client = tokio::time::timeout(NATIVE_STARTUP_BUDGET, acquire)
                 .await
                 .map_err(|_| "Protected native startup timed out; inspect recovery state")??;
-            let initial = SamplerFrame::from_native(
-                client
-                    .observation()
-                    .ok_or("Protected worker supplied no trusted telemetry")?,
-                epoch,
-            )?;
+            let observation = client
+                .observation()
+                .ok_or("Protected worker supplied no trusted telemetry")?;
+            // Startup is bounded by acquisition above, before supervision exists.
+            // A trusted cached temperature can predate this host: include that
+            // acquisition in the runtime clock without resetting its real age.
+            let epoch = epoch.min(observation.acquired);
+            let initial = SamplerFrame::from_native(observation, epoch)?;
             let (_sender, samples) = mpsc::channel(1);
             cooling_runtime::run_with_limits(client, mode, limits, initial, samples, stopped, epoch)
                 .await
@@ -210,6 +212,129 @@ mod tests {
     use super::*;
     use serde_json::{json, Value};
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    async fn native_start_then_freeze(startup: Duration, initial_age_ms: u64) {
+        let (transport, worker) = tokio::io::duplex(4096);
+        let (started, ready) = oneshot::channel();
+        let peer = tokio::spawn(async move {
+            ready.await.unwrap();
+            let acquired = Instant::now();
+            let mut worker = BufReader::new(worker);
+            let mut reply = json!({"version":1,"session":"a".repeat(32),"ticket":"b".repeat(32),
+                "sequence":0,"state":"active","reason":null,"duty_percent":100,"ticket_ms":250,
+                "lease_ms":1000,"owned":true,"physical_write_verified":false,"tier":"lhm_supported",
+                "telemetry":{"sequence":1,"temperature_c":45,"rpm":900,"age_ms":initial_age_ms,
+                    "sources":{"temperature_sequence":1,"rpm_sequence":1,"temperature_age_ms":initial_age_ms,"rpm_age_ms":0}}});
+            worker
+                .get_mut()
+                .write_all(format!("{reply}\n").as_bytes())
+                .await
+                .unwrap();
+            let mut commands = 0;
+            loop {
+                let mut line = String::new();
+                assert_ne!(
+                    worker.read_line(&mut line).await.unwrap(),
+                    0,
+                    "lost session without firmware return"
+                );
+                let request: Value = serde_json::from_str(&line).unwrap();
+                reply["sequence"] = request["sequence"].clone();
+                commands += 1;
+                reply["ticket"] = json!(format!("{commands:032x}"));
+                let close = request["action"] == "close";
+                if close {
+                    assert!(
+                        acquired.elapsed().as_millis() + u128::from(initial_age_ms) >= 6900,
+                        "startup time was charged as sample age"
+                    );
+                    reply["state"] = json!("closed");
+                    reply["owned"] = json!(false);
+                    reply["duty_percent"] = json!(100);
+                    reply["firmware_returned"] = json!(true);
+                    reply["journal_cleared"] = json!(true);
+                    reply["telemetry"] = Value::Null;
+                } else {
+                    reply["duty_percent"] = request["duty_percent"].clone();
+                    reply["telemetry"]["sequence"] = json!(commands + 1);
+                    reply["telemetry"]["sources"]["rpm_sequence"] = json!(commands + 1);
+                    reply["telemetry"]["rpm"] = json!(900 + commands % 3);
+                    // Only temperature stays frozen, even if a cached receipt
+                    // understates its age. Fresh RPM and tickets cannot renew it.
+                }
+                worker
+                    .get_mut()
+                    .write_all(format!("{reply}\n").as_bytes())
+                    .await
+                    .unwrap();
+                if close {
+                    return commands;
+                }
+            }
+        });
+        let mut host = CoolingHost::new(true, Instant::now());
+        host.start_native(
+            async move {
+                tokio::time::sleep(startup).await;
+                started.send(()).unwrap();
+                NativeSessionClient::from_authenticated_transport(transport).await
+            },
+            ControlMode::Curve(freergb_control::FanCurve {
+                minimum_percent: 40.0,
+                points: vec![
+                    freergb_control::CurvePoint {
+                        temperature_c: 30.0,
+                        duty_percent: 50.0,
+                    },
+                    freergb_control::CurvePoint {
+                        temperature_c: 70.0,
+                        duty_percent: 100.0,
+                    },
+                ],
+                ..Default::default()
+            }),
+            RuntimeLimits::default(),
+        )
+        .unwrap();
+        if !startup.is_zero() {
+            tokio::time::sleep(Duration::from_millis(1600)).await;
+            assert!(
+                host.collect_finished().await.unwrap().is_none(),
+                "supervision ran before acquisition"
+            );
+        }
+        let report = tokio::time::timeout(Duration::from_secs(18), async {
+            loop {
+                if let Some(report) = host.collect_finished().await.unwrap() {
+                    break report;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(report.fault.as_deref().unwrap().contains("Stale"));
+        assert!(report.native_closed && report.maintenance_authorized);
+        assert_eq!(report.return_evidence, "firmware_callback");
+        assert!(
+            report.minimum_applied_percent < 100,
+            "session never started control"
+        );
+        assert!(
+            peer.await.unwrap() > 30,
+            "healthy commands did not survive startup"
+        );
+    }
+
+    #[tokio::test]
+    async fn slow_native_start_is_not_stale_but_frozen_post_acquisition_sample_returns_firmware() {
+        native_start_then_freeze(Duration::from_secs(8), 0).await;
+    }
+
+    #[tokio::test]
+    async fn initial_shared_sample_can_predate_host_without_resetting_its_age() {
+        native_start_then_freeze(Duration::ZERO, 500).await;
+    }
 
     async fn exercise(proof: bool) {
         let (transport, worker) = tokio::io::duplex(4096);

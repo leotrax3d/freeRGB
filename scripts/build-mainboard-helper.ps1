@@ -19,6 +19,7 @@ $probe = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/Native
 $nativeControl = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControl.cs").Path
 $nativeEvidence = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeNctEvidence.cs").Path
 $nativeWorker = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControlWorker.cs").Path
+$readerTemperatures = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeReaderTemperatures.cs").Path
 $nativeBroker = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControlBroker.cs").Path
 $nativeMaintenance = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/MainboardMaintenance.cs").Path
 $nativeSession = (Resolve-Path -LiteralPath "$PSScriptRoot/../providers/mainboard/NativeControlSession.cs").Path
@@ -33,7 +34,7 @@ if ($Mode -ne 'Production') {
     $helperOptions = @('/define:BROKER_FIXTURE_WORKER;BROKER_FIXTURE_CLIENT_AUTH')
     if ($Mode -eq 'FixtureV2') { $helperOptions = @('/define:BROKER_FIXTURE_WORKER;BROKER_FIXTURE_V2;BROKER_FIXTURE_CLIENT_AUTH') }
 }
-& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $cadence $lhmPin $transport $cache $service $probe $nativeControl $nativeEvidence $nativeWorker $nativeBroker $nativeMaintenance $nativeSession $nativeTransport $nativeJournal $journaledControl $background
+& $compiler /nologo /target:exe /main:Mainboard /platform:x64 /optimize+ /warnaserror+ /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll @helperOptions "/win32icon:$icon" "/out:$binary" $source $cadence $lhmPin $transport $cache $service $probe $nativeControl $nativeEvidence $nativeWorker $readerTemperatures $nativeBroker $nativeMaintenance $nativeSession $nativeTransport $nativeJournal $journaledControl $background
 if ($LASTEXITCODE -ne 0) { throw 'Mainboard helper compilation failed.' }
 $reply = & $binary --self-test | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or $reply.version -ne 1 -or $reply.status -ne 'missing_library' -or $reply.hardware.Count -ne 0) { throw 'Mainboard helper serialization self-test failed.' }
