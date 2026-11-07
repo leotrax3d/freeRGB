@@ -1,8 +1,26 @@
-# Handoff — current entry point (2026-11-05)
+# Handoff — current entry point (2026-11-07)
 
 Start here. This page says where things are; [STATUS.md](STATUS.md) is the only
 checklist for what is done. Older handoff, roadmap and worklist logs are in
 [archive/](archive/) and are not current.
+
+## Fan-control state (2026-11-07)
+
+* Prompts 01–10 of [promts/fancontrol/](promts/fancontrol/README.md) are merged
+  (PRs #13–#18, #23, #27, #28) plus the load-contention fix
+  (`cooling/ack-deadline-load`, R5c). Everything is simulated/fixture-tested.
+* First owner acceptance on the ASUS PRIME X870-P WIFI (NCT6701D) found 13
+  real bugs, all fixed on `main` (reader hang, provider retry, broker pipe,
+  reader flapping, maintenance drain with background curves, duplicate
+  bindings, calibration settling, staleness and ack deadlines under load). See
+  [COOLING_ACCEPTANCE.md](COOLING_ACCEPTANCE.md). Passed on hardware: A0, A1,
+  pump safety, R2, R4. Not yet passed: R5 (fine sweep) and blocks B–G — the
+  final owner test of the complete software follows
+  [07-hardware-acceptance.md](promts/fancontrol/07-hardware-acceptance.md).
+  Run it with no parallel builds on the machine.
+* GitHub Actions is currently not starting jobs (billing). Until fixed, the
+  merge gate is a full local run (fmt, workspace clippy `-D warnings`,
+  workspace tests, desktop tests, website build).
 
 ## Repository state
 
