@@ -18,6 +18,7 @@
 
 pub mod bus;
 pub mod cooling;
+pub mod layout;
 pub mod modes;
 pub mod probe;
 pub mod sdk;
