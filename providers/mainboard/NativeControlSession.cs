@@ -31,7 +31,7 @@ internal sealed class NativeTelemetryGuard
     private readonly double critical;
     private readonly bool stallWarning;
     private long temperatureAt = -1, rpmAt = -1, lastNow = -1, stalledAt = -1;
-    private double temperature, rpm;
+    private double temperature, publishedTemperature, rpm;
     private string fault;
     internal NativeTelemetryGuard(double critical) : this(critical,false) { }
     // Unrestricted channels may stop the fan (0%): a stall is then reported as a
@@ -44,17 +44,28 @@ internal sealed class NativeTelemetryGuard
     }
     internal string Warning { get { lock (gate) return stallWarning && stalledAt >= 0 && lastNow - stalledAt >= 1000 ? "fan_stalled" : null; } }
     internal void Observe(long now, long sampledAt, double celsius, double revolutions)
+    { Observe(now,sampledAt,sampledAt,celsius,revolutions,false); }
+    // RPM is freshly checked on every read; shared CPU/GPU temperature may be
+    // cached. Reusing it never advances its acquisition time or masks expiry.
+    internal void ObserveSharedTemperature(long now, long rpmSampledAt, long temperatureSampledAt, double celsius, double revolutions)
+    { Observe(now,rpmSampledAt,temperatureSampledAt,celsius,revolutions,true); }
+    private void Observe(long now, long sampledAt, long temperatureSampledAt, double celsius, double revolutions, bool shared)
     {
         lock (gate)
         {
             if (fault != null) return;
-            if (now < 0 || sampledAt < 0 || sampledAt > now || now < lastNow || sampledAt <= temperatureAt)
+            if (now < 0 || sampledAt < 0 || sampledAt > now || now < lastNow || sampledAt <= rpmAt ||
+                temperatureSampledAt < 0 || temperatureSampledAt > sampledAt || temperatureSampledAt < temperatureAt ||
+                (!shared && temperatureSampledAt == temperatureAt))
             { fault = "telemetry_clock_fault"; return; }
             lastNow = now;
             if (Double.IsNaN(celsius) || Double.IsInfinity(celsius) || celsius < -20 || celsius > 150 ||
                 Double.IsNaN(revolutions) || Double.IsInfinity(revolutions) || revolutions < 0 || revolutions > 100000)
             { fault = "telemetry_invalid"; return; }
-            temperature = celsius; rpm = revolutions; temperatureAt = rpmAt = sampledAt;
+            // A hottest-of set keeps one published value until its oldest source
+            // advances. The independent heat guard still checks every new value.
+            if (temperatureAt != temperatureSampledAt) publishedTemperature = celsius;
+            temperature = celsius; rpm = revolutions; temperatureAt = temperatureSampledAt; rpmAt = sampledAt;
             if (temperature >= critical) { fault = "temperature_critical"; return; }
             if (rpm < 100) { if (stalledAt < 0) stalledAt = sampledAt; }
             else stalledAt = -1;
@@ -80,7 +91,8 @@ internal sealed class NativeTelemetryGuard
         lock (gate)
         {
             if (Check(now) != null) return null;
-            return new { sequence=temperatureAt,temperature_c=temperature,rpm=rpm,age_ms=now-temperatureAt };
+            return new { sequence=rpmAt,temperature_c=publishedTemperature,rpm=rpm,age_ms=now-Math.Min(temperatureAt,rpmAt),
+                sources=new { temperature_sequence=temperatureAt,rpm_sequence=rpmAt,temperature_age_ms=now-temperatureAt,rpm_age_ms=now-rpmAt } };
         }
     }
 }

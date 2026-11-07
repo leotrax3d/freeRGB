@@ -38,6 +38,13 @@ internal static class BrokerTests
         Assert(Sensor(cache.Read())["value"] == null, "Expired upstream sample must become unavailable.");
         cache.Store(Sample, BrokerCache.Now - Stopwatch.Frequency * 6);
         Assert(cache.Read().Contains("expired"), "Expired cache must fail closed.");
+        long acquired = (long)(BrokerCache.Now * 1000.0 / Stopwatch.Frequency) - 3000;
+        string shared = Sample.Replace("\"age_ms\":500", "\"acquired_ms\":" + acquired + ",\"age_ms\":3000");
+        cache.Store(shared, BrokerCache.Now - Stopwatch.Frequency * 3);
+        sensor = Sensor(cache.Read());
+        Assert(Convert.ToInt64(sensor["age_ms"]) >= 3000 && Convert.ToInt64(sensor["age_ms"]) < 4000 && Object.Equals(sensor["value"],42),"Slow acquisition latency was counted twice.");
+        Assert(Convert.ToInt64(sensor["acquired_ms"]) == acquired,"Cache changed shared acquisition identity.");
+        Reject(delegate { cache.Store(shared.Replace(acquired.ToString(),(acquired + 100000).ToString()),BrokerCache.Now); },"Future shared acquisition accepted.");
         Reject(delegate { cache.Store(Sample.Replace("500,", "-1,"), BrokerCache.Now); }, "Negative ages accepted.");
         Reject(delegate { cache.Store(Sample.Replace("500,", "0.5,"), BrokerCache.Now); }, "Fractional ages accepted.");
         Reject(delegate { cache.Store(Sample.Replace("\"version\":1", "\"version\":2"), BrokerCache.Now); }, "Unsupported protocol accepted.");

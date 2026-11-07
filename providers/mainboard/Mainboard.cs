@@ -64,7 +64,7 @@ internal static class Mainboard
     {
         return Result(status, message, new object[0]);
     }
-    private static Dictionary<string, object> Initialize()
+    private static Dictionary<string, object> Initialize(bool motherboardOnly = false)
     {
         string dll = Path.Combine(library, "LibreHardwareMonitorLib.dll");
         if (!File.Exists(dll)) return Empty("missing_library", "LibreHardwareMonitor " + LhmPin.Version + " library and its runtime dependencies are required.");
@@ -100,8 +100,10 @@ internal static class Mainboard
         // CPU and GPU temperatures, read-only, as curve sources. Storage stays off:
         // LHM storage enumeration blocked the first snapshot on the owner board
         // (COOLING_ACCEPTANCE.md, 2026-11-05) and would starve fan telemetry.
-        computer.GetType().GetProperty("IsCpuEnabled").SetValue(computer, true, null);
-        computer.GetType().GetProperty("IsGpuEnabled").SetValue(computer, true, null);
+        // Dedicated control workers must not open another CPU/GPU monitor. They
+        // consume those temperatures from the authenticated reader cache instead.
+        computer.GetType().GetProperty("IsCpuEnabled").SetValue(computer, !motherboardOnly, null);
+        computer.GetType().GetProperty("IsGpuEnabled").SetValue(computer, !motherboardOnly, null);
         Invoke(computer, "Open");
         return null;
     }
@@ -133,6 +135,7 @@ internal static class Mainboard
     private static void Walk(object hardware, List<object> output, Stopwatch clock, int depth, ref int sensorCount)
     {
         if (depth > 16 || output.Count >= 64) throw new InvalidDataException("Hardware tree limit exceeded.");
+        long acquired = (long)(Stopwatch.GetTimestamp() * 1000.0 / Stopwatch.Frequency);
         Invoke(hardware, "Update");
         var sensors = new List<object>();
         foreach (object sensor in (IEnumerable)Get(hardware, "Sensors"))
@@ -151,6 +154,9 @@ internal static class Mainboard
             var entry = new Dictionary<string, object> {
                 {"id", Get(sensor, "Identifier").ToString()}, {"name", Get(sensor, "Name").ToString()},
                 {"kind", kind}, {"value", value}, {"age_ms", clock.ElapsedMilliseconds},
+                // Boot-local monotonic acquisition identity, preserved by Aged
+                // and BrokerCache; a cache read never makes a temperature newer.
+                {"acquired_ms", acquired},
                 {"control_available", kind == "control" && Get(sensor, "Control") != null}
             };
 #if NATIVE_CONTROL_WORKER
@@ -387,7 +393,7 @@ internal static class Mainboard
             BrokerService.CheckInstallation(true);
             library=BrokerService.RuntimePath; direct=true;
             if (!System.Text.RegularExpressions.Regex.IsMatch(args[2],"^/lpc/[a-z0-9]+/[0-9]+/control/[0-6]$")) return 2;
-            object unavailable=Initialize();
+            object unavailable=Initialize(true);
             if (unavailable != null) throw new InvalidOperationException("Native runtime unavailable.");
             var controls=new List<object>();
             foreach (object hardware in (IEnumerable)Get(computer,"Hardware")) FindControl(hardware,args[2],controls,0);

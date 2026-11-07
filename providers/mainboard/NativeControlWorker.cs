@@ -2,7 +2,6 @@
 // authenticated service-only transport. Curves/calibration remain in Rust.
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Security.Principal;
 using System.Threading;
@@ -29,22 +28,26 @@ internal static class NativeControlWorker
         string temperatureId=(string)binding["temperature_id"], rpmId=(string)binding["rpm_id"];
         if (temperatureId.Length > 512 || rpmId.Length > 512) throw new InvalidDataException("Sensor identity too large.");
         // One SuperIO source keeps the original (verified) path; otherwise CPU/GPU
-        // and mixed (hottest-of) sources are read by NativeIsa.ReadSources.
+        // and mixed (hottest-of) sources share the reader's CPU/GPU acquisitions.
         string[] temperatures = NativeSources.Temperatures(temperatureId);
         bool single = temperatures.Length == 1 && temperatures[0].StartsWith("/lpc/",StringComparison.Ordinal);
+        bool readerTemperature = Array.Exists(temperatures,delegate(string id) { return !id.StartsWith("/lpc/",StringComparison.Ordinal); });
         bool legacy = !binding.ContainsKey("tier");
         // The legacy/verified path is unchanged: register evidence is mandatory.
         var native=legacy ? NativeControl.CreateCommissioningProtected(control,minimum) : NativeControl.CreateTieredProtected(control,pump,minimum,tier,pumpUnlocked);
         var evidence=legacy ? NativeNctEvidence.Create(control) : null;
         var guard=new NativeTelemetryGuard((int)binding["critical_c"],!legacy && native.Tier == NativeTier.Unrestricted);
-        var clock=Stopwatch.StartNew();
         Action sample=delegate {
-            long acquired=clock.ElapsedMilliseconds;
+            long acquired=NativeReaderTemperatures.Now;
+            // Snapshot() verifies the registered SYSTEM service and protected
+            // paths. No user-side telemetry or fallback LHM instance is accepted.
+            var shared=readerTemperature ? new NativeReaderTemperatures(BrokerTransport.Snapshot(),temperatures,NativeReaderTemperatures.Now) : null;
             double celsius,rpm;
             if (single && evidence != null) evidence.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
             else if (single) NativeIsa.ReadTelemetry(control,temperatureId,rpmId,out celsius,out rpm);
-            else NativeIsa.ReadSources(control,temperatures,rpmId,findTemperature,out celsius,out rpm);
-            guard.Observe(clock.ElapsedMilliseconds,acquired,celsius,rpm);
+            else NativeIsa.ReadSources(control,temperatures,rpmId,findTemperature,shared == null ? (Func<string,double>)null : shared.Read,out celsius,out rpm);
+            if (shared == null) guard.Observe(NativeReaderTemperatures.Now,acquired,celsius,rpm);
+            else guard.ObserveSharedTemperature(NativeReaderTemperatures.Now,acquired,Math.Min(acquired,shared.AcquiredMs),celsius,rpm);
         };
         sample(); // Validated fresh data before any acquisition.
         using (var stop=new ManualResetEvent(false))
@@ -60,8 +63,8 @@ internal static class NativeControlWorker
             {
                 Console.WriteLine("ready"); Console.Out.Flush();
                 pipe.WaitForConnection();
-                if (legacy) NativeSessionTransport.RunProtected(pipe,JournaledNativeControl.CreateProtected(native,journal),guard,delegate { return clock.ElapsedMilliseconds; });
-                else NativeSessionTransport.RunTieredProtected(pipe,JournaledNativeControl.CreateProtected(native,journal),guard,delegate { return clock.ElapsedMilliseconds; },native.Tier);
+                if (legacy) NativeSessionTransport.RunProtected(pipe,JournaledNativeControl.CreateProtected(native,journal),guard,delegate { return NativeReaderTemperatures.Now; });
+                else NativeSessionTransport.RunTieredProtected(pipe,JournaledNativeControl.CreateProtected(native,journal),guard,delegate { return NativeReaderTemperatures.Now; },native.Tier);
                 return 0;
             }
             finally

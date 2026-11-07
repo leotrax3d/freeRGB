@@ -24,17 +24,16 @@ pub struct SamplerFrame {
 }
 impl SamplerFrame {
     pub fn from_native(sample: NativeObservation, epoch: Instant) -> Result<Self, String> {
-        let acquired = sample
-            .acquired
-            .checked_duration_since(epoch)
-            .ok_or("Native sample predates cooling host epoch")?
-            .as_millis()
-            .min(u128::from(u64::MAX)) as u64;
+        let acquired = |at: Instant| {
+            at.checked_duration_since(epoch)
+                .map(|age| age.as_millis().min(u128::from(u64::MAX)) as u64)
+                .ok_or_else(|| "Native sample predates cooling host epoch".to_owned())
+        };
         Ok(Self {
             temperature_c: sample.temperature_c,
             rpm: sample.rpm,
-            temperature_at_ms: acquired,
-            rpm_at_ms: acquired,
+            temperature_at_ms: acquired(sample.temperature_acquired)?,
+            rpm_at_ms: acquired(sample.rpm_acquired)?,
         })
     }
 }

@@ -45,6 +45,10 @@ struct NativeSensor {
     kind: String,
     value: Option<f64>,
     age_ms: u64,
+    // The protected worker uses this boot-local identity for shared temperatures.
+    // Public inventory continues to rely on age_ms, including older providers.
+    #[serde(default, rename = "acquired_ms")]
+    _acquired_ms: Option<u64>,
     control_available: bool,
     #[serde(default)]
     support: Option<NativeSupport>,
@@ -514,6 +518,9 @@ mod tests {
     fn rejects_wrong_versions_duplicate_ids_and_invalid_values() {
         let value = fixture();
         assert!(Snapshot::parse(&serde_json::to_vec(&value).unwrap()).is_ok());
+        let mut shared = value.clone();
+        shared["hardware"][0]["sensors"][2]["acquired_ms"] = json!(123456);
+        assert!(Snapshot::parse(&serde_json::to_vec(&shared).unwrap()).is_ok());
         for (field, replacement) in [("version", json!(2)), ("status", json!("missing_driver"))] {
             let mut bad = value.clone();
             bad[field] = replacement;

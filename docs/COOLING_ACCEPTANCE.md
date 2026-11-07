@@ -252,3 +252,54 @@ Local validation for R5b:
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-mainboard-control.ps1`:
   passed; synthetic native callbacks/ports and test-directory journal storage,
   without opening hardware or installing a service/driver.
+
+## Owner session 2026-11-06: R5 control-worker startup and reader contention
+
+| Step | Owner build | Result | Evidence / fix |
+| --- | --- | --- | --- |
+| R5 fine sweep, two starts | `d61387a` | **fail** | CHA_FAN2 (`/lpc/nct6701d/0/control/2`, RPM `fan/2`, CPU `/amdcpu/0/temperature/2`): authorizing -> executing -> blocked within about five seconds, `Stopped, Some(Stale); preserve recovery intent`. Broker error: `stage:session, kind:EndOfStreamException`. Recovery cleared, firmware mode and reader ready again within three seconds. Fix commit: pending local validation. |
+
+On the ASUS PRIME X870-P WIFI / NCT6701D, without a control session the
+inventory reader stayed ready for 24/24 and 8/8 observations over minutes with
+iCUE running. The earlier `984c041` session also coincided with reader flapping.
+These are owner observations; this change has no new hardware acceptance.
+
+The source confirms that each protected control worker opened motherboard,
+CPU and GPU monitoring while the reader had its own LHM Computer. Its 100 ms
+sampler refreshed the selected CPU/GPU hardware again. That duplicate work is
+a contention path; the logs do not prove the exact driver wait responsible for
+the owner's failure. Rust session supervision consumes native receipts rather
+than inventory snapshots, so reader flapping alone is not a direct Stale input.
+
+Control workers now open only the motherboard group; CPU, GPU, storage and USB
+monitoring are not enabled there. The authenticated SYSTEM broker's reader cache
+is the sole CPU/GPU temperature source. SuperIO RPM and on-chip temperature reads
+retain their checked ISA access, native control callbacks and recovery evidence.
+Reader samples carry a boot-local monotonic acquisition identity through cache
+reuse. Cache age uses that acquisition directly instead of counting a slow
+snapshot's latency twice; old readers retain their existing age-based contract.
+
+Private native receipts carry optional independent temperature/RPM identities
+and ages. Fresh RPM, commands and cache reads cannot renew a frozen temperature.
+For hottest-of sources, the published combined temperature stays paired with its
+oldest acquisition until that acquisition advances; the native critical-heat
+guard still checks each current hottest value immediately. Older receipt shapes
+remain supported. Missing, duplicate, invalid, future or expired shared readings
+fail closed. The inventory cache retains its five-second expiry and native
+supervision retains the seven-second acquisition-age ceiling, independent stall
+detection, command lease and tier-specific recovery policy.
+
+Native startup remains bounded at 12 seconds, with no Rust telemetry supervision
+until the factory returns its first authenticated sampled receipt. An initial
+shared temperature can predate the host: the runtime clock now includes that
+acquisition without resetting its age. Regression tests delay startup by eight
+seconds, then freeze temperature while RPM and command acknowledgments keep
+arriving: startup succeeds, real staleness stops control and an explicit close
+returns firmware with journal evidence. Separate tests cover cached acquisition
+identity, mixed-source heat, independent stall detection and cache age accounting.
+
+Owner re-test remains open: repeat R5 on confirmed CHA_FAN2 with iCUE running,
+observe reader readiness throughout acquisition and the sweep, then verify all
+calibration steps, stored results, firmware return and a clear recovery journal.
+No UAC, elevation, installer, service changes, installed application files or
+hardware access were used in this source work. `hardware_verified` remains false.
