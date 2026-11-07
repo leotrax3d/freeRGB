@@ -548,3 +548,149 @@ fn child_crash_hang_and_policy_violation_fault_the_bus() {
         std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+#[test]
+fn grouped_hid_real_child_claims_controls_and_releases_two_interfaces() {
+    use freergb_device_api::{HidTransport, TransportError};
+    use freergb_module_api::transport::hid::{Device, Hidpp, Interface, Operation as HidOperation};
+    use freergb_modules::hid_group::{HidGroup, OpenedInterface};
+    use std::sync::{Arc, Mutex};
+    type Trace = Arc<Mutex<Vec<(u8, Vec<u8>)>>>;
+    struct Mock(u8, Trace);
+    impl HidTransport for Mock {
+        fn write(&mut self, bytes: &[u8]) -> Result<usize, TransportError> {
+            self.1.lock().unwrap().push((self.0, bytes.into()));
+            Ok(64) // HidTransport pads output to the handle's report length.
+        }
+        fn read_timeout(&mut self, _: &mut [u8], _: i32) -> Result<usize, TransportError> {
+            Ok(0)
+        }
+        fn output_report_len(&self) -> usize {
+            64
+        }
+        fn input_report_len(&self) -> usize {
+            64
+        }
+    }
+    for mode in ["healthy", "no-claim", "no-release", "crash", "hang"] {
+        let root = temp(mode);
+        let interfaces = vec![
+            Interface {
+                number: 1,
+                usage_page: 0xff00,
+                usage: 1,
+            },
+            Interface {
+                number: 2,
+                usage_page: 0xff00,
+                usage: 2,
+            },
+        ];
+        let device = Device {
+            vid: 0x046d,
+            pid: 0xc547,
+            interfaces: interfaces.clone(),
+            hidpp: Some(Hidpp {
+                device_index: 2,
+                software_id: 7,
+            }),
+        };
+        let p = Policy {
+            backend: "hid".into(),
+            identities: vec![Identity::HidGroup {
+                device: device.clone(),
+            }],
+            subnets: vec![],
+            recipes: ["claim", "initialize", "frame", "shutdown", "release"]
+                .into_iter()
+                .enumerate()
+                .map(|(n, id)| {
+                    let steps: Vec<_> = (0..2)
+                        .map(|interface| {
+                            let mut data = vec![0; 20];
+                            data[..5].copy_from_slice(&[0x11, 2, 0x0a, 0x17, n as u8]);
+                            write(
+                                Operation::Hid {
+                                    interface,
+                                    operation: HidOperation::Write,
+                                },
+                                &data,
+                            )
+                        })
+                        .collect();
+                    Recipe {
+                        id: id.into(),
+                        masks: steps.iter().map(|s| vec![0; s.data.len()]).collect(),
+                        steps,
+                    }
+                })
+                .collect(),
+        };
+        p.validate().unwrap();
+        std::fs::write(
+            root.join("fixture-policy.json"),
+            serde_json::to_vec(&p).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(root.join("fixture-mode"), mode).unwrap();
+        let trace = Arc::new(Mutex::new(Vec::new()));
+        let group = HidGroup::new(
+            interfaces
+                .into_iter()
+                .enumerate()
+                .map(|(slot, interface)| OpenedInterface {
+                    physical_parent: root.to_string_lossy().into_owned(),
+                    vid: device.vid,
+                    pid: device.pid,
+                    interface,
+                    transport: Box::new(Mock(slot as u8, trace.clone())),
+                })
+                .collect(),
+        )
+        .unwrap();
+        let mut m = manifest(p);
+        m.files = [
+            (m.executable.clone(), "0".repeat(64)),
+            ("LICENSE".into(), "0".repeat(64)),
+            ("PROVENANCE.md".into(), "0".repeat(64)),
+        ]
+        .into();
+        let verified = VerifiedTransport::unpackaged(Verified {
+            manifest: m,
+            executable: env!("CARGO_BIN_EXE_freergb-transport-fixture").into(),
+            directory: root.clone(),
+        })
+        .unwrap();
+        let started = TransportProcess::start_hid(verified, device, group.clone(), true);
+        if mode == "no-claim" {
+            assert!(started.is_err());
+            assert!(trace.lock().unwrap().is_empty());
+            assert!(group.is_faulted());
+        } else {
+            let (mut child, _) = started.unwrap();
+            let frame = child.frame(&[Rgb { r: 1, g: 2, b: 3 }]);
+            if matches!(mode, "crash" | "hang") {
+                assert!(frame.is_err());
+                assert!(group.is_faulted());
+                assert_eq!(trace.lock().unwrap().len(), 4); // Claim + initialization only.
+            } else {
+                frame.unwrap();
+                let shutdown = child.shutdown();
+                if mode == "no-release" {
+                    assert!(shutdown.is_err());
+                    assert!(group.is_faulted());
+                } else {
+                    shutdown.unwrap();
+                    assert!(!group.is_faulted());
+                    let calls = trace.lock().unwrap();
+                    assert_eq!(calls.len(), 10);
+                    for (n, pair) in calls.as_chunks::<2>().0.iter().enumerate() {
+                        assert_eq!((pair[0].0, pair[1].0), (0, 1));
+                        assert_eq!(&pair[0].1[..5], &[0x11, 2, 0x0a, 0x17, n as u8]);
+                    }
+                }
+            }
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+}

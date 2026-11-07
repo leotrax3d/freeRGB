@@ -44,13 +44,16 @@ impl Module for Fixture {
     }
     fn identify(&self, identity: Identity) -> Identification {
         Identification {
-            supported: self.policy.identities.contains(&identity),
+            supported: self.policy.allows_identity(&identity),
             model: Some("Simulated transport".into()),
             kind: Some(DeviceKind::LightingController),
             reason: None,
         }
     }
     fn initialize(&mut self, _: Identity, bus: &mut dyn Bus) -> Result<Capabilities, ModuleError> {
+        if self.policy.backend == "hid" && self.mode != "no-claim" {
+            self.execute("claim", &[], bus)?;
+        }
         self.execute("initialize", &[], bus)?;
         Ok(Capabilities {
             name: "Transport fixture".into(),
@@ -70,7 +73,11 @@ impl Module for Fixture {
         self.execute("frame", colors, bus)
     }
     fn shutdown(&mut self, bus: &mut dyn Bus) -> Result<(), ModuleError> {
-        self.execute("shutdown", &[], bus)
+        self.execute("shutdown", &[], bus)?;
+        if self.policy.backend == "hid" && self.mode != "no-release" {
+            self.execute("release", &[], bus)?;
+        }
+        Ok(())
     }
 }
 fn main() {
