@@ -85,12 +85,44 @@ freeRGB: the vendor API is the supported path, reports the driver's own
 limits (speed range, zero-RPM) and lets the curve be restored exactly.
 ADLX tunes a fan *curve*, not a raw duty: a duty is written as a flat curve
 (every state at the same speed, temperatures unchanged), clamped to the
-driver's speed range and the 40 % floor. `take_control` captures the current
+driver's speed range and the 40 % floor by the controller. The ADLX boundary
+also rejects non-finite/out-of-range duties and invalid driver ranges, requires
+`take_control` before a duty write, and rounds upward to the driver's speed
+step without crossing its maximum. Incomplete/unreadable curves are errors;
+they are never saved as a partial restoration capture. `take_control` captures the current
 curve and zero-RPM state and disables zero RPM while held; `release` restores
 them. After a crash (journal, no capture in the new process) `release` applies
 the driver's default curve (`IADLXManualFanTuning1`) and only without that
 interface `ResetToFactory` for that GPU's tuning. `cargo run -p
 freergb-gpu-adlx --example adlx-discover` lists fans read-only.
+
+### ADLX sensor source (S7, simulated tests only)
+
+`freergb_gpu_adlx::Adlx::sensors()` exposes a current read-only sample per GPU:
+`AdlxSensors { gpu_id, temperature_c, hotspot_c, fan_rpm }`. IDs use the same
+`adlx:<unique id>` prefix as fan IDs, including GPUs without manual fan support.
+The monitoring service is optional; its absence does not disable fan discovery.
+This calls the driver's current-metrics API without enabling background tracking
+or modifying tuning. Interfaces follow the public
+[GPUOpen ADLX monitoring header](https://github.com/GPUOpen-LibrariesAndSDKs/ADLX/blob/master/SDK/Include/IPerformanceMonitoring.h).
+
+Every metric is checked against its support bit and getter result. Unsupported,
+failed or implausible readings are `None` (Celsius outside -20..150, non-finite
+temperatures, RPM outside 0..100000). Zero RPM is a valid reading. A failed poll
+never reuses a previous value. Callers must timestamp each sample and apply the
+catalog's freshness policy. A tuning curve's maximum speed is not live duty;
+ADLX fan discovery now reports `duty_percent: null` rather than presenting that
+curve target as a measurement. Actual RPM is available through `sensors()`.
+
+The new source API is not yet wired into the daemon's sensor catalog: existing
+Windows GPU temperature inputs continue to come from LHM. This source increment
+does not change the controller, recovery journal, supervisor or consent path.
+Fake-vtable tests cover readings, unsupported/failed polls, invalid values,
+interface ownership, complete curve capture and duty/range validation. They do
+not load the installed ADLX runtime or provide new hardware acceptance evidence.
+Owner follow-up: compare core/hotspot/RPM with AMD Software, including zero-RPM
+and an unsupported iGPU; then run prompt 07 block C for control/restoration with
+the owner present. No hardware commands were run for S7.
 
 ### Storage temperatures
 
@@ -110,7 +142,8 @@ elevated GPU worker (like the motherboard broker) remains future work.
 
 Tests: `gpu_cooling::tests` (take/set/release, composite fail-safe, write fault,
 pause/drop/crash-journal recovery, refusal), `freergb-gpu-adlx` (range clamp,
-flat curve, vtable sizes, missing runtime), `storage_temps::tests` (hanging
+flat curve, vtable sizes, missing runtime, fake-interface metrics and curve-read
+failures, duty floor/step validation), `storage_temps::tests` (hanging
 driver), `freergb-storage-temp` (descriptor parsing), `sensor_sources::tests`,
 `control::tests::file_sensors_feed_curves_and_invalid_files_are_missing`,
 `apps/desktop/src/features/cooling/sourceModel.test.ts`.
