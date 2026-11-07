@@ -1,3 +1,4 @@
+import { t } from "./messages";
 import type { FanCurve } from "@/lib/api/control";
 import type { ChannelBinding, CoolingChannel, SupportTier } from "@/lib/api/types";
 import { splitId } from "@/features/onboarding/fans";
@@ -81,11 +82,11 @@ export function proposeCurve(role: ChannelBinding["role"] | null, floor: number)
 
 export type SetupStep = "detect" | "identify" | "calibrate" | "curves" | "done";
 export const SETUP_STEPS: { id: SetupStep; label: string }[] = [
-  { id: "detect", label: "Detect" },
-  { id: "identify", label: "Identify & name" },
-  { id: "calibrate", label: "Calibrate" },
-  { id: "curves", label: "Curves" },
-  { id: "done", label: "Done" },
+  { id: "detect", get label() { return t("cooling.setupModel.detect"); } },
+  { id: "identify", get label() { return t("cooling.setupModel.identifyName"); } },
+  { id: "calibrate", get label() { return t("cooling.setupModel.calibrate"); } },
+  { id: "curves", get label() { return t("cooling.setupModel.curves"); } },
+  { id: "done", get label() { return t("cooling.setupModel.done"); } },
 ];
 
 /**
@@ -99,4 +100,4 @@ export function unassignedRoles<T extends { role: "fan" | "pump" | null; rpm?: u
 }
 
 /** Label for a header without a role: it is held at full speed. */
-export const ROLE_UNKNOWN_LABEL = "100 % (role unknown)";
+export const roleUnknownLabel = () => t("cooling.setupModel.100RoleUnknown");

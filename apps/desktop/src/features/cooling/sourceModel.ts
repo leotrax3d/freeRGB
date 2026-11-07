@@ -1,3 +1,4 @@
+import { t } from "./messages";
 /** `cooling.sensors.catalog`: every Celsius source a curve can use. */
 export type SourceCategory = "cpu" | "gpu" | "motherboard" | "storage" | "liquid" | "file" | "other";
 export interface CatalogEntry {
@@ -14,11 +15,11 @@ export interface CatalogEntry {
 export const CATEGORY_LABELS: Record<SourceCategory, string> = {
   cpu: "CPU",
   gpu: "GPU",
-  motherboard: "Motherboard",
-  storage: "Storage",
-  liquid: "Liquid",
-  file: "Text files",
-  other: "Other",
+  get motherboard() { return t("cooling.sourceModel.motherboard"); },
+  get storage() { return t("cooling.sourceModel.storage"); },
+  get liquid() { return t("cooling.sourceModel.liquid"); },
+  get file() { return t("cooling.sourceModel.textFiles"); },
+  get other() { return t("cooling.sourceModel.other"); },
 };
 const ORDER = Object.keys(CATEGORY_LABELS) as SourceCategory[];
 
@@ -46,10 +47,10 @@ export interface FileSensorSet {
 
 /** Mirrors the daemon's checks so the form can explain a refusal before saving. */
 export function fileSensorProblem(name: string, path: string, existing: string[]): string | null {
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(name)) return "Name: 1–64 letters, digits, - or _";
-  if (existing.includes(name)) return "Name already used";
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(name)) return t("cooling.sourceModel.name164LettersDigitsOr");
+  if (existing.includes(name)) return t("cooling.sourceModel.nameAlreadyUsed");
   if (!/^(\/|[A-Za-z]:[\\/])/.test(path)) {
-    return /^(\\\\|\/\/)/.test(path) ? "Network paths are disabled by default" : "Use an absolute path";
+    return /^(\\\\|\/\/)/.test(path) ? t("cooling.sourceModel.networkPathsAreDisabledByDefault") : t("cooling.sourceModel.useAnAbsolutePath");
   }
   return null;
 }

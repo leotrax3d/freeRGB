@@ -1,3 +1,5 @@
+import { t } from "./messages";
+import { modeLabel } from "./labels";
 import type { CoolingSession } from "@/lib/api/types";
 
 /** Live jobs that still own a channel. */
@@ -55,7 +57,7 @@ export function liveChannels(session: CoolingSession | null | undefined, list: S
   }
   for (const a of list?.assignments.assignments ?? []) {
     if (a.needs_attention && !out.has(a.control_id)) {
-      out.set(a.control_id, { control_id: a.control_id, job_id: null, state: "needs_attention", label: "Needs attention", error: a.needs_attention });
+      out.set(a.control_id, { control_id: a.control_id, job_id: null, state: "needs_attention", label: t("cooling.liveModel.needsAttention"), error: a.needs_attention });
     }
   }
   return [...out.values()].sort((x, y) => x.control_id.localeCompare(y.control_id));
@@ -63,14 +65,14 @@ export function liveChannels(session: CoolingSession | null | undefined, list: S
 
 function labelOf(state: LiveState, mode: string | null): string {
   switch (state) {
-    case "starting": return "Waiting for Windows authorization";
-    case "curve": return mode === "composite" ? "Composite curve active" : "Curve active";
-    case "manual": return "Fixed speed active";
-    case "test": return `${mode ?? "Test"} running`;
-    case "stopping": return "Returning to BIOS";
-    case "fault": return "Error — returned to BIOS";
-    case "needs_attention": return "Needs attention";
-    default: return "Off";
+    case "starting": return t("cooling.liveModel.waitingForWindowsAuthorization");
+    case "curve": return mode === "composite" ? t("cooling.liveModel.compositeCurveActive") : t("cooling.liveModel.curveActive");
+    case "manual": return t("cooling.liveModel.fixedSpeedActive");
+    case "test": return t("cooling.liveModel.valueRunning", { p0: modeLabel(mode ?? "test") });
+    case "stopping": return t("cooling.liveModel.returningToBios");
+    case "fault": return t("cooling.liveModel.errorReturnedToBios");
+    case "needs_attention": return t("cooling.liveModel.needsAttention");
+    default: return t("cooling.liveModel.off");
   }
 }
 

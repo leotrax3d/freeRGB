@@ -1,3 +1,4 @@
+import { t } from "./messages";
 import { useState } from "react";
 import { ChevronRight, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export default function CoolingView() {
   const [setup, setSetup] = useState(false);
   return (
     <>
-      <PageHeader title="Cooling" description="Your fans, what controls them, and the curves they follow." actions={<div className="flex flex-col items-end gap-2"><Button size="sm" variant={setup ? "secondary" : "primary"} aria-expanded={setup} onClick={() => setSetup((s) => !s)}><Wand2 />Guided fan setup</Button><CoolingActions /></div>} />
+      <PageHeader title={t("cooling.coolingView.cooling")} description={t("cooling.coolingView.yourFansWhatControlsThemAndThe")} actions={<div className="flex flex-col items-end gap-2"><Button size="sm" variant={setup ? "secondary" : "primary"} aria-expanded={setup} onClick={() => setSetup((s) => !s)}><Wand2 />{t("cooling.coolingView.guidedFanSetup")}</Button><CoolingActions /></div>} />
       <div className="@container flex flex-col gap-8">
         {setup && <CoolingSetup onClose={() => setSetup(false)} />}
         <FanOverview />
@@ -33,8 +34,7 @@ export default function CoolingView() {
         <details className="group flex flex-col gap-6 rounded-card border border-border px-4 py-3">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-small font-medium text-text-subtle">
             <ChevronRight className="size-4 transition-transform duration-(--duration-base) group-open:rotate-90" aria-hidden />
-            Advanced: unrestricted control, header labels, temperature sources, custom sensors, composite curves
-          </summary>
+            {t("cooling.coolingView.advancedUnrestrictedControlHeaderLabelsTemperatureSources")} </summary>
           <div className="mt-4 flex flex-col gap-8">
             <UnrestrictedSection />
             <ChannelBindings />

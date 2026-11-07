@@ -1,3 +1,4 @@
+import { t } from "./messages";
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { FanCurve } from "@/lib/api/control";
 import { movePoint } from "./curve";
@@ -70,7 +71,7 @@ export function CurveEditor({
         viewBox={`0 0 ${W} ${H}`}
         className="w-full touch-none select-none"
         role="group"
-        aria-label="Fan curve: duty over temperature"
+        aria-label={t("cooling.curveEditor.fanCurveDutyOverTemperature")}
         onPointerMove={drag}
         onPointerUp={() => setDragging(null)}
         onPointerLeave={() => setDragging(null)}
@@ -113,7 +114,7 @@ export function CurveEditor({
               r={active === i ? 7 : 5.5}
               tabIndex={0}
               role="slider"
-              aria-label={`Point ${i + 1}`}
+              aria-label={t("cooling.curveEditor.pointValue", { p0: i + 1 })}
               aria-valuetext={`${p.temperature_c} °C, ${p.duty_percent} %`}
               className="pointer-events-none outline-none transition-[r] duration-(--duration-fast)"
               fill={active === i ? "#ececec" : "#171717"}
@@ -151,8 +152,7 @@ export function CurveEditor({
         className="pointer-events-none absolute top-3 text-caption font-medium text-danger-text"
         style={{ left: `calc(${(x(curve.critical_c) / W) * 100}% + 8px)` }}
       >
-        Critical · 100 %
-      </span>
+        {t("cooling.curveEditor.critical100")} </span>
       {tip && (
         <div
           className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-chip bg-surface-raised px-2 py-1 text-caption text-text shadow-popover tabular"

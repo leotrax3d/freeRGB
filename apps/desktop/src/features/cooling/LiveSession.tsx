@@ -1,3 +1,5 @@
+import { t } from "./messages";
+import { stateLabel } from "./labels";
 import { useEffect, useState } from "react";
 import { OctagonX } from "lucide-react";
 import { Section } from "@/components/page";
@@ -34,9 +36,9 @@ export function LiveChannels() {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-small">{active} of {list?.max_active ?? 16} channels under live control</span>
+        <span className="text-small">{t("cooling.live.count", { active, max: list?.max_active ?? 16 })}</span>
         <Button variant="danger" className="ml-auto" disabled={!connected || active === 0 || pending !== null}
-          onClick={() => run("stop_all", () => rpc("cooling.sessions.stop_all"))}><OctagonX />Stop all and return to BIOS</Button>
+          onClick={() => run("stop_all", () => rpc("cooling.sessions.stop_all"))}><OctagonX />{t("cooling.liveSession.stopAllAndReturnToBios")}</Button>
       </div>
       {rows.length > 0 && (
         <ul className="flex flex-col divide-y divide-border rounded-control border border-border">
@@ -47,7 +49,7 @@ export function LiveChannels() {
               {r.error && <span className="basis-full text-caption text-text-subtle">{r.error}</span>}
               {r.job_id !== null && ["starting", "curve", "manual", "test"].includes(r.state) && (
                 <Button size="sm" variant="secondary" className="ml-auto" disabled={!connected || pending !== null}
-                  onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: r.control_id }))}>Stop</Button>
+                  onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: r.control_id }))}>{t("cooling.liveSession.stop")}</Button>
               )}
             </li>
           ))}
@@ -119,68 +121,65 @@ export function LiveSession() {
     else send(mode);
   };
   return (
-    <Section title="Live motherboard fan control">
-      <p className="text-small text-text-muted">Run curves or fixed speeds on several fans at once. Select the physical fan and its matching RPM and temperature. Windows authorization is requested when a channel starts. Closing this window leaves the daemon and its fan sessions running; remembered channels resume after a restart while their hardware is unchanged.</p>
+    <Section title={t("cooling.liveSession.liveMotherboardFanControl")}>
+      <p className="text-small text-text-muted">{t("cooling.liveSession.runCurvesOrFixedSpeedsOnSeveral")}</p>
       {status?.available && <LiveChannels />}
       {asking && (
         <Banner tone="warn">
-          <span className="flex-1">freeRGB will control this fan directly. Safety limits stay active: pumps at 100 %, fans never below their tier floor, any sensor or worker fault returns the fan to the BIOS. You are asked once per session.</span>
-          <Button size="sm" variant="primary" onClick={() => { liveConfirmation.confirm(); const go = asking; setAsking(null); go(); }}>Continue</Button>
-          <Button size="sm" variant="ghost" onClick={() => setAsking(null)}>Cancel</Button>
+          <span className="flex-1">{t("cooling.liveSession.freergbWillControlThisFanDirectlySafety")}</span>
+          <Button size="sm" variant="primary" onClick={() => { liveConfirmation.confirm(); const go = asking; setAsking(null); go(); }}>{t("cooling.liveSession.continue")}</Button>
+          <Button size="sm" variant="ghost" onClick={() => setAsking(null)}>{t("cooling.liveSession.cancel")}</Button>
         </Banner>
       )}
-      {!status?.available ? <p className="text-small text-text-subtle">Live control is unavailable. Enable the optional motherboard provider through the installer and restart the daemon.</p> : <>
+      {!status?.available ? <p className="text-small text-text-subtle">{t("cooling.liveSession.liveControlIsUnavailableEnableTheOptional")}</p> : <>
         <div className="grid gap-3 md:grid-cols-2">
-          {([ ["Fan output", "control", control, setControl], ["Matching fan RPM", "fan", rpm, setRpm] ] as const).map(([label, kind, value, set]) => (
+          {([ [t("cooling.liveSession.fanOutput"), "control", control, setControl], [t("cooling.liveSession.matchingFanRpm"), "fan", rpm, setRpm] ] as const).map(([label, kind, value, set]) => (
             <Select key={kind} label={label} placeholder={label} value={value} options={(channels ?? []).filter((c) => c.kind === kind).map((c) => ({ value: c.reading.id, label: kind === "control" ? `${c.name} · ${tierLabel(channelTier(c))} · ${c.reading.id}` : `${c.name} · ${c.reading.id}` }))} onChange={(v) => { set(v); }} />
           ))}
-          <Select label="Temperature source" placeholder="Temperature source" value={temperature} options={(sensors ?? []).filter((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C").map((s) => ({ value: s.sensor.id, label: `${s.sensor.name} · ${s.sensor.id}` }))} onChange={(v) => { setTemperature(v); }} />
-          <Select label="Saved curve" placeholder="Saved curve" value={curveName} options={Object.keys(curves ?? {}).map((name) => ({ value: name, label: name }))} onChange={setCurveName} />
+          <Select label={t("cooling.liveSession.temperatureSource")} placeholder={t("cooling.liveSession.temperatureSource")} value={temperature} options={(sensors ?? []).filter((s) => s.provider === "mainboard.lhm" && s.sensor.unit === "°C").map((s) => ({ value: s.sensor.id, label: `${s.sensor.name} · ${s.sensor.id}` }))} onChange={(v) => { setTemperature(v); }} />
+          <Select label={t("cooling.liveSession.savedCurve")} placeholder={t("cooling.liveSession.savedCurve")} value={curveName} options={Object.keys(curves ?? {}).map((name) => ({ value: name, label: name }))} onChange={setCurveName} />
         </div>
         {selected && <SupportBadge tier={tier} coverage={evidence?.coverage} />}
         {refusal && <Banner tone="warn">{refusal}</Banner>}
-        {selected && <p className="text-caption text-text-subtle">Channel test: {evidence?.test ?? "none"}{evidence?.tested ? " · " + evidence.tested.map((t) => `${t.duty_percent} % → ${Math.round(t.rpm)} RPM`).join(", ") : ""}. The test runs 100 → 70 → 50 % (never below 40 %) and returns the fan to firmware control; a new BIOS or board invalidates it.</p>}
-        {tier === "lhm_supported" && <p className="text-caption text-text-subtle">LHM-supported channels run reduced-speed curves only after a passed channel test; calibration (100 → 40 %) is available.</p>}
-        {selected && !confirmed && <p className="text-caption text-text-subtle">{role === "pump" ? "This header is assigned as a pump; live tests are for fans only." : "Identify this header as a fan on its card above first."}</p>}
-        <p className="text-caption text-text-subtle">Live curves require a minimum of 40% and a critical temperature at most 100°C. Channel selection alone does not establish a physical header or PWM/DC mode.</p>
+        {selected && <p className="text-caption text-text-subtle">{t("cooling.liveSession.channelTest")} {stateLabel(evidence?.test ?? "none")}{evidence?.tested ? " · " + evidence.tested.map((t) => `${t.duty_percent} % → ${Math.round(t.rpm)} RPM`).join(", ") : ""}{t("cooling.liveSession.theTestRuns1007050Never")}</p>}
+        {tier === "lhm_supported" && <p className="text-caption text-text-subtle">{t("cooling.liveSession.lhmSupportedChannelsRunReducedSpeedCurves")}</p>}
+        {selected && !confirmed && <p className="text-caption text-text-subtle">{role === "pump" ? t("cooling.liveSession.thisHeaderIsAssignedAsAPump") : t("cooling.liveSession.identifyThisHeaderAsAFanOn")}</p>}
+        <p className="text-caption text-text-subtle">{t("cooling.liveSession.liveCurvesRequireAMinimumOf40")}</p>
         <div className="flex flex-wrap gap-2">
-          <Button disabled={!ready || !curve || (curve.minimum_percent < 40 && support?.channels[control]?.unlock !== "unlocked" && support?.channels[control]?.unlock !== "unlocked_pump") || curve.critical_c > 100} onClick={() => start("curve")}>Start saved curve (UAC)</Button>
-          <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("calibration")}>Calibrate fan (UAC)</Button>
-          <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("channel_test")}>Run channel test (UAC)</Button>
-          <label className="flex items-center gap-2 text-small">Fixed duty
-            <input type="number" min={floor} max={100} value={manualDuty} onBlur={() => setManualDuty(duty)} onChange={(e) => setManualDuty(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} className="w-16 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label="Fixed duty percent" /> %
+          <Button disabled={!ready || !curve || (curve.minimum_percent < 40 && support?.channels[control]?.unlock !== "unlocked" && support?.channels[control]?.unlock !== "unlocked_pump") || curve.critical_c > 100} onClick={() => start("curve")}>{t("cooling.liveSession.startSavedCurveUac")}</Button>
+          <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("calibration")}>{t("cooling.liveSession.calibrateFanUac")}</Button>
+          <Button variant="secondary" disabled={!ready || (curve?.critical_c ?? 80) > 100} onClick={() => start("channel_test")}>{t("cooling.liveSession.runChannelTestUac")}</Button>
+          <label className="flex items-center gap-2 text-small">{t("cooling.liveSession.fixedDuty")} <input type="number" min={floor} max={100} value={manualDuty} onBlur={() => setManualDuty(duty)} onChange={(e) => setManualDuty(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} className="w-16 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label={t("cooling.liveSession.fixedDutyPercent")} /> %
           </label>
-          <Button variant="secondary" disabled={!ready} onClick={() => start("manual")}>Run fixed duty (UAC)</Button>
+          <Button variant="secondary" disabled={!ready} onClick={() => start("manual")}>{t("cooling.liveSession.runFixedDutyUac")}</Button>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-small">
-          <label className="flex items-center gap-2">Calibration steps
-            <select aria-label="Calibration steps" value={sweepStep} onChange={(e) => setSweepStep(Number(e.target.value))} className="rounded-control border border-border bg-surface-sunken px-2 py-1">
+          <label className="flex items-center gap-2">{t("cooling.liveSession.calibrationSteps")} <select aria-label={t("cooling.liveSession.calibrationSteps")} value={sweepStep} onChange={(e) => setSweepStep(Number(e.target.value))} className="rounded-control border border-border bg-surface-sunken px-2 py-1">
               <option value={0}>100 / 80 / 60 / 40 %</option>
-              <option value={10}>every 10 %</option>
-              <option value={5}>every 5 %</option>
-              <option value={2}>every 2 %</option>
+              <option value={10}>{t("cooling.liveSession.every10")}</option>
+              <option value={5}>{t("cooling.liveSession.every5")}</option>
+              <option value={2}>{t("cooling.liveSession.every2")}</option>
             </select>
           </label>
-          <label className="flex items-center gap-2"><input type="checkbox" disabled={!unlocked || sweepStep === 0} checked={stallProbe && unlocked} onChange={(e) => setStallProbe(e.target.checked)} />Find stall and start speed (unrestricted fans only; the fan stops briefly)</label>
-          {(evidence?.stall_percent != null || evidence?.start_percent != null) && <span className="text-caption text-text-subtle">Stored: stops at {evidence?.stall_percent ?? "?"} %, starts at {evidence?.start_percent ?? "?"} %.</span>}
+          <label className="flex items-center gap-2"><input type="checkbox" disabled={!unlocked || sweepStep === 0} checked={stallProbe && unlocked} onChange={(e) => setStallProbe(e.target.checked)} />{t("cooling.liveSession.findStallAndStartSpeedUnrestrictedFans")}</label>
+          {(evidence?.stall_percent != null || evidence?.start_percent != null) && <span className="text-caption text-text-subtle">{t("cooling.liveSession.storedStopsAt")} {evidence?.stall_percent ?? "?"} {t("cooling.liveSession.startsAt")} {evidence?.start_percent ?? "?"} %.</span>}
         </div>
         <details className="text-small">
-          <summary>Output shaping (curve, fixed duty, composite and RPM modes)</summary>
+          <summary>{t("cooling.liveSession.outputShapingCurveFixedDutyCompositeAnd")}</summary>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             {([
-              ["Offset", "offset", "%"], ["Min", "min", "%"], ["Max", "max", "%"], ["Delay", "delayS", "s"],
-              ["Hysteresis up", "upPercent", "%"], ["Hysteresis down", "downPercent", "%"],
-              ["Stop below", "stopBelow", "%"], ["Spin-up", "spinUpPercent", "%"], ["for", "spinUpMs", "ms"],
+              [t("cooling.liveSession.offset"), "offset", "%"], [t("cooling.liveSession.min"), "min", "%"], [t("cooling.liveSession.max"), "max", "%"], [t("cooling.liveSession.delay"), "delayS", "s"],
+              [t("cooling.liveSession.hysteresisUp"), "upPercent", "%"], [t("cooling.liveSession.hysteresisDown"), "downPercent", "%"],
+              [t("cooling.liveSession.stopBelow"), "stopBelow", "%"], [t("cooling.liveSession.spinUp"), "spinUpPercent", "%"], [t("cooling.shaping.for"), "spinUpMs", "ms"],
             ] as const).map(([label, key, unit]) => (
               <label key={key} className="flex items-center gap-1">{label}
                 <input type="number" aria-label={label} value={shaping[key]} onChange={(e) => setShaping({ ...shaping, [key]: Number(e.target.value) || 0 })} className="w-16 rounded-control border border-border bg-surface-sunken px-2 py-1" />{unit}
               </label>
             ))}
-            <label className="flex items-center gap-1">Avoid
-              <input type="text" aria-label="Avoided ranges" placeholder="50-60, 1200-1300 rpm" value={shaping.avoid} onChange={(e) => setShaping({ ...shaping, avoid: e.target.value })} className="w-48 rounded-control border border-border bg-surface-sunken px-2 py-1" />
+            <label className="flex items-center gap-1">{t("cooling.liveSession.avoid")} <input type="text" aria-label={t("cooling.liveSession.avoidedRanges")} placeholder="50-60, 1200-1300 rpm" value={shaping.avoid} onChange={(e) => setShaping({ ...shaping, avoid: e.target.value })} className="w-48 rounded-control border border-border bg-surface-sunken px-2 py-1" />
             </label>
           </div>
-          <p className="mt-1 text-caption text-text-subtle">Applied after the curve, before the safety floor. Sensor faults and critical temperatures still go straight to 100 %. Fan stop only on unrestricted fans, never on pumps; RPM ranges use this fan's measured speeds.</p>
+          <p className="mt-1 text-caption text-text-subtle">{t("cooling.liveSession.appliedAfterTheCurveBeforeTheSafety")}</p>
           {shapingError && <p role="alert" className="text-caption text-danger-text">{shapingError}</p>}
         </details>
         {(() => {
@@ -188,31 +187,30 @@ export function LiveSession() {
           const inRange = !!range && targetRpm >= range.min_rpm;
           return (
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-small">Target speed
-                <input type="number" min={range ? Math.ceil(range.min_rpm) : 0} step={10} value={targetRpm} onChange={(e) => setTargetRpm(Math.max(0, Math.round(Number(e.target.value) || 0)))} className="w-20 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label="Target speed in RPM" /> RPM
+              <label className="flex items-center gap-2 text-small">{t("cooling.liveSession.targetSpeed")} <input type="number" min={range ? Math.ceil(range.min_rpm) : 0} step={10} value={targetRpm} onChange={(e) => setTargetRpm(Math.max(0, Math.round(Number(e.target.value) || 0)))} className="w-20 rounded-control border border-border bg-surface-sunken px-2 py-1" aria-label={t("cooling.liveSession.targetSpeedInRpm")} /> RPM
               </label>
-              <label className="flex items-center gap-2 text-small"><input type="checkbox" checked={closedLoop} onChange={(e) => setClosedLoop(e.target.checked)} />Closed loop</label>
-              <Button variant="secondary" disabled={!ready || !inRange} onClick={() => start("rpm")}>Run RPM target (UAC)</Button>
+              <label className="flex items-center gap-2 text-small"><input type="checkbox" checked={closedLoop} onChange={(e) => setClosedLoop(e.target.checked)} />{t("cooling.liveSession.closedLoop")}</label>
+              <Button variant="secondary" disabled={!ready || !inRange} onClick={() => start("rpm")}>{t("cooling.liveSession.runRpmTargetUac")}</Button>
               <span className="basis-full text-caption text-text-subtle">
-                {range ? `Measured ${Math.round(range.min_rpm)}–${Math.round(range.max_rpm)} RPM. The target starts from the duty of that measurement; closed loop then corrects it from the live RPM (open loop again while the RPM reading is missing). Faster targets run at 100 %, slower ones are refused.` : "Run the channel test or calibration on this fan first; RPM targets use its measured speeds."}
+                {range ? t("cooling.liveSession.measuredValueValueRpmTheTargetStarts", { p0: Math.round(range.min_rpm), p1: Math.round(range.max_rpm) }) : t("cooling.liveSession.runTheChannelTestOrCalibrationOn")}
               </span>
             </div>
           );
         })()}
         {compositeNames.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
-            <Select label="Composite curve" placeholder="Composite curve" value={composite} options={compositeNames.map((n) => ({ value: n, label: n }))} onChange={setComposite} />
-            <Button variant="secondary" disabled={!ready || !composite} onClick={() => start("composite")}>Run composite curve (UAC)</Button>
-            <span className="basis-full text-caption text-text-subtle">The daemon evaluates the composite curve and feeds its duty to this channel. If the daemon stops, a sensor fails or the selected temperature reaches 80 °C, the fan goes to 100 % or back to the BIOS.</span>
+            <Select label={t("cooling.liveSession.compositeCurve")} placeholder={t("cooling.liveSession.compositeCurve")} value={composite} options={compositeNames.map((n) => ({ value: n, label: n }))} onChange={setComposite} />
+            <Button variant="secondary" disabled={!ready || !composite} onClick={() => start("composite")}>{t("cooling.liveSession.runCompositeCurveUac")}</Button>
+            <span className="basis-full text-caption text-text-subtle">{t("cooling.liveSession.theDaemonEvaluatesTheCompositeCurveAnd")}</span>
           </div>
         )}
       </>}
       <div className="flex items-center gap-3 text-small">
-        <span>Session: {selectedJob?.state ?? "unavailable"}{selectedJob?.job_id != null ? ` · ${selectedJob.job_id}` : ""}{selectedJob?.tier ? ` · ${tierLabel(selectedJob.tier)}` : ""}</span>
-        <Button variant="secondary" disabled={!connected || !busy || pending !== null} onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: control }))}>Stop this channel</Button>
+        <span>{t("cooling.liveSession.session")} {stateLabel(selectedJob?.state ?? "unavailable")}{selectedJob?.job_id != null ? ` · ${selectedJob.job_id}` : ""}{selectedJob?.tier ? ` · ${tierLabel(selectedJob.tier)}` : ""}</span>
+        <Button variant="secondary" disabled={!connected || !busy || pending !== null} onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: control }))}>{t("cooling.liveSession.stopThisChannel")}</Button>
       </div>
       {(error || selectedJob?.error || status?.error) && <p role="alert" className="text-small text-danger-text">{error || selectedJob?.error || status?.error}</p>}
-      {selectedJob?.report != null && <details className="text-small"><summary>Last execution / calibration result</summary><pre className="overflow-auto whitespace-pre-wrap text-caption">{JSON.stringify(selectedJob.report, null, 2)}</pre></details>}
+      {selectedJob?.report != null && <details className="text-small"><summary>{t("cooling.liveSession.lastExecutionCalibrationResult")}</summary><pre className="overflow-auto whitespace-pre-wrap text-caption">{JSON.stringify(selectedJob.report, null, 2)}</pre></details>}
     </Section>
   );
 }

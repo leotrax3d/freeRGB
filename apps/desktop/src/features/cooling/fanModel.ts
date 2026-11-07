@@ -1,3 +1,5 @@
+import { t } from "./messages";
+import { modeLabel, roleLabel, stateLabel } from "./labels";
 import type { FanCurve } from "@/lib/api/control";
 import type {
   BackgroundChannel, BackgroundServiceChannel, ChannelBinding, ChannelEvidenceView, CoolingChannel, CoolingSession, MonitoringSensor, SupportTier,
@@ -38,15 +40,15 @@ export function isFixed(curve: FanCurve): boolean {
 }
 
 export function curveLabel(curve: FanCurve, curves: Record<string, FanCurve> | null | undefined): string {
-  if (isFixed(curve)) return `${curve.points[0]!.duty_percent} % fixed`;
+  if (isFixed(curve)) return t("cooling.fanModel.valueFixed", { p0: curve.points[0]!.duty_percent });
   const name = Object.entries(curves ?? {}).find(([, c]) => JSON.stringify(c) === JSON.stringify(curve))?.[0];
-  return name ? `curve “${name}”` : "custom curve";
+  return name ? t("cooling.fanModel.curveValue", { p0: name }) : t("cooling.fanModel.customCurve");
 }
 
 export function sensorName(id: string, sensors: MonitoringSensor[] | null | undefined): string {
   const s = sensors?.find((x) => x.sensor.id === id);
   if (!s) return id.split("/").slice(-3).join(" ");
-  const device = /cpu/.test(id) ? "CPU" : /gpu/.test(id) ? "GPU" : "Board";
+  const device = /cpu/.test(id) ? "CPU" : /gpu/.test(id) ? "GPU" : t("cooling.fanModel.board");
   return `${device} · ${s.sensor.name}`;
 }
 
@@ -76,14 +78,14 @@ export function fanViews(input: {
     let status: string;
     let tone: FanView["tone"] = "idle";
     if (h.blocked && !saved) { status = h.blocked; }
-    else if (session) { status = `Live session (${session.mode ?? "test"}) · ${session.state}`; tone = "warn"; }
-    else if (service?.fault) { status = `Returned to BIOS: ${service.fault.replace(/_/g, " ")}`; tone = "error"; }
-    else if (saved && input.servicePaused) { status = "Paused — BIOS controls this fan"; tone = "warn"; }
+    else if (session) { status = t("cooling.fanModel.liveSessionValueValue", { p0: modeLabel(session.mode ?? "test"), p1: stateLabel(session.state) }); tone = "warn"; }
+    else if (service?.fault) { status = t("cooling.fanModel.returnedToBiosValue", { p0: service.fault.replace(/_/g, " ") }); tone = "error"; }
+    else if (saved && input.servicePaused) { status = t("cooling.fanModel.pausedBiosControlsThisFan"); tone = "warn"; }
     else if (saved) {
-      status = `${curveLabel(saved.curve, input.curves)} · ${saved.temperature_id.split(",").map((t) => sensorName(t, input.sensors)).join(" / ")}${service ? ` · now ${service.duty_percent} %` : ""}`;
+      status = `${curveLabel(saved.curve, input.curves)} · ${saved.temperature_id.split(",").map((t) => sensorName(t, input.sensors)).join(" / ")}${service ? t("cooling.fan.current", { duty: service.duty_percent }) : ""}`;
       tone = service?.state === "running" ? "ok" : "warn";
-    } else if (!role) { status = "Not identified yet — freeRGB leaves it to the BIOS"; }
-    else { status = `BIOS controls this ${role}`; }
+    } else if (!role) { status = t("cooling.fanModel.notIdentifiedYetFreergbLeavesItTo"); }
+    else { status = t("cooling.fanModel.biosControlsThisValue", { p0: roleLabel(role) }); }
     return {
       ...h, id, binding, role, saved, service, session,
       name: binding?.header ?? h.control.name,
