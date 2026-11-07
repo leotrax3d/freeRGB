@@ -1,3 +1,4 @@
+import { t } from "../i18n/validationMessages";
 // Cooling, macro and custom sensor types (freergb-control, docs/LOCAL_API.md,
 // docs/MACROS.md, docs/CUSTOM_SENSORS.md). Client checks mirror the Rust
 // `validate` functions so editors can explain problems before saving; the
@@ -35,22 +36,22 @@ export const DEFAULT_CURVE: FanCurve = {
 
 /** Mirrors `FanCurve::validate`. */
 export function curveProblem(c: FanCurve): string | null {
-  if (c.points.length < 2 || c.points.length > 64) return "A curve needs 2 to 64 points.";
+  if (c.points.length < 2 || c.points.length > 64) return t("validation.curvePointCount");
   // Mirrors FanCurve::validate. Native execution still enforces each channel's
   // tier floor (40 % unless the channel is unlocked as unrestricted).
-  if (!Number.isFinite(c.minimum_percent) || c.minimum_percent < 0 || c.minimum_percent > 100) return "Minimum duty must be 0–100 %.";
-  if (!Number.isFinite(c.critical_c) || c.critical_c < 40 || c.critical_c > 110) return "Critical temperature must be 40–110 °C.";
-  if (!Number.isFinite(c.hysteresis_c) || c.hysteresis_c < 0 || c.hysteresis_c > 10) return "Hysteresis must be 0–10 °C.";
+  if (!Number.isFinite(c.minimum_percent) || c.minimum_percent < 0 || c.minimum_percent > 100) return t("validation.minimumDuty");
+  if (!Number.isFinite(c.critical_c) || c.critical_c < 40 || c.critical_c > 110) return t("validation.criticalTemperature");
+  if (!Number.isFinite(c.hysteresis_c) || c.hysteresis_c < 0 || c.hysteresis_c > 10) return t("validation.hysteresis");
   for (const [i, p] of c.points.entries()) {
-    if (!Number.isFinite(p.temperature_c) || p.temperature_c < -20 || p.temperature_c > 110) return "Point temperatures must be −20–110 °C.";
-    if (!Number.isFinite(p.duty_percent) || p.duty_percent < c.minimum_percent || p.duty_percent > 100) return "Point duty must be between the minimum and 100 %.";
+    if (!Number.isFinite(p.temperature_c) || p.temperature_c < -20 || p.temperature_c > 110) return t("validation.pointTemperature");
+    if (!Number.isFinite(p.duty_percent) || p.duty_percent < c.minimum_percent || p.duty_percent > 100) return t("validation.pointDuty");
     const prev = c.points[i - 1];
     if (prev && (p.temperature_c <= prev.temperature_c || p.duty_percent < prev.duty_percent))
-      return "Temperatures must increase and duty must not decrease.";
+      return t("validation.monotonicCurve");
   }
-  if (c.points[c.points.length - 1]!.temperature_c > c.critical_c) return "The curve extends beyond the critical temperature.";
+  if (c.points[c.points.length - 1]!.temperature_c > c.critical_c) return t("validation.curveCriticalLimit");
   for (const rate of [c.max_rise_percent_per_s, c.max_fall_percent_per_s])
-    if (rate !== undefined && (!Number.isFinite(rate) || rate < 1 || rate > 100)) return "Step limits must be 1–100 %/s.";
+    if (rate !== undefined && (!Number.isFinite(rate) || rate < 1 || rate > 100)) return t("validation.rateLimit");
   return null;
 }
 
@@ -91,39 +92,39 @@ export function needsInput(step: MacroStep): boolean {
 export function chordProblem(keys: string[]): string | null {
   const mods = keys.filter((k) => (MODIFIERS as readonly string[]).includes(k));
   const others = keys.filter((k) => !(MODIFIERS as readonly string[]).includes(k));
-  if (mods.length < 1 || mods.length > 4 || new Set(mods).size !== mods.length) return "Use 1–4 different modifiers.";
-  if (others.length !== 1 || !CHORD_KEYS.test(others[0]!)) return "Add exactly one key: a–z, 0–9, enter, escape, tab, space, backspace or an arrow.";
+  if (mods.length < 1 || mods.length > 4 || new Set(mods).size !== mods.length) return t("validation.chordModifiers");
+  if (others.length !== 1 || !CHORD_KEYS.test(others[0]!)) return t("validation.chordKey");
   return null;
 }
 
 /** Mirrors `MacroDefinition::validate` (effect parameters are checked by the daemon). */
 export function macroProblem(m: MacroDefinition): string | null {
-  if (m.steps.length < 1 || m.steps.length > 128) return "A macro needs 1 to 128 steps.";
-  if (!Number.isInteger(m.repeat) || m.repeat < 1 || m.repeat > 20) return "Repeat must be 1–20.";
+  if (m.steps.length < 1 || m.steps.length > 128) return t("validation.macroStepCount");
+  if (!Number.isInteger(m.repeat) || m.repeat < 1 || m.repeat > 20) return t("validation.macroRepeat");
   let delay = 0;
   const held = new Set<string>();
   for (const [i, s] of m.steps.entries()) {
-    const at = `Step ${i + 1}: `;
+    const at = t("validation.step", { index: i + 1 });
     if (s.type === "key_down") {
-      if ((!CHORD_KEYS.test(s.key) && !(MODIFIERS as readonly string[]).includes(s.key)) || held.has(s.key)) return at + "unsupported or already held key.";
+      if ((!CHORD_KEYS.test(s.key) && !(MODIFIERS as readonly string[]).includes(s.key)) || held.has(s.key)) return at + t("validation.keyHeld");
       held.add(s.key);
     }
-    if (s.type === "key_up" && !held.delete(s.key)) return at + "release without press.";
-    if (["text", "key", "chord"].includes(s.type) && held.size) return at + "release held keys first.";
+    if (s.type === "key_up" && !held.delete(s.key)) return at + t("validation.keyRelease");
+    if (["text", "key", "chord"].includes(s.type) && held.size) return at + t("validation.releaseFirst");
     if (s.type === "delay") {
-      if (!Number.isInteger(s.ms) || s.ms < 0 || s.ms > 10_000) return at + "a delay must be a whole number from 0 to 10 s.";
+      if (!Number.isInteger(s.ms) || s.ms < 0 || s.ms > 10_000) return at + t("validation.delay");
       delay += s.ms;
     }
-    if (s.type === "brightness" && (!Number.isFinite(s.value) || s.value < 0 || s.value > 1)) return at + "brightness must be 0–100 %.";
-    if (s.type === "text" && (s.text.length === 0 || new TextEncoder().encode(s.text).length > 1024)) return at + "text needs 1–1024 bytes.";
-    if (s.type === "key" && !(SINGLE_KEYS as readonly string[]).includes(s.key)) return at + "unsupported key.";
+    if (s.type === "brightness" && (!Number.isFinite(s.value) || s.value < 0 || s.value > 1)) return at + t("validation.brightness");
+    if (s.type === "text" && (s.text.length === 0 || new TextEncoder().encode(s.text).length > 1024)) return at + t("validation.textLength");
+    if (s.type === "key" && !(SINGLE_KEYS as readonly string[]).includes(s.key)) return at + t("validation.unsupportedKey");
     if (s.type === "chord") {
       const p = chordProblem(s.keys);
       if (p) return at + p;
     }
   }
-  if (held.size) return "Release every held key.";
-  if (delay * m.repeat > 60_000) return "All delays together (times repeat) must stay within 60 s.";
+  if (held.size) return t("validation.releaseAll");
+  if (delay * m.repeat > 60_000) return t("validation.totalDelay");
   return null;
 }
 
@@ -185,18 +186,18 @@ export function curveSetProblem(set: CurveSet): string | null {
   const pct = (v: number) => Number.isFinite(v) && v >= 0 && v <= 100;
   for (const [name, n] of Object.entries(set.nodes)) {
     const at = `${name}: `;
-    if (n.type === "constant" && !pct(n.percent)) return at + "duty must be 0–100 %.";
+    if (n.type === "constant" && !pct(n.percent)) return at + t("validation.duty");
     if (n.type === "trigger") {
-      if (!pct(n.idle_percent) || !pct(n.load_percent) || n.idle_percent > n.load_percent) return at + "idle duty must not exceed load duty.";
-      if (!(n.idle_c < n.load_c && n.load_c <= n.critical_c)) return at + "needs idle < load ≤ critical temperature.";
+      if (!pct(n.idle_percent) || !pct(n.load_percent) || n.idle_percent > n.load_percent) return at + t("validation.triggerDuty");
+      if (!(n.idle_c < n.load_c && n.load_c <= n.critical_c)) return at + t("validation.triggerTemperature");
     }
-    if (n.type === "mix" && (n.sources.length === 0 || n.sources.some((s) => !names.includes(s)))) return at + "choose 1–16 existing curves.";
-    if (n.type === "follow" && !names.includes(n.source)) return at + "choose a curve to follow.";
-    if (n.type === "linear" && !(n.min_c < n.max_c && n.max_c <= n.critical_c && pct(n.min_percent) && pct(n.max_percent) && n.min_percent <= n.max_percent)) return at + "needs min < max ≤ critical temperature and min ≤ max duty.";
+    if (n.type === "mix" && (n.sources.length === 0 || n.sources.some((s) => !names.includes(s)))) return at + t("validation.mixSources");
+    if (n.type === "follow" && !names.includes(n.source)) return at + t("validation.followSource");
+    if (n.type === "linear" && !(n.min_c < n.max_c && n.max_c <= n.critical_c && pct(n.min_percent) && pct(n.max_percent) && n.min_percent <= n.max_percent)) return at + t("validation.linearBounds");
     if (n.type === "equilibrium") {
-      if (!(n.target_c >= 20 && n.target_c < n.critical_c && n.critical_c <= 110)) return at + "needs 20 ≤ target < critical ≤ 110 °C.";
-      if (!pct(n.min_percent) || !pct(n.max_percent) || n.min_percent > n.max_percent) return at + "min duty must not exceed max duty.";
-      if (!(n.gain_percent_per_c >= 0.1 && n.gain_percent_per_c <= 20 && n.max_change_percent_per_s >= 0.1 && n.max_change_percent_per_s <= 50 && n.trend_s >= 0 && n.trend_s <= 120)) return at + "gain 0.1–20, change 0.1–50 %/s, trend 0–120 s.";
+      if (!(n.target_c >= 20 && n.target_c < n.critical_c && n.critical_c <= 110)) return at + t("validation.equilibriumTemperature");
+      if (!pct(n.min_percent) || !pct(n.max_percent) || n.min_percent > n.max_percent) return at + t("validation.equilibriumDuty");
+      if (!(n.gain_percent_per_c >= 0.1 && n.gain_percent_per_c <= 20 && n.max_change_percent_per_s >= 0.1 && n.max_change_percent_per_s <= 50 && n.trend_s >= 0 && n.trend_s <= 120)) return at + t("validation.equilibriumResponse");
     }
   }
   const state: Record<string, 1 | 2> = {};
@@ -210,5 +211,5 @@ export function curveSetProblem(set: CurveSet): string | null {
     state[name] = 2;
     return false;
   };
-  return names.some(visit) ? "Curves must not refer to each other in a loop." : null;
+  return names.some(visit) ? t("validation.curveCycle") : null;
 }

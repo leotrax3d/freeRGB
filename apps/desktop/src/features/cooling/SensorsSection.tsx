@@ -1,3 +1,4 @@
+import { t } from "./messages";
 import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
@@ -14,24 +15,24 @@ const field =
   "h-8 rounded-chip border border-border-strong bg-surface px-2 text-small text-text outline-none focus-visible:border-info";
 
 const TYPES: { type: SensorNode["type"]; label: string }[] = [
-  { type: "input", label: "Sensor input" },
-  { type: "offset", label: "Correction" },
-  { type: "mix", label: "Combination" },
-  { type: "time_average", label: "Rolling average" },
+  { type: "input", get label() { return t("cooling.sensorsSection.sensorInput"); } },
+  { type: "offset", get label() { return t("cooling.sensorsSection.correction"); } },
+  { type: "mix", get label() { return t("cooling.sensorsSection.combination"); } },
+  { type: "time_average", get label() { return t("cooling.sensorsSection.rollingAverage"); } },
 ];
 const MIX: { fn: MixFunction; label: string }[] = [
-  { fn: "maximum", label: "Maximum" },
-  { fn: "minimum", label: "Minimum" },
-  { fn: "average", label: "Average" },
-  { fn: "sum", label: "Sum" },
-  { fn: "subtract", label: "First minus others" },
+  { fn: "maximum", get label() { return t("cooling.sensorsSection.maximum"); } },
+  { fn: "minimum", get label() { return t("cooling.sensorsSection.minimum"); } },
+  { fn: "average", get label() { return t("cooling.sensorsSection.average"); } },
+  { fn: "sum", get label() { return t("cooling.sensorsSection.sum"); } },
+  { fn: "subtract", get label() { return t("cooling.sensorsSection.firstMinusOthers"); } },
 ];
 
 /** Mirrors the node-name rule in `SensorGraph::validate`. */
 export function nodeNameProblem(name: string, taken: string[]): string | null {
   if (!name) return null;
-  if (new TextEncoder().encode(name).length > 64 || !/^[\p{L}\p{N}_-]+$/u.test(name)) return "Letters, digits, - and _ only (no spaces).";
-  if (taken.includes(name)) return "This name is already used.";
+  if (new TextEncoder().encode(name).length > 64 || !/^[\p{L}\p{N}_-]+$/u.test(name)) return t("cooling.sensorsSection.lettersDigitsAndOnlyNoSpaces");
+  if (taken.includes(name)) return t("cooling.sensorsSection.thisNameIsAlreadyUsed");
   return null;
 }
 
@@ -60,16 +61,16 @@ function NodeFields({
   onChange: (node: SensorNode) => void;
 }) {
   const nodeSelect = (value: string, set: (v: string) => void) => (
-    <Select label="Source node" value={others.includes(value) ? value : ""} onChange={set} options={others.map((n) => ({ value: n, label: n }))} />
+    <Select label={t("cooling.sensorsSection.sourceNode")} value={others.includes(value) ? value : ""} onChange={set} options={others.map((n) => ({ value: n, label: n }))} />
   );
   switch (node.type) {
     case "input":
       return (
         <Select
-          label="Sensor"
+          label={t("cooling.sensorsSection.sensor")}
           className="w-full"
           value={node.source in sources ? node.source : ""}
-          placeholder={node.source ? "Unavailable sensor" : "Choose a sensor…"}
+          placeholder={node.source ? t("cooling.sensorsSection.unavailableSensor") : t("cooling.sensorsSection.chooseASensor")}
           onChange={(source) => onChange({ ...node, source })}
           options={Object.entries(sources).map(([value, label]) => ({ value, label }))}
         />
@@ -83,13 +84,13 @@ function NodeFields({
             step={0.5}
             min={-200}
             max={200}
-            aria-label="Amount"
+            aria-label={t("cooling.sensorsSection.amount")}
             className={`${field} w-20 tabular`}
             value={node.amount}
             onChange={(e) => onChange({ ...node, amount: Number(e.target.value) })}
           />
           <Select
-            label="Unit"
+            label={t("cooling.sensorsSection.unit")}
             value={node.proportional ? "pct" : "abs"}
             onChange={(v) => onChange({ ...node, proportional: v === "pct" })}
             options={[{ value: "abs", label: "°C" }, { value: "pct", label: "%" }]}
@@ -99,8 +100,8 @@ function NodeFields({
     case "mix":
       return (
         <div className="flex flex-wrap items-center gap-2">
-          <Select label="Function" value={node.function} onChange={(fn) => onChange({ ...node, function: fn })} options={MIX.map((m) => ({ value: m.fn, label: m.label }))} />
-          <span className="text-caption text-text-subtle">of</span>
+          <Select label={t("cooling.sensorsSection.function")} value={node.function} onChange={(fn) => onChange({ ...node, function: fn })} options={MIX.map((m) => ({ value: m.fn, label: m.label }))} />
+          <span className="text-caption text-text-subtle">{t("cooling.sensorsSection.of")}</span>
           {others.map((n) => (
             <Checkbox
               key={n}
@@ -116,12 +117,12 @@ function NodeFields({
       return (
         <div className="flex flex-wrap items-center gap-2">
           {nodeSelect(node.source, (source) => onChange({ ...node, source }))}
-          <span className="text-caption text-text-subtle">over</span>
+          <span className="text-caption text-text-subtle">{t("cooling.sensorsSection.over")}</span>
           <input
             type="number"
             min={1}
             max={600}
-            aria-label="Window in seconds"
+            aria-label={t("cooling.sensorsSection.windowInSeconds")}
             className={`${field} w-20 tabular`}
             value={node.window_ms / 1000}
             onChange={(e) => onChange({ ...node, window_ms: Math.round(Number(e.target.value) * 1000) })}
@@ -158,27 +159,22 @@ export function SensorsSection() {
 
   return (
     <Section
-      title="Custom temperature sources"
+      title={t("cooling.sensorsSection.customTemperatureSources")}
       aside={
         dirty && (
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>
-              <RotateCcw /> Discard
-            </Button>
-            <Button size="sm" variant="primary" disabled={pending !== null} onClick={() => run("save", () => rpc("cooling.sensors.save", { graph }), "Temperature sources saved")}>
-              Save sources
-            </Button>
+              <RotateCcw /> {t("cooling.sensorsSection.discard")} </Button>
+            <Button size="sm" variant="primary" disabled={pending !== null} onClick={() => run("save", () => rpc("cooling.sensors.save", { graph }), t("cooling.sensorsSection.temperatureSourcesSaved"))}>
+              {t("cooling.sensorsSection.saveSources")} </Button>
           </div>
         )
       }
     >
       <p className="text-small text-text-muted">
-        Combine real temperature readings into new sources — corrected, combined or averaged. The service evaluates
-        saved sources even while this window is closed. Missing or stale inputs make a source unavailable instead of
-        guessing.
-      </p>
+        {t("cooling.sensorsSection.combineRealTemperatureReadingsIntoNewSources")} </p>
       {Object.keys(sources).length === 0 && (
-        <p className="text-caption text-text-subtle">No connected device currently reports a temperature.</p>
+        <p className="text-caption text-text-subtle">{t("cooling.sensorsSection.noConnectedDeviceCurrentlyReportsATemperature")}</p>
       )}
       <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-card bg-surface-sunken">
         {names.map((name) => {
@@ -200,7 +196,7 @@ export function SensorsSection() {
               </div>
               <span className="w-24 shrink-0 text-right text-small tabular" title={reading?.error ?? undefined}>
                 {dirty ? (
-                  <span className="text-text-subtle">unsaved</span>
+                  <span className="text-text-subtle">{t("cooling.sensorsSection.unsaved")}</span>
                 ) : reading?.value != null ? (
                   `${num(reading.value, 1)} °C`
                 ) : (
@@ -210,7 +206,7 @@ export function SensorsSection() {
               <Button
                 size="icon"
                 variant="ghost"
-                aria-label={`Remove ${name}`}
+                aria-label={t("cooling.sensorsSection.removeValue", { p0: name })}
                 onClick={() => update(Object.fromEntries(Object.entries(graph.nodes).filter(([n]) => n !== name)))}
               >
                 <Trash2 />
@@ -229,21 +225,20 @@ export function SensorsSection() {
             }}
           >
             <input
-              aria-label="New source name"
-              placeholder="new_source_name"
+              aria-label={t("cooling.sensorsSection.newSourceName")}
+              placeholder={t("cooling.sensorsSection.newSourceNameAlternative")}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               className={`${field} w-44 font-mono`}
             />
             <Select
-              label="Type"
+              label={t("cooling.sensorsSection.type")}
               value={newType}
               onChange={setNewType}
               options={TYPES.map((t) => ({ value: t.type, label: t.label, disabled: t.type !== "input" && names.length === 0 }))}
             />
             <Button type="submit" size="sm" variant="secondary" disabled={!newName || !!problem}>
-              <Plus /> Add
-            </Button>
+              <Plus /> {t("cooling.sensorsSection.add")} </Button>
           </form>
           {problem && <span className="text-caption text-danger-text">{problem}</span>}
         </li>

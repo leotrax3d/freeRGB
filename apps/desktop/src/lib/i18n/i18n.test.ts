@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 // Feature catalogs register themselves on import.
 import "@/features/devices/messages";
+import "@/features/devices/mainboardRgbMessages";
+import "@/features/cooling/messages";
+import "@/features/macros/messages";
+import "./validationMessages";
 import "@/features/layout/messages";
 import "@/features/lighting/messages";
 import "@/features/marketplace/messages";

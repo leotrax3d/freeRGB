@@ -1,3 +1,4 @@
+import { t } from "./messages";
 /** `cooling.plugins.list` (API 3 cooling plugins, docs/COOLING_PLUGINS.md). */
 export type PluginRole = "fan" | "pump" | "unknown";
 
@@ -65,17 +66,17 @@ export function pluginState(p: PluginView): PluginState {
 }
 
 export const STATE_LABELS: Record<PluginState, string> = {
-  available: "Not installed",
-  disabled: "Disabled",
-  starting: "Starting…",
-  running: "Running",
-  no_device: "Device not found",
-  faulted: "Stopped after a fault",
+  get available() { return t("cooling.pluginModel.notInstalled"); },
+  get disabled() { return t("cooling.pluginModel.disabled"); },
+  get starting() { return t("cooling.pluginModel.starting"); },
+  get running() { return t("cooling.pluginModel.running"); },
+  get no_device() { return t("cooling.pluginModel.deviceNotFound"); },
+  get faulted() { return t("cooling.pluginModel.stoppedAfterAFault"); },
 };
 
 /** Short source badge text shared by channels and sensors. */
 export function sourceBadge(p: Pick<PluginView, "id" | "virtual">): string {
-  return p.virtual ? `Plugin · ${p.id} · virtual` : `Plugin · ${p.id}`;
+  return p.virtual ? t("cooling.pluginModel.pluginValueVirtual", { p0: p.id }) : t("cooling.pluginModel.pluginValue", { p0: p.id });
 }
 
 /** `plugin:<id>/<sensor>` → plugin id, else null. */
@@ -93,7 +94,7 @@ export function dutyChoices(c: PluginChannelDecl): number[] {
 export function failsafeNote(s: PluginStatus | null | undefined): string | null {
   const f = s?.failsafe;
   if (!f) return null;
-  if (f.reports === 0) return "Plugin stopped; no device fail-safe needed (virtual).";
-  if (f.errors.length > 0) return `Fail-safe incomplete: ${f.written}/${f.reports} reports written (${f.errors.join("; ")}).`;
-  return `Fail-safe sent: ${f.written}/${f.reports} reports written by freeRGB.`;
+  if (f.reports === 0) return t("cooling.pluginModel.pluginStoppedNoDeviceFailSafeNeeded");
+  if (f.errors.length > 0) return t("cooling.pluginModel.failSafeIncompleteValueValueReportsWritten", { p0: f.written, p1: f.reports, p2: f.errors.join("; ") });
+  return t("cooling.pluginModel.failSafeSentValueValueReportsWritten", { p0: f.written, p1: f.reports });
 }

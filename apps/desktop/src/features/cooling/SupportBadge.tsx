@@ -1,3 +1,4 @@
+import { t } from "./messages";
 import type { ChannelCoverage, SupportTier } from "@/lib/api/types";
 import { StatusDot } from "@/components/status";
 import { coverageLabel, tierDescription, tierLabel, tierTone } from "./support";
@@ -7,8 +8,8 @@ export function SupportBadge({ tier, coverage }: { tier: SupportTier | null | un
   const chip = coverageLabel(coverage);
   return (
     <span title={tierDescription(tier)} className="inline-flex items-center gap-2">
-      <StatusDot tone={tierTone(tier)} label={`Support: ${tierLabel(tier)}`} />
-      {chip && <span title="Coverage per fan-controller chip (FAN_COVERAGE.md). Simulated only means no hardware acceptance for this chip yet.">{chip}</span>}
+      <StatusDot tone={tierTone(tier)} label={t("cooling.supportBadge.supportValue", { p0: tierLabel(tier) })} />
+      {chip && <span title={t("cooling.supportBadge.coveragePerFanControllerChipFanCoverage")}>{chip}</span>}
     </span>
   );
 }

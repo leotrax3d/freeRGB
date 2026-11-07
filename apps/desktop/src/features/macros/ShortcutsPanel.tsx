@@ -1,3 +1,4 @@
+import { t } from "./messages";
 import { AppWindow, ArrowRight, Bookmark, FlaskConical, Keyboard, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { KeyRecorder } from "@/components/key-recorder";
@@ -18,10 +19,10 @@ interface Shortcut {
 }
 
 const ACTIONS: { value: ActionType; label: string; icon: typeof Keyboard }[] = [
-  { value: "macro", label: "Run macro", icon: Keyboard },
-  { value: "profile", label: "Load profile", icon: Bookmark },
-  { value: "effect", label: "Start effect", icon: Sparkles },
-  { value: "program", label: "Open program", icon: AppWindow },
+  { value: "macro", get label() { return t("macros.shortcutsPanel.runMacro"); }, icon: Keyboard },
+  { value: "profile", get label() { return t("macros.shortcutsPanel.loadProfile"); }, icon: Bookmark },
+  { value: "effect", get label() { return t("macros.shortcutsPanel.startEffect"); }, icon: Sparkles },
+  { value: "program", get label() { return t("macros.shortcutsPanel.openProgram"); }, icon: AppWindow },
 ];
 
 let nextId = 1;
@@ -36,8 +37,8 @@ export function ShortcutsPanel() {
   const { pending, error, run } = useAction();
   if (mode === "mock") return <ShortcutDesignPreview />;
   return <div className="flex flex-col gap-3">
-    <p className="text-small text-text-muted">Global macro shortcuts are configured and registered in freeRGB Classic. Keep Classic running while using them.</p>
-    <Button variant="secondary" disabled={pending !== null} onClick={() => run("classic", async () => { const t = await transport(); await t.openClassic?.(); })}>Open Classic shortcuts</Button>
+    <p className="text-small text-text-muted">{t("macros.shortcutsPanel.globalMacroShortcutsAreConfiguredAndRegistered")}</p>
+    <Button variant="secondary" disabled={pending !== null} onClick={() => run("classic", async () => { const t = await transport(); await t.openClassic?.(); })}>{t("macros.shortcutsPanel.openClassicShortcuts")}</Button>
     {error && <p role="alert" className="text-small text-danger-text">{error}</p>}
   </div>;
 }
@@ -64,10 +65,7 @@ function ShortcutDesignPreview() {
       <div role="note" className="flex items-start gap-3 rounded-card border border-creative/40 bg-creative/10 px-4 py-3 text-small text-text-muted">
         <FlaskConical className="mt-0.5 size-4 shrink-0 text-creative-text" />
         <span>
-          <span className="font-medium text-text">Design preview — not active yet.</span> Shortcuts set here are not saved
-          or registered. Global shortcuts still work through freeRGB Classic for macros; opening programs needs a
-          decision on how the service may start applications.
-        </span>
+          <span className="font-medium text-text">{t("macros.shortcutsPanel.designPreviewNotActiveYet")}</span> {t("macros.shortcutsPanel.shortcutsSetHereAreNotSavedOr")} </span>
       </div>
 
       <ul className="flex flex-col gap-2">
@@ -77,8 +75,8 @@ function ShortcutDesignPreview() {
           return (
             <li key={s.id} className="flex flex-wrap items-center gap-3 rounded-card bg-surface-sunken p-3">
               <div className="flex flex-col gap-1">
-                <KeyRecorder label="Shortcut" value={s.keys} onChange={(keys) => update(s.id, { keys })} placeholder="Click and press a shortcut" />
-                {taken(s) && <span className="text-caption text-danger-text">Already used by another shortcut.</span>}
+                <KeyRecorder label={t("macros.shortcutsPanel.shortcut")} value={s.keys} onChange={(keys) => update(s.id, { keys })} placeholder={t("macros.shortcutsPanel.clickAndPressAShortcut")} />
+                {taken(s) && <span className="text-caption text-danger-text">{t("macros.shortcutsPanel.alreadyUsedByAnotherShortcut")}</span>}
               </div>
               <ArrowRight className="size-4 text-text-subtle" aria-hidden />
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -86,7 +84,7 @@ function ShortcutDesignPreview() {
                   <Icon className="size-4" />
                 </span>
                 <Select
-                  label="Action"
+                  label={t("macros.shortcutsPanel.action")}
                   className="w-36"
                   value={s.action}
                   onChange={(a) => update(s.id, { action: a, target: "" })}
@@ -94,24 +92,24 @@ function ShortcutDesignPreview() {
                 />
                 {s.action === "program" ? (
                   <input
-                    aria-label="Program"
+                    aria-label={t("macros.shortcutsPanel.program")}
                     value={s.target}
-                    placeholder="e.g. C:\Program Files\Spotify\Spotify.exe"
+                    placeholder={t("macros.programExample")}
                     onChange={(e) => update(s.id, { target: e.target.value })}
                     className="h-8 min-w-0 flex-1 rounded-chip border border-border-strong bg-surface px-2.5 font-mono text-caption text-text outline-none placeholder:text-text-subtle focus-visible:border-info"
                   />
                 ) : (
                   <Select
-                    label="Target"
+                    label={t("macros.shortcutsPanel.target")}
                     className="min-w-40 flex-1"
                     value={s.target}
-                    placeholder={targets(s.action).length ? "Choose…" : "Nothing saved yet"}
+                    placeholder={targets(s.action).length ? t("macros.shortcutsPanel.choose") : t("macros.shortcutsPanel.nothingSavedYet")}
                     onChange={(target) => update(s.id, { target })}
                     options={targets(s.action)}
                   />
                 )}
               </div>
-              <Button size="icon" variant="ghost" aria-label="Remove shortcut" onClick={() => setItems((list) => list.filter((x) => x.id !== s.id))}>
+              <Button size="icon" variant="ghost" aria-label={t("macros.shortcutsPanel.removeShortcut")} onClick={() => setItems((list) => list.filter((x) => x.id !== s.id))}>
                 <Trash2 />
               </Button>
             </li>
@@ -123,8 +121,7 @@ function ShortcutDesignPreview() {
         className="self-start"
         onClick={() => setItems((list) => [...list, { id: nextId++, keys: [], action: "macro", target: "" }])}
       >
-        <Plus /> Add shortcut
-      </Button>
+        <Plus /> {t("macros.shortcutsPanel.addShortcut")} </Button>
     </div>
   );
 }

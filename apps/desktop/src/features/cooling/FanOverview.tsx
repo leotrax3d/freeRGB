@@ -1,3 +1,4 @@
+import { t } from "./messages";
 import { useMemo, useState } from "react";
 import { OctagonX, Pause, Play, Save } from "lucide-react";
 import { Banner } from "@/components/status";
@@ -26,28 +27,28 @@ export function CoolingActions() {
       <div className="flex flex-wrap items-end gap-2">
         {(profiles?.profiles.length ?? 0) > 0 && (
           <div className="w-44">
-            <Select label="Profile" placeholder="Choose profile" value={profiles?.active ?? ""}
+            <Select label={t("cooling.fanOverview.profile")} placeholder={t("cooling.fanOverview.chooseProfile")} value={profiles?.active ?? ""}
               options={(profiles?.profiles ?? []).map((p) => ({ value: p.name, label: p.name }))}
               onChange={(v) => run("activate", () => rpc("cooling.profiles.activate", { name: v }))} />
           </div>
         )}
         {saving ? (
           <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); const n = name.trim(); if (n) run("save", async () => { await rpc("cooling.profiles.save", { name: n }); setSaving(false); setName(""); }); }}>
-            <input autoFocus maxLength={64} value={name} onChange={(e) => setName(e.target.value)} placeholder="Profile name" aria-label="Profile name"
+            <input autoFocus maxLength={64} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("cooling.fanOverview.profileName")} aria-label={t("cooling.fanOverview.profileName")}
               className="h-9 w-40 rounded-control border border-border bg-surface-sunken px-3 text-small" />
-            <Button type="submit" size="sm" variant="primary" disabled={!name.trim() || pending !== null}>Save</Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => setSaving(false)}>Cancel</Button>
+            <Button type="submit" size="sm" variant="primary" disabled={!name.trim() || pending !== null}>{t("cooling.fanOverview.save")}</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setSaving(false)}>{t("cooling.fanOverview.cancel")}</Button>
           </form>
         ) : (
-          <Button size="sm" variant="secondary" disabled={(background?.saved.channels.length ?? 0) === 0} onClick={() => setSaving(true)}><Save />Save as profile</Button>
+          <Button size="sm" variant="secondary" disabled={(background?.saved.channels.length ?? 0) === 0} onClick={() => setSaving(true)}><Save />{t("cooling.fanOverview.saveAsProfile")}</Button>
         )}
         {live > 0 && (
           <Button size="sm" variant="danger" disabled={pending !== null}
-            onClick={() => run("stop_all", () => rpc("cooling.sessions.stop_all"))}><OctagonX />Stop all live fans ({live})</Button>
+            onClick={() => run("stop_all", () => rpc("cooling.sessions.stop_all"))}><OctagonX />{t("cooling.fanOverview.stopAllLiveFans")}{live})</Button>
         )}
         <Button size="sm" variant={paused ? "primary" : "secondary"} disabled={pending !== null || applying || !background?.available}
           onClick={() => run("pause", () => rpc("cooling.fans.pause", { paused: !paused }))}>
-          {paused ? <Play /> : <Pause />}{paused ? "Resume fans" : "Pause fans"}
+          {paused ? <Play /> : <Pause />}{paused ? t("cooling.fanOverview.resumeFans") : t("cooling.fanOverview.pauseFans")}
         </Button>
       </div>
       {error && <p role="alert" className="text-caption text-danger-text">{error}</p>}
@@ -74,27 +75,27 @@ export function FanOverview() {
   const provider = providers?.find((p) => p.id === "mainboard.lhm");
   const applying = background?.apply.state === "applying";
   return (
-    <section className="flex flex-col gap-3" aria-label="Fans">
+    <section className="flex flex-col gap-3" aria-label={t("cooling.fanOverview.fans")}>
       {onboarding && !onboarding.safety_acknowledged && (
         <Banner tone="warn">
-          <span className="flex-1">Fan control is locked until you accept the safety notice. freeRGB only shows the readings.</span>
-          <Button size="sm" onClick={() => void rpc("onboarding.reset")}>Open setup</Button>
+          <span className="flex-1">{t("cooling.fanOverview.fanControlIsLockedUntilYouAccept")}</span>
+          <Button size="sm" onClick={() => void rpc("onboarding.reset")}>{t("cooling.fanOverview.openSetup")}</Button>
         </Banner>
       )}
-      {applying && <Banner tone="info">Applying your fan settings — confirm the Windows prompt.</Banner>}
+      {applying && <Banner tone="info">{t("cooling.fanOverview.applyingYourFanSettingsConfirmTheWindows")}</Banner>}
       {background?.apply.state === "failed" && background.apply.error && <Banner tone="error">{background.apply.error}</Banner>}
       {views.length === 0 ? (
         <p className="rounded-card border border-border px-4 py-6 text-center text-small text-text-muted">
           {provider && provider.status !== "disabled"
-            ? provider.status === "ready" ? "No controllable motherboard fan headers were found." : `Motherboard service: ${provider.message}`
-            : "Motherboard fan control is not installed. Run freeRGB Setup again to add it."}
+            ? provider.status === "ready" ? t("cooling.fanOverview.noControllableMotherboardFanHeadersWereFound") : t("cooling.fanOverview.motherboardServiceValue", { p0: provider.message ?? provider.status })
+            : t("cooling.fanOverview.motherboardFanControlIsNotInstalledRun")}
         </p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3">
           {views.map((v, i) => <FanCard key={v.id} view={v} index={i} />)}
         </div>
       )}
-      <p className="text-caption text-text-subtle">Changes are saved in the protected service and keep running from Windows startup, also with this window closed. Windows asks for permission when you apply.</p>
+      <p className="text-caption text-text-subtle">{t("cooling.fanOverview.changesAreSavedInTheProtectedService")}</p>
     </section>
   );
 }

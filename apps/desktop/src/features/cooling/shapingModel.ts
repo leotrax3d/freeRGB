@@ -1,3 +1,4 @@
+import { t } from "./messages";
 /** Output shaping sent with live sessions (`freergb_control::shaping::OutputShaping`). */
 export interface AvoidRange {
   from: number;
@@ -38,13 +39,13 @@ export function parseAvoid(text: string): AvoidRange[] | string {
   const ranges: AvoidRange[] = [];
   for (const item of text.split(",").map((s) => s.trim()).filter(Boolean)) {
     const m = /^(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*(rpm|%)?$/i.exec(item);
-    if (!m) return `Cannot read "${item}"; use 50-60 or 1200-1300 rpm.`;
+    if (!m) return t("cooling.shapingModel.cannotReadValueUse5060Or", { p0: item });
     const [from, to] = [Number(m[1]), Number(m[2])];
     const rpm = m[3]?.toLowerCase() === "rpm";
-    if (!(from < to) || (!rpm && to > 100)) return `"${item}" needs from < to${rpm ? "" : " ≤ 100 %"}.`;
+    if (!(from < to) || (!rpm && to > 100)) return t("cooling.shapingModel.valueNeedsFromToValue", { p0: item, p1: rpm ? "" : " ≤ 100 %" });
     ranges.push(rpm ? { from, to, unit: "rpm" } : { from, to });
   }
-  if (ranges.length > 8) return "At most 8 avoided ranges.";
+  if (ranges.length > 8) return t("cooling.shapingModel.atMost8AvoidedRanges");
   return ranges;
 }
 
@@ -52,13 +53,13 @@ export function parseAvoid(text: string): AvoidRange[] | string {
 export function shapingPayload(d: ShapingDraft, allowStop: boolean): OutputShaping | null | string {
   const avoid = parseAvoid(d.avoid);
   if (typeof avoid === "string") return avoid;
-  if (!(d.min >= 0 && d.min <= d.max && d.max <= 100)) return "Need 0 ≤ min ≤ max ≤ 100 %.";
-  if (Math.abs(d.offset) > 100) return "Offset must be −100…100 %.";
-  if (!(d.delayS >= 0 && d.delayS <= 60)) return "Delay must be 0–60 s.";
-  if (!(d.upPercent >= 0 && d.upPercent <= 50 && d.downPercent >= 0 && d.downPercent <= 50)) return "Hysteresis must be 0–50 %.";
-  if (d.stopBelow > 0 && !allowStop) return "Fan stop needs an unrestricted fan channel.";
-  if (d.stopBelow > 50) return "Fan stop threshold must be 1–50 %.";
-  if (d.spinUpMs > 10000 || d.spinUpPercent > 100) return "Spin-up is at most 100 % for 10 s.";
+  if (!(d.min >= 0 && d.min <= d.max && d.max <= 100)) return t("cooling.shapingModel.need0MinMax100");
+  if (Math.abs(d.offset) > 100) return t("cooling.shapingModel.offsetMustBe100100");
+  if (!(d.delayS >= 0 && d.delayS <= 60)) return t("cooling.shapingModel.delayMustBe060S");
+  if (!(d.upPercent >= 0 && d.upPercent <= 50 && d.downPercent >= 0 && d.downPercent <= 50)) return t("cooling.shapingModel.hysteresisMustBe050");
+  if (d.stopBelow > 0 && !allowStop) return t("cooling.shapingModel.fanStopNeedsAnUnrestrictedFanChannel");
+  if (d.stopBelow > 50) return t("cooling.shapingModel.fanStopThresholdMustBe150");
+  if (d.spinUpMs > 10000 || d.spinUpPercent > 100) return t("cooling.shapingModel.spinUpIsAtMost100For");
   const out: OutputShaping = {};
   if (d.offset) out.offset_percent = d.offset;
   if (d.min) out.min_percent = d.min;

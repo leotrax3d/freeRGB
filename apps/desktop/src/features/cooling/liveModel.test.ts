@@ -27,6 +27,17 @@ describe("live channel model", () => {
     expect(liveChannels(null, null)).toEqual([]);
   });
 
+  it("supports the Classic single-job status and keeps channel faults separate", () => {
+    const legacy = job(1, "/a/control/1", "authorizing");
+    expect(activeCount(legacy)).toBe(1);
+    expect(liveChannels(legacy, null)[0]?.state).toBe("starting");
+    const jobs = [job(3, "/a/control/2", "stopping"), job(2, "/a/control/1", "failed", "calibration", "sensor lost")];
+    expect(liveChannels({ ...jobs[0]!, jobs }, null).map((c) => [c.control_id, c.state, c.error])).toEqual([
+      ["/a/control/1", "fault", "sensor lost"], ["/a/control/2", "stopping", null],
+    ]);
+    expect(activeCount({ ...jobs[0]!, jobs })).toBe(1);
+  });
+
   it("clamps manual duty to the tier floor and pumps to 100 %", () => {
     expect(clampDuty(20, 40)).toBe(40);
     expect(clampDuty(55.4, 40)).toBe(55);

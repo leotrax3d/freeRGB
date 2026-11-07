@@ -1,3 +1,5 @@
+import { t } from "./messages";
+import { roleLabel } from "./labels";
 import { useEffect, useState } from "react";
 import { Fan, FlaskConical, LoaderCircle, Search, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,8 +15,8 @@ import { fixedCurve, floorFor, sensorName, temperatureSources, withChannel, type
 
 const MODES: { id: FanMode; label: string }[] = [
   { id: "bios", label: "BIOS" },
-  { id: "curve", label: "Curve" },
-  { id: "fixed", label: "Fixed" },
+  { id: "curve", get label() { return t("cooling.fanCard.curve"); } },
+  { id: "fixed", get label() { return t("cooling.fanCard.fixed"); } },
 ];
 
 /** One motherboard fan header: what controls it now and a simple way to change it. */
@@ -109,18 +111,18 @@ export function FanCard({ view, index }: { view: FanView; index: number }) {
         <div className="flex flex-col gap-2 rounded-control bg-surface-sunken p-3 text-small">
           {asking ? (
             <>
-              <span>Which one sped up?</span>
+              <span>{t("cooling.fanCard.whichOneSpedUp")}</span>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="primary" disabled={busy} onClick={() => assign("fan")}><Fan />A fan</Button>
-                <Button size="sm" disabled={busy} onClick={() => assign("pump")}><Waves />A pump / AIO</Button>
-                <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>Nothing</Button>
+                <Button size="sm" variant="primary" disabled={busy} onClick={() => assign("fan")}><Fan />{t("cooling.fanCard.aFan")}</Button>
+                <Button size="sm" disabled={busy} onClick={() => assign("pump")}><Waves />{t("cooling.fanCard.aPumpAio")}</Button>
+                <Button size="sm" variant="ghost" onClick={() => setAsking(false)}>{t("cooling.fanCard.nothing")}</Button>
               </div>
             </>
           ) : (
             <>
-              <span className="text-text-muted">Spin it up for 8 seconds at 100 % to see which fan it is. Nothing is ever slowed down for this.</span>
+              <span className="text-text-muted">{t("cooling.fanCard.spinItUpFor8SecondsAt")}</span>
               <div><Button size="sm" disabled={busy || !view.temperature || !view.rpm} onClick={identify}>
-                {identifying !== null ? <LoaderCircle className="animate-spin" /> : <Search />}{identifying !== null ? "Spinning up…" : "Identify"}
+                {identifying !== null ? <LoaderCircle className="animate-spin" /> : <Search />}{identifying !== null ? t("cooling.fanCard.spinningUp") : t("cooling.fanCard.identify")}
               </Button></div>
             </>
           )}
@@ -129,7 +131,7 @@ export function FanCard({ view, index }: { view: FanView; index: number }) {
 
       {view.role !== null && !view.blocked && (
         <div className="flex flex-col gap-3">
-          <div role="radiogroup" aria-label={`${view.name} control`} className="inline-flex w-fit rounded-control bg-surface-sunken p-0.5">
+          <div role="radiogroup" aria-label={t("cooling.fanCard.valueControl", { p0: view.name })} className="inline-flex w-fit rounded-control bg-surface-sunken p-0.5">
             {MODES.map((m) => (
               <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => setMode(m.id)}
                 className={`rounded-control px-3 py-1 text-small transition-colors duration-(--duration-base) ${mode === m.id ? "bg-surface-raised text-text" : "text-text-muted hover:text-text"}`}>
@@ -137,21 +139,21 @@ export function FanCard({ view, index }: { view: FanView; index: number }) {
               </button>
             ))}
           </div>
-          {mode === "bios" && <p className="text-small text-text-muted">The motherboard firmware controls this {view.role}. freeRGB only watches it.</p>}
+          {mode === "bios" && <p className="text-small text-text-muted">{t("cooling.fan.firmware", { role: roleLabel(view.role) })}</p>}
           {mode === "curve" && (
-            <Select label="Curve" placeholder={view.saved && view.mode === "curve" ? "Keep current curve" : "Choose a curve"} value={curveName}
+            <Select label={t("cooling.fanCard.curve")} placeholder={view.saved && view.mode === "curve" ? t("cooling.fanCard.keepCurrentCurve") : t("cooling.fanCard.chooseACurve")} value={curveName}
               options={Object.keys(curves ?? {}).map((n) => ({ value: n, label: n }))} onChange={setCurveName} />
           )}
           {mode === "fixed" && (
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-small"><span>Speed</span><span className="tabular text-text-muted">{fixed} %</span></div>
-              <Slider aria-label={`${view.name} fixed speed`} min={floor} max={100} step={1} value={[Math.max(fixed, floor)]} onValueChange={([v]) => setFixed(v!)} />
-              {floor >= 100 && <span className="text-caption text-text-subtle">{view.role === "pump" ? "Pumps stay at 100 %." : "Run the channel test first to allow lower speeds."}</span>}
+              <div className="flex justify-between text-small"><span>{t("cooling.fanCard.speed")}</span><span className="tabular text-text-muted">{fixed} %</span></div>
+              <Slider aria-label={t("cooling.fanCard.valueFixedSpeed", { p0: view.name })} min={floor} max={100} step={1} value={[Math.max(fixed, floor)]} onValueChange={([v]) => setFixed(v!)} />
+              {floor >= 100 && <span className="text-caption text-text-subtle">{view.role === "pump" ? t("cooling.fanCard.pumpsStayAt100") : t("cooling.fanCard.runTheChannelTestFirstToAllow")}</span>}
             </div>
           )}
           {mode !== "bios" && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-small">Follows {temps.length > 1 ? "the hottest of" : ""}</span>
+              <span className="text-small">{t("cooling.fanCard.follows")} {temps.length > 1 ? t("cooling.fanCard.theHottestOf") : ""}</span>
               <div className="flex flex-wrap gap-1.5">
                 {sources.map((s) => {
                   const on = temps.includes(s.sensor.id);
@@ -166,19 +168,19 @@ export function FanCard({ view, index }: { view: FanView; index: number }) {
               </div>
             </div>
           )}
-          {belowFloor && <p className="text-caption text-[#fbbf24]">This curve goes below {floor} %, the lowest speed allowed for this {view.role}.</p>}
+          {belowFloor && <p className="text-caption text-[#fbbf24]">{t("cooling.fan.belowFloor", { floor, role: roleLabel(view.role) })}</p>}
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="primary" disabled={!canApply} onClick={apply}>{pending === "apply" ? "Applying…" : "Apply"}</Button>
+            <Button size="sm" variant="primary" disabled={!canApply} onClick={apply}>{pending === "apply" ? t("cooling.fanCard.applying") : t("cooling.fanCard.apply")}</Button>
             {view.role === "fan" && view.evidence?.test !== "passed" && (
-              <Button size="sm" variant="ghost" disabled={busy || !view.temperature || !view.rpm} onClick={test}><FlaskConical />Channel test</Button>
+              <Button size="sm" variant="ghost" disabled={busy || !view.temperature || !view.rpm} onClick={test}><FlaskConical />{t("cooling.fanCard.channelTest")}</Button>
             )}
             {view.session && (
               <Button size="sm" variant="danger" disabled={pending !== null}
-                onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: view.id }))}>Stop live</Button>
+                onClick={() => run("stop", () => rpc("cooling.sessions.stop_channel", { control_id: view.id }))}>{t("cooling.fanCard.stopLive")}</Button>
             )}
             <span className="ml-auto flex items-center gap-2 text-caption text-text-subtle">
               <SupportBadge tier={view.tier} coverage={view.evidence?.coverage} />
-              <button type="button" className="underline-offset-2 hover:underline" onClick={() => void assign(null)}>Reassign</button>
+              <button type="button" className="underline-offset-2 hover:underline" onClick={() => void assign(null)}>{t("cooling.fanCard.reassign")}</button>
             </span>
           </div>
         </div>

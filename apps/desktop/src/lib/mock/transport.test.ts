@@ -53,4 +53,22 @@ describe("public demo adapter", () => {
     await expect(adapter.exportDiagnostics()).rejects.toThrow("Not available");
     expect(adapter.openClassic).toBeUndefined();
   });
+
+  it("runs and stops independent live cooling channels without hardware", async () => {
+    const adapter = mockTransport();
+    const controls = (await adapter.snapshot()).cooling_channels!.filter((c) => c.kind === "control" && !c.support?.software_mode).slice(0, 2);
+    expect(controls).toHaveLength(2);
+    await adapter.rpc("safety.acknowledge", { accepted: true, version: 1 });
+    await adapter.rpc("cooling.sessions.stop_all");
+    for (const control of controls) {
+      await adapter.rpc("cooling.sessions.start", { mode: "manual", control_id: control.reading.id, duty_percent: 100 });
+    }
+    const list = () => adapter.rpc<import("@/features/cooling/liveModel").SessionList>("cooling.sessions.list");
+    expect((await list()).active).toHaveLength(2);
+    await adapter.rpc("cooling.sessions.stop_channel", { control_id: controls[0]!.reading.id });
+    expect((await list()).active.map((j) => j.control_id)).toEqual([controls[1]!.reading.id]);
+    await adapter.rpc("cooling.sessions.stop_all");
+    expect((await list()).active).toEqual([]);
+    expect((await adapter.snapshot()).cooling_session?.jobs?.every((j) => j.state === "stopped")).toBe(true);
+  });
 });
