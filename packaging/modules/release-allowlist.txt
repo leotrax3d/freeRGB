@@ -1,0 +1,6 @@
+# Module IDs the modules workflow may build and source-package for a release.
+# One ID per line. Add an ID only after (1) modules/<id>/PROVENANCE.md passes the
+# review in docs/legal/RISK_REGISTER.md FR-010, (2) modules/<id>/source-workspace.toml
+# exists, (3) the build and source jobs pass for that ID. Owner/lawyer sign-off for
+# GPL modules: docs/legal/OWNER_DECISIONS.md D2/D3.
+razer-chroma
