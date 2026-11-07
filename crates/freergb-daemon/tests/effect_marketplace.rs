@@ -4,9 +4,63 @@ use freergb_effect_host::marketplace::Manager;
 use freergb_effects::EffectSpec;
 use serde_json::{json, Value};
 use std::{
-    sync::{Arc, Mutex},
+    process::Command,
+    sync::{Arc, Mutex, MutexGuard, OnceLock},
     time::{Duration, Instant},
 };
+
+fn marketplace_process_test() -> MutexGuard<'static, ()> {
+    static WORKER: OnceLock<()> = OnceLock::new();
+    static PROCESS_TEST: Mutex<()> = Mutex::new(());
+    WORKER.get_or_init(|| {
+        let host = freergb_effect_host::process::HostCommand::sibling().unwrap();
+        let profile = host.executable.parent().unwrap().file_name().unwrap();
+        // Cargo does not build another package's binaries for `cargo test -p`.
+        // Reuse its configured target directory and the running test's profile.
+        let status = Command::new(env!("CARGO"))
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .args([
+                "build",
+                "--locked",
+                "-p",
+                "freergb-effect-host",
+                "--bin",
+                "freergb-effect-worker",
+                "--profile",
+            ])
+            .arg(if profile == "debug" {
+                "dev".as_ref()
+            } else {
+                profile
+            })
+            .status()
+            .expect("cannot build the marketplace effect worker");
+        assert!(status.success(), "effect worker build failed: {status}");
+        assert!(
+            host.executable.is_file(),
+            "worker missing: {:?}",
+            host.executable
+        );
+    });
+    // Real interpreters have production frame deadlines. Avoid competing with
+    // another collection test for CPU during startup and rendering.
+    PROCESS_TEST.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+fn wait_for_marketplace(manager: &Manager) {
+    let deadline = Instant::now() + Duration::from_secs(120);
+    // Manager exposes status but no completion notification; poll the condition
+    // rather than assuming installation has completed after a fixed delay.
+    while manager.busy() {
+        assert!(
+            Instant::now() < deadline,
+            "marketplace job timed out: {}",
+            serde_json::to_string(&manager.view().job).unwrap()
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(manager.view().error.is_none(), "{:?}", manager.view().error);
+}
 fn call(e: &SharedEngine, method: &str, params: Value) -> Value {
     serde_json::from_str(
         &api::handle_line(
@@ -24,6 +78,7 @@ fn success(e: &SharedEngine, method: &str, params: Value) -> Value {
 }
 #[test]
 fn install_activate_persist_restore_offline_and_uninstall() {
+    let _process_test = marketplace_process_test();
     let root =
         std::env::temp_dir().join(format!("freergb-marketplace-daemon-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -34,12 +89,7 @@ fn install_activate_persist_restore_offline_and_uninstall() {
     let engine = Arc::new(Mutex::new(engine.with_state_file(state.clone())));
     let previous = success(&engine, "effects.get", json!({}));
     success(&engine, "marketplace.install", json!({"id":"aurora"}));
-    let deadline = Instant::now() + Duration::from_secs(30);
-    while manager.busy() {
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(5));
-    }
-    assert!(manager.view().error.is_none(), "{:?}", manager.view().error);
+    wait_for_marketplace(&manager);
     let selection = json!({"type":"marketplace","id":"aurora","version":"1.0.0","parameters":{"speed":0.7,"brightness":0.6}});
     success(&engine, "effects.set", selection.clone());
     let now = Instant::now();
@@ -125,6 +175,7 @@ fn failed_state_write_does_not_acknowledge_or_change_the_effect() {
 
 #[test]
 fn development_collection_installs_and_configures_through_lighting_api() {
+    let _process_test = marketplace_process_test();
     let root = std::env::temp_dir().join(format!("freergb-collection-api-{}", std::process::id()));
     let release =
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../effects/development");
@@ -132,20 +183,12 @@ fn development_collection_installs_and_configures_through_lighting_api() {
     let mut engine = Engine::new(EffectSpec::default_for("solid").unwrap(), 30);
     engine.marketplace = Some(manager.clone());
     let engine = Arc::new(Mutex::new(engine));
-    let wait = || {
-        let deadline = Instant::now() + Duration::from_secs(30);
-        while manager.busy() {
-            assert!(Instant::now() < deadline);
-            std::thread::sleep(Duration::from_millis(2));
-        }
-        assert!(manager.view().error.is_none(), "{:?}", manager.view().error);
-    };
     success(&engine, "marketplace.refresh", json!({}));
-    wait();
+    wait_for_marketplace(&manager);
     assert!(!manager.view().ratings.configured);
     for package in manager.view().catalog.into_iter().skip(3) {
         success(&engine, "marketplace.install", json!({"id": package.id}));
-        wait();
+        wait_for_marketplace(&manager);
         for maximum in [false, true] {
             let parameters: serde_json::Map<String, Value> = package
                 .parameters
@@ -163,11 +206,12 @@ fn development_collection_installs_and_configures_through_lighting_api() {
             let start = Instant::now();
             for ms in [0, 125, 700, 1900, 3875] {
                 lock(&engine).tick(start + Duration::from_millis(ms));
+                let runtime_error = lock(&engine).runtime_error();
                 assert!(
-                    lock(&engine).runtime_error().is_none(),
+                    runtime_error.is_none(),
                     "{}: {:?}",
                     package.id,
-                    lock(&engine).runtime_error()
+                    runtime_error
                 );
             }
         }
