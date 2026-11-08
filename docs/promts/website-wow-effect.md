@@ -1,72 +1,72 @@
 # Follow-up prompt — website "wow" interaction
 
 Run after (or as step 6b of) [website-redesign.md](website-redesign.md).
-Same worktree rules, same skills; this adds one signature interaction.
+Same worktree rules, same skills; this adds the playful RGB layer.
 
 ```text
-You own the signature interaction of the freeRGB website. It must make people
-say "wow" in the first five seconds and it must be *about freeRGB*: the visitor
-is not watching an effect, they are controlling RGB lighting with their mouse,
-keyboard or finger, the same way the app does.
+You own the playful RGB layer of the freeRGB website. Visitors should grin in
+the first five seconds and want to keep moving the mouse, typing or touching.
+Theme: RGB light. Playful game-like elements are welcome. What matters is that
+every element is designed and built with real craft, not a copy-pasted
+snippet.
 
-## Concept: "Your cursor is the light"
-The hero shows a real-looking LED scene drawn from actual device layouts in
-this repo: a keyboard (use the A5 keyboard layout data), a fan ring and an
-ARGB strip on a dark case outline. Every LED is a separate dot with bloom.
-- Mouse: the pointer is a light source. LEDs near it pick up its hue with a
-  physically plausible falloff; moving fast leaves a short trail that decays
-  like the app's "reactive" effect. Hue follows pointer angle around the fan.
-- Keyboard: pressing a real key lights the same key on the drawn keyboard and
-  sends a ripple across all devices (the app's typing effect). Typing "rgb",
-  "freergb" or the Konami-free word "rainbow" switches the scene effect.
-- Touch: tap = ripple from that point; drag = paint; two fingers = rotate hue.
-- Idle (no input for 4 s): the scene runs one of the real bundled effects.
-- A tiny caption under the hero states the truth: "This is the freeRGB effect
-  engine running in your browser" — and it must be true: compile the existing
-  effect WASM modules (the 3 effects in the release catalog, effect API in
-  crates/freergb-effect-*) for the web, or port their math 1:1 into a shared
-  TS module with tests comparing frames against the Rust output.
-- A "Try it on your setup" button leads to Download.
+## Ingredients (combine 3–5, prototype first, owner picks)
+- Custom RGB cursor: e.g. a tiny LED, a light prism or a fan blade that
+  spins with pointer speed; its colour cycles slowly and it casts real light
+  on nearby UI (borders/edges pick up its hue). Hide it on touch devices and
+  keep the system cursor for text fields and links (or a clear variant).
+- Cursor as light source: LEDs of a drawn keyboard, fan ring and ARGB strip
+  in the hero react to the pointer with falloff and a short decaying trail.
+- Keyboard play: pressing a key lights the same key on the drawn keyboard
+  and sends a ripple; hidden words ("rgb", "rainbow", "freergb") switch the
+  effect or unlock a short colour show; a small "you found it" hint.
+- Colour picker toy: drag across the hero to "paint" the LEDs; the chosen
+  colour becomes the site accent (buttons, links, focus rings) until reload.
+- Mini game (optional, small): e.g. "light all fans" or catch the colour,
+  playable in 20 s, with score in the app's style; never blocks the page.
+- Touch: tap = ripple, drag = paint, shake/tilt (DeviceMotion, opt-in) =
+  colour burst. Haptics via vibrate() only after a user gesture.
+- Sound: off by default; optional soft click per key press with a mute
+  toggle.
+- Section transitions: LED strip along the page edge that fills as you
+  scroll (progress), in the current accent colour.
+- Idle: after 4 s without input one of the real bundled freeRGB effects
+  runs; if feasible use the actual effect math (WASM or 1:1 TS port with
+  frame tests) and say so in a caption: "freeRGB effect engine, live".
 
-## Quality bar — what NOT to do
-These are the cheap AI-site effects; none of them may appear:
-cursor-follower blob/circle, mouse-trail sparkles, particle.js networks,
-generic gradient mesh/aurora backgrounds, glass cards tilting on hover,
-typewriter headline, scroll-jacking, random 3D blob, confetti, magnetic
-buttons, "spotlight" radial gradient on cards. If an idea is something you
-have seen on many landing pages, drop it.
-The effect is judged by: meaning (it demonstrates the product), craft
-(smooth 60 fps, exact timing, no jank, tasteful colour), restraint (one hero
-moment, the rest of the page stays calm shadcn style).
+## Quality bar
+Any element is allowed (also custom cursors and trails) if it is done well:
+- Own look: designed from the freeRGB token set and LED/fan motifs, not a
+  library default. No unchanged snippets from codepen/particles.js/
+  tutorials; no generic gradient blobs or confetti presets.
+- Feel: 60 fps, eased motion with physical timing, no lag between input and
+  light (< 1 frame), no jank on scroll.
+- Restraint: one strong hero moment plus small touches elsewhere; content
+  (download, features, docs) stays readable and calm shadcn style.
+- Judge each prototype with design:design-critique: "Would this impress a
+  designer at linear.app or warp.dev?" If not, iterate or drop it.
 
 ## Engineering
-- Rendering: one WebGL2 canvas (fallback Canvas2D), instanced points + bloom
-  pass; no three.js unless the bundle stays small. Hero JS <= 60 KB gzip,
-  lazy-load after first paint; LCP must not depend on it (static poster image
-  from the new screenshots first).
-- Input: Pointer Events (mouse+pen+touch unified), keyboard only while the
-  hero is in view and no text field is focused; never block scrolling on
-  touch (touch-action rules, passive listeners).
-- Pause when off-screen (IntersectionObserver) or tab hidden; cap DPR at 2;
-  measure with the Performance panel on a mid-range phone profile (4x CPU
-  throttle) and keep frame time < 12 ms.
-- prefers-reduced-motion: static lit scene, reacts only on click/tap, no
-  trails. Provide a visible "Pause animation" toggle (WCAG 2.2.2).
-- No flashing above 3 Hz anywhere (photosensitivity, WCAG 2.3.1); limit
-  brightness swings. Canvas has aria-hidden plus a text description.
-- Colour: hues from the design tokens; LEDs saturated, everything else
-  neutral so the light is the only colour on the page.
+- One WebGL2 canvas (fallback Canvas2D) for LEDs + bloom; cursor as a
+  separate lightweight layer. Playful layer JS <= 80 KB gzip, lazy-loaded
+  after first paint; LCP from a static poster image.
+- Pointer Events for mouse/pen/touch; keyboard only while hero is in view
+  and no input is focused; never block scrolling (touch-action, passive).
+- Pause when off-screen or tab hidden; cap DPR at 2; frame time < 12 ms on
+  a 4x throttled mid-range phone profile.
+- Accessibility: prefers-reduced-motion = static lit scene, system cursor,
+  no trails; visible "Effects on/off" toggle remembered in localStorage;
+  no flashing above 3 Hz (WCAG 2.3.1); canvas aria-hidden with text
+  description; custom cursor never hides focus or hit targets.
 
 ## Skills
-design:design-critique (judge 3 quick prototypes against the quality bar,
-keep one), anthropic-skills:web-artifacts-builder (prototype the 3 variants
-first and send the owner the links via t71 before building the final one),
-run + anthropic-skills:chrome-browser (record desktop + mobile captures),
-design:accessibility-review (motion, flashing, keyboard), engineering:
-testing-strategy (frame-parity tests vs Rust effects), engineering:code-review.
+design:design-critique, anthropic-skills:web-artifacts-builder (build 3
+combinations as prototypes, send links to the owner via t71, wait for the
+pick), run + anthropic-skills:chrome-browser (desktop + mobile captures),
+design:accessibility-review, engineering:testing-strategy,
+engineering:code-review.
 
 ## Done when
-Owner picked a prototype, final version merged, Lighthouse still >= 95,
-reduced-motion and touch verified in screenshots/screen recordings,
-report to t71 with links.
+Owner picked a combination, final version merged, Lighthouse still >= 95,
+reduced-motion and touch verified, report to t71 with links.
 ```
