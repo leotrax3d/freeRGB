@@ -1,5 +1,11 @@
-//! Independently implemented Gigabyte RGB Fusion 2 USB (ITE IT5702/IT8297)
-//! motherboard ARGB protocol. Wire facts and limits: docs/MAINBOARD_RGB.md.
+//! Independently implemented Gigabyte RGB Fusion 2 USB motherboard ARGB protocol.
+//! Wire facts: OpenRGB 029758e2260208c6de06eefc7106cd5c462c2310,
+//! Controllers/GigabyteRGBFusion2USBController/{GigabyteRGBFusion2USBController.cpp,
+//! GigabyteRGBFusion2USBController.h,GigabyteFusion2USB_Devices.h}.
+//! Variant channels: 5711 six (four headers, two onboard), 8950 two, a100 one.
+//! IT5711 accepts at most 256 LEDs/channel; other variants accept 1024.
+//! Extended 5711 calibration is read with CC61 at offsets 4/8/12/16.
+//! General wire facts: docs/MAINBOARD_RGB.md.
 //! Volatile only: no flash save (`0x5E`), no fan or power commands.
 use freergb_core::{Frame, LedLayout, Rgb};
 use freergb_device_api::{
@@ -15,6 +21,36 @@ pub const HEADERS: usize = 2;
 /// Firmware maximum per header (largest strip-length class).
 pub const MAX_LEDS: u16 = 1024;
 const LEDS_PER_PACKET: usize = 19;
+const CHANNELS: usize = 6;
+const DIRECT_COMMANDS: [u8; CHANNELS] = [0x58, 0x59, 0x62, 0x63, 0x64, 0x65];
+const MODE_BITS: [u8; CHANNELS] = [1, 2, 8, 16, 32, 64];
+
+/// Number of addressable channels, including IT5711 onboard channels 5/6.
+pub fn header_count(vid: u16, pid: u16) -> Option<usize> {
+    match (vid, pid) {
+        (0x048d, 0x5711) => Some(6),
+        (0x048d, 0x5702 | 0x8297 | 0x8950) => Some(2),
+        (0x0414, 0xa100) => Some(1),
+        _ => None,
+    }
+}
+
+fn decode_order(report: &[u8], at: usize) -> Result<[usize; 3], DeviceError> {
+    let bytes = report
+        .get(at..at + 4)
+        .ok_or_else(|| invalid("short Fusion 2 calibration"))?;
+    let value = [bytes[2], bytes[1], bytes[0]].map(usize::from);
+    let mut seen = [false; 3];
+    for index in value {
+        if index > 2 || std::mem::replace(&mut seen[index], true) {
+            return Err(invalid("invalid Fusion 2 colour calibration"));
+        }
+    }
+    if bytes[3] != 0 {
+        return Err(invalid("invalid Fusion 2 calibration reserved byte"));
+    }
+    Ok(value)
+}
 
 fn invalid(message: impl Into<String>) -> DeviceError {
     DeviceError::Protocol(message.into())
@@ -35,18 +71,6 @@ impl Info {
         if report.len() != REPORT_LEN || report[0] != REPORT_ID {
             return Err(invalid("invalid Fusion 2 information reply"));
         }
-        let order = |at: usize| -> Result<[usize; 3], DeviceError> {
-            let word =
-                u32::from_le_bytes([report[at], report[at + 1], report[at + 2], report[at + 3]]);
-            let value = [(word >> 16) as u8, (word >> 8) as u8, word as u8].map(usize::from);
-            let mut seen = [false; 3];
-            for index in value {
-                if index > 2 || std::mem::replace(&mut seen[index], true) {
-                    return Err(invalid("invalid Fusion 2 colour calibration"));
-                }
-            }
-            Ok(value)
-        };
         let product = report[12..40]
             .iter()
             .take_while(|b| **b != 0)
@@ -61,7 +85,7 @@ impl Info {
         Ok(Self {
             product,
             counts: [report[8], report[9], report[10]],
-            order: [order(44)?, order(48)?],
+            order: [decode_order(report, 44)?, decode_order(report, 48)?],
         })
     }
 }
@@ -90,15 +114,22 @@ pub fn direct_packets(
     order: [usize; 3],
     colors: &[Rgb],
 ) -> Result<Vec<[u8; REPORT_LEN]>, DeviceError> {
-    if header >= HEADERS || colors.is_empty() || colors.len() > usize::from(MAX_LEDS) {
+    if header >= CHANNELS || colors.is_empty() || colors.len() > usize::from(MAX_LEDS) {
         return Err(invalid("Fusion 2 header/LED count out of range"));
+    }
+    if order.iter().any(|index| *index > 2)
+        || order[0] == order[1]
+        || order[0] == order[2]
+        || order[1] == order[2]
+    {
+        return Err(invalid("invalid Fusion 2 colour order"));
     }
     Ok(colors
         .chunks(LEDS_PER_PACKET)
         .enumerate()
         .map(|(part, chunk)| {
             let offset = (part * LEDS_PER_PACKET * 3) as u16;
-            let mut packet = command(&[0x58 + header as u8]);
+            let mut packet = command(&[DIRECT_COMMANDS[header]]);
             packet[2..4].copy_from_slice(&offset.to_le_bytes());
             packet[4] = (chunk.len() * 3) as u8;
             for (index, color) in chunk.iter().enumerate() {
@@ -116,9 +147,9 @@ pub struct Fusion2Device<T: HidTransport> {
     transport: T,
     info: DeviceInfo,
     layout: LedLayout,
-    leds: [u16; HEADERS],
-    names: [Option<String>; HEADERS],
-    order: [[usize; 3]; HEADERS],
+    leds: Vec<u16>,
+    names: Vec<Option<String>>,
+    order: [[usize; 3]; CHANNELS],
     /// Built-in effects are disabled (direct mode owned) and must be returned.
     owned: bool,
     status: DeviceStatus,
@@ -130,7 +161,7 @@ impl<T: HidTransport> Fusion2Device<T> {
         vid: u16,
         pid: u16,
         serial: Option<String>,
-        leds: [u16; HEADERS],
+        leds: impl Into<Vec<u16>>,
     ) -> Self {
         Self {
             transport,
@@ -148,16 +179,16 @@ impl<T: HidTransport> Fusion2Device<T> {
                 firmware: None,
             },
             layout: LedLayout::strip(0),
-            leds,
+            leds: leds.into(),
             names: Default::default(),
-            order: [[0, 1, 2]; HEADERS],
+            order: [[0, 1, 2]; CHANNELS],
             owned: false,
             status: DeviceStatus::Disconnected,
         }
     }
     /// User names for the ARGB headers (shown on the layout canvas).
-    pub fn with_names(mut self, names: [Option<String>; HEADERS]) -> Self {
-        self.names = names;
+    pub fn with_names(mut self, names: impl Into<Vec<Option<String>>>) -> Self {
+        self.names = names.into();
         self
     }
     fn send(&mut self, packet: &[u8; REPORT_LEN]) -> Result<(), DeviceError> {
@@ -167,8 +198,22 @@ impl<T: HidTransport> Fusion2Device<T> {
         Ok(())
     }
     fn acquire(&mut self) -> Result<(), DeviceError> {
-        if self.leds.iter().any(|count| *count > MAX_LEDS) {
-            return Err(invalid("ARGB LED counts must be 0..1024"));
+        let channels = header_count(
+            self.info.usb_vid.unwrap_or(0),
+            self.info.usb_pid.unwrap_or(0),
+        )
+        .ok_or_else(|| invalid("unsupported Fusion 2 controller"))?;
+        if self.leds.len() > CHANNELS || self.leds.iter().skip(channels).any(|count| *count != 0) {
+            return Err(invalid("Fusion 2 header unavailable on this variant"));
+        }
+        self.leds.resize(channels, 0);
+        let max_leds = if self.info.usb_pid == Some(0x5711) {
+            256
+        } else {
+            MAX_LEDS
+        };
+        if self.leds.iter().any(|count| *count > max_leds) {
+            return Err(invalid("ARGB LED count exceeds the controller limit"));
         }
         if self.leds.iter().all(|count| *count == 0) {
             return Err(invalid(
@@ -179,23 +224,58 @@ impl<T: HidTransport> Fusion2Device<T> {
         let mut reply = [0; REPORT_LEN];
         reply[0] = REPORT_ID;
         let count = self.transport.get_feature(&mut reply)?;
-        let info = Info::decode(reply.get(..count).unwrap_or(&[]))?;
-        self.order = info.order;
+        if count != REPORT_LEN || reply[0] != REPORT_ID {
+            return Err(invalid("invalid Fusion 2 information reply"));
+        }
+        // Unselected/absent channels may report OFF or invalid calibration.
+        // Decode only driven calibration; never write the calibration table.
+        let mut decoded = reply;
+        for header in 0..2 {
+            if self.leds.get(header).copied().unwrap_or(0) == 0 {
+                decoded[44 + header * 4..48 + header * 4].copy_from_slice(&[2, 1, 0, 0]);
+            }
+        }
+        let info = Info::decode(&decoded)?;
+        self.order[..channels.min(2)].copy_from_slice(&info.order[..channels.min(2)]);
+        if channels == CHANNELS {
+            self.send(&command(&[0x61]))?;
+            let mut calibration = [0; REPORT_LEN];
+            calibration[0] = REPORT_ID;
+            if self.transport.get_feature(&mut calibration)? != REPORT_LEN
+                || calibration[0] != REPORT_ID
+            {
+                return Err(invalid("invalid Fusion 2 extended calibration reply"));
+            }
+            for header in 2..CHANNELS {
+                if self.leds[header] > 0 {
+                    self.order[header] = decode_order(&calibration, 4 + (header - 2) * 4)?;
+                }
+            }
+        }
         if !info.product.is_empty() {
             self.info.firmware = Some(info.product.clone());
         }
-        // Strip-length classes: only D_LED1/D_LED2 change, others keep the firmware value.
+        // Update only driven channels; preserve every unselected firmware nibble.
         let mut counts = info.counts;
-        counts[0] = (length_class(self.leds[1]) << 4) | length_class(self.leds[0]);
+        for (header, count) in self.leds.iter().enumerate() {
+            if *count > 0 {
+                let shift = (header % 2) * 4;
+                counts[header / 2] =
+                    (counts[header / 2] & !(0xf << shift)) | (length_class(*count) << shift);
+            }
+        }
         if counts != info.counts {
             self.send(&command(&[0x34, counts[0], counts[1], counts[2]]))?;
         }
         let total: u16 = self.leds.iter().sum();
         let mut layout = LedLayout::strip(total);
         let mut index = 0;
-        for header in 0..HEADERS {
-            let label = self.names[header]
-                .clone()
+        for header in 0..self.leds.len() {
+            let label = self
+                .names
+                .get(header)
+                .cloned()
+                .flatten()
                 .unwrap_or_else(|| format!("ARGB header {}", header + 1));
             for led in 0..self.leds[header] {
                 layout.leds[index].name = format!("{label} LED {}", led + 1);
@@ -203,9 +283,9 @@ impl<T: HidTransport> Fusion2Device<T> {
             }
         }
         self.layout = layout;
-        let mask = (0..HEADERS)
+        let mask = (0..self.leds.len())
             .filter(|h| self.leds[*h] > 0)
-            .fold(0u8, |mask, h| mask | 1 << h);
+            .fold(0u8, |mask, h| mask | MODE_BITS[h]);
         self.owned = true;
         self.send(&command(&[0x32, mask]))
     }
@@ -246,7 +326,7 @@ impl<T: HidTransport> RgbDevice for Fusion2Device<T> {
         }
         check_frame(&self.layout, frame)?;
         let mut offset = 0;
-        for header in 0..HEADERS {
+        for header in 0..self.leds.len() {
             let count = usize::from(self.leds[header]);
             if count == 0 {
                 continue;
@@ -292,10 +372,12 @@ mod tests {
     use freergb_device_api::TransportError;
 
     /// Feature-report fixture: records writes, answers `0x60` with `reply`.
+    #[derive(Clone)]
     struct Fixture {
         reply: Vec<u8>,
         sent: Vec<Vec<u8>>,
         fail_release: bool,
+        calibration: Vec<u8>,
     }
     impl HidTransport for Fixture {
         fn write(&mut self, _: &[u8]) -> Result<usize, TransportError> {
@@ -318,8 +400,13 @@ mod tests {
             Ok(report.len())
         }
         fn get_feature(&mut self, buf: &mut [u8]) -> Result<usize, TransportError> {
-            let n = self.reply.len().min(buf.len());
-            buf[..n].copy_from_slice(&self.reply[..n]);
+            let reply = if self.sent.last().is_some_and(|packet| packet[1] == 0x61) {
+                &self.calibration
+            } else {
+                &self.reply
+            };
+            let n = reply.len().min(buf.len());
+            buf[..n].copy_from_slice(&reply[..n]);
             Ok(n)
         }
     }
@@ -339,8 +426,138 @@ mod tests {
             reply,
             sent: Vec::new(),
             fail_release: false,
+            calibration: Vec::new(),
         };
         Fusion2Device::new(fixture, 0x048d, 0x5702, None, leds)
+    }
+
+    // Expected reports are specified independently, including all zero padding.
+    fn wire(prefix: &[u8]) -> Vec<u8> {
+        let mut packet = vec![0; 64];
+        packet[..prefix.len()].copy_from_slice(prefix);
+        packet
+    }
+
+    #[test]
+    fn variant_transactions_are_byte_exact() {
+        for (vid, pid, leds, mask, commands) in [
+            (
+                0x048d,
+                0x5711,
+                vec![33, 1, 65, 1, 1, 1],
+                0x7b,
+                vec![0x58, 0x59, 0x62, 0x63, 0x64, 0x65],
+            ),
+            (0x048d, 0x8950, vec![1, 33], 3, vec![0x58, 0x59]),
+            (0x0414, 0xa100, vec![33], 1, vec![0x58]),
+        ] {
+            let mut fixture = device(reply(), [1, 1]).transport.clone();
+            fixture.reply[8..11].copy_from_slice(&[0x44, 0x43, 0x42]);
+            if pid == 0xa100 {
+                fixture.reply[48..52].fill(0);
+            }
+            fixture.calibration = wire(&[
+                0xcc, 0, 0, 0, 0, 2, 1, 0, 1, 0, 2, 0, 0, 1, 2, 0, 1, 2, 0, 0,
+            ]);
+            let mut d = Fusion2Device::new(fixture, vid, pid, None, leds.clone());
+            d.connect().unwrap();
+            let mut expected = vec![wire(&[0xcc, 0x60])];
+            if pid == 0x5711 {
+                expected.push(wire(&[0xcc, 0x61]));
+            }
+            expected.push(wire(match pid {
+                0x5711 => &[0xcc, 0x34, 0x01, 0x02, 0x00],
+                0x8950 => &[0xcc, 0x34, 0x10, 0x43, 0x42],
+                _ => &[0xcc, 0x34, 0x41, 0x43, 0x42],
+            }));
+            expected.push(wire(&[0xcc, 0x32, mask]));
+            assert_eq!(d.transport.sent, expected);
+            let n = leds.iter().map(|n| usize::from(*n)).sum();
+            d.push_frame(&Frame::solid(n, Rgb::new(11, 22, 33)))
+                .unwrap();
+            let triples = [
+                [22, 11, 33],
+                [11, 22, 33],
+                [33, 11, 22],
+                [22, 33, 11],
+                [33, 22, 11],
+                [11, 33, 22],
+            ];
+            for (header, opcode) in commands.iter().enumerate() {
+                let count = usize::from(leds[header]);
+                for offset in (0..count).step_by(19) {
+                    let take = (count - offset).min(19);
+                    let bytes = (offset * 3) as u16;
+                    let mut packet = wire(&[
+                        0xcc,
+                        *opcode,
+                        bytes as u8,
+                        (bytes >> 8) as u8,
+                        (take * 3) as u8,
+                    ]);
+                    for chunk in packet[5..5 + take * 3].as_chunks_mut::<3>().0 {
+                        chunk.copy_from_slice(&triples[header]);
+                    }
+                    expected.push(packet);
+                }
+            }
+            d.disconnect(None).unwrap();
+            expected.push(wire(&[0xcc, 0x32, 0]));
+            assert_eq!(d.transport.sent, expected, "variant {pid:04x}");
+        }
+    }
+
+    #[test]
+    fn selected_extended_header_preserves_other_lengths_and_uses_its_own_mode_bit() {
+        let mut fixture = device(reply(), [1, 0]).transport.clone();
+        fixture.reply[8..11].copy_from_slice(&[0x43, 0x41, 0x32]);
+        fixture.reply[44..52].fill(0);
+        // Only channel 4 is selected; unused CC61 words may be OFF (zero).
+        fixture.calibration = wire(&[0xcc, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 0]);
+        let mut d = Fusion2Device::new(fixture, 0x048d, 0x5711, None, [0, 0, 0, 256]);
+        d.connect().unwrap();
+        assert_eq!(d.layout().len(), 256);
+        assert_eq!(
+            d.transport.sent,
+            vec![
+                wire(&[0xcc, 0x60]),
+                wire(&[0xcc, 0x61]),
+                wire(&[0xcc, 0x34, 0x43, 0x21, 0x32]),
+                wire(&[0xcc, 0x32, 0x10])
+            ]
+        );
+    }
+
+    #[test]
+    fn variants_reject_unavailable_headers_limits_and_bad_extended_calibration() {
+        for (vid, pid, counts) in [
+            (0x0414, 0xa100, vec![1, 1]),
+            (0x048d, 0x8950, vec![1, 0, 1]),
+            (0x048d, 0x5711, vec![257]),
+            (0x1234, 0x5711, vec![1]),
+        ] {
+            let fixture = device(reply(), [1, 0]).transport.clone();
+            let mut d = Fusion2Device::new(fixture, vid, pid, None, counts);
+            assert!(d.connect().is_err());
+            assert!(d.transport.sent.is_empty());
+        }
+        for calibration in [
+            vec![],
+            wire(&[0]),
+            wire(&[0xcc]),
+            wire(&[0xcc, 0, 0, 0, 2, 1, 0, 1]),
+        ] {
+            let mut fixture = device(reply(), [1, 0]).transport.clone();
+            fixture.calibration = calibration;
+            let mut d = Fusion2Device::new(fixture, 0x048d, 0x5711, None, [1, 0, 1]);
+            assert!(d.connect().is_err());
+            assert_eq!(
+                d.transport.sent,
+                vec![wire(&[0xcc, 0x60]), wire(&[0xcc, 0x61])]
+            );
+            assert!(!d.owned);
+        }
+        assert!(direct_packets(0, [3, 0, 1], &[Rgb::RED]).is_err());
     }
 
     #[test]
@@ -378,7 +595,7 @@ mod tests {
         let last = direct_packets(1, [0, 1, 2], &long).unwrap().pop().unwrap();
         assert_eq!(last[1], 0x59);
         assert_eq!(u16::from_le_bytes([last[2], last[3]]), 53 * 57);
-        assert!(direct_packets(2, [0, 1, 2], &colors).is_err());
+        assert!(direct_packets(6, [0, 1, 2], &colors).is_err());
         assert!(direct_packets(0, [0, 1, 2], &[]).is_err());
         assert!(direct_packets(0, [0, 1, 2], &vec![Rgb::BLACK; 1025]).is_err());
         assert_eq!(
