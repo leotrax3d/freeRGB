@@ -195,3 +195,24 @@ LED count and outcome. Keep vendor RGB software closed during acceptance.
 - Disconnect and close the app: confirm stored firmware effects return. No flash
   save, calibration programming, driver installation or cooling commands are part
   of this acceptance. Software support remains Experimental until recorded here.
+
+## P3 native SMBus / I2C acceptance (S23; owner-run, not executed)
+
+Prerequisites: owner driver/licence/signing decision in
+`docs/MAINBOARD_SMBUS_DRIVER_DECISION.md`, protected-worker IPC integration,
+and review of the exact board/controller address/register policy. Use a disposable
+owner-approved system and known controller; no scanning or SPD writes.
+
+- Linux: confirm adapter identity/permissions, non-force busy-device refusal,
+  byte/block SMBus wire format, repeated START for I2C register reads, exact-length
+  replies and unsupported-transaction behavior. Confirm no unintended register
+  access, permission changes or kernel module loading.
+- Windows: verify the pinned driver's publisher/signature, controller module
+  licence/signature and supported signing/security settings. Confirm all six
+  transactions through the protected helper; no raw port/script/IOCTL endpoint.
+- Two approved modules on one adapter: confirm serialized access and independent
+  address/register/write-mask allow-lists; denied batches cause no I/O.
+- Timeout, disconnect and helper failure: confirm shared adapter quarantine, no
+  retry/replacement while native I/O may remain in flight, and explicit owner
+  recovery only after worker exit. Confirm clean shutdown and vendor-software
+  conflict handling. Record commit, board, driver/version and results.

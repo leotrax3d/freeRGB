@@ -1,4 +1,4 @@
-//! Bounded API 2 child process lifecycle. No native bus implementation.
+//! Bounded API 2 child process lifecycle with host-owned bus transport.
 use crate::host::{Launch, Process, INITIALIZE_TIMEOUT, REQUEST_TIMEOUT};
 use crate::store::VerifiedBus;
 use freergb_module_api::bus::{
