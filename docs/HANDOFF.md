@@ -129,3 +129,12 @@ UI-LEAD update: merged monitoring states, cooling profile export/import + servic
 ## LEGAL-LEAD 2026-11-08
 
 Audit fixes FR-005/006/007/011/012/013 merged; legal drafts under `docs/legal/` (not legal advice). Online features, telemetry and download counting default off; disclaimer in installer and app (text version 3). Open items and owner decisions: `docs/legal/RELEASE_FIX_PLAN.md`, `docs/legal/OWNER_DECISIONS.md`.
+
+## COORDINATOR 2026-11-08 (software backlog run)
+
+Merged on main: S1-S12, S14 (Ed25519 update gate), S16 (Linux package CI step), S18 (49 machine-translated desktop locales, all pass `scripts/validate-i18n.mjs`), S19a (Classic GUI i18n from the same JSON + daemon error codes), S21 (Gigabyte Fusion 2 5711/8950/a100), S22 (shared Headers page, Tauri + Classic), S23 (native SMBus/I2C backend code, no driver; owner decision in `docs/MAINBOARD_SMBUS_DRIVER_DECISION.md`), S24 (motherboard coverage audit in `docs/MAINBOARD_RGB.md`), S8 (live cooling-session parity), repo URL rename to `leotrax3d/freeRGB`, release candidate prep (`docs/RELEASE_CANDIDATE_0.1.0-beta.5.md`, update key pinned).
+
+In flight: S19b (machine-translated `docs/USER_GUIDE` per locale under `docs/i18n/`, website links). Not published or tagged: owner decides.
+
+Open: hardware acceptance (see `docs/promts/fancontrol/07-hardware-acceptance.md`), Windows SMBus driver choice, Authenticode signing, Linux packages build only in CI, human review of machine translations (`reviewed: false`), real device ports in `modules/` (separate owner).
+Build note: gates run `cargo fmt --check`, `clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked` (nextest stalls on full-workspace listing); use `npm.cmd` on Windows.

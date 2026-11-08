@@ -1,4 +1,4 @@
-# Open work (2026-11-07)
+# Open work (2026-11-08)
 
 Collected from `main` (HANDOFF.md, STATUS.md, docs/promts/, code TODOs), all
 remote branches and open PRs. Done and duplicate items omitted. Code TODOs: none
@@ -57,3 +57,14 @@ German UI/screen reader check and screenshots; website proofread.
 ## Legal release fixes (2026-11-08)
 
 Merged: FR-005/006/007/011/012/013 and the legal drafts. Open: D3 provenance rewrites, Appwrite re-auth and approval, lawyer/insurance review, release-SHA checks. See [RELEASE_FIX_PLAN.md](legal/RELEASE_FIX_PLAN.md) and [OWNER_DECISIONS.md](legal/OWNER_DECISIONS.md).
+
+## Status 2026-11-08
+
+Done and merged: S1-S12, S14, S16, S17, S18 (49 locales, machine-translated), S19a (Classic GUI i18n), S21-S24, S8. S13/S15 and the remaining legal release blockers: legal-lead. S19b (USER_GUIDE translations + website links) was in progress at the time of writing.
+
+| # | Item | State |
+|---|---|---|
+| S21 | Gigabyte Fusion 2 5711/8950/a100 | merged; hardware test pending |
+| S22 | Headers page (Tauri + Classic) | merged; keyboard.reactive.preview and MSI fixed-zone follow-ups |
+| S23 | Native SMBus/I2C backend (Linux i2c-dev, Windows driver interface) | merged; driver choice is an owner decision |
+| S24 | Motherboard coverage audit | merged; ports are done in `modules/` by another person |
