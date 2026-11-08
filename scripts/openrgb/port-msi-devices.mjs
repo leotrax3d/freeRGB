@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const root = process.argv[2] ?? process.env.OPENRGB_ROOT ?? 'C:/Users/harald/AppData/Local/Temp/freergb-openrgb-bbc77470';
+const root = process.argv[2] ?? process.env.OPENRGB_ROOT ?? (() => { throw new Error('Pass the OpenRGB checkout as argv[2] or set OPENRGB_ROOT'); })();
 const source = path.join(root, 'Controllers', 'MSIMotherboardController', 'MSIMotherboardControllerDetect.cpp');
 const text = fs.readFileSync(source, 'utf8');
 const vid = { MSI_USB_VID: 0x1462, MSI_USB_VID_COMMON: 0x0db0 };

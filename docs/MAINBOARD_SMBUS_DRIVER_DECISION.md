@@ -6,7 +6,7 @@ an explicit host integration, absent from normal daemon startup and module setup
 
 ## Decision to record before Windows activation
 
-Owner: Harald. Record the chosen driver/version, artifact hash, licence review,
+Owner: project owner. Record the chosen driver/version, artifact hash, licence review,
 distribution method, signing evidence and approved controller recipes here.
 Recommendation: official signed PawnIO with reviewed, signed controller modules,
 subject to owner approval. This recommendation does not constitute owner approval.

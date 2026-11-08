@@ -17,9 +17,9 @@ cargo install --locked cargo-nextest
 
 Run setup separately from each worktree. It preserves an existing `target-dir`
 line unless `-TargetDir` is supplied; new configs default to
-`E:/freergb-build/<worktree-name>`. It sets `build.rustc-wrapper = "sccache"`,
+`<build-dir>/<worktree-name>`. It sets `build.rustc-wrapper = "sccache"`,
 `target.x86_64-pc-windows-msvc.linker = "rust-lld"`, and forces
-`SCCACHE_DIR=E:/freergb-build/sccache` through Cargo's `[env]` configuration.
+`SCCACHE_DIR=<build-dir>/sccache` through Cargo's `[env]` configuration.
 The generated `.cargo/config.toml` must be locally ignored. If necessary, add
 `.cargo/config.toml` to the file reported by `git rev-parse --git-path info/exclude`
 before setup. Do not commit machine-specific build paths. Other worktrees must
@@ -65,7 +65,7 @@ exclusions or machine-level settings are needed.
 Windows x86_64 MSVC, Rust/Cargo 1.99.1, sccache 0.19.0, revision `f71df4d`.
 Each measurement used `cargo build --workspace --all-targets --locked` in this
 worktree, overriding `CARGO_TARGET_DIR` to
-`E:/freergb-build/buildspeed-measure`. The target directory was absent at the
+`<build-dir>/buildspeed-measure`. The target directory was absent at the
 start of each build. Dependencies were already downloaded; these are clean
 target builds, not cold filesystem or download benchmarks. Elapsed time was
 measured around Cargo with a PowerShell stopwatch; setup, tool installation,
@@ -90,7 +90,7 @@ populated by the preceding build and validation commands, while deleting the
 target directory again: **265 Rust hits, 22 misses (92.33% hit rate)**, no cache
 errors/timeouts. This isolates target-directory reuse from compiler-cache
 reuse; it does not measure cross-worktree cache hit rates. Build logs, stopwatch
-results and cache statistics are local under `E:/freergb-build/buildspeed-*`.
+results and cache statistics are local under `<build-dir>/buildspeed-*`.
 The disposable measurement and tool-install target directories were deleted
 after validation; the shared sccache directory and original worktree target-dir
 setting were retained.

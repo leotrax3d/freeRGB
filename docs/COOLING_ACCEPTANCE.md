@@ -320,7 +320,7 @@ Local validation for R5c:
   complete requested command passed.
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-mainboard-control.ps1`:
   passed, including 2/4-second startup and silent-worker fixtures.
-- `scripts/build-mainboard-helper.ps1 -OutputDirectory E:/freergb-build/ack/mainboard`:
+- `scripts/build-mainboard-helper.ps1 -OutputDirectory <build-dir>/ack/mainboard`:
   production helper/service compilation and hardware-free serialization self-test
   passed. Nothing was installed.
 
