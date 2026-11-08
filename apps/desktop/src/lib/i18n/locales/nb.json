@@ -1239,5 +1239,20 @@
   "cooling.profileService.apply": "Lagre oppstartsinnstillinger",
   "cooling.profileService.confirm": "Bekreft oppstartsinnstillinger",
   "cooling.profileService.saved": "Oppstartsinnstillinger for kjøling lagret",
-  "cooling.profileService.refresh": "Oppdater"
+  "cooling.profileService.refresh": "Oppdater",
+  "common.beta": "Beta",
+  "settings.about.productBeta": "freeRGB skrivebord Beta",
+  "settings.about.disclaimer": "Gratis, ikke-kommersiell programvare med åpen kildekode av en privat utvikler. Leveres gratis, uten garanti. Ikke tilknyttet noen maskinvareleverandør.",
+  "settings.about.risk": "Vifte- og pumperegulering er eksperimentell og ikke bekreftet på de fleste typer maskinvare. Brukes på egen risiko. Ansvar er begrenset som beskrevet i installasjonsvilkårene, kun i den grad loven tillater; ansvar for skade på liv, kropp eller helse, forsett, grov uaktsomhet og etter obligatorisk produktansvarslov forblir upåvirket.",
+  "settings.about.offByDefault": "Nett- og samfunnsfunksjoner, telemetri og nedlastingstelling: av som standard.",
+  "settings.about.legal": "Ansvarsfraskrivelse",
+  "mainboardRgb.headers": "Headere",
+  "mainboardRgb.hint": "Sett opp belysningsheadere på hovedkortet",
+  "mainboardRgb.type": "Headertype",
+  "mainboardRgb.canvas": "Lerret (0-1)",
+  "mainboardRgb.test": "Test RGB (6 s)",
+  "mainboardRgb.help": "Lagre før testing. Testen viser rødt, grønt og blått i to sekunder hver, og gjenopptar deretter effektene. Lerretrektangler sampler den delte effekten. Type beskriver den tilkoblede headeren; den kan ikke endre spenningen. MSI faste soner beholder sine rapporterte LED-antall.",
+  "mainboardRgb.argb": "5 V ARGB",
+  "mainboardRgb.rgb": "12 V RGB",
+  "mainboardRgb.unavailable": "Headere er utilgjengelige. Koble til en oppdatert daemon."
 }

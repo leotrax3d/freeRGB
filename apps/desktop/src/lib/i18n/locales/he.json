@@ -1244,5 +1244,20 @@
   "cooling.setup.controls_two": "{count} управляемых разъемов",
   "cooling.setup.sensors_two": "{count} датчиков RPM",
   "setup.wizard.unsupported_two": "{count} устройств пока не поддерживаются",
-  "setup.wizard.setUpN_two": "הגדר {count} מכשירים"
+  "setup.wizard.setUpN_two": "הגדר {count} מכשירים",
+  "common.beta": " בטא",
+  "settings.about.productBeta": "freeRGB בטא לשולחן עבודה",
+  "settings.about.disclaimer": " תוכנה חינמית, לא מסחרית, קוד פתוח, מאת מפתח פרטי. מסופקת ללא תשלום, ללא אחריות. אינה קשורה לאף יצרן חומרה.",
+  "settings.about.risk": "Fan and pump control is experimental and not confirmed on most hardware. Use at your own risk. Liability is limited as described in the installation terms, only to the extent permitted by law; liability for injury to life, body or health, intent, gross negligence and under mandatory product liability law remains unaffected.",
+  "settings.about.offByDefault": " admired admiresadmires community admired, telemetry admired counted: admiredadmires admired.",
+  "settings.about.legal": " admiredadmiresadmires",
+  "mainboardRgb.headers": " admires admiresadmires",
+  "mainboardRgb.hint": " admireadmires admiresadmires admireadmires admireadmires admiration admires admires.",
+  "mainboardRgb.type": " admirable admirer admirer admires",
+  "mainboardRgb.canvas": " admiration (0-1)",
+  "mainboardRgb.test": " admired (6 s)",
+  "mainboardRgb.help": " admired admiresadmires admiredadmiresadmire admireradmires admireadmires admireadmires admiredadmires admiredadmire admiresadmiresadmire admireadmires admiredadmires admiredadmires admireadmiresadmires admiresadmiresadmires praised admired admiresadmires Admirer admireradmiresadmires admiresadmiresadmire.",
+  "mainboardRgb.argb": "5 V ARGB",
+  "mainboardRgb.rgb": "12 V RGB",
+  "mainboardRgb.unavailable": " admired admiresadmires admiredadmires admiredadmires admiredadmires admiredadmires admires admiredadmiresadmire admiration admiredadmires admires admiredadmires admirable."
 }
