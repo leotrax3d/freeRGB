@@ -8,6 +8,9 @@
 
 #[cfg(windows)]
 mod ffi;
+// Platform-neutral so its tests run everywhere.
+#[cfg_attr(not(windows), allow(dead_code))]
+mod i18n;
 #[cfg(windows)]
 mod pages;
 #[cfg(windows)]

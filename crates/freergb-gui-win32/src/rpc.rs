@@ -164,7 +164,7 @@ pub fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, wake: isize) {
                     if let Err(e) = result {
                         let transport_failed =
                             !matches!(e, freergb_client::ClientError::Rpc { .. });
-                        last_error = Some(e.to_string());
+                        last_error = Some(crate::i18n::client_error(&e));
                         if transport_failed {
                             break;
                         }
@@ -233,7 +233,7 @@ pub fn worker(rx: Receiver<Command>, state: Arc<Mutex<Snapshot>>, wake: isize) {
                 Err(e) => {
                     let generation = s.generation;
                     *s = Snapshot {
-                        error: Some(e.to_string()),
+                        error: Some(crate::i18n::client_error(&e)),
                         generation,
                         ..Snapshot::default()
                     };
