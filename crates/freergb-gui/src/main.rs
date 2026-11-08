@@ -880,6 +880,7 @@ impl eframe::App for App {
                     for (page, name) in [
                         (0, "Lighting"),
                         (1, "Cooling"),
+                        (5, "Headers"),
                         (2, "Macros"),
                         (4, "Monitoring"),
                         (3, "Updates"),

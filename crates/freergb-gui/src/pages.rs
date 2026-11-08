@@ -363,9 +363,10 @@ impl Panels {
                     }
                     if let Some(message) = &self.message { ui.label(message); }
                 }
+                5 => { ui.heading("Headers"); self.mainboard_rgb.show(ui, snapshot, tx); }
                 4 => {
                     ui.heading("Monitoring");
-                    ui.collapsing("Motherboard RGB", |ui| self.mainboard_rgb.show(ui, snapshot, tx));
+
                     self.alerts.ui(ui);
                     if ui.add_enabled(snapshot.connected,egui::Button::new("Save diagnostic report")).clicked() { send("gui.export_diagnostics",Value::Null); toasts.success("Diagnostic report exported"); }
                     if ui.add_enabled(snapshot.connected,egui::Button::new("…with fan hardware details")).on_hover_text("Adds board model, BIOS, chip, support tier and channel-test result (no serials or readings).").clicked() { send("gui.export_diagnostics",serde_json::json!({"include_cooling_hardware":true})); toasts.success("Diagnostic report exported (with cooling hardware)"); }

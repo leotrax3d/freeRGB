@@ -35,3 +35,24 @@ describe("motherboard RGB import/export", () => {
     }
   });
 });
+
+
+describe("shared Headers setup", () => {
+  it("offers all six IT5711 slots and the other vendor families", () => {
+    const msi = device(0x1462, 0x7b12);
+    msi.info.id = "module:msi-motherboard:1462:7b12:fixture";
+    const list = mainboardControllers([device(0x048d, 0x5711), device(0x048d, 0x8950), device(0x0414, 0xa100), device(0x26ce, 0x01a2), msi], null);
+    expect(list.find((c) => c.key === "048d:5711")?.headers).toBe(6);
+    expect(list).toHaveLength(5);
+    const settings = { enabled: true, controllers: { "048d:5711": Array.from({ length: 6 }, () => ({ leds: 12 })) } };
+    expect(parseSettings(JSON.stringify(settings))).toEqual(settings);
+    expect(parseSettings(JSON.stringify({ ...settings, controllers: { "0b05:19af": settings.controllers["048d:5711"] } }))).toBeNull();
+  });
+  it("round-trips canvas mapping and limits RGB headers to a single colour", () => {
+    const s = withHeader({ enabled: true, controllers: {} }, "26ce:01a2", 0, { type: "rgb", leds: 16, region: { x: .2, y: .1, w: .5, h: .5 }, order: "bgr", name: "Front" });
+    expect(s.controllers["26ce:01a2"]![0]!.leds).toBe(1);
+    expect(parseSettings(JSON.stringify(s))).toEqual(s);
+    s.controllers["26ce:01a2"]![0]!.region!.w = 0;
+    expect(parseSettings(JSON.stringify(s))).toBeNull();
+  });
+});

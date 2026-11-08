@@ -570,7 +570,7 @@
   "cooling.shaping.for": "für",
   "mainboardRgb.mainboardRgb.motherboardRgb": "Mainboard-RGB",
   "mainboardRgb.mainboardRgb.manageMotherboardRgbArgbRgbHeaders": "Mainboard-RGB verwalten (ARGB/RGB-Anschlüsse)",
-  "mainboardRgb.mainboardRgb.noSupportedMotherboardRgbControllerWasFound": "Kein unterstützter Mainboard-RGB-Controller gefunden (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB).",
+  "mainboardRgb.mainboardRgb.noSupportedMotherboardRgbControllerWasFound": "Kein unterstützter Mainboard-RGB-Controller gefunden (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB, MSI Mystic Light).",
   "mainboardRgb.mainboardRgb.notDetected": " · nicht erkannt",
   "mainboardRgb.mainboardRgb.argbHeaderValueName": "Name von ARGB-Anschluss {p0}",
   "mainboardRgb.mainboardRgb.argbHeaderValue": "ARGB-Anschluss {p0}",
@@ -1196,5 +1196,14 @@
   "onboarding.fanStep.theModeEndedStateTheHeaderWasReturnedTo": "{mode} beendet: {state}. Der Anschluss wurde an die Firmware zurückgegeben.",
   "onboarding.fanStep.theMotherboardServiceIsNotReadyStatusMessage": "Der Mainboard-Dienst ist nicht bereit ({status}): {message}",
   "onboarding.fanStep.fullSpeedSecondss": "Volle Drehzahl · {seconds}s",
-  "onboarding.fanStep.peakRpm": " (Spitze {rpm})"
+  "onboarding.fanStep.peakRpm": " (Spitze {rpm})",
+  "mainboardRgb.headers": "RGB-Anschlüsse",
+  "mainboardRgb.hint": "Mainboard-Beleuchtungsanschlüsse einrichten",
+  "mainboardRgb.type": "Anschlusstyp",
+  "mainboardRgb.canvas": "Leinwand (0-1)",
+  "mainboardRgb.test": "RGB testen (6 s)",
+  "mainboardRgb.help": "Vor dem Test speichern. Rot, Grün und Blau erscheinen je zwei Sekunden, danach läuft der Effekt weiter. Leinwand-Rechtecke nutzen den gemeinsamen Effekt. Der Typ beschreibt den Anschluss und ändert seine Spannung nicht. Feste MSI-Zonen behalten ihre gemeldete LED-Anzahl.",
+  "mainboardRgb.argb": "5 V ARGB",
+  "mainboardRgb.rgb": "12 V RGB",
+  "mainboardRgb.unavailable": "RGB-Anschlüsse sind nicht verfügbar. Mit einem aktuellen Dienst verbinden."
 }

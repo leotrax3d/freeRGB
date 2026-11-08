@@ -426,11 +426,12 @@ export function mockTransport(): Transport {
         case "cooling.hwmon.set":
         case "cooling.hwmon.release":
           return true as T;
+        case "mainboard_rgb.test": return { seconds: 6 } as T;
         case "mainboard_rgb.get":
-          return { settings: mainboardRgb, max_headers: 4, max_leds: 512, fan_presets: [8, 12, 16, 18], vendor_software: [], error: null } as T;
+          return { settings: mainboardRgb, max_headers: 6, max_leds: 512, fan_presets: [8, 12, 16, 18], vendor_software: [], error: null } as T;
         case "mainboard_rgb.save": {
           const next = p.settings as typeof mainboardRgb;
-          if (Object.values(next.controllers).some((h) => h.length > 4 || h.some((x) => x.leds < 0 || x.leds > 512))) fail("ARGB LED counts must be 0..=512");
+          if (Object.entries(next.controllers).some(([key, h]) => h.length > (key === "048d:5711" ? 6 : 4) || h.some((x) => x.leds < 0 || x.leds > 512))) fail("ARGB LED counts must be 0..=512");
           mainboardRgb = next;
           return { saved: true, released: 0 } as T;
         }

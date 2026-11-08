@@ -570,7 +570,7 @@
   "cooling.shaping.for": "for",
   "mainboardRgb.mainboardRgb.motherboardRgb": "Motherboard RGB",
   "mainboardRgb.mainboardRgb.manageMotherboardRgbArgbRgbHeaders": "Manage motherboard RGB (ARGB/RGB headers)",
-  "mainboardRgb.mainboardRgb.noSupportedMotherboardRgbControllerWasFound": "No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB).",
+  "mainboardRgb.mainboardRgb.noSupportedMotherboardRgbControllerWasFound": "No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB, MSI Mystic Light).",
   "mainboardRgb.mainboardRgb.notDetected": " · not detected",
   "mainboardRgb.mainboardRgb.argbHeaderValueName": "ARGB header {p0} name",
   "mainboardRgb.mainboardRgb.argbHeaderValue": "ARGB header {p0}",
@@ -1196,5 +1196,14 @@
   "onboarding.fanStep.theModeEndedStateTheHeaderWasReturnedTo": "The {mode} ended: {state}. The header was returned to firmware control.",
   "onboarding.fanStep.theMotherboardServiceIsNotReadyStatusMessage": "The motherboard service is not ready ({status}): {message}",
   "onboarding.fanStep.fullSpeedSecondss": "Full speed · {seconds}s",
-  "onboarding.fanStep.peakRpm": " (peak {rpm})"
+  "onboarding.fanStep.peakRpm": " (peak {rpm})",
+  "mainboardRgb.headers": "Headers",
+  "mainboardRgb.hint": "Set up motherboard lighting headers",
+  "mainboardRgb.type": "Header type",
+  "mainboardRgb.canvas": "Canvas (0-1)",
+  "mainboardRgb.test": "Test RGB (6 s)",
+  "mainboardRgb.help": "Save before testing. The test shows red, green and blue for two seconds each, then resumes effects. Canvas rectangles sample the shared effect. Type describes the connected header; it cannot change its voltage. MSI fixed zones retain their reported LED counts.",
+  "mainboardRgb.argb": "5 V ARGB",
+  "mainboardRgb.rgb": "12 V RGB",
+  "mainboardRgb.unavailable": "Headers are unavailable. Connect to an updated daemon."
 }

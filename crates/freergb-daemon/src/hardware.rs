@@ -78,6 +78,9 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
             );
         }
         e.mainboard_rgb.set_vendor_software(vendors.clone());
+        if !vendors.is_empty() || !e.mainboard_rgb.settings().enabled {
+            e.remove_devices(|id| crate::mainboard_rgb::device_key(&id.0).is_some());
+        }
         (e.mainboard_rgb.settings().clone(), vendors)
     };
     let mut added = 0;
