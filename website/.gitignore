@@ -29,3 +29,7 @@ pnpm-debug.log*
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Build-time data and prerender bundle
+src/data/release.generated.json
+dist-ssr/

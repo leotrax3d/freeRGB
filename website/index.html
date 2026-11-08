@@ -1,14 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Choose RGB effects, arrange supported devices, and manage cooling with freeRGB. Open-source hardware control for Windows and Linux." />
-    <title>freeRGB | Local control for your setup</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+    <title>freeRGB · RGB lighting and fan control for Windows and Linux</title>
+    <meta name="description" content="Open-source app for RGB lighting and fan curves across devices from different vendors. Runs locally, no account. Public beta for Windows and Linux." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="freeRGB" />
+    <meta property="og:title" content="freeRGB · RGB lighting and fan control for Windows and Linux" />
+    <meta property="og:description" content="Open-source app for RGB lighting and fan curves across devices from different vendors. Runs locally, no account. Public beta for Windows and Linux." />
+    <meta property="og:image" content="%BASE_URL%og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="%BASE_URL%favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+    <script src="%BASE_URL%theme-init.js"></script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div id="root"><!--app--></div>
+    <script type="module" src="/src/entries/home.tsx"></script>
   </body>
 </html>
