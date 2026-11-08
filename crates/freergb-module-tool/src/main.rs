@@ -114,6 +114,16 @@ enum Cmd {
         #[arg(long)]
         catalog: PathBuf,
     },
+    /// Signs a Windows installer for the updater, writing `<installer>.sig`
+    /// (64 raw Ed25519 bytes over the message documented in docs/UPDATES.md).
+    SignInstaller {
+        #[arg(long)]
+        key: PathBuf,
+        #[arg(long)]
+        installer: PathBuf,
+        #[arg(long)]
+        version: String,
+    },
     /// Verifies a catalog and every referenced file in a release directory.
     Verify {
         #[arg(long)]
@@ -130,6 +140,20 @@ fn parse_vendor(text: &str) -> Result<(u16, String), String> {
     Ok((
         u16::from_str_radix(vid.trim_start_matches("0x"), 16).map_err(|e| e.to_string())?,
         name.into(),
+    ))
+}
+
+fn installer_message(version: &str, size: u64, sha256: &str) -> Result<String> {
+    if size == 0 || !version.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        bail!("invalid installer size or version");
+    }
+    Ok(format!(
+        "freeRGB-installer-v1
+windows-x86_64
+{version}
+{size}
+{sha256}
+"
     ))
 }
 
@@ -400,6 +424,23 @@ fn run(command: Cmd) -> Result<()> {
                 trust::sign(&read_key(&key)?, &bytes),
             )?;
         }
+        Cmd::SignInstaller {
+            key,
+            installer,
+            version,
+        } => {
+            use ed25519_dalek::Signer;
+            let bytes = std::fs::read(&installer)?;
+            let message = installer_message(
+                &version,
+                bytes.len() as u64,
+                &hex::encode(sha2::Sha256::digest(&bytes)),
+            )?;
+            let signature = read_key(&key)?.sign(message.as_bytes());
+            let mut sig = installer.clone().into_os_string();
+            sig.push(".sig");
+            std::fs::write(sig, signature.to_bytes())?;
+        }
         Cmd::Verify { pubkey, dir } => {
             let keys = TrustedKeys::default().with_development_key(trust::parse_key(&pubkey)?);
             let bytes = std::fs::read(dir.join("catalog.json"))?;
@@ -425,4 +466,17 @@ fn run(command: Cmd) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod installer_signing_tests {
+    use super::*;
+    #[test]
+    fn installer_message_matches_updater_format() {
+        assert_eq!(
+            installer_message("0.1.0-beta.5", 3, "ab").unwrap(),
+            "freeRGB-installer-v1\nwindows-x86_64\n0.1.0-beta.5\n3\nab\n"
+        );
+        assert!(installer_message("0.1.0", 0, "ab").is_err());
+    }
 }

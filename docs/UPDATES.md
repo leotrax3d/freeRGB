@@ -4,7 +4,7 @@ Windows setup is built from `packaging/windows/freergb.iss` using
 `build-installer.ps1`. The GitHub Package workflow produces an installer, SHA-256
 sidecar and build manifest. A matching `v<workspace version>` tag can create a
 **draft** release; manual runs upload artifacts. Nothing automatically publishes a
-release. The current `0.1.0-beta.2` candidate is unpublished; the existing beta.1
+release. The current `0.1.0-beta.5` candidate is unpublished; the existing beta.1
 Package run failed before packaging and its tag must not be reused.
 
 Setup installs machine-wide under Program Files and requests UAC elevation.
@@ -46,9 +46,15 @@ from online metadata, configuration or environment. Verification is offline and
 required before staging and again before launch, alongside hashing the actual
 installer. The signature is retained in serialized update state. GitHub metadata
 alone cannot authorize installation, even when its size and hash match a payload.
-No production key is provisioned in this source revision: installation fails
-closed until a separately reviewed change pins a release public key and release
-tooling supplies the detached signature. Tests generate fixture keys only.
+
+Since `0.1.0-beta.5` the updater pins the freeRGB release public key
+`23469f6bec07ca5df93240261eaf3015b2ca8dbe37226e201499d1a8c1823c4a` (the same key as
+`crates/freergb-modules/keys/release-keys.txt` that signs the module catalog).
+Installers and updates are signed with the matching private key, held only by the
+project owner; it never enters the repository or CI logs. Release tooling produces
+the `.sig` asset with `freergb-module-tool sign-installer --key <private key file>
+--installer <setup.exe> --version <version>`. Any other key, a missing or altered
+signature fails closed. Tests also generate fixture keys.
 
 HTTPS downloads are bounded to 256 MiB and use exclusively created staging files.
 The installer is hashed before staging and again before launch. On Windows the
