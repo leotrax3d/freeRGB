@@ -8,9 +8,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 const API: &str = "https://api.github.com/repos/leotrax3d/freeRGB";
-// Provision a release public key here via a reviewed source change. Never load keys
-// from the network, environment or update metadata. No production key exists yet.
-const PINNED_UPDATE_KEY: Option<[u8; 32]> = None;
+// Release public key (same key as crates/freergb-modules/keys/release-keys.txt).
+// Never load keys from the network, environment or update metadata. Changing it
+// requires a reviewed source change.
+const PINNED_UPDATE_KEY: Option<[u8; 32]> = Some([
+    0x23, 0x46, 0x9f, 0x6b, 0xec, 0x07, 0xca, 0x5d, 0xf9, 0x32, 0x40, 0x26, 0x1e, 0xaf, 0x30, 0x15,
+    0xb2, 0xca, 0x8d, 0xbe, 0x37, 0x22, 0x6e, 0x20, 0x14, 0x99, 0xd1, 0xa8, 0xc1, 0x82, 0x3c, 0x4a,
+]);
 
 #[cfg(not(test))]
 fn pinned_key() -> Result<[u8; 32], String> {
@@ -440,6 +444,32 @@ pub fn install_verified(_: &Path, _: &Update) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    /// Release check: `FREERGB_RELEASE_DIR=<dir with setup.exe + .sig> FREERGB_RELEASE_VERSION=<v>
+    /// cargo test -p freergb-update --locked -- --ignored staged_release_signature`.
+    /// Verifies against the really pinned key, not the fixture key.
+    #[test]
+    #[ignore]
+    fn staged_release_signature_verifies_with_pinned_key() {
+        let dir = std::path::PathBuf::from(std::env::var("FREERGB_RELEASE_DIR").unwrap());
+        let version = std::env::var("FREERGB_RELEASE_VERSION").unwrap();
+        let name = format!("freeRGB-{version}-windows-x86_64-setup.exe");
+        let bytes = std::fs::read(dir.join(&name)).unwrap();
+        let update = Update {
+            version,
+            asset_id: 0,
+            sha256: Sha256::digest(&bytes)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect(),
+            size: bytes.len() as u64,
+            signature: std::fs::read(dir.join(format!("{name}.sig"))).unwrap(),
+            signature_asset_id: 0,
+        };
+        verify_signature_with_key(&update, &PINNED_UPDATE_KEY.unwrap()).unwrap();
+        let mut forged = update;
+        forged.size += 1;
+        assert!(verify_signature_with_key(&forged, &PINNED_UPDATE_KEY.unwrap()).is_err());
+    }
     use super::*;
     use ed25519_dalek::Signer;
     pub(super) fn signing_key() -> ed25519_dalek::SigningKey {
@@ -460,7 +490,18 @@ mod tests {
     }
     #[test]
     fn signatures_bind_code_and_version_and_reject_online_forgery() {
-        assert!(PINNED_UPDATE_KEY.is_none());
+        assert_eq!(
+            PINNED_UPDATE_KEY
+                .expect("pinned release key")
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>(),
+            include_str!("../../freergb-modules/keys/release-keys.txt")
+                .lines()
+                .find(|l| !l.trim().is_empty() && !l.starts_with('#'))
+                .unwrap()
+                .trim()
+        );
         let mut update = super::recovery_tests::metadata(b"fixture");
         verify_signature(&update).unwrap();
         update.version = "9.0.0".into();
