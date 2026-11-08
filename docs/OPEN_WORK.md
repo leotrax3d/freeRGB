@@ -68,3 +68,8 @@ Done and merged: S1-S12, S14, S16, S17, S18 (49 locales, machine-translated), S1
 | S22 | Headers page (Tauri + Classic) | merged; keyboard.reactive.preview and MSI fixed-zone follow-ups |
 | S23 | Native SMBus/I2C backend (Linux i2c-dev, Windows driver interface) | merged; driver choice is an owner decision |
 | S24 | Motherboard coverage audit | merged; ports are done in `modules/` by another person |
+
+### Translation work stopped by owner (2026-11-08)
+
+* S18 merged: 49 locales, all marked `machineTranslated`, `reviewed: false`. Remaining: human review per locale; any locale beyond the 49 is open.
+* S19b open: machine translation of `docs/USER_GUIDE.md` per locale (`docs/i18n/`) and the website language links were stopped before any file was produced. Website guide pages only link to `docs/USER_GUIDE.md`.
