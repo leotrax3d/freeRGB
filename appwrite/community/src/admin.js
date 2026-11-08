@@ -1,3 +1,5 @@
+import {retentionDays} from './retention.js';
+
 export function adminOperations({api,find,list,create,rowsPath,id,query,fail,quota}) {
   const safe=value=>typeof value==='string'&&/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,35}$/.test(value)&&!value.includes('..');
   const clean=row=>({id:row.$id,kind:row.kind,status:row.status||'new',payload:JSON.parse(row.payload),created_at:row.$createdAt,updated_at:row.$updatedAt});
@@ -52,7 +54,7 @@ export function adminOperations({api,find,list,create,rowsPath,id,query,fail,quo
       return {items:result.rows.map(r=>({id:r.$id,actor:r.actor,action:r.action,target:r.target,created_at:r.$createdAt})),next:result.rows.length===25?result.rows.at(-1).$id:null};
     }
     if(action==='admin.cleanup') {
-      const expired=await list('quota_slots',[query('lessThan','expires',[Math.floor(Date.now()/1000)-86400]),query('limit',null,[100])]);
+      const expired=await list('quota_slots',[query('lessThan','expires',[Math.floor(Date.now()/1000)-retentionDays.quotaGraceAfterExpiry*86400]),query('limit',null,[100])]);
       for(const row of expired.rows)await api(`${rowsPath('quota_slots')}/${row.$id}`,'DELETE');
       return {removed:expired.rows.length};
     }
