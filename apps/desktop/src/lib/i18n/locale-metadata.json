@@ -1,9 +1,201 @@
 {
+  "ar": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "bg": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "bn": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ca": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "cs": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "da": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "de": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "el": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "en": {
     "reviewed": true,
     "machineTranslated": false
   },
-  "de": {
+  "es": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "et": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "fa": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "fi": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "fil": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "fr": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ga": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "he": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "hi": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "hr": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "hu": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "id": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "it": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ja": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ko": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "lt": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "lv": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "mr": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ms": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "mt": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "nb": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "nl": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "pl": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "pt-BR": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "pt-PT": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ro": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ru": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "sk": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "sl": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "sr": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "sv": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "sw": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ta": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "te": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "th": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "tr": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "uk": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "ur": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "vi": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "zh-Hans": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "zh-Hant": {
     "reviewed": false,
     "machineTranslated": true
   }
