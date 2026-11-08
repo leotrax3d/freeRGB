@@ -5,7 +5,38 @@ every task is one family, the steps are fixed, and stopping is always allowed.
 Paste the block **"Task prompt"** into BEAM once per family. Replace `<FAMILY>`.
 Everything above it is for the human running BEAM.
 
-## For the human (read once)
+## Automatic mode (nobody has to step in)
+
+One command runs the whole backlog unattended:
+
+```sh
+git clone https://gitlab.com/CalcProgrammer1/OpenRGB ../openrgb
+git -C ../openrgb checkout <OPENRGB_COMMIT from .github/workflows/modules.yml>
+node scripts/openrgb/beam-port-loop.mjs --openrgb ../openrgb
+```
+
+Per family the script (`scripts/openrgb/beam-port-loop.mjs`):
+1. takes the next family from `docs/OPENRGB_BACKLOG.md` (tier order below,
+   largest first; skips families that already have a module or provenance),
+2. creates branch `module/<family>` in a fresh worktree from `origin/main`
+   (shared build cache via `scripts/setup-worktree-build.ps1` on Windows),
+3. runs BEAM once with the task prompt below (`BEAM_CMD`, default
+   `ollama launch opencode --model beam:cloud -- run --auto`),
+4. reverts every change outside the allowed paths,
+5. runs fmt, clippy `-D warnings` and the crate tests; on failure gives BEAM
+   the error output once to repair,
+6. on success commits, pushes the branch and opens a PR (if `gh` is logged in);
+   on `BLOCKED` or a second failure drops the branch and records the reason,
+7. continues with the next family. State is kept in
+   `<WT_ROOT>/beam-ports-state.json`, a log in `beam-ports-log.md`, so the loop
+   can be stopped and restarted at any time.
+
+Options: `--dry-run` (show the queue), `--max N`, env `WT_ROOT`, `BUILD_ROOT`,
+`NO_PUSH=1`, `BEAM_CMD`. Check that `BEAM_CMD` works once by hand before a
+long run. The human only reviews/merges the PRs and, now and then, reads the
+BLOCKED list in the state file.
+
+## For the human (manual mode, read once)
 
 * One family per BEAM session. Start a fresh session for the next family.
   Small models lose track in long sessions.
