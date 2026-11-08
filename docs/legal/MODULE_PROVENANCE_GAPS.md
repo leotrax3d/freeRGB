@@ -7,109 +7,109 @@ It is not a review of upstream attribution and not a legal conclusion. The
 files were not edited; filling the gaps is manual work per module (FR-010, D3).
 
 - Modules scanned: 95
-- Records shorter than 15 lines: 27
-- Records with at least one missing field: 94
+- Records shorter than 15 lines: 0
+- Records with at least one missing field: 0
 
 Fields checked: upstream file(s) named, authors or copyright holders named, changes
 described, upstream project plus URL or commit, license stated.
 
 | Module | Lines | Missing fields |
 |---|---:|---|
-| asus-aura-monitor | 2 | upstream file, authors, changes, license |
-| roccat-kone-xp | 2 | upstream file, authors, changes, license |
-| roccat-kone-pro-air | 3 | upstream file, authors, changes, license |
-| intel-arc-a770-le | 4 | upstream file, authors, changes, upstream project/commit |
-| roccat-kone-aimo | 4 | upstream file, authors, changes |
-| roccat-kone-pro | 4 | upstream file, authors, changes |
-| roccat-sense-aimo | 4 | upstream file, authors, changes |
-| cooling-virtual | 5 | upstream file, authors, changes, upstream project/commit, license |
-| corsair-link-cooling | 12 | upstream file, authors, changes, upstream project/commit, license |
-| aoc-mouse | 13 | authors |
-| aoc-mousemat | 13 | authors |
-| coolermaster-mm712 | 13 | authors |
-| gamesir | 13 | authors |
-| gigabyte-aorus-mouse | 13 | authors |
-| ionico | 13 | authors |
-| lego-dimensions-toypad | 13 | upstream file, authors |
-| lexip-mouse | 13 | authors |
-| madcatz-cyborg | 13 | authors |
-| nzxt-mouse | 13 | authors |
-| patriot-viper-mouse | 13 | authors |
-| roccat-burst-core | 13 | authors |
-| sayo-device | 13 | authors |
-| skydimo-hid | 13 | upstream file, authors |
-| acer-nitro-hid-keyboard | 14 | upstream file, authors |
-| n5312a | 14 | authors |
-| tecknet | 14 | authors |
-| thermaltake-poseidon-z-rgb | 14 | upstream file, authors |
-| acer-nitro-hid-led | 15 | upstream file, authors |
-| corsair-k65-mini | 15 | authors |
-| creative-soundblaster-xg6 | 15 | upstream file, authors |
-| dark-project | 15 | authors |
-| dream-cheeky | 15 | authors |
-| hp-omen-30l | 15 | authors |
-| lenovo-motherboard-led | 15 | upstream file, authors |
-| msi-3-zone | 15 | authors |
-| msi-optix | 15 | authors |
-| asus-legacy-usb | 16 | upstream file, authors, changes, license |
-| clevo-lightbar | 16 | authors |
-| corsair-k55-pro-xt | 16 | authors |
-| cryorig-h7-quad-lumi | 16 | authors |
-| hyperx-microphone-v2 | 16 | upstream file, authors |
-| nvidia-esa | 16 | authors |
-| roccat-burst-pro-air | 16 | upstream file, authors |
-| xpg-summoner-keyboard | 16 | upstream file, authors |
-| das-keyboard | 17 | authors, changes, license |
-| amd-wraith-prism | 18 | upstream file, authors |
-| msi-laptop | 18 | authors, changes |
-| msi-keyboard | 21 | authors, changes |
-| thingm-blink | 21 | authors |
-| instant-mouse | 22 | authors, changes |
-| luxafor | 22 | authors |
-| sony-gamepad | 22 | authors, changes |
-| asus-aura-core | 23 | upstream file, authors, changes, license |
-| asus-aura-usb | 24 | upstream file, authors, changes, license |
-| mountain-keyboard | 26 | authors, changes |
-| redragon-mouse | 32 | authors |
-| roccat-elo | 35 | authors |
-| areson | 37 | authors |
-| corsair-commander-core | 37 | authors, license |
-| roccat-horde-aimo | 37 | authors |
-| a4tech | 38 | authors |
-| fnatic-streak | 38 | authors |
-| gigabyte-aorus-laptop | 38 | authors |
-| annepro2 | 39 | authors |
-| asus-monitor | 39 | authors |
-| gigabyte-rgbfusion2 | 39 | authors |
-| cherry | 40 | authors |
-| evision-keyboard | 40 | authors |
-| coolermaster | 41 | authors |
-| drgb | 41 | authors |
-| nollie | 41 | authors |
-| roccat | 41 | authors |
-| royuan-keyboard | 41 | authors |
-| thermaltake-riing | 41 | authors |
-| corsair-peripheral-v2 | 42 | authors |
-| evga-usb | 42 | authors |
-| gaizonggai | 42 | authors |
-| corsair-peripheral | 43 | authors |
-| nzxt-hue2 | 43 | authors |
-| corsair-lighting-node | 44 | authors |
-| lianli | 44 | authors |
-| sinowealth | 44 | authors |
-| turtle-beach-kp7 | 44 | authors |
-| asus-aura-mouse | 46 | authors |
-| corsair-hydro-platinum | 46 | authors |
-| nzxt-hue1 | 46 | authors |
-| zalman-z-sync | 47 | authors |
-| msi-monitor72 | 50 | authors |
-| lenovo | 51 | authors |
-| logitech | 53 | authors |
-| hyperx-keyboard | 54 | authors |
-| hyperx-mouse | 59 | authors |
-| msi-motherboard | 65 | authors, license |
-| razer-chroma | 84 | - |
-| steelseries | 220 | authors, license |
+| asus-aura-monitor | 19 | - |
+| roccat-kone-xp | 19 | - |
+| roccat-kone-pro-air | 20 | - |
+| roccat-kone-aimo | 21 | - |
+| roccat-kone-pro | 21 | - |
+| roccat-sense-aimo | 21 | - |
+| cooling-virtual | 22 | - |
+| intel-arc-a770-le | 25 | - |
+| corsair-link-cooling | 29 | - |
+| aoc-mousemat | 30 | - |
+| roccat-burst-core | 30 | - |
+| sayo-device | 30 | - |
+| aoc-mouse | 31 | - |
+| gamesir | 31 | - |
+| gigabyte-aorus-mouse | 31 | - |
+| ionico | 31 | - |
+| lexip-mouse | 31 | - |
+| madcatz-cyborg | 31 | - |
+| n5312a | 31 | - |
+| nzxt-mouse | 31 | - |
+| patriot-viper-mouse | 31 | - |
+| coolermaster-mm712 | 32 | - |
+| tecknet | 33 | - |
+| corsair-k55-pro-xt | 34 | - |
+| dark-project | 34 | - |
+| das-keyboard | 34 | - |
+| dream-cheeky | 34 | - |
+| lego-dimensions-toypad | 34 | - |
+| msi-3-zone | 34 | - |
+| skydimo-hid | 34 | - |
+| clevo-lightbar | 35 | - |
+| thermaltake-poseidon-z-rgb | 35 | - |
+| hp-omen-30l | 36 | - |
+| lenovo-motherboard-led | 36 | - |
+| msi-optix | 36 | - |
+| acer-nitro-hid-keyboard | 37 | - |
+| cryorig-h7-quad-lumi | 37 | - |
+| hyperx-microphone-v2 | 37 | - |
+| nvidia-esa | 37 | - |
+| xpg-summoner-keyboard | 37 | - |
+| acer-nitro-hid-led | 38 | - |
+| amd-wraith-prism | 39 | - |
+| msi-laptop | 39 | - |
+| thingm-blink | 41 | - |
+| creative-soundblaster-xg6 | 42 | - |
+| luxafor | 42 | - |
+| instant-mouse | 44 | - |
+| asus-legacy-usb | 45 | - |
+| corsair-k65-mini | 46 | - |
+| msi-keyboard | 47 | - |
+| sony-gamepad | 47 | - |
+| asus-aura-core | 51 | - |
+| mountain-keyboard | 51 | - |
+| redragon-mouse | 52 | - |
+| corsair-commander-core | 55 | - |
+| fnatic-streak | 56 | - |
+| roccat-elo | 56 | - |
+| a4tech | 58 | - |
+| areson | 58 | - |
+| gigabyte-rgbfusion2 | 58 | - |
+| roccat | 58 | - |
+| roccat-horde-aimo | 58 | - |
+| corsair-peripheral-v2 | 59 | - |
+| evision-keyboard | 59 | - |
+| gigabyte-aorus-laptop | 59 | - |
+| royuan-keyboard | 59 | - |
+| annepro2 | 60 | - |
+| asus-monitor | 60 | - |
+| drgb | 60 | - |
+| gaizonggai | 60 | - |
+| cherry | 61 | - |
+| evga-usb | 62 | - |
+| nzxt-hue2 | 62 | - |
+| corsair-peripheral | 63 | - |
+| nollie | 64 | - |
+| corsair-lighting-node | 65 | - |
+| thermaltake-riing | 65 | - |
+| turtle-beach-kp7 | 65 | - |
+| sinowealth | 66 | - |
+| corsair-hydro-platinum | 67 | - |
+| nzxt-hue1 | 67 | - |
+| zalman-z-sync | 68 | - |
+| asus-aura-mouse | 70 | - |
+| lenovo | 72 | - |
+| msi-monitor72 | 73 | - |
+| hyperx-keyboard | 74 | - |
+| logitech | 76 | - |
+| roccat-burst-pro-air | 78 | - |
+| hyperx-mouse | 82 | - |
+| msi-motherboard | 86 | - |
+| asus-aura-usb | 95 | - |
+| lianli | 97 | - |
+| razer-chroma | 107 | - |
+| coolermaster | 112 | - |
+| steelseries | 271 | - |
 
 ## Module directories without PROVENANCE.md
 
