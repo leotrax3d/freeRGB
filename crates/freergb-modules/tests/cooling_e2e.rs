@@ -88,7 +88,7 @@ fn signed_catalog_to_installed_virtual_plugin() {
         license: "MIT OR Apache-2.0".into(),
         origin: Origin {
             project: "freeRGB".into(),
-            url: "https://github.com/leotrax3d/FreeRGB".into(),
+            url: "https://github.com/leotrax3d/freeRGB".into(),
             commit: "0000000".into(),
         },
         devices: vec![],

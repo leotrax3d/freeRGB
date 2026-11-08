@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-const API: &str = "https://api.github.com/repos/leotrax3d/FreeRGB";
+const API: &str = "https://api.github.com/repos/leotrax3d/freeRGB";
 // Provision a release public key here via a reviewed source change. Never load keys
 // from the network, environment or update metadata. No production key exists yet.
 const PINNED_UPDATE_KEY: Option<[u8; 32]> = None;
