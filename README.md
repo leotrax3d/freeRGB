@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  RGB control for Windows and Linux. Built with Rust, Tauri and React.
+  Beta software for RGB control on Windows and Linux. Built with Rust, Tauri and React.
 </p>
 
 <p align="center">
@@ -31,7 +31,9 @@
 - **Effects and integrations:** sandboxed Rust effect packages, device plugins and a local JSON-RPC API.
 
 The background engine keeps running when the GUI closes. Ordinary lighting needs
-no cloud account or vendor application. Windows capture and input features do not
+no cloud account or vendor application. Online effect ratings and reports are optional and
+off by default; effect, module and update downloads use GitHub (see
+[docs/PRIVACY.md](docs/PRIVACY.md), a draft that has not been legally reviewed). Windows capture and input features do not
 yet have full Linux parity.
 
 ## Gallery
@@ -118,8 +120,8 @@ Then run `npm run tauri dev` in `apps/desktop`, or
 | Corsair K70 CORE RGB (`1b1c:1bfd`) | Validated | Per-key RGB; ISO/ANSI mapping |
 | Corsair iCUE LINK System Hub (`1b1c:0c3f`) | Experimental, opt-in | Selected RX/LX fan, Titan RX AIO head and LCD-ring lighting; RPM watchdog |
 | Motherboard RGB: ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB | Supported, auto-detected | Per-header ARGB LED counts/names in the GUI; mock-tested only, see [Motherboard RGB](docs/MAINBOARD_RGB.md#hardware-validation) |
-| Motherboard fan control (Windows) | Supported with mainboard components | Up to 16 live channels, curves/fixed speed, stop all, resume after restart; watchdog, floors and BIOS return always on |
-| Motherboard fan control (Linux) | Supported via kernel hwmon (nct6775, it87, nct6683, f71882fg, …) | All headers the kernel exposes; fixed speed or curves on any hwmon temperature; 40% floor, BIOS return on stop/fault/crash; synthetic tests only, see [Linux fans](docs/COOLING_LINUX_HWMON.md) |
+| Motherboard fan control (Windows) | Supported with mainboard components | Up to 16 live channels, curves/fixed speed, stop all, resume after restart; watchdog and floor policies depend on backend and unrestricted settings; fault handling depends on the support tier (a verified channel may hold 100% and keep its reservation, lower tiers attempt firmware return), see [cooling safety](docs/COOLING_SAFETY.md) |
+| Motherboard fan control (Linux) | Supported via kernel hwmon (nct6775, it87, nct6683, f71882fg, …) | All headers the kernel exposes; fixed speed or curves on any hwmon temperature; 40% floor in normal mode, firmware-return attempts on release/pause/shutdown/fault and restart recovery after a crash; synthetic tests only, see [Linux fans](docs/COOLING_LINUX_HWMON.md) |
 | Other identified devices | Discovery only | Detection does not imply control support |
 
 AIO LCD display content and DDR5 RGB control are not supported.

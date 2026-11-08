@@ -15,7 +15,7 @@ Sources: `docs/LOCAL_API.md` methods vs. string literals in `apps/desktop/src`,
 
 | Method | Status | Package |
 |---|---|---|
-| `modules.forget` | no UI to remove a configured device from setup | P1 `setup-forget` |
+| `modules.forget` | done: ConfirmButton on configured setup cards | P1 merged |
 | `keyboard.reactive.preview` | no preview action in KeyboardReactions (devices area, reserved) | deferred to S22 |
 | `cooling.profiles.export/import/get`, `cooling.providers.list`, `cooling.service.get/set`, `cooling.bindings.get`, `cooling.channels.list` | cooling area, check after guicool merge | deferred |
 | `daemon.shutdown*`, `daemon.version`, `lighting.status`, `monitoring.sensors.list` | reached via Tauri commands/snapshot, not direct | none |
@@ -43,4 +43,25 @@ Not yet audited per view; needs a visual pass. Open item from
 
 | Pkg | Scope | Status |
 |---|---|---|
-| P1 setup-forget | `features/setup/*`, en/de keys | in progress |
+| P1 setup-forget | `features/setup/*`, en/de keys | merged (e71ed61) |
+
+## Follow-ups after guicool / translations / S22 merge
+
+Re-run the method diff, audit cooling + devices states/a11y, add the new i18n
+keys to other locales (new keys so far: `setup.card.forget`,
+`setup.card.forgetConfirm`; en + de done), translate this doc's German source
+`INTEGRATION_CHECKLIST.md`, and capture UI screenshots on a real desktop.
+
+## Status 2026-11-08 (update)
+
+Merged: P1 setup-forget (e71ed61), P2 monitoring empty/loading states + list
+semantics + English INTEGRATION_CHECKLIST (b5fba7d), P3 cooling profile
+JSON export/import + service startup settings (98fc855).
+New i18n keys (en + de done; other locales still need them): monitoring.loading,
+monitoring.board.providers, monitoring.board.empty, monitoring.board.unavailable,
+monitoring.serviceUnavailable, monitoring.deviceSensorsUnavailable,
+monitoring.customUnavailable, cooling.profileService.* (32 keys).
+Still open: `keyboard.reactive.preview` (S22 devices area); visual state/a11y pass
+on a real desktop; UI screenshots; `cooling.providers.list`,
+`cooling.bindings.get`, `cooling.channels.list` appear to be consumed through
+the snapshot, not direct calls (no gap confirmed).

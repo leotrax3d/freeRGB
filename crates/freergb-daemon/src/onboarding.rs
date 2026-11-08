@@ -8,7 +8,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 /// Bump when the safety/liability text changes materially: users confirm again.
-pub const SAFETY_TEXT_VERSION: u32 = 1;
+pub const SAFETY_TEXT_VERSION: u32 = 2;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -108,6 +108,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn saved_outdated_confirmation_does_not_authorize_startup() {
+        let path = std::env::temp_dir().join(format!(
+            "freergb-onboarding-outdated-{}.json",
+            std::process::id()
+        ));
+        let state = OnboardingState {
+            version: 1,
+            safety_acknowledged: Some(SAFETY_TEXT_VERSION + 1),
+            safety_acknowledged_unix: Some(1),
+            completed: true,
+        };
+        std::fs::write(&path, serde_json::to_vec(&state).unwrap()).unwrap();
+        assert!(!Onboarding::default()
+            .with_file(path.clone())
+            .safety_acknowledged());
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
     fn safety_gate_requires_the_current_version_and_persists() {
         let path =
             std::env::temp_dir().join(format!("freergb-onboarding-{}.json", std::process::id()));
@@ -129,6 +148,8 @@ mod tests {
         assert!(reloaded.safety_acknowledged());
         reloaded.revoke_safety().unwrap();
         assert!(reloaded.require_safety().is_err());
+        let restarted = Onboarding::default().with_file(path.clone());
+        assert!(!restarted.safety_acknowledged());
         std::fs::remove_file(path).unwrap();
     }
 }

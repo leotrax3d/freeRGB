@@ -22,4 +22,7 @@ test -f "$scratch/extract/usr/share/applications/freergb.desktop"
 test -f "$scratch/extract/usr/share/icons/hicolor/256x256/apps/freergb.png"
 test -f "$scratch/extract/usr/share/licenses/freergb/LICENSE-MIT"
 test -f "$scratch/extract/usr/share/licenses/freergb/LICENSE-APACHE"
+for notice in NOTICE THIRD_PARTY_NOTICES.md SOURCE_OFFER.md; do
+    cmp "$root/$notice" "$scratch/extract/usr/share/licenses/freergb/$notice"
+done
 echo 'Synthetic Linux package staging passed'

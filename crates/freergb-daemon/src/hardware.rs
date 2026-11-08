@@ -141,7 +141,7 @@ pub fn scan(engine: &SharedEngine, opts: &ScanOptions) -> usize {
                 )
             }
             "gigabyte-fusion2-usb" => {
-                let (counts, names) = mainboard.headers::<2>(vid, pid);
+                let (counts, names) = mainboard.headers::<6>(vid, pid);
                 (
                     DeviceId(format!("hid:{vid:04x}:{pid:04x}:{serial}")),
                     Box::new(move |transport, serial| {

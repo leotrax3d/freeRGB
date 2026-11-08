@@ -303,6 +303,23 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         }
         "marketplace.report.prepare" => crate::report::marketplace(&lock(engine), params["kind"].as_str().unwrap_or_default())
             .map_err(|e|(-32602,e)),
+        "marketplace.community.set" => {
+            let manager = lock(engine).marketplace.clone();
+            let flag = |key: &str| match &params[key] {
+                Value::Null => Ok(None),
+                Value::Bool(v) => Ok(Some(*v)),
+                _ => Err((-32602, format!("{key} must be true or false"))),
+            };
+            match manager {
+                Some(manager) => flag("online")
+                    .and_then(|online| flag("count_downloads").map(|count| (online, count)))
+                    .and_then(|(online, count)| {
+                        manager.set_community(online, count).map_err(|e| (-32000, e))
+                    })
+                    .map(|settings| json!(settings)),
+                None => Err((-32003, "Marketplace is unavailable".into())),
+            }
+        }
         "marketplace.ratings.refresh" | "marketplace.rate" => {
             let manager=lock(engine).marketplace.clone();
             match manager {
@@ -605,11 +622,30 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 .map(|()| json!(true))
                 .map_err(invalid_params)
         }
-        "safety.revoke" => lock(engine)
-            .onboarding
-            .revoke_safety()
-            .map(|()| json!(true))
-            .map_err(|e| (-32000, e)),
+        "safety.revoke" => {
+            let mut engine = lock(engine);
+            // Lock new starts first, but attempt every release even if persistence fails.
+            let mut errors = Vec::new();
+            if let Err(error) = engine.onboarding.revoke_safety() {
+                errors.push(format!("consent persistence: {error}"));
+            }
+            engine.cooling_assignments.forget_all();
+            for (backend, result) in [
+                ("sessions", engine.cooling_sessions.stop_all_and_drain()),
+                ("hwmon", engine.hwmon.release(None).map(|_| ())),
+                ("gpu", engine.gpu.release(None).map(|_| ())),
+                ("plugins", engine.cooling_plugins.release_all_and_drain()),
+            ] {
+                if let Err(error) = result {
+                    errors.push(format!("{backend}: {error}"));
+                }
+            }
+            if errors.is_empty() {
+                Ok(json!(true))
+            } else {
+                Err((-32006, errors.join("; ")))
+            }
+        }
         "cooling.service.get" => Ok(lock(engine).cooling_service.view()),
         "cooling.service.set" => serde_json::from_value::<crate::cooling_service::ServiceConfig>(
             json!({"version": 1, "mode": params["mode"], "boot_profile": params["boot_profile"]}),
@@ -1022,6 +1058,76 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn safety_revoke_reports_persistence_failure_but_still_releases() {
+        use crate::gpu_cooling::{simulated::SimulatedGpu, GpuAssignment, GpuCooling, GpuMode};
+        let sim = SimulatedGpu::with_fans(&["fan0"]);
+        let mut engine = Engine::new(EffectSpec::Solid { color: Rgb::BLACK }, 30);
+        // A file used as a parent forces persistence to fail, without hardware IO.
+        let path =
+            std::env::temp_dir().join(format!("freergb-revoke-failure-{}", std::process::id()));
+        std::fs::write(&path, b"fixture").unwrap();
+        engine.onboarding =
+            crate::onboarding::Onboarding::default().with_file(path.join("onboarding.json"));
+        let gpu_state =
+            std::env::temp_dir().join(format!("freergb-revoke-gpu-failure-{}", std::process::id()));
+        engine.gpu = GpuCooling::new(vec![Box::new(sim.clone())], Some(gpu_state.clone()));
+        engine.gpu.start();
+        engine
+            .gpu
+            .assign(GpuAssignment {
+                fan_id: "fan0".into(),
+                mode: GpuMode::Manual { percent: 65.0 },
+            })
+            .unwrap();
+        let engine = Arc::new(Mutex::new(engine));
+        let reply = call(&engine, r#"{"id":1,"method":"safety.revoke"}"#);
+        assert_eq!(reply["error"]["code"], -32006);
+        assert!(reply["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("consent persistence"));
+        assert!(!sim.fan("fan0").manual);
+        assert!(!lock(&engine).onboarding.safety_acknowledged());
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(gpu_state).unwrap();
+    }
+
+    #[test]
+    fn safety_revoke_releases_active_mock_gpu_channels() {
+        use crate::gpu_cooling::{simulated::SimulatedGpu, GpuAssignment, GpuCooling, GpuMode};
+        let sim = SimulatedGpu::with_fans(&["fan0", "fan1"]);
+        let mut engine = Engine::new(EffectSpec::Solid { color: Rgb::BLACK }, 30);
+        engine
+            .onboarding
+            .acknowledge(crate::onboarding::SAFETY_TEXT_VERSION, true)
+            .unwrap();
+        let gpu_state =
+            std::env::temp_dir().join(format!("freergb-revoke-gpu-success-{}", std::process::id()));
+        engine.gpu = GpuCooling::new(vec![Box::new(sim.clone())], Some(gpu_state.clone()));
+        engine.gpu.start();
+        for id in ["fan0", "fan1"] {
+            engine
+                .gpu
+                .assign(GpuAssignment {
+                    fan_id: id.into(),
+                    mode: GpuMode::Manual { percent: 65.0 },
+                })
+                .unwrap();
+            assert!(sim.fan(id).manual);
+        }
+        let engine = Arc::new(Mutex::new(engine));
+        let reply = call(&engine, r#"{"id":1,"method":"safety.revoke"}"#);
+        assert_eq!(reply["result"], true);
+        assert!(!lock(&engine).onboarding.safety_acknowledged());
+        for id in ["fan0", "fan1"] {
+            assert!(!sim.fan(id).manual);
+            assert_eq!(sim.fan(id).duty, 30.0);
+        }
+        assert!(!gpu_state.join("gpu-control-journal.json").exists());
+        std::fs::remove_dir(gpu_state).unwrap();
+    }
+
     #[test]
     fn cooling_sessions_disabled_and_invalid_requests_use_rpc_errors() {
         use super::*;

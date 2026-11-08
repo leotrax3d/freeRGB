@@ -30,6 +30,45 @@ Public defaults are built in. Override with `FREERGB_APPWRITE_ENDPOINT` and
 `FREERGB_APPWRITE_PROJECT_ID`; set both empty to disable. Distributed builds
 require HTTPS. The GUI never receives tokens or connects directly to Appwrite.
 
+## Client switches, retention and deletion
+
+The desktop client contacts this service only when the user turned on
+"Online community and privacy" in the Marketplace page; download counting is a
+second opt-in. Both default to off (`effect-marketplace/community.json`). See
+[PRIVACY.md](PRIVACY.md) for the draft notice and data-flow table.
+
+Repository cleanup behaviour and historical deployment notes (live settings
+unverified: MCP requires reauthentication as of 2026-11-08):
+
+| Table | Cleanup today |
+|---|---|
+| `quota_slots` | `community-maintenance` function (`src/cleanup.js`), 60-minute interval, removes rows expired more than 24 h ago (up to 20 batches of 100 per run); `admin.cleanup` does one batch of 100 on request |
+| `ratings` | user withdrawal only (`stars: null`) |
+| `submissions`, `messages` | operator `admin.delete` only |
+| `downloads`, `audit`, `blocked_users`, Appwrite anonymous users/sessions | none |
+
+Missing: per-table retention periods with scheduled deletion, an erase-by-user
+operation covering ratings, downloads, reports, messages, blocked entry and the
+Appwrite user, a way for a person to learn their anonymous ID, an access/export
+procedure, and verified Appwrite log/session retention settings. D4 records the private owner as controller, consent under Art. 6(1)(a) for
+accounts/ratings, no download counting by default, EU hosting and owner-reported
+DPA acceptance. Controller contact details and acceptance evidence remain needed.
+Do not describe the service as having a complete deletion process until it exists.
+
+Proposed cleanup limits are centralized in
+`appwrite/community/src/retention.js`: quota grace 1 day after expiry; ratings
+180 days after last vote; download receipts 7 days after creation; submissions
+and all linked messages 30 days after submission creation; audit and blocks
+30 days after creation; anonymous accounts 180 days after last activity;
+sessions maximum 30 days; function/request logs 7 days; backups maximum 30 days.
+Only quota grace is currently consumed by cleanup code (unchanged behaviour).
+Other periods are proposals, not active retention enforcement. Proposed schedule:
+every 60 minutes, 20 batches of 100; deletion can lag by an hour plus backlog.
+Provider retention capabilities must be verified before promising these limits.
+See [APPWRITE_CHANGES.md](legal/APPWRITE_CHANGES.md) for the numbered approval
+list and [APPWRITE_ALIGNMENT.md](legal/APPWRITE_ALIGNMENT.md) for inspection gaps.
+No deployment or remote mutation was performed for D4.
+
 ## Access
 
 All tables disable row security. Ratings/downloads grant no client permissions.

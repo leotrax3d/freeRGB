@@ -369,3 +369,15 @@ export interface UpdateInfo {
   size: number | null;
   downloaded: boolean;
 }
+
+export interface CoolingServiceState {
+  mode: "login" | "service";
+  boot_profile: string | null;
+  headless: boolean;
+  boot: { state: "pending" | "resumed" | "profile" | "failed" | "unavailable"; [key: string]: unknown };
+  error: string | null;
+}
+export interface CoolingProfileImport {
+  name: string;
+  report: { name: string; remapped: number; same_board: boolean; unresolved: string[]; needs_confirmation: boolean };
+}

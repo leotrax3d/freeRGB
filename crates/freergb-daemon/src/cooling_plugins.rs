@@ -251,6 +251,33 @@ impl CoolingPlugins {
         before - inner.assignments.len()
     }
 
+    /// Drain supervisor releases before reporting a successful revocation.
+    pub fn release_all_and_drain(&self) -> Result<(), String> {
+        self.release(None, None);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let inner = lock(&self.inner);
+            if let Some(error) = inner.faults.values().next() {
+                return Err(error.clone());
+            }
+            let pending = inner.slots.values().any(|slot| {
+                slot.busy
+                    || slot
+                        .status
+                        .as_ref()
+                        .is_some_and(|status| !status.controls.is_empty())
+            });
+            drop(inner);
+            if !pending {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err("Plugin release timed out".into());
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     /// Called every engine sensor tick with the shared composite feed.
     pub fn feed(&self, feed: &CompositeFeed, now: Instant) {
         let mut inner = lock(&self.inner);
@@ -557,7 +584,9 @@ fn step(shared: &Mutex<Inner>, id: &str, now: Instant) {
             let active: BTreeSet<&str> = assignments.iter().map(|a| a.channel.as_str()).collect();
             for c in p.status().controls {
                 if !active.contains(c.channel.as_str()) {
-                    let _ = p.release(&c.channel);
+                    if let Err(error) = p.release(&c.channel) {
+                        faults.insert(key(id, &c.channel), error);
+                    }
                 }
             }
             for a in &assignments {

@@ -41,8 +41,12 @@ the window closes. At Windows login only the daemon and tray start, not a window
   interface with virtual devices. It never touches real hardware and can run
   next to other RGB software.
 
-freeRGB needs no account, has no telemetry, and exposes no network port; the
-local API uses a Windows named pipe ([LOCAL_API.md](LOCAL_API.md)).
+freeRGB needs no account, sends no analytics or crash reports, and exposes no
+network port; the local API uses a Windows named pipe ([LOCAL_API.md](LOCAL_API.md)).
+It does contact GitHub when you download effects, modules or updates. The
+optional online community features (ratings, reports) and download counting are
+off by default and are switched in the Marketplace page ("Online community and
+privacy"); see [PRIVACY.md](PRIVACY.md) (draft).
 
 ## 3. Lighting
 
@@ -90,7 +94,7 @@ Profiles live in `%APPDATA%\freeRGB\profiles\`. Copy the folder to back it up.
   ([PLUGIN_SYSTEM.md](PLUGIN_SYSTEM.md), [HARDWARE_MODULES.md](HARDWARE_MODULES.md)).
 - **Motherboard RGB headers** (available for supported USB controllers): ASUS
   Aura, Gigabyte RGB Fusion 2 and ASRock Polychrome headers can be configured
-  with LED counts and colour order, with a safe fallback when a controller is
+  with LED counts and colour order, with a fallback when a controller is
   not driven. Boards using SMBus are not supported. See
   [MAINBOARD_RGB.md](MAINBOARD_RGB.md).
 - **Updates**: the visible updater checks hashes before launching an installer;
@@ -109,8 +113,7 @@ Profiles live in `%APPDATA%\freeRGB\profiles\`. Copy the folder to back it up.
 
 ## 6. Fan control basics and safety
 
-Monitoring (temperatures, fan speeds, history, warnings) is read-only and safe
-to use right away. **Fan control writes to your hardware** and is deliberately
+Monitoring (temperatures, fan speeds, history, warnings) is read-only. **Fan control writes to your hardware** and is deliberately
 gated. Read this before enabling it.
 
 - Fan control is opt-in. Windows motherboard access uses an optional protected

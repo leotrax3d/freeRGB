@@ -1,3 +1,5 @@
+> Beta software. The public website must visibly label the current release as Beta.
+
 # Website content
 
 This file is the canonical source for website content that changes with the product.
@@ -86,11 +88,13 @@ Releases.
       ]
     },
     "Safety and privacy": {
-      "description": "Control hardware locally. freeRGB checks for access conflicts and does not require an account.",
+      "description": "Control hardware locally. freeRGB checks for access conflicts and does not require an account. Online community features are off until you turn them on.",
       "details": [
         "Known adapters only",
         "Conflict protection",
-        "No cloud or telemetry"
+        "No account needed",
+        "Community features off by default",
+        "No analytics or crash reporting"
       ]
     }
   },
@@ -118,7 +122,7 @@ Releases.
     {
       "name": "Memory lighting",
       "id": "SMBus",
-      "scope": "Detection only while safe cross-platform control is evaluated"
+      "scope": "Detection only while cross-platform control is evaluated"
     },
     {
       "name": "Fan and pump control",
@@ -150,11 +154,11 @@ Releases.
     },
     {
       "question": "Does freeRGB require an account?",
-      "answer": "No. Your profiles, settings, macros and device state stay on your machine."
+      "answer": "No. Your profiles, settings, macros and device state stay on your machine. The optional online community features (effect ratings and reports) are off by default; if you turn them on, freeRGB creates a random anonymous ID and contacts the community service. Counting your effect downloads is a separate option that is also off by default."
     },
     {
       "question": "Does freeRGB work without internet access?",
-      "answer": "Yes. Lighting, monitoring, automation and the local API work offline. Downloads and update checks need internet access."
+      "answer": "Yes. Lighting, monitoring, automation and the local API work offline. Downloading effects or modules from GitHub and checking for updates need internet access. See the privacy notice draft for every network request."
     },
     {
       "question": "Which hardware is supported?",

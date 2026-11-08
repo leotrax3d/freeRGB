@@ -16,6 +16,7 @@ pub const ALLOWED: &[&str] = &[
     "marketplace.status",
     "marketplace.ratings.refresh",
     "marketplace.rate",
+    "marketplace.community.set",
     "marketplace.report.prepare",
     "marketplace.refresh",
     "marketplace.install",

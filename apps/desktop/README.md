@@ -16,7 +16,7 @@ npm test             # frontend tests (contract fixtures, logic)
 Backend tests (from `src-tauri/`): `cargo test`. After changing effect serde
 types, regenerate fixtures with `UPDATE_FIXTURES=1 cargo test --test fixtures`.
 
-A safe daemon for development, without touching hardware:
+A mock daemon for development, without hardware access:
 
 ```bash
 cargo run -p freergb-daemon -- --no-hardware --virtual-device

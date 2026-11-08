@@ -27,6 +27,10 @@ struct Harness {
 }
 impl Harness {
     fn new(mode: &str) -> Self {
+        Self::with_backend(mode, "simulation")
+    }
+
+    fn with_backend(mode: &str, backend: &str) -> Self {
         // Windows clocks are coarse: parallel tests need a counter, not only a timestamp.
         static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let root = std::env::temp_dir().join(format!(
@@ -41,7 +45,7 @@ impl Harness {
         std::fs::create_dir_all(&root).unwrap();
         let policy = Policy {
             pci: vec![pci()],
-            backend: "simulation".into(),
+            backend: backend.into(),
             flat_registers: true,
             rules: vec![
                 Rule {
@@ -172,6 +176,46 @@ impl Drop for Harness {
 }
 fn colors() -> [Rgb; 2] {
     [Rgb { r: 1, g: 2, b: 3 }, Rgb { r: 4, g: 5, b: 6 }]
+}
+
+#[test]
+fn signed_native_policy_uses_the_same_process_api_without_hardware() {
+    use freergb_daemon::bus_native::{Device, NativeBackend};
+    use freergb_daemon::bus_simulation::Bus;
+    use freergb_module_api::bus::{Error, Transfer};
+    use std::sync::Mutex;
+
+    struct Fake(Arc<Mutex<Vec<Transfer>>>);
+    impl Device for Fake {
+        fn transfer(&mut self, request: &Transfer) -> Result<Vec<u8>, Error> {
+            self.0.lock().unwrap().push(request.clone());
+            Ok(if request.op.writes() {
+                vec![]
+            } else {
+                vec![0xab; request.len()]
+            })
+        }
+    }
+
+    let harness = Harness::with_backend("ok", "linux-i2c-dev");
+    let trace = Arc::new(Mutex::new(vec![]));
+    let bus = Bus::new(NativeBackend::linux(Fake(trace.clone())).unwrap());
+    assert!(bus
+        .start_module(&harness.store, "bus-fixture", pci(), false)
+        .is_err());
+    assert!(trace.lock().unwrap().is_empty());
+    let (mut process, caps) = bus
+        .start_module(&harness.store, "bus-fixture", pci(), true)
+        .unwrap();
+    assert_eq!(caps.layout.leds.len(), 2);
+    process.frame(&colors()).unwrap();
+    process.shutdown().unwrap();
+    let trace = trace.lock().unwrap();
+    assert_eq!(trace.len(), 3);
+    assert_eq!(trace[0].op, Operation::SmbusReadByteData);
+    assert_eq!(trace[1].register, 0x20);
+    assert_eq!(trace[1].data, vec![1, 2, 3, 4, 5, 6]);
+    assert_eq!(trace[2].register, 0x10);
 }
 
 #[test]

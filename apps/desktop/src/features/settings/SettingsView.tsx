@@ -141,7 +141,7 @@ export default function SettingsView() {
       <Section title={t("settings.about")}>
         <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1.5 text-small">
           <dt className="text-text-subtle">{t("settings.about.app")}</dt>
-          <dd>freeRGB desktop {__APP_VERSION__}</dd>
+          <dd>{t("settings.about.productBeta")} {__APP_VERSION__}</dd>
           <dt className="text-text-subtle">{t("settings.about.service")}</dt>
           <dd>{connection?.daemon_version ? `freergbd ${connection.daemon_version} · API ${connection.api_version}` : t("settings.about.notConnected")}</dd>
           <dt className="text-text-subtle">{t("settings.about.classic")}</dt>

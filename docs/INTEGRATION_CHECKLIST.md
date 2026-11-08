@@ -1,88 +1,88 @@
-# Integration von main und feature/tauri-gui
+# Integration of main and feature/tauri-gui
 
-Integrationsbranch: `codex/integrate-tauri-main`. Nach Nutzerfreigabe am
-22. Oktober 2026 lokal per Fast-forward nach `main` übernommen (`b7e82ff`).
-Die folgenden offenen Abnahmen bleiben Voraussetzung für die Release-Freigabe.
+Integration branch: `codex/integrate-tauri-main`. Following user approval on
+October 22, 2026, merged locally into `main` by fast-forward (`b7e82ff`).
+The outstanding acceptance checks below remain prerequisites for release approval.
 
-## Entscheidungen
+## Decisions
 
-- [x] Beide Branches und bestehende IPC-/Daemon-Architektur untersuchen.
-- [x] Tauri wird Standardoberfläche; Classic bleibt optionaler Fallback (Nutzerfreigabe).
-- [x] Windows-Autostart startet ausschließlich den Daemon (Nutzerfreigabe).
-- [x] Integrationsbranch auf Basis von main erstellen.
-- [x] Tauri-Quellen und Designspezifikation übernehmen; aktuelle Hardware-/Safety-Implementierungen aus main erhalten.
+- [x] Examine both branches and the existing IPC/daemon architecture.
+- [x] Make Tauri the default interface; keep Classic as an optional fallback (user approval).
+- [x] Windows autostart starts only the daemon (user approval).
+- [x] Create an integration branch based on main.
+- [x] Incorporate Tauri sources and the design specification; retain current hardware/safety implementations from main.
 
-## Implementierung
+## Implementation
 
-- [x] Launcher: Tauri als Standard, explizites Classic und Betrieb ohne Fenster.
-- [x] Tauri-Daemonstart verwendet installierte Providerkonfiguration des Launchers.
-- [x] Windows-Installer, Autostart und Paket-Build integrieren.
-- [x] Mainboard-Sensoren und Providerzustände im Monitoring anbinden.
-- [x] Geschützte Cooling-Sessions mit expliziter Zuordnung, Status und Stop anbinden.
-- [x] Kanalzuordnungen und Kalibrierungsfunktionen auf Abdeckung prüfen: Annotationen editierbar, echte Kalibrierung über geschützte Sessions; vorhandene Policy-Simulation bleibt Backend-/Classic-Werkzeug.
-- [x] Tastaturreaktionen mit echtem Daemonzustand konfigurieren.
-- [x] Classic-Funktionen (Hotkeys, Anwendungsprofile, Updates) auf Migration/Fallback prüfen: bleiben zunächst in Classic, direkter Start aus Tauri. Hotkeys und Anwendungsprofile benötigen laufendes Classic.
-- [x] Verbindungsausfälle, veraltete Werte und fehlende API-Funktionen nachvollziehbar darstellen.
-- [x] Mockbetrieb auf ausdrücklich gekennzeichnete Browser-Vorschau begrenzen; Hotkey-Designeditor im Desktopbetrieb durch echten Classic-Zugang ersetzt.
+- [x] Launcher: Tauri by default, explicit Classic mode and operation without a window.
+- [x] Tauri daemon startup uses the launcher's installed provider configuration.
+- [x] Integrate the Windows installer, autostart and package build.
+- [x] Connect motherboard sensors and provider states to monitoring.
+- [x] Connect protected cooling sessions with explicit assignment, status and stop.
+- [x] Check coverage of channel assignments and calibration functions: editable annotations, actual calibration through protected sessions; existing policy simulation remains a backend/Classic tool.
+- [x] Configure keyboard reactions using real daemon state.
+- [x] Check Classic functions (hotkeys, application profiles, updates) for migration/fallback: initially remain in Classic, launched directly from Tauri. Hotkeys and application profiles require Classic to be running.
+- [x] Clearly display connection failures, stale values and missing API functions.
+- [x] Restrict mock operation to an explicitly labelled browser preview; replace the hotkey design editor in desktop mode with access to the real Classic application.
 
-## Qualitätssicherung
+## Quality assurance
 
-- [x] Frontend: Tests, Typprüfung und Produktionsbuild (56 Tests erfolgreich).
-- [x] Tauri: Rust-Tests und Windows-Build (8 Tests inklusive Fixture; Clippy ohne Warnungen).
-- [x] Rust-Backend und Launcher: relevante Tests und Build.
-- [x] Hardwarefreie IPC-Prüfung: vorhandene Daemon- und Cooling-API-Smoke-Tests erfolgreich.
-- [x] Start und Schließen des realen Desktopfensters prüfen: gestartet, später per Alt+F4 beendet; Daemon danach weiterhin über API erreichbar und mit rund 30 fps aktiv.
-- [x] Installerprüfungen und CI für Tauri ergänzen (lokale Installerkompilierung mangels Inno Setup nicht ausführbar).
-- [x] Linux-Unterstützung prüfen; Systembibliotheken und CI ergänzt, lokale Ausführung nicht möglich.
-- [x] Hardwareabhängige Funktionen und verbleibende Grenzen dokumentieren.
-- [x] Änderungen abschließend prüfen: neue Quellen, Launcher-/Installerpfade, Fehlerzustände und Dokumentation abgeglichen; keine Änderungen an main-Hardware-/Safety-Modulen.
+- [x] Frontend: tests, type checking and production build (56 tests passed).
+- [x] Tauri: Rust tests and Windows build (8 tests including fixture; Clippy without warnings).
+- [x] Rust backend and launcher: relevant tests and build.
+- [x] Hardware-free IPC check: existing daemon and cooling API smoke tests passed.
+- [x] Check startup and closing of the real desktop window: started, later closed with Alt+F4; daemon remained reachable through the API and active at around 30 fps afterwards.
+- [x] Add installer checks and CI for Tauri (local installer compilation unavailable because Inno Setup is missing).
+- [x] Check Linux support; add system libraries and CI, local execution unavailable.
+- [x] Document hardware-dependent functions and remaining limitations.
+- [x] Final review of changes: cross-check new sources, launcher/installer paths, error states and documentation; no changes to main hardware/safety modules.
 
-## Noch offene Abnahme vor einem Merge / Release
+## Outstanding acceptance checks before a merge / release
 
-- [ ] Vollständige visuelle Bedienprüfung der aktuellen Oberfläche auf einem zugänglichen Windows-Desktop.
-- [ ] Reale Hardwareprüfung von Mainboard-Sensorik, bestätigten Lüfterzuordnungen, Sessionstart/UAC, Kalibrierung und verifiziertem Stop.
-- [ ] Reale Tastaturreaktionen und Zusammenspiel mit Classic-Funktionen prüfen.
-- [ ] Neue Linux-CI erfolgreich ausführen; Linux-Fensterstart und Hardwareverhalten prüfen.
-- [ ] Installer mit Inno Setup kompilieren und den erweiterten CI-Installationslebenszyklus ausführen.
-- [x] Nutzerfreigabe für den Merge nach main erteilt und lokaler Fast-forward durchgeführt (22. Oktober 2026).
+- [ ] Complete visual interaction check of the current interface on an accessible Windows desktop.
+- [ ] Real hardware testing of motherboard sensors, confirmed fan assignments, session startup/UAC, calibration and verified stop.
+- [ ] Test real keyboard reactions and interaction with Classic functions.
+- [ ] Successfully run the new Linux CI; check Linux window startup and hardware behaviour.
+- [ ] Compile the installer with Inno Setup and run the extended CI installation lifecycle.
+- [x] User approval for merging into main granted and local fast-forward completed (October 22, 2026).
 
-## Aktueller Stand
+## Current status
 
-Die Tauri-GUI besitzt echte IPC für RGB-/Profil-/Makro-/Sensorfunktionen und
-die ergänzten Mainboard-, Session-, Kanalzuordnungs- und Tastaturfunktionen.
-Der bestehende Daemon bleibt maßgeblich für Hardwarezugriffe und Sicherheitsprüfungen.
-Die Backend-Differenzen des GUI-Branches enthalten bereits in main vorhandene
-Custom-Sensor-Funktionen; diese werden nicht nochmals darüberkopiert.
+The Tauri GUI has real IPC for RGB/profile/macro/sensor functions and
+the added motherboard, session, channel assignment and keyboard functions.
+The existing daemon remains authoritative for hardware access and safety checks.
+The GUI branch's backend differences contain custom sensor functions already present
+in main; these are not copied over again.
 
-## Prüfgrenzen / Beobachtungen
+## Test limitations / observations
 
-- Reales Tauri-Fenster mit eingebetteten Produktionsassets gestartet. Accessibility-Baum
-  zeigt echten Daemonzustand (30 fps, Effektparameter), keine Mockdaten.
-- Windows-Computer-Use liefert hier schwarze Screenshots und keine zuverlässig prüfbare Bedienung;
-  der erste Startversuch meldete `GetCursorPos failed: Access is denied (0x80070005)`.
-  Visuelle Freigabe und vollständige interaktive Fensterprüfung sind damit noch offen.
-- Der per Alt+F4 geschlossene Testprozess war bei der anschließenden Kontrolle beendet;
-  der eigene virtuelle Testdaemon lief weiter (API-Version 1, ca. 30 fps, 6274 Ticks).
-  Anschließend wurde nur dieser Testdaemon sauber per API beendet.
-- Inno Setup ist lokal nicht installiert. Installerkompilierung und der ausschließlich
-  auf temporären CI-Runnern erlaubte Installationslebenszyklus sind noch nicht ausgeführt.
-- Keine echten Lüfter-/Pumpen-/RGB-Hardwarezugriffe, UAC-Freigaben oder Installationen
-  für diese Integration ausgelöst. Linux ist lokal nicht vorhanden.
+- Started a real Tauri window with embedded production assets. The accessibility tree
+  shows real daemon state (30 fps, effect parameters), with no mock data.
+- Windows computer use produces black screenshots here and does not allow reliable interaction checks;
+  the first startup attempt reported `GetCursorPos failed: Access is denied (0x80070005)`.
+  Visual approval and the complete interactive window check therefore remain outstanding.
+- The test process closed with Alt+F4 had exited when checked afterwards;
+  the dedicated virtual test daemon continued running (API version 1, approximately 30 fps, 6274 ticks).
+  Afterwards, only this test daemon was shut down cleanly through the API.
+- Inno Setup is not installed locally. Installer compilation and the installation lifecycle,
+  permitted only on temporary CI runners, have not yet been run.
+- No real fan/pump/RGB hardware access, UAC approvals or installations
+  were triggered for this integration. Linux is not available locally.
 
-## Lokale Prüfergebnisse
+## Local test results
 
-- `npm run build` und `npm test`: Typprüfung, Produktionsassets und 56 Tests erfolgreich.
-- `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked`: 8 Tests erfolgreich.
-- Tauri-Clippy mit `-D warnings` und beide Rust-Formatprüfungen erfolgreich.
-- Gezielte Tests für freergb-client, freergb-control, freergb-daemon und freergb-gui
-  inklusive Launcher erfolgreich. Die sechs vorhandenen expliziten C#-Interoptests
-  bleiben ohne ihren separaten Fixture-Aufruf übersprungen.
-- `cargo build --workspace --release --locked`: erfolgreich.
-- `scripts/build-desktop.ps1`: erfolgreicher Windows-Release-Build mit eingebetteten
-  Frontendassets und Kopie nach `target/release/freergb-desktop.exe`.
-- Release-Smoke mit virtuellem Prozessplugin: Rendering, Farb-Roundtrip, Plugincrash-
-  Isolation/Neustart, Cooling-/Sensor-/Keyboard-API und sauberes Beenden erfolgreich.
-- Cooling-Session-Smoke: deaktivierte Sessions, Start-/Stopfehler und ungültige
-  Parameter über isolierte echte Named Pipe erfolgreich geprüft.
-- PowerShell-Syntaxprüfung der drei geänderten/neuen Build-/Installer-Skripte erfolgreich.
-- `git diff --check`: erfolgreich.
+- `npm run build` and `npm test`: type checking, production assets and 56 tests passed.
+- `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked`: 8 tests passed.
+- Tauri Clippy with `-D warnings` and both Rust formatting checks passed.
+- Targeted tests for freergb-client, freergb-control, freergb-daemon and freergb-gui,
+  including the launcher, passed. The six existing explicit C# interop tests
+  remain skipped without their separate fixture invocation.
+- `cargo build --workspace --release --locked`: passed.
+- `scripts/build-desktop.ps1`: successful Windows release build with embedded
+  frontend assets and a copy at `target/release/freergb-desktop.exe`.
+- Release smoke test with virtual process plugin: rendering, colour round-trip, plugin crash
+  isolation/restart, cooling/sensor/keyboard API and clean shutdown passed.
+- Cooling session smoke test: disabled sessions, start/stop errors and invalid
+  parameters successfully tested over an isolated real named pipe.
+- PowerShell syntax check of the three changed/new build/installer scripts passed.
+- `git diff --check`: passed.
