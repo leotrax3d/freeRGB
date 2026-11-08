@@ -513,7 +513,7 @@
   "cooling.supportBadge.supportValue": "Support: {p0}",
   "cooling.supportBadge.coveragePerFanControllerChipFanCoverage": "Coverage per fan-controller chip (FAN_COVERAGE.md). Simulated only means no hardware acceptance for this chip yet.",
   "cooling.unrestrictedSection.unrestrictedControl": "Unrestricted control",
-  "cooling.unrestrictedSection.forHardwareFreergbHasNotTestedAn": "For hardware freeRGB has not tested. An unlocked channel needs no channel test, may run down to 0 % (fan stop) and only warns about implausible RPM; a wrong LibreHardwareMonitor mapping can address the wrong header. Still always active: return to firmware on stop, crash, lost telemetry and watchdog expiry, 100 % at critical temperature, no takeover of a header another program controls.",
+  "cooling.unrestrictedSection.forHardwareFreergbHasNotTestedAn": "For hardware freeRGB has not tested. An unlocked channel needs no channel test, may run down to 0 % and only warns about implausible RPM; a wrong LibreHardwareMonitor mapping can address the wrong header. Fault handling depends on the backend: restoration can fail, and a verified Windows emergency may retain ownership at a requested 100 %. Crash-journal recovery is attempted on the next start. No recovery during process, driver, OS or power failure is guaranteed.",
   "cooling.unrestrictedSection.allowUnrestrictedControlOffByDefaultTurning": "Allow unrestricted control (off by default; turning it off disables every unlock and re-validates background channels)",
   "cooling.unrestrictedSection.theProtectedServiceReportsNoBoardIdentity": "The protected service reports no board identity; unlocks are unavailable until it is updated.",
   "cooling.unrestrictedSection.channel": "Channel",

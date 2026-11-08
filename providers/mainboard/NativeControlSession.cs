@@ -180,7 +180,8 @@ internal sealed class NativeControlSession
         if (returnOnFault)
         {
             // A failed 100% write has already attempted the owned return; Release
-            // then only clears the journal. Never a low duty, never a fresh context.
+            // then clears the journal only after a successful return. A failure
+            // retains recovery intent; no successful firmware return is guaranteed.
             try { port.Release(); faultReturned = !port.Owned; }
             catch { state = "recovery_failed"; reason = fault + ":return_failed"; }
             return;

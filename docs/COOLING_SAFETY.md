@@ -9,20 +9,22 @@
 Fan and pump control can overheat and damage hardware. The notice shown before
 first use replaced version 1's absolute statement that every channel returns to
 firmware on stop, crash, lost sensor data or watchdog expiry. That statement
-was not true for every path. Current behaviour on `main` per backend, with the
-test that backs each claim; "pending task/coolsafety" marks behaviour that
-unmerged branch is expected to change and that this page must be re-checked
-against when it merges.
+was not true for every path. Behaviour verified against the merged cooling
+implementation is listed below.
+Evidence is code and synthetic tests, not hardware acceptance. A successful
+backend call does not prove physical fan speed or cooling capacity.
 
 | Claim | Backend | Evidence (test/code) | Not claimed |
 |---|---|---|---|
-| Fans stay at or above 40 % unless the channel is unlocked; pumps stay at 100 % | Linux hwmon, GPU, Windows motherboard | `hwmon.rs` `manual_assignment_enforces_floor_and_release_restores_firmware`, `refuses_headers_owned_by_another_tool_and_pumps_stay_full`; `NativeSessionTests.cs` (pump reduction rejected) | Correct header-to-fan mapping |
-| Release, pause, normal shutdown and faults return the header to BIOS automatic mode | Linux hwmon | `hwmon.rs` `manual_assignment_enforces_floor_and_release_restores_firmware`, `firmware_takeback_and_stall_fault_return_to_firmware`, `every_driver_restores_its_own_enable_semantics` | Behaviour on real hardware (tests are synthetic); sensor-loss path pending task/coolsafety |
-| Release, pause, shutdown and write faults return the fan to driver automatic mode | GPU (NVML, ADLX) | `gpu_cooling.rs` `take_set_and_release_return_to_driver_auto`, `write_fault_releases_and_records`, `shutdown_and_pause_release_and_crash_journal_recovers` | Return when the GPU driver itself fails; sensor-loss path pending task/coolsafety |
-| After a daemon crash or kill, journaled channels are handed back when freeRGB **next starts** | Linux hwmon, GPU | `hwmon.rs` `drop_restores_and_saved_assignments_resume_after_crash_recovery`; `gpu_cooling.rs` `shutdown_and_pause_release_and_crash_journal_recovers` | Any recovery while freeRGB stays stopped, or after OS crash, kernel crash or power loss |
-| Missing or stale temperature, or the critical temperature, requests 100 % | All curve paths; Windows native telemetry guard | `docs/COOLING_LINUX_HWMON.md`; `gpu_cooling.rs` header (`fail-safe composite output means 100 %`); `NativeSessionTests.cs` (emergency latches 100 %) | A working sensor; that 100 % is actually applied by the hardware |
-| On a fault a **verified** Windows channel writes 100 % and keeps its reservation; it does **not** return to firmware until an authenticated supervisor resolves it | Windows motherboard, verified tier | `NativeSessionTests.cs` (transport does not silently release after emergency), `NativeTierTests.cs` (verified fault behaviour) | Firmware return for this tier |
-| On a fault a lower-tier Windows channel attempts a return to the firmware mode captured in its worker context | Windows motherboard, lower tiers | `NativeTierTests.cs` (tiered lease expiry ends ownership; failed return keeps intent) | A verified readback on every chip; any recovery after process, OS or power failure (pending task/coolsafety) |
+| Normal requested fan floors are 40 % (or a higher backend minimum); pump protection requests 100 %; unrestricted settings can bypass protection | Linux hwmon, GPU, Windows motherboard | `hwmon.rs` `manual_assignment_enforces_floor_and_release_restores_firmware`, `refuses_headers_owned_by_another_tool_and_pumps_stay_full`; `NativeSessionTests.cs` (pump reduction rejected) | Correct header-to-fan mapping or actual speed; GPU pump identification |
+| Release, pause, normal shutdown and faults attempt to restore the recorded firmware mode | Linux hwmon | `hwmon.rs` `manual_assignment_enforces_floor_and_release_restores_firmware`, `firmware_takeback_and_stall_fault_return_to_firmware`, `every_driver_restores_its_own_enable_semantics` | Successful restoration when sysfs writes fail; sensor loss requests full duty rather than firmware return |
+| Release, pause, shutdown and write faults attempt driver automatic mode | GPU (NVML, ADLX) | `gpu_cooling.rs` `take_set_and_release_return_to_driver_auto`, `write_fault_releases_and_records`, `shutdown_and_pause_release_and_crash_journal_recovers` | Successful return when the driver fails; sensor loss requests full duty rather than driver automatic mode |
+| After a daemon crash or kill, recovery attempts journaled channels when freeRGB **next starts**; failed returns remain journaled | Linux hwmon, GPU | `hwmon.rs` `drop_restores_and_saved_assignments_resume_after_crash_recovery`; `gpu_cooling.rs` `shutdown_and_pause_release_and_crash_journal_recovers` | Successful return for missing devices or failed writes; any recovery while freeRGB stays stopped, or after OS crash, kernel crash or power loss |
+| Missing or stale temperature, or the critical temperature, requests 100 % | Linux hwmon and GPU curves; Windows native telemetry guard | `docs/COOLING_LINUX_HWMON.md`; `gpu_cooling.rs` header (`fail-safe composite output means 100 %`); `NativeSessionTests.cs` (emergency latches 100 %) | A working sensor; that 100 % is actually applied by the hardware |
+| On a fault a **verified** Windows channel attempts 100 % and keeps its reservation; it does **not** return to firmware until an authenticated supervisor resolves it | Windows motherboard, verified tier | `NativeSessionTests.cs` (transport does not silently release after emergency), `NativeTierTests.cs` (verified fault behaviour) | Firmware return for this tier |
+| On a fault a lower-tier Windows channel attempts a return to the firmware mode captured in its worker context | Windows motherboard, lower tiers | `NativeTierTests.cs` (tiered lease expiry ends ownership; failed return keeps intent) | A verified readback on every chip; any recovery after process, OS or power failure |
+| Manual mode requests 100 % for missing, invalid, stale or critical temperature and after a loop gap, when evaluation runs | Linux hwmon, GPU | `manual_interlock.rs` (85 C critical, 5 C hysteresis, 3000 ms sensor age/loop gap); `hwmon.rs` `manual_without_a_fresh_temperature_goes_full`; `gpu_cooling.rs` `manual_interlock_forces_full_duty_without_a_trusted_sensor` | Execution while the daemon or driver is hung; GPU production backends currently provide no Manual temperature, so request 100 % |
+| Manual acquisition requires a durable journal; failed restoration remains unresolved and blocks reacquisition | Linux hwmon, GPU | `hwmon.rs` `unavailable_journal_blocks_first_write`, `failed_restore_stays_journaled_until_proven`, `unreadable_journal_blocks_provider_and_is_kept`; `legal_audit_gpu_recovery.rs` | Successful recovery despite inaccessible hardware; control without a state directory |
 | Lease policy and guard process fall back to a **synthetic** 100 % request | Test fixture only | `cooling_guard_process` test (see below) | Any real fan; production emergency system |
 
 Not promised without proof: recovery after a crash or kill of the process,
@@ -30,20 +32,21 @@ service, kernel or machine; recovery while the daemon stays stopped; recovery
 when a driver, firmware or the hardware ignores or reverses commands; any
 guarantee that a fan reaches a given speed. The Windows broker and Linux hwmon
 paths have not been hardware-accepted on most boards (see
-`docs/promts/fancontrol/07-hardware-acceptance.md` once merged).
+`docs/promts/fancontrol/07-hardware-acceptance.md`).
 
 ## Unsafe code
 
 The workspace default is `unsafe_code = "forbid"`. Exceptions with FFI or OS
 calls: `freergb-gpu-nvml` (NVML loaded from the driver at run time),
 `freergb-gpu-adlx`, `freergb-storage-temp`, `freergb-tray`, the desktop memory
-helper and `freergb-gui-win32`. These crates use `deny` or `allow` with scoped
+helper, `freergb-gui-win32` and `freergb-update` (explicit Windows installer
+elevation). These crates use `deny` or `allow` with scoped
 `#[allow(unsafe_code)]`. The workspace-wide "forbid" statement therefore does not
 describe these crates.
 
 This increment adds reusable, hardware-independent policies in
-`freergb-control::{calibration,cooling_safety}`. Production motherboard access
-remains read-only. Neither policy can write to a fan, establish its physical
+`freergb-control::{calibration,cooling_safety}`. The calibration and lease policies do not themselves provide production
+motherboard access. Neither policy can write to a fan, establish its physical
 identity, select PWM/DC or prove that a requested speed was applied.
 
 ## Bounded fan response experiment
