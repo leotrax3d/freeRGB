@@ -33,8 +33,8 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="26ce", ATTRS{idProduct}=="01a6", TAG+="ua
 
 # Motherboard fan headers through kernel hwmon (docs/COOLING_LINUX_HWMON.md).
 # sysfs attributes cannot use uaccess; members of group "freergb" may write
-# pwmN/pwmN_enable. Create the group and add yourself once:
+# exactly pwmN and pwmN_enable (not pwmN_mode, pwmN_freq or auto-point attributes). Create the group and add yourself once:
 #   sudo groupadd -r freergb && sudo usermod -aG freergb "$USER"   (then log in again)
 # Only SuperIO/EC fan drivers are listed; CPU/GPU/NVMe sensors stay read-only.
 ACTION=="add", SUBSYSTEM=="hwmon", ATTR{name}=="nct6*|nct5*|it87*|it86*|it88*|f71*|f81*|w83*|nct7*|asus_wmi_sensors|asus-ec-sensors|dell_smm|thinkpad|gigabyte_wmi|sch5627|sch5636|pc87*|smsc47m*|vt1211|lm85|adt7*|emc*", \
-  RUN+="/bin/sh -c 'for f in /sys%p/pwm[0-9]* ; do [ -f \"$f\" ] && chgrp freergb \"$f\" && chmod g+w \"$f\"; done'"
+  RUN+="/bin/sh -c 'for f in /sys%p/pwm[0-9] /sys%p/pwm[0-9][0-9] /sys%p/pwm[0-9]_enable /sys%p/pwm[0-9][0-9]_enable ; do [ -f \"$f\" ] && chgrp freergb \"$f\" && chmod g+w \"$f\"; done'"

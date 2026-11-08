@@ -20,13 +20,15 @@ impl Drop for Fixture {
         std::fs::remove_dir_all(&self.0).unwrap();
     }
 }
-fn metadata(bytes: &[u8]) -> Update {
-    Update {
+pub(super) fn metadata(bytes: &[u8]) -> Update {
+    tests::signed(Update {
         version: "0.2.0".into(),
         asset_id: 42,
         sha256: format!("{:x}", Sha256::digest(bytes)),
         size: bytes.len() as u64,
-    }
+        signature: Vec::new(),
+        signature_asset_id: 0,
+    })
 }
 struct Interrupted(bool);
 impl Read for Interrupted {
@@ -117,10 +119,10 @@ impl InstallModel {
         std::fs::write(root.0.join("active"), bytes).unwrap();
         Self {
             root,
-            current: Update {
+            current: tests::signed(Update {
                 version: "0.1.0".into(),
                 ..metadata(bytes)
-            },
+            }),
             previous: None,
         }
     }
