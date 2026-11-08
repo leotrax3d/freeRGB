@@ -75,6 +75,10 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "ko": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "lt": {
     "reviewed": false,
     "machineTranslated": true
@@ -111,11 +115,23 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "sk": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "sl": {
     "reviewed": false,
     "machineTranslated": true
   },
   "sv": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "th": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "tr": {
     "reviewed": false,
     "machineTranslated": true
   },

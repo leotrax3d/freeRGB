@@ -1202,5 +1202,7 @@
   "cooling.setup.controls_few": "{count} ovládateľných headerov",
   "cooling.setup.controls_many": "{count} ovládateľných headerov",
   "cooling.setup.sensors_few": "{count} RPM senzorov",
-  "cooling.setup.sensors_many": "{count} RPM senzorov"
+  "cooling.setup.sensors_many": "{count} RPM senzorov",
+  "setup.wizard.unsupported_other": "{count} zariadení zatiaľ nepodporovaných",
+  "setup.wizard.setUpN_other": "Nastaviť {count} zariadení"
 }
