@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react"
 import {
   Activity, ArrowUpRight, Play, AudioLines, BookOpen, Cable, Check, CircleHelp, Cpu, Download, Fan,
   Github, Keyboard, Layers, LayoutDashboard, Monitor, MonitorUp, Package, PlugZap,
-  ScanSearch, Settings, Sparkles, Terminal, type LucideIcon,
+  ScanSearch, Settings, ShieldCheck, Sparkles, Terminal, type LucideIcon,
 } from "lucide-react"
 import wordmark from "../../assets/brand/wordmark-dark.svg"
 import appIcon from "../../assets/icons/freergb-32.png"
@@ -112,6 +112,7 @@ export default function App() {
     { id: "platform", label: "Open platform", icon: PlugZap },
     { id: "install", label: "Install", icon: Download },
     { id: "faq", label: "FAQ", icon: CircleHelp },
+    { id: "privacy", label: "Privacy", icon: ShieldCheck },
   ]
   const activeLabel = sections.find(({ id }) => id === activeSection)?.label ?? "Overview"
   const windowsAsset = release?.assets.find(({ name }) => /windows.*(setup|installer).*\.exe$/i.test(name) || /setup\.exe$/i.test(name))
@@ -242,7 +243,16 @@ export default function App() {
         <div className="faq-list">{websiteData.faq.map(({ question, answer }) => <details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>)}</div>
       </section>
 
-      <footer><span>freeRGB</span><span>MIT or Apache 2.0</span><a href={repo}>Source on GitHub</a></footer>
+      <section id="privacy" className="faq view-section">
+        <header className="view-header"><div className="view-symbol"><ShieldCheck size={18} /></div><div><h2>Privacy</h2><p>About this website. English only.</p></div></header>
+        <div className="faq-list privacy-note">
+          <p>This website sets no cookies, uses no analytics or tracking, and has no accounts or sign-in. Fonts, scripts and images are served from this site; nothing is loaded from a CDN or a font service.</p>
+          <p>One request goes to a third party: when the page loads, your browser asks the GitHub API (<code>api.github.com</code>) for the latest freeRGB release to show its notes and installer link. GitHub receives your IP address and browser details as with any request to it. If the request fails, the page still works and links to the GitHub releases page. Links to GitHub, the documentation and downloads only contact GitHub when you click them.</p>
+          <p>The freeRGB app is separate: its online features are off by default. See <a href={`${repo}/blob/main/docs/PRIVACY.md`} target="_blank" rel="noreferrer">docs/PRIVACY.md</a> for what the app does.</p>
+        </div>
+      </section>
+
+      <footer><span>freeRGB</span><span>MIT or Apache 2.0</span><a href="#privacy">Privacy</a><a href={repo}>Source on GitHub</a></footer>
     </main>
   </div>
 }
