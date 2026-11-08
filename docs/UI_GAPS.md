@@ -15,7 +15,7 @@ Sources: `docs/LOCAL_API.md` methods vs. string literals in `apps/desktop/src`,
 
 | Method | Status | Package |
 |---|---|---|
-| `modules.forget` | no UI to remove a configured device from setup | P1 `setup-forget` |
+| `modules.forget` | done: ConfirmButton on configured setup cards | P1 merged |
 | `keyboard.reactive.preview` | no preview action in KeyboardReactions (devices area, reserved) | deferred to S22 |
 | `cooling.profiles.export/import/get`, `cooling.providers.list`, `cooling.service.get/set`, `cooling.bindings.get`, `cooling.channels.list` | cooling area, check after guicool merge | deferred |
 | `daemon.shutdown*`, `daemon.version`, `lighting.status`, `monitoring.sensors.list` | reached via Tauri commands/snapshot, not direct | none |
@@ -43,4 +43,11 @@ Not yet audited per view; needs a visual pass. Open item from
 
 | Pkg | Scope | Status |
 |---|---|---|
-| P1 setup-forget | `features/setup/*`, en/de keys | in progress |
+| P1 setup-forget | `features/setup/*`, en/de keys | merged (e71ed61) |
+
+## Follow-ups after guicool / translations / S22 merge
+
+Re-run the method diff, audit cooling + devices states/a11y, add the new i18n
+keys to other locales (new keys so far: `setup.card.forget`,
+`setup.card.forgetConfirm`; en + de done), translate this doc's German source
+`INTEGRATION_CHECKLIST.md`, and capture UI screenshots on a real desktop.

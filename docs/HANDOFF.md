@@ -119,3 +119,7 @@ native telemetry freshness; see [timing and safety bounds](COOLING_RUNTIME.md).
 Core is MIT/Apache-2.0. Code ported from OpenRGB (GPL-2.0-or-later) lives only in
 separately built process modules under `modules/`. FanControl is used only as a
 feature reference (no code). See [DECISIONS.md](DECISIONS.md).
+
+## UI-LEAD 2026-11-08
+
+Wrote docs/UI_GAPS.md; merged setup-forget (modules.forget UI). Cooling/devices/locales deliberately untouched (guicool, S22, translations pending); re-audit after they merge. New i18n keys: setup.card.forget, setup.card.forgetConfirm (en+de only).
