@@ -41,8 +41,12 @@ the window closes. At Windows login only the daemon and tray start, not a window
   interface with virtual devices. It never touches real hardware and can run
   next to other RGB software.
 
-freeRGB needs no account, has no telemetry, and exposes no network port; the
-local API uses a Windows named pipe ([LOCAL_API.md](LOCAL_API.md)).
+freeRGB needs no account, sends no analytics or crash reports, and exposes no
+network port; the local API uses a Windows named pipe ([LOCAL_API.md](LOCAL_API.md)).
+It does contact GitHub when you download effects, modules or updates. The
+optional online community features (ratings, reports) and download counting are
+off by default and are switched in the Marketplace page ("Online community and
+privacy"); see [PRIVACY.md](PRIVACY.md) (draft).
 
 ## 3. Lighting
 

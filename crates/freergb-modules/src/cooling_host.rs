@@ -12,6 +12,12 @@
 //! * Fail-safe: a crash, hang, malformed answer or policy violation kills the
 //!   process, then the host itself writes the policy's signed fail-safe
 //!   reports on the daemon-owned handle. The plugin cannot block this.
+//! * Transfers: a write counts only when the transport reports at least the
+//!   whole report (padding up to the output report length is allowed). Zero,
+//!   short, oversized or failed transfers and driver calls that do not return
+//!   within [`DRIVER_TIMEOUT`] are never fail-safe success: the outcome is
+//!   `complete == false` and recovery stays unresolved. A written report is
+//!   transfer evidence only, not proof that the firmware took over.
 use crate::host::{broker, Launch, Process, REQUEST_TIMEOUT};
 use crate::store::VerifiedCooling;
 use freergb_control::cooling_safety::{DutyLease, GuardState, LeaseGuard};
@@ -28,6 +34,53 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 pub const SAMPLE_TIMEOUT: Duration = Duration::from_secs(4);
+/// Upper bound for one native driver call (write/feature/read). A call that
+/// does not return is abandoned on its own thread; the handle is not reused.
+pub const DRIVER_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Exact transfer check. `padded` is the transport's output report length.
+fn check_transfer(op: Op, wanted: usize, got: usize, padded: usize) -> Result<(), String> {
+    let max = if op == Op::Write {
+        padded.max(wanted)
+    } else {
+        wanted
+    };
+    if wanted == 0 || got < wanted || got > max {
+        Err(format!(
+            "{op:?} transferred {got} of {wanted} bytes (expected {wanted}..={max})"
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+type Handle = Box<dyn HidTransport>;
+
+/// Runs `work` with the transport on a helper thread. On timeout the handle
+/// stays with the (possibly blocked) thread and is lost to the host.
+fn bounded<T: Send + 'static>(
+    handle: Handle,
+    timeout: Duration,
+    work: impl FnOnce(&mut Handle) -> T + Send + 'static,
+) -> Result<(Handle, T), String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let spawned = std::thread::Builder::new()
+        .name("cooling-driver-call".into())
+        .spawn(move || {
+            let mut handle = handle;
+            let value = work(&mut handle);
+            let _ = tx.send((handle, value));
+        });
+    if let Err(error) = spawned {
+        return Err(format!("driver call thread not started: {error}"));
+    }
+    rx.recv_timeout(timeout).map_err(|_| {
+        format!(
+            "driver call did not return within {} ms",
+            timeout.as_millis()
+        )
+    })
+}
 
 fn protocol(message: impl Into<String>) -> ModuleError {
     ModuleError::new(ErrorCode::Protocol, message)
@@ -50,8 +103,14 @@ pub struct PluginReading {
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
 pub struct FailsafeOutcome {
     pub reports: usize,
+    /// Reports whose full transfer the transport confirmed.
     pub written: usize,
     pub errors: Vec<String>,
+    /// All reports transferred exactly, no error, no hung driver call. This is
+    /// transfer evidence only; firmware return needs separate proof.
+    pub complete: bool,
+    /// Recovery is not proven (short/failed transfer, hang, lost handle).
+    pub unresolved: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -229,7 +288,35 @@ impl CoolingPlugin {
                         }
                     )));
                 }
-                let mut reply = broker(&call, &mut self.io);
+                let mut reply = match self.io.take() {
+                    None => broker(&call, &mut None),
+                    Some(handle) => {
+                        let owned = call.clone();
+                        let timeout = deadline
+                            .saturating_duration_since(Instant::now())
+                            .min(DRIVER_TIMEOUT);
+                        let (handle, reply) = bounded(handle, timeout, move |h| {
+                            let mut slot = Some(std::mem::replace(h, Box::new(NoIo)));
+                            let reply = broker(&owned, &mut slot);
+                            if let Some(real) = slot {
+                                *h = real;
+                            }
+                            reply
+                        })
+                        // The handle stays with the hung call and is lost.
+                        .map_err(protocol)?;
+                        self.io = Some(handle);
+                        reply
+                    }
+                };
+                if matches!(call.op, Op::Write | Op::SendFeature) && reply.error.is_none() {
+                    let padded = self.io.as_ref().map_or(0, |io| io.output_report_len());
+                    if let Err(message) =
+                        check_transfer(call.op, data.len(), reply.len.unwrap_or(0), padded)
+                    {
+                        return Err(protocol(format!("short or invalid transfer: {message}")));
+                    }
+                }
                 reply.v = API;
                 process.send(&reply, deadline)?;
                 continue;
@@ -452,22 +539,26 @@ impl CoolingPlugin {
         self.fault = Some(reason.to_owned());
         self.controls.clear();
         self.process = None;
+        let reports: Vec<(Op, Vec<u8>)> = self
+            .policy
+            .failsafe()
+            .iter()
+            .map(|r| (r.op, r.data.clone()))
+            .collect();
         let mut outcome = FailsafeOutcome {
-            reports: self.policy.failsafe().len(),
+            reports: reports.len(),
             ..FailsafeOutcome::default()
         };
-        if let Some(io) = self.io.as_mut() {
-            for report in self.policy.failsafe() {
-                let result = match report.op {
-                    Op::SendFeature => io.send_feature(&report.data),
-                    _ => io.write(&report.data),
-                };
-                match result {
-                    Ok(_) => outcome.written += 1,
-                    Err(e) => outcome.errors.push(e.to_string()),
-                }
+        if !reports.is_empty() {
+            match self.io.take() {
+                None => outcome
+                    .errors
+                    .push("device handle unavailable (lost to a hung driver call)".into()),
+                Some(handle) => self.io = write_failsafe(handle, reports, &mut outcome),
             }
         }
+        outcome.complete = outcome.written == outcome.reports && outcome.errors.is_empty();
+        outcome.unresolved = !outcome.complete;
         self.failsafe = Some(outcome);
     }
 
@@ -488,6 +579,74 @@ impl CoolingPlugin {
             virtual_io: self.policy.is_virtual(),
         }
     }
+}
+
+/// Placeholder left in a handle slot while the real transport is on the
+/// driver-call thread.
+struct NoIo;
+impl HidTransport for NoIo {
+    fn write(&mut self, _: &[u8]) -> Result<usize, freergb_device_api::TransportError> {
+        Ok(0)
+    }
+    fn read_timeout(
+        &mut self,
+        _: &mut [u8],
+        _: i32,
+    ) -> Result<usize, freergb_device_api::TransportError> {
+        Ok(0)
+    }
+    fn output_report_len(&self) -> usize {
+        0
+    }
+    fn input_report_len(&self) -> usize {
+        0
+    }
+}
+
+/// Writes the signed fail-safe reports one driver call at a time, each bounded
+/// by [`DRIVER_TIMEOUT`] and checked for an exact transfer. Returns the handle
+/// unless a call hung (then it is lost and later reports are not attempted).
+fn write_failsafe(
+    mut handle: Handle,
+    reports: Vec<(Op, Vec<u8>)>,
+    outcome: &mut FailsafeOutcome,
+) -> Option<Handle> {
+    let total = reports.len();
+    for (index, (op, data)) in reports.into_iter().enumerate() {
+        let wanted = data.len();
+        let result = bounded(handle, DRIVER_TIMEOUT, move |h| {
+            let padded = h.output_report_len();
+            let got = match op {
+                Op::SendFeature => h.send_feature(&data),
+                _ => h.write(&data),
+            };
+            (got, padded)
+        });
+        match result {
+            Ok((returned, (Ok(got), padded))) => {
+                handle = returned;
+                match check_transfer(op, wanted, got, padded) {
+                    Ok(()) => outcome.written += 1,
+                    Err(message) => outcome.errors.push(message),
+                }
+            }
+            Ok((returned, (Err(error), _))) => {
+                handle = returned;
+                outcome.errors.push(error.to_string());
+            }
+            Err(message) => {
+                outcome.errors.push(message);
+                let skipped = total - index - 1;
+                if skipped > 0 {
+                    outcome
+                        .errors
+                        .push(format!("{skipped} later report(s) not attempted"));
+                }
+                return None;
+            }
+        }
+    }
+    Some(handle)
 }
 
 impl Drop for CoolingPlugin {

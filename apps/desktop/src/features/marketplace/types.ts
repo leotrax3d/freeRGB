@@ -11,6 +11,7 @@ export interface MarketplaceStatus {
     source: string; catalog: Package[]; installed: Package[]; disabled?: string[]; error: string | null;
     failure: { code: string; effect_id: string | null; version: string | null } | null;
     ratings: Ratings;
+    community: CommunitySettings;
     job: { action: string; id: string | null; stage: string; bytes: number; total: number } | null;
   };
   active: EffectSpec;
@@ -24,6 +25,7 @@ export function matches(pkg: Package, query: string, installed: boolean, onlyIns
   return (!onlyInstalled || installed) && `${pkg.name} ${pkg.description} ${pkg.category} ${pkg.publisher.name}`.toLowerCase().includes(query.trim().toLowerCase());
 }
 
+export interface CommunitySettings { online: boolean; count_downloads: boolean }
 export interface Ratings {
   configured: boolean; by_effect: Record<string, { average: number; count: number; downloads?: number }>; mine: Record<string, number>;
   updated_at: number | null; loading: boolean; saving: string | null; error: string | null;

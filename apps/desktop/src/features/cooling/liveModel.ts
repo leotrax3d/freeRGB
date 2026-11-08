@@ -44,7 +44,12 @@ export function jobsOf(session: CoolingSession | null | undefined): CoolingSessi
 export function liveChannels(session: CoolingSession | null | undefined, list: SessionList | null | undefined): LiveChannel[] {
   const out = new Map<string, LiveChannel>();
   // Oldest first so the newest job of a channel wins.
-  for (const job of [...jobsOf(session)].reverse()) {
+  const jobs = new Map(jobsOf(session).map((job) => [job.job_id, job]));
+  // The list can discover channels before the next status event arrives.
+  for (const job of list?.active ?? []) {
+    if (!jobs.has(job.job_id)) jobs.set(job.job_id, job);
+  }
+  for (const job of [...jobs.values()].sort((a, b) => (a.job_id ?? 0) - (b.job_id ?? 0))) {
     const id = job.control_id;
     if (!id) continue;
     let state: LiveState;
