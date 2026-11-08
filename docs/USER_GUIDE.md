@@ -8,7 +8,7 @@ this folder and is linked where relevant.
 ## 1. Install
 
 1. Download the latest `freeRGB-<version>-windows-x86_64-setup.exe` from the
-   [GitHub releases](https://github.com/leotrax3d/FreeRGB/releases) (or the
+   [GitHub releases](https://github.com/leotrax3d/freeRGB/releases) (or the
    latest Package build from GitHub Actions). Windows asks for administrator
    approval once because the installer writes to Program Files.
 2. Close other RGB programs that control the same hardware first (SignalRGB,
@@ -174,7 +174,7 @@ previous daemon did not exit after a crash.
 3. Start freeRGB again from the Start Menu. The launcher starts a fresh daemon.
 4. If it persists, sign out and in again, then export diagnostics
    (**Settings → Diagnostics → Export**; secrets are redacted) and attach the
-   file to a [bug report](https://github.com/leotrax3d/FreeRGB/issues).
+   file to a [bug report](https://github.com/leotrax3d/freeRGB/issues).
 
 Do not delete the pipe or edit the registry; the pipe disappears when its
 owning process ends.

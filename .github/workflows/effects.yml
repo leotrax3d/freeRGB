@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$GH_REPO" = leotrax3d/FreeRGB
+          test "$GH_REPO" = leotrax3d/freeRGB
           # Monotonic sequence and immutable version names protect clients.
           if gh release view effects >/dev/null 2>&1; then
             mkdir /tmp/previous-effects

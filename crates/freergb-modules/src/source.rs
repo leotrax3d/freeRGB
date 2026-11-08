@@ -1,6 +1,6 @@
 //! Where catalog and packages come from, and bounded, cancellable downloads.
 //!
-//! Default: the rolling `modules` release of github.com/leotrax3d/FreeRGB.
+//! Default: the rolling `modules` release of github.com/leotrax3d/freeRGB.
 //! Assets are fetched through the GitHub API so a private repository works
 //! with `FREERGB_GITHUB_TOKEN`. A local directory or a plain HTTPS base URL
 //! can be configured instead (mirrors, offline repositories, tests).
@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-pub const DEFAULT_SOURCE: &str = "github:leotrax3d/FreeRGB@modules";
+pub const DEFAULT_SOURCE: &str = "github:leotrax3d/freeRGB@modules";
 pub const CATALOG_FILE: &str = "catalog.json";
 pub const SIGNATURE_FILE: &str = "catalog.json.sig";
 const ATTEMPTS: u32 = 3;

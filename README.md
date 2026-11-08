@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/leotrax3d/FreeRGB/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/leotrax3d/FreeRGB/ci.yml?style=flat-square&label=CI" alt="CI"></a>
+  <a href="https://github.com/leotrax3d/freeRGB/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/leotrax3d/freeRGB/ci.yml?style=flat-square&label=CI" alt="CI"></a>
   <a href="docs/RELEASE_NOTES_0.1.0-beta.4.md"><img src="https://img.shields.io/badge/status-beta-orange?style=flat-square" alt="Beta"></a>
   <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-lightgrey?style=flat-square" alt="Windows and Linux">
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-green?style=flat-square" alt="MIT or Apache-2.0"></a>
@@ -15,11 +15,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/leotrax3d/FreeRGB/releases">Downloads</a> ·
-  <a href="https://leotrax3d.github.io/FreeRGB/demo/">Live demo</a> ·
+  <a href="https://github.com/leotrax3d/freeRGB/releases">Downloads</a> ·
+  <a href="https://leotrax3d.github.io/freeRGB/demo/">Live demo</a> ·
   <a href="#gallery">Gallery</a> ·
   <a href="docs/INSTALL.md">Installation</a> ·
-  <a href="https://github.com/leotrax3d/FreeRGB/issues">Issues</a>
+  <a href="https://github.com/leotrax3d/freeRGB/issues">Issues</a>
 </p>
 
 > Public beta, mostly untested on real hardware. Only a few devices have been
@@ -68,7 +68,7 @@ have full Linux parity.
 ## Installation
 
 Windows installers for the beta releases are listed under
-[Releases](https://github.com/leotrax3d/FreeRGB/releases). They are unsigned, so
+[Releases](https://github.com/leotrax3d/freeRGB/releases). They are unsigned, so
 Windows may show a publisher or SmartScreen warning. Linux currently requires a
 source build, and Linux hardware support is untested.
 
@@ -82,7 +82,7 @@ to Rust 1.99.1; release tooling uses Node 24.19.0. Install the
 [platform dependencies](docs/INSTALL.md) first. Windows requires MSVC and Visual Studio C++ Build Tools.
 
 ```bash
-git clone https://github.com/leotrax3d/FreeRGB.git
+git clone https://github.com/leotrax3d/freeRGB.git
 cd FreeRGB
 cargo build --workspace --release --locked
 ```
@@ -171,7 +171,7 @@ it is a draft that has not been legally reviewed.
 
 ## Contributing
 
-[Report bugs](https://github.com/leotrax3d/FreeRGB/issues) with the version, platform,
+[Report bugs](https://github.com/leotrax3d/freeRGB/issues) with the version, platform,
 device IDs, reproduction steps and redacted diagnostics. Device-support contributions
 need protocol evidence and simulator tests. To port another OpenRGB device family,
 start with the [porting guide](docs/OPENRGB_PORTING.md).

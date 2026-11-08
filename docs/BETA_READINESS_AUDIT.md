@@ -2,9 +2,9 @@
 
 ## Latest Windows result: unsigned trial installer ready
 
-[Package run 40104663126](https://github.com/leotrax3d/FreeRGB/actions/runs/40104663126)
+[Package run 40104663126](https://github.com/leotrax3d/freeRGB/actions/runs/40104663126)
 completed successfully for commit `227214138b13de21bb57a52d737b41278f0e1622`.
-[Download the installer artifact](https://github.com/leotrax3d/FreeRGB/actions/runs/40104663126/artifacts/12565131407).
+[Download the installer artifact](https://github.com/leotrax3d/freeRGB/actions/runs/40104663126/artifacts/12565131407).
 No release was created or published; the draft-release job was skipped.
 
 - [x] Native Windows workspace tests, frontend/Tauri tests and release builds.
@@ -42,7 +42,7 @@ hardware access or driver installation occurred. The owner subsequently authoriz
 commit/push and Windows validation, while release publication remains prohibited.
 
 The existing `v0.1.0-beta.1` tag points to `eb1184a54bdacaebcc18d0f1e92a87712f099edd`.
-Its historical [Package run 40007563481](https://github.com/leotrax3d/FreeRGB/actions/runs/40007563481)
+Its historical [Package run 40007563481](https://github.com/leotrax3d/freeRGB/actions/runs/40007563481)
 failed because the Tauri `--locked` build needed a lock update; installer steps were
 skipped. It does not validate this candidate. Local application versions and release
 notes now consistently use **0.1.0-beta.2**; that candidate has not been published.

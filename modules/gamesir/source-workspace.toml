@@ -6,7 +6,7 @@ members = ["crates/freergb-core", "crates/freergb-module-api", "modules/gamesir"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/leotrax3d/FreeRGB"
+repository = "https://github.com/leotrax3d/freeRGB"
 rust-version = "1.80"
 [workspace.dependencies]
 freergb-core = { path = "crates/freergb-core" }

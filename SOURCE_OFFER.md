@@ -20,7 +20,7 @@ For every module binary package
     freergb-module-<module-id>-<version>-<target>.zip
 
 the matching complete corresponding source is published at the same download
-location (the `modules` release of https://github.com/leotrax3d/FreeRGB) as
+location (the `modules` release of https://github.com/leotrax3d/freeRGB) as
 
     freergb-module-<module-id>-<version>-source.zip
 

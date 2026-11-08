@@ -86,10 +86,10 @@ export function externalUrl(destination: ExternalDestination): string {
   switch (destination.kind) {
     case "email": return "mailto:freergbteam@gmail.com";
     case "youtube": return "https://www.youtube.com/channel/UCh-B-9nUgKeCNJm3ESrpR8w";
-    case "publisher": return "https://github.com/leotrax3d/FreeRGB";
+    case "publisher": return "https://github.com/leotrax3d/freeRGB";
     case "issue": {
       if (!destination.title || [...destination.title].length > 160 || new TextEncoder().encode(destination.body).length > 6000) throw new Error("Shorten the report before opening GitHub.");
-      const url = new URL("https://github.com/leotrax3d/FreeRGB/issues/new");
+      const url = new URL("https://github.com/leotrax3d/freeRGB/issues/new");
       url.searchParams.set("title", destination.title); url.searchParams.set("body", destination.body);
       if (url.href.length > 16000) throw new Error("Report is too long for a browser link. Copy it instead.");
       return url.href;

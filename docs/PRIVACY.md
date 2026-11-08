@@ -35,7 +35,7 @@ need assessment.]
 
 | # | Flow | Trigger | Data sent | Recipient | Default | Code |
 |---|---|---|---|---|---|---|
-| F1 | Effect catalog and package download | Marketplace "check for updates" and "install" (user action) | HTTPS request to GitHub (`leotrax3d/FreeRGB`, branch `effects`); IP address and request metadata visible to GitHub; no freeRGB identifier | GitHub | active when used | `marketplace.rs` `Manager::refresh/install`, `freergb-modules/src/source.rs` |
+| F1 | Effect catalog and package download | Marketplace "check for updates" and "install" (user action) | HTTPS request to GitHub (`leotrax3d/freeRGB`, branch `effects`); IP address and request metadata visible to GitHub; no freeRGB identifier | GitHub | active when used | `marketplace.rs` `Manager::refresh/install`, `freergb-modules/src/source.rs` |
 | F2 | Hardware module catalog and download | module install/update | same as F1 (GitHub releases API) | GitHub | active when used | `freergb-modules/src/source.rs` |
 | F3 | Application update check | update page of the GUI (a setting can run it automatically, see the update docs) | GitHub API request with `User-Agent: freeRGB/<version>`; IP address | GitHub | per update settings | `freergb-update/src/lib.rs` |
 | F4 | Rating summaries | Marketplace page opened or "refresh ratings" | list of effect IDs (max. 64 per request); IP address and request metadata; **no identity** | Appwrite (function `community-api`) | **off** | `ratings.rs` `fetch`, `main.js` `summary` |
@@ -48,7 +48,7 @@ need assessment.]
 | F11 | Moderation | operator action | block flag keyed by user ID, audit entry (operator ID, action, target) | Appwrite `blocked_users`, `audit` | operator only | `admin.js` |
 | F12 | Abuse quota | every authenticated community call | hashed slot ID derived from user ID, action and time window, plus expiry | Appwrite `quota_slots` | **off** | `security.js` |
 | F13 | Website: fonts | visitor opens the website | request to `fonts.googleapis.com` (stylesheet `@import`), so the visitor's IP address goes to Google | Google | active | `website/src/index.css` |
-| F14 | Website: releases | visitor opens the download section | browser request to `api.github.com/repos/leotrax3d/FreeRGB/releases` | GitHub | active | `website/src/App.tsx` |
+| F14 | Website: releases | visitor opens the download section | browser request to `api.github.com/repos/leotrax3d/freeRGB/releases` | GitHub | active | `website/src/App.tsx` |
 | F15 | Provider-side logs | any request to Appwrite or GitHub | IP address, timestamps, user agent, request metadata held by the provider under its own policy; Appwrite also keeps session metadata for anonymous sessions and function execution logs [content and retention to be verified against Appwrite documentation and the DPA] | Appwrite, GitHub, Google | n/a | provider |
 
 Notes:

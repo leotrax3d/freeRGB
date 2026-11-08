@@ -42,7 +42,7 @@ API v1, avoiding ambiguous guest budgets and package dependencies.
 
 ## Trust and failure boundaries
 
-Production source is fixed to `github:leotrax3d/FreeRGB@effects`. The existing
+Production source is fixed to `github:leotrax3d/freeRGB@effects`. The existing
 GitHub release-asset transport is reused. Catalogs and packages come from that
 repository over verified HTTPS. Catalog entries may name release assets only;
 arbitrary URLs, paths and repositories are rejected. SHA-256 and exact size bind

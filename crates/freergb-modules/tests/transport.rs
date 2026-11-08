@@ -436,7 +436,7 @@ fn signed_catalog_install_real_child_lifecycle_for_every_transport() {
             devices: vec![],
             origin: Origin {
                 project: "freeRGB".into(),
-                url: "https://github.com/leotrax3d/FreeRGB".into(),
+                url: "https://github.com/leotrax3d/freeRGB".into(),
                 commit: "0000000".into(),
             },
             requires: vec![],

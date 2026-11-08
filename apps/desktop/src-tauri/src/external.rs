@@ -12,12 +12,12 @@ pub fn url(destination: Destination) -> Result<String, String> {
     Ok(match destination {
         Destination::Email => "mailto:freergbteam@gmail.com".into(),
         Destination::Youtube => "https://www.youtube.com/channel/UCh-B-9nUgKeCNJm3ESrpR8w".into(),
-        Destination::Publisher => "https://github.com/leotrax3d/FreeRGB".into(),
+        Destination::Publisher => "https://github.com/leotrax3d/freeRGB".into(),
         Destination::Issue { title, body } => {
             if title.is_empty() || title.chars().count() > 160 || body.len() > 6000 {
                 return Err("Report is too long to open safely; shorten it before sharing".into());
             }
-            let mut url = url::Url::parse("https://github.com/leotrax3d/FreeRGB/issues/new")
+            let mut url = url::Url::parse("https://github.com/leotrax3d/freeRGB/issues/new")
                 .map_err(|e| e.to_string())?;
             url.query_pairs_mut()
                 .append_pair("title", &title)
@@ -46,7 +46,7 @@ mod tests {
         .unwrap();
         let parsed = url::Url::parse(&value).unwrap();
         assert_eq!(parsed.host_str(), Some("github.com"));
-        assert_eq!(parsed.path(), "/leotrax3d/FreeRGB/issues/new");
+        assert_eq!(parsed.path(), "/leotrax3d/freeRGB/issues/new");
         assert!(parsed.fragment().is_none());
         assert_eq!(parsed.query_pairs().count(), 2);
         assert!(url(Destination::Issue {

@@ -18,7 +18,7 @@ use std::{
     },
 };
 
-pub const OFFICIAL: &str = "github:leotrax3d/FreeRGB@effects";
+pub const OFFICIAL: &str = "github:leotrax3d/freeRGB@effects";
 const COMMUNITY_OFF: &str = "Online community features are turned off. Enable them in the Marketplace privacy settings to rate effects or send reports.";
 #[cfg(test)]
 mod cancellation_tests {
