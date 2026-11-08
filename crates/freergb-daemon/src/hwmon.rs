@@ -426,8 +426,9 @@ impl HwmonProvider {
     }
 
     /// Restores channels a crashed daemon left in manual mode, scans, resumes
-    /// saved assignments for the same board and starts the 1 s control loop.
-    pub fn start(&mut self, hardware_allowed: bool) -> Result<(), String> {
+    /// saved assignments for the same board only with current safety confirmation,
+    /// and starts the 1 s control loop.
+    pub fn start(&mut self, hardware_allowed: bool, safety_confirmed: bool) -> Result<(), String> {
         if self.started {
             return Err("hwmon provider already started".into());
         }
@@ -447,7 +448,7 @@ impl HwmonProvider {
         lock(&self.shared).chips = scan(&self.root);
         lock(&self.shared).scanned = Some(Instant::now());
         if let Some(config) = self.load_config() {
-            if config.board == self.board {
+            if safety_confirmed && config.board == self.board {
                 for assignment in config.assignments {
                     if let Err(error) = self.assign(assignment.clone()) {
                         tracing::warn!(channel = %assignment.channel_id, %error, "saved hwmon assignment not resumed");
@@ -643,6 +644,9 @@ impl HwmonProvider {
                 }
                 shared.status.remove(id);
             }
+        }
+        if !shared.unresolved.is_empty() {
+            errors.push("Previous return to firmware is unresolved".into());
         }
         if let Err(e) = write_journal(self.journal_path().as_deref(), &shared) {
             errors.push(e);
@@ -1178,7 +1182,7 @@ impl Drop for HwmonProvider {
 
 impl HwmonProvider {
     /// Stops the loop and returns every header to firmware; saved assignments
-    /// are kept so they resume with the next daemon start.
+    /// are kept for the next daemon start with current safety confirmation.
     pub fn shutdown(&mut self) {
         *lock(&self.stop.0) = true;
         self.stop.1.notify_all();
@@ -1280,7 +1284,7 @@ mod tests {
     fn scans_temperatures_fans_and_headers_with_board_identity() {
         let f = Fixture::new("scan");
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         let view = p.view();
         assert_eq!(view["board"]["product"], "TUF B650");
         let chip = &view["chips"][0];
@@ -1305,7 +1309,7 @@ mod tests {
     fn manual_assignment_enforces_floor_and_release_restores_firmware() {
         let f = Fixture::new("manual");
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         let id = channel_id(&chip_id(&p), 1);
         p.assign(Assignment {
             channel_id: id.clone(),
@@ -1333,7 +1337,7 @@ mod tests {
     fn refuses_headers_owned_by_another_tool_and_pumps_stay_full() {
         let f = Fixture::new("owned");
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         let chip = chip_id(&p);
         let err = p
             .assign(Assignment {
@@ -1358,7 +1362,7 @@ mod tests {
     fn curve_follows_temperature_and_missing_sensor_goes_full() {
         let f = Fixture::new("curve");
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         let chip = chip_id(&p);
         let curve = FanCurve::default(); // 25->30, 50->55, 75->100
         p.assign(Assignment {
@@ -1392,7 +1396,7 @@ mod tests {
     fn firmware_takeback_and_stall_fault_return_to_firmware() {
         let f = Fixture::new("fault");
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         let chip = chip_id(&p);
         p.assign(Assignment {
             channel_id: channel_id(&chip, 2),
@@ -1444,7 +1448,7 @@ mod tests {
     fn manual_without_a_fresh_temperature_goes_full() {
         let f = Fixture::new("interlock");
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         let a = manual_70(&p);
         p.assign(a).unwrap();
         assert_eq!(f.read("pwm1"), "179");
@@ -1471,7 +1475,7 @@ mod tests {
     fn unavailable_journal_blocks_first_write() {
         let f = Fixture::new("nojournal");
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         // The state path is a file: the journal cannot be made durable.
         std::fs::remove_dir_all(f.root.join("state")).ok();
         std::fs::write(f.root.join("state"), b"x").unwrap();
@@ -1482,7 +1486,7 @@ mod tests {
         assert!(lock(&p.shared).active.is_empty());
         // No state directory at all behaves the same.
         let mut p = HwmonProvider::new(f.root.join("class"), f.root.join("dmi"), None);
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         let a = manual_70(&p);
         assert!(p.assign(a).is_err());
         assert_eq!(f.read("pwm1_enable"), "5");
@@ -1492,7 +1496,7 @@ mod tests {
     fn failed_restore_stays_journaled_until_proven() {
         let f = Fixture::new("unresolved");
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         let a = manual_70(&p);
         let id = a.channel_id.clone();
         p.assign(a.clone()).unwrap();
@@ -1510,7 +1514,7 @@ mod tests {
         );
         std::mem::forget(p); // crash before any proof
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         assert!(
             journal.exists(),
             "restart keeps the entry while restore fails"
@@ -1519,7 +1523,7 @@ mod tests {
         std::fs::remove_dir(&enable).unwrap();
         std::fs::write(&enable, saved).unwrap();
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         assert!(!journal.exists(), "proven return clears the journal");
         assert_eq!(f.read("pwm1_enable"), "5");
     }
@@ -1530,7 +1534,7 @@ mod tests {
         std::fs::create_dir_all(f.root.join("state")).unwrap();
         std::fs::write(f.root.join("state/hwmon-control-journal.json"), b"{nope").unwrap();
         let mut p = f.provider();
-        assert!(p.start(true).is_err());
+        assert!(p.start(true, true).is_err());
         assert!(f
             .root
             .join("state/hwmon-control-journal.json.corrupt")
@@ -1542,7 +1546,7 @@ mod tests {
         let f = Fixture::new("resume");
         {
             let mut p = f.provider();
-            p.start(true).unwrap();
+            p.start(true, true).unwrap();
             let chip = chip_id(&p);
             p.assign(Assignment {
                 channel_id: channel_id(&chip, 1),
@@ -1567,8 +1571,14 @@ mod tests {
             serde_json::to_vec(&journal).unwrap(),
         )
         .unwrap();
+        {
+            let mut p = f.provider();
+            p.start(true, false).unwrap();
+            assert_eq!(f.read("pwm1_enable"), "5");
+            assert_eq!(p.view()["assignments"].as_array().unwrap().len(), 0);
+        }
         let mut p = f.provider();
-        p.start(true).unwrap();
+        p.start(true, true).unwrap();
         // Recovered to firmware, then the saved assignment resumed at 70%.
         assert_eq!(f.read("pwm1"), "179");
         assert_eq!(p.view()["assignments"][0]["percent"], 70.0);
@@ -1613,7 +1623,7 @@ mod tests {
                 .collect();
             let f = Fixture::with_chip(&format!("drv{n}"), &refs);
             let mut p = f.provider();
-            p.start(true).unwrap();
+            p.start(true, true).unwrap();
             assert_eq!(p.view()["chips"][0]["driver"]["family"], d.family);
             let chip = chip_id(&p);
             let controls = p
@@ -1685,7 +1695,7 @@ mod tests {
     #[test]
     fn no_hardware_blocks_start() {
         let mut p = HwmonProvider::default();
-        assert!(p.start(false).unwrap_err().contains("--no-hardware"));
+        assert!(p.start(false, false).unwrap_err().contains("--no-hardware"));
         assert_eq!(p.summary().status, "disabled");
     }
 }

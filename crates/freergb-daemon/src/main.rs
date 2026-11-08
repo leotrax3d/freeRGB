@@ -240,7 +240,8 @@ fn main() -> Result<()> {
     #[cfg(target_os = "linux")]
     if !args.no_hardware && !args.no_hwmon {
         // Kernel hwmon: reading is passive; headers are written only after an
-        // explicit assignment (cooling.hwmon.set) or a saved one for this board.
+        // explicit assignment (cooling.hwmon.set), or a saved one for this board
+        // with acknowledgement of the current safety notice.
         let root = std::env::var_os("FREERGB_HWMON_ROOT")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| "/sys/class/hwmon".into());
@@ -253,7 +254,10 @@ fn main() -> Result<()> {
         engine
             .hwmon
             .set_unrestricted(engine.fan_support.config.unrestricted_enabled);
-        if let Err(error) = engine.hwmon.start(true) {
+        if let Err(error) = engine
+            .hwmon
+            .start(true, engine.onboarding.safety_acknowledged())
+        {
             tracing::warn!(%error, "Linux hwmon fan provider unavailable");
         }
     }
