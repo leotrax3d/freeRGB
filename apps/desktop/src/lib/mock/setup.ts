@@ -102,6 +102,9 @@ export function mockSetup(onChange: () => void) {
         onChange();
       }, 2400);
     },
+    forget(keys: string[]) {
+      set(keys.filter((key) => status.cards.some((c) => c.key === key && !c.builtin)), { configured: false });
+    },
     dismiss(keys: string[]) {
       set(keys, { dismissed: true });
     },
