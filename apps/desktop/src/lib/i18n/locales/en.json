@@ -1,4 +1,6 @@
 {
+  "common.beta": "Beta",
+  "settings.about.productBeta": "freeRGB desktop Beta",
   "common.back": "Back",
   "common.next": "Next",
   "common.done": "Done",
@@ -893,7 +895,7 @@
   "monitoring.customUnavailable": "Custom temperature sources unavailable.",
   "monitoring.board.noStatus": "Provider status unavailable.",
   "onboarding.dialog": "freeRGB setup",
-  "onboarding.setup": "Setup",
+  "onboarding.setup": "Beta - Setup",
   "onboarding.progress": "Setup progress",
   "onboarding.step.welcome": "Welcome",
   "onboarding.step.safety": "Safety",

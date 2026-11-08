@@ -16,9 +16,9 @@
 
 [Setup]
 AppId={{A635E27A-ADBF-4DC2-8BF4-4237EC0C96ED}
-AppName=freeRGB
+AppName=freeRGB Beta
 AppVersion={#AppVersion}
-AppPublisher=freeRGB contributors
+; Publisher identity is supplied by the private individual before release.
 AppPublisherURL=https://github.com/leotrax3d/FreeRGB
 ; Per-machine install with one UAC prompt at start (docs/SETUP_WIZARD.md).
 DefaultDirName={autopf}\freeRGB

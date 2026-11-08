@@ -121,3 +121,33 @@ R9. Bindings (item 10): `cooling.bindings.get` after one save from the
 ## Done when
 All steps recorded with commit and result; failures turned into fix tasks;
 STATUS/FAN_COVERAGE/README progress updated only from recorded evidence.
+
+
+## Beta review follow-up packages (2026-11-08; not executed here)
+
+Source review: `docs/legal/FAN_CONTROL_DEFAULTS.md`.
+
+- **FC-defaults (code package):** inventory every API, CLI, profile, boot service,
+  plugin and persisted-assignment entry point against current acknowledgement;
+  regression cases for fresh install, stale/revoked acknowledgement, restart,
+  existing configuration and upgrade. Decide with owner whether a separate
+  persistent master OFF switch is required; present gate permits opted-in resume.
+- **FC-RPM (code + hardware):** distinguish PWM floors, calibration minima and
+  actual tachometer feedback. Confirm stale/stalled RPM behavior per backend;
+  assess whether mapped open-loop fallback needs an additional stall response.
+  Never infer a physical minimum from a duty percentage.
+- **FC-pump (owner hardware):** verify header identity, pump 100% default,
+  refusal of reduction before separate confirmation, and forbidden fan-stop
+  shaping. Use mocks for reduction/unlock checks until owner authorizes each
+  physical step; never reduce the identified AIO pump in this session plan.
+- **FC-return (owner hardware):** record stop, revoke, crash/restart, suspend,
+  driver failure and power-loss behavior separately for Windows tiers, hwmon,
+  GPU and plugins. Confirm actual firmware/driver return, retained unresolved
+  journals and blocked reacquisition. Process-side watchdogs alone are not
+  evidence of recovery while that process is absent.
+- **FC-unlock (UI/API package):** verify EN/DE warnings precede unlock; switch,
+  exact channel name, identity invalidation and separate pump confirmation must
+  be enforced. Confirm the API rejects bypass attempts without these records.
+
+All physical steps remain subject to the owner-present rules above. This list
+records open evidence and implementation questions, not completed acceptance.

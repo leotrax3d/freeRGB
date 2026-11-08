@@ -1,3 +1,5 @@
+> Beta software. The public website must visibly label the current release as Beta.
+
 # Website content
 
 This file is the canonical source for website content that changes with the product.
@@ -120,7 +122,7 @@ Releases.
     {
       "name": "Memory lighting",
       "id": "SMBus",
-      "scope": "Detection only while safe cross-platform control is evaluated"
+      "scope": "Detection only while cross-platform control is evaluated"
     },
     {
       "name": "Fan and pump control",

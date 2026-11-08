@@ -197,7 +197,7 @@ export default function App() {
       <section id="overview" className="overview view-section" aria-labelledby="hero-title">
         <div className="overview-copy">
           <h1 id="hero-title">Control your<br />RGB lighting.</h1>
-          <p className="lead">Set RGB effects and fan curves from one app.</p>
+          <p className="lead">Beta software: set RGB effects and fan curves from one app.</p>
           <div className="actions"><a className="button primary" href={`${import.meta.env.BASE_URL}demo/`} target="_blank" rel="noreferrer"><Play size={15} />Try the live demo</a><a className="button secondary" href={installTarget.href} target={platform === "other" ? undefined : "_blank"} rel={platform === "other" ? undefined : "noreferrer"}><Download size={15} />{installTarget.label}</a></div>
         </div>
         <EffectPlayground />
@@ -228,7 +228,7 @@ export default function App() {
       </section>)}
 
       <section id="install" className="install view-section">
-        <header className="view-header"><div className="view-symbol"><Download size={18} /></div><div><h2>Install freeRGB</h2></div></header>
+        <header className="view-header"><div className="view-symbol"><Download size={18} /></div><div><h2>Install freeRGB Beta</h2></div></header>
         {release && <div className="release-panel"><div className="release-icon"><Package size={20} /></div><div><h3>{release.name}</h3><p>{release.notes}</p><a href={release.url} target="_blank" rel="noreferrer">Release notes <ArrowUpRight size={13} /></a></div></div>}
         <div className="install-list">
           <a className={platform === "windows" ? "recommended" : ""} href={windowsAsset?.url ?? websiteData.downloads.windows.url} target="_blank" rel="noreferrer"><Monitor size={20} /><span><b>{websiteData.downloads.windows.label}</b><small>{platform === "windows" ? `Recommended · ${windowsAsset ? "Download latest installer" : websiteData.downloads.windows.note}` : websiteData.downloads.windows.note}</small></span><ArrowUpRight size={15} /></a>
