@@ -39,7 +39,7 @@ Lighthouse 12.3 (local production build, Edge headless):
 | download | desktop | 100 | 100 | 100 | 100 | 0 | 0.4 s |
 | devices | mobile | 99 | 100 | 100 | 100 | 0 | 2.1 s |
 | devices | desktop | 100 | 100 | 100 | 100 | 0 | 0.4 s |
-| docs | mobile | 99 | 100 | 100 | 100 | 0 | 2.0 s |
+| docs | mobile | 99 | 100 | 100 | 100 | 0 | 1.8 s |
 | docs | desktop | 100 | 100 | 100 | 100 | 0 | 0.4 s |
 | privacy | mobile | 99 | 100 | 100 | 100 | 0 | 2.0 s |
 | privacy | desktop | 100 | 100 | 100 | 100 | 0 | 0.4 s |
@@ -58,8 +58,10 @@ Lighthouse 12.3 (local production build, Edge headless):
    `website/src/content/site.ts`. The file should point there or be retired.
 4. `website/src/data/hardware.json` and `scripts/website/build-hardware-db.mjs` are no
    longer used by the site (the Devices page uses `docs/openrgb-compatibility.json`).
-5. Screenshots in `docs/screenshots` are from 0.1.0-beta.2 and show "Mock data". After
-   the UI lead refreshes them, run `node website/build/optimize-images.mjs`.
+5. The site uses the UI lead's refreshed screenshots (1600 × 1000, from
+   `scripts/capture-screenshots.mjs`); they still carry the app's "Mock data" label.
+   `docs/screenshots/README.md` still describes the older 1440 × 1000 capture. After
+   the next refresh, run `node website/build/optimize-images.mjs`.
 6. Owner decisions still open: D6 (licence of logo, icons and screenshots), Impressum
    (lawyer question), final legal texts (D5). The Privacy page states only facts about
    the website and links to the drafts.

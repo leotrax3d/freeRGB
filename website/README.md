@@ -47,8 +47,8 @@ never call a device or board confirmed or tested.
 
 ## Screenshots
 
-The app screenshots come from `docs/screenshots` (see its README for how to
-capture them). After refreshing them, regenerate the AVIF/WebP variants:
+The app screenshots come from `docs/screenshots`, captured from the desktop demo
+build with `scripts/capture-screenshots.mjs`. After refreshing them, regenerate the AVIF/WebP variants:
 
 ```bash
 npm install --no-save sharp

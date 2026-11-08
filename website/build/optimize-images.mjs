@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url)
 const sharp = require(process.env.SHARP_PATH || "sharp")
 const src = fileURLToPath(new URL("../../docs/screenshots/", import.meta.url))
 const out = fileURLToPath(new URL("../src/assets/screens/", import.meta.url))
-const widths = [640, 960, 1440]
+const widths = [640, 960, 1600]
 const names = ["lighting", "layout", "cooling", "monitoring", "profiles", "devices", "macros", "marketplace", "settings"]
 
 mkdirSync(out, { recursive: true })

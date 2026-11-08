@@ -145,5 +145,5 @@ Runs a mainstream distro, used to OpenRGB, wants a native tool without Wine.
 - `docs/PRIVACY.md` (F13) and `docs/legal/ASSET_LIST.md` still mention Google Fonts.
   These files are outside this task's edit scope; listed as open items.
 - The `/admin/` bundle under the same site talks to Appwrite. The Privacy page must say so.
-- Screenshots in `docs/screenshots` date from 0.1.0-beta.2 (2026-10-24) and carry a
-  "Mock data" label.
+- Screenshots in `docs/screenshots` dated from 0.1.0-beta.2 when this started; the UI
+  lead refreshed them (1600 × 1000) before the merge. They carry a "Mock data" label.
