@@ -63,6 +63,13 @@ have full Linux parity.
 | --- | --- |
 | [![Devices](docs/screenshots/devices.png)](docs/screenshots/devices.png) | [![Settings](docs/screenshots/settings.png)](docs/screenshots/settings.png) |
 
+| Mainboard RGB headers | Lighting (German) |
+| --- | --- |
+| [![Headers](docs/screenshots/headers.png)](docs/screenshots/headers.png) | [![Lighting in German](docs/screenshots/lighting-de.png)](docs/screenshots/lighting-de.png) |
+
+Screenshots come from the browser demo with simulated data
+(`scripts/capture-screenshots.mjs`); the UI currently ships a dark theme only.
+
 </details>
 
 ## Installation
