@@ -11,7 +11,7 @@ import { EffectPlayground } from "./components/EffectPlayground"
 import { ProductTour } from "./components/ProductTour"
 import { HardwareCheck } from "./components/HardwareCheck"
 
-const repo = "https://github.com/leotrax3d/FreeRGB"
+const repo = "https://github.com/leotrax3d/freeRGB"
 
 type Platform = "windows" | "linux" | "other"
 type Feature = {
@@ -134,7 +134,7 @@ export default function App() {
 
   useEffect(() => {
     // /releases/latest skips prereleases, so take the newest published entry (betas included).
-    fetch("https://api.github.com/repos/leotrax3d/FreeRGB/releases?per_page=10", { headers: { Accept: "application/vnd.github+json" } })
+    fetch("https://api.github.com/repos/leotrax3d/freeRGB/releases?per_page=10", { headers: { Accept: "application/vnd.github+json" } })
       .then(async (response) => {
         if (response.status === 404) return null
         if (!response.ok) throw new Error(`GitHub returned ${response.status}`)

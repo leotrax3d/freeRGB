@@ -8,7 +8,7 @@ describe("reviewed external destinations", () => {
   it("encodes a reviewed report inside the official GitHub issue URL", () => {
     const url = new URL(externalUrl({ kind: "issue", title: "FX_TEST &redirect=evil#x", body: "Device info\n<test>" }));
     expect(url.origin).toBe("https://github.com");
-    expect(url.pathname).toBe("/leotrax3d/FreeRGB/issues/new");
+    expect(url.pathname).toBe("/leotrax3d/freeRGB/issues/new");
     expect(url.searchParams.get("body")).toBe("Device info\n<test>");
     expect(url.hash).toBe("");
     expect([...url.searchParams]).toHaveLength(2);

@@ -3,7 +3,7 @@
 ## Hosting and login
 
 The admin application is a static JavaScript/Vite app at
-`https://leotrax3d.github.io/FreeRGB/admin/`. It is assembled alongside the existing
+`https://leotrax3d.github.io/freeRGB/admin/`. It is assembled alongside the existing
 website and isolated desktop demo by `scripts/build-website.mjs`. GitHub Pages is
 public hosting; no inbox data, service keys or session credentials are built into
 the site. Appwrite checks authentication and admin-team membership on every admin

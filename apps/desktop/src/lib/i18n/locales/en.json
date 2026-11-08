@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Save startup settings",
   "cooling.profileService.confirm": "Confirm startup settings",
   "cooling.profileService.saved": "Cooling startup settings saved",
-  "cooling.profileService.refresh": "Refresh"
+  "cooling.profileService.refresh": "Refresh",
+  "error.daemon.profile": "The profile could not be loaded or saved.",
+  "error.daemon.deviceNotFound": "Device not found.",
+  "error.daemon.refused": "The daemon refused the request",
+  "error.daemon.modulesDisabled": "Hardware modules are disabled.",
+  "error.daemon.unknownMethod": "The daemon does not know this request (version mismatch?).",
+  "error.daemon.invalidParams": "Invalid request",
+  "error.daemon.unreachable": "Cannot reach freergbd. Is it running?"
 }

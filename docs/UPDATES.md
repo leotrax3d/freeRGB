@@ -23,7 +23,7 @@ installed components prevents removal. Profiles under `%APPDATA%\freeRGB` surviv
 uninstallation. See `INSTALL.md` for lifecycle tests and `MAINBOARD_INSTALLATION.md`
 for protected-service behavior.
 
-Both GUIs use `freergb-update` and the fixed `leotrax3d/FreeRGB` GitHub repository.
+Both GUIs use `freergb-update` and the fixed `leotrax3d/freeRGB` GitHub repository.
 Stable builds use the latest stable release. Prerelease builds examine up to 100
 releases, accept only the same prerelease channel or promotion to stable, and
 select by SemVer. Drafts, rolling/non-version tags, other prerelease channels and

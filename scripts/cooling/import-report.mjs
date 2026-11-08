@@ -66,7 +66,7 @@ function selfTest() {
       { channel: 3, chip: "nct6798", backend: "hwmon", tier: "unknown", test: "none" },
     ],
   };
-  const opts = { issue: "https://github.com/leotrax3d/FreeRGB/issues/1", result: "partly" };
+  const opts = { issue: "https://github.com/leotrax3d/freeRGB/issues/1", result: "partly" };
   const out = entries(report, opts, matrix);
   const ok = out.length === 2 && out[0].status === "community-reported" && out[0].result.includes("1 passed / 1 failed") && out[1].chip === "NCT6798D";
   const rejects = [
