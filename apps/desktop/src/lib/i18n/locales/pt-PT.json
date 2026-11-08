@@ -1244,5 +1244,20 @@
   "cooling.profileService.unresolved": "Dispositivos não resolvidos: {ids}",
   "cooling.profileService.service": "Arranque de refrigeração",
   "cooling.profileService.login": "Modo de início de sessão",
-  "cooling.profileService.serviceMode": "Modo de serviço"
+  "cooling.profileService.serviceMode": "Modo de serviço",
+  "settings.about.offByDefault": "Funcionalidades online/comunitárias, telemetria e contagem de transferências: desativadas por predefinição.",
+  "settings.about.legal": "Aviso legal",
+  "setup.card.forget": "Esquecer {name}",
+  "setup.card.forgetConfirm": "Esquecer dispositivo?",
+  "mainboardRgb.headers": "Cabeçalhos",
+  "mainboardRgb.hint": "Configurar cabeçalhos de iluminação da placa-mãe",
+  "mainboardRgb.type": "Tipo de cabeçalho",
+  "mainboardRgb.canvas": "Tela (0-1)",
+  "mainboardRgb.test": "Testar RGB (6 s)",
+  "mainboardRgb.help": "Guarde antes de testar. O teste mostra vermelho, verde e azul durante dois segundos cada um e, depois, retoma os efeitos. Os retângulos da tela amostram o efeito partilhado. O tipo descreve o cabeçalho ligado; não pode alterar a sua tensão. As zonas fixas da MSI mantêm as contagens de LED comunicadas.",
+  "mainboardRgb.argb": "5 V ARGB",
+  "mainboardRgb.rgb": "12 V RGB",
+  "mainboardRgb.unavailable": "Os cabeçalhos estão indisponíveis. Ligue-se a um daemon atualizado.",
+  "cooling.profileService.manage": "Transferência de perfis e arranque",
+  "cooling.profileService.json": "JSON do perfil de arrefecimento"
 }

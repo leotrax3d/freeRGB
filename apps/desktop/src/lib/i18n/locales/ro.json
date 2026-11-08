@@ -1244,5 +1244,20 @@
   "cooling.profileService.unresolved": "Dispozitive nerezolvate: {ids}",
   "cooling.profileService.service": "Pornire răcire",
   "cooling.profileService.login": "Mod de autentificare",
-  "cooling.profileService.serviceMode": "Mod serviciu"
+  "cooling.profileService.serviceMode": "Mod serviciu",
+  "common.beta": "Beta",
+  "settings.about.productBeta": "freeRGB desktop Beta",
+  "market.privacy.title": "Comunitate online și confidențialitate",
+  "market.privacy.body": "Dezactivat în mod implicit. Efectele se instalează fără un cont de comunitate. Activarea permite freeRGB să contacteze serviciul comunității (Appwrite) pentru a afișa evaluări, a trimite voturile tale cu stele și a trimite rapoartele pe care le verifici mai întâi. Aceasta creează un ID anonim aleatoriu pe acest dispozitiv.",
+  "market.privacy.online": "Folosește funcțiile comunității online (evaluări, rapoarte)",
+  "market.privacy.count": "Numără și descărcările efectelor mele (stochează o înregistrare de descărcare cu ID-ul meu anonim)",
+  "monitoring.loading": "Se încarcă…",
+  "monitoring.board.providers": "Furnizori de senzori",
+  "monitoring.board.empty": "Nu sunt disponibili senzori de placă de bază.",
+  "monitoring.board.unavailable": "Citirile senzorilor plăcii de bază nu sunt disponibile.",
+  "monitoring.serviceUnavailable": "Diagnosticarea serviciului nu este disponibilă.",
+  "monitoring.deviceSensorsUnavailable": "Citirile senzorilor dispozitivului nu sunt disponibile.",
+  "monitoring.customUnavailable": "Sursele de temperatură personalizate nu sunt disponibile.",
+  "settings.about.disclaimer": "Software gratuit, necomercial, open-source, creat de un dezvoltator privat. Furnizat gratuit, fără garanție. Nu este afiliat cu niciun producător de hardware.",
+  "settings.about.risk": "Controlul ventilatoarelor și al pompelor este experimental și neconfirmat pe majoritatea hardware-ului. Folosește pe propria răspundere. Răspunderea este limitată conform termenilor de instalare, numai în limitele permise de lege; răspunderea pentru vătămarea vieții, integritate corporală sau sănătate, intenție, neglijență gravă și conform legii privind răspunderea obligatorie pentru produse rămâne neafectată."
 }
