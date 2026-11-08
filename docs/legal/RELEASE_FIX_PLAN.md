@@ -61,23 +61,21 @@ Release key, signing, publishing and real-hardware tests are out of scope here.
 Codex workers are unavailable until about 15:43 on 2026-11-07. Wave 1 (max 3 at
 once): notices, fr005, privacy. Wave 2: linux-ci, then fr012 once coolsafety is on main.
 
-## State at shutdown (2026-11-07)
+## State (2026-11-08)
 
-On main: plan, OWNER_DECISIONS.md, FR-013, FR-011. Pushed, NOT merged, none passed the full
-`cargo test --workspace --locked` gate yet (fmt and clippy passed for notices and privacy):
+Merged to main: FR-005, FR-006, FR-007, FR-010 (tooling and gap report), FR-011, FR-012, FR-013,
+plus drafts: LICENSE_ASSESSMENT.md (AI assessment), SAFETY_LIABILITY_TEXTS.md (integrated in
+installer and app, text version 3), RELEASE_SCOPE.md, ASSET_LIST.md, NONCOMMERCIAL_CHECK.md,
+FAN_CONTROL_DEFAULTS.md, APPWRITE_CHANGES.md, PRIVACY.md, website self-hosted fonts and privacy note.
 
-| Branch | Content | Next |
+Open:
+
+| Item | Next step | Who |
 |---|---|---|
-| task/legal-notices | gen-notices.py, THIRD_PARTY_NOTICES.md, NOTICE, SOURCE_OFFER.md (draft), installer/Linux staging, SBOM licences, provenance gap report | run workspace tests, review, merge. Not run: Inno compile, desktop npm tests |
-| task/legal-fr005 | WIP safety claims text (safety.ts, COOLING_SAFETY.md, NativeControlSession.cs comments, onboarding.rs, mock transport) | review the diff, bump/verify text version, run full gate incl. desktop tests; mark items pending task/coolsafety |
-| task/legal-privacy | community.json switches (online/count default off), GUI toggle, docs/PRIVACY.md draft, truthful README/website text | run workspace tests, merge |
-| fr012 | not started | start after task/coolsafety is on main |
+| FR-010 / D3 | Rewrite (without reading upstream) or remove files with unclear provenance, per `MODULE_PROVENANCE_GAPS.md` | engineering package |
+| D4 Appwrite | Re-authenticate the Appwrite MCP, run the read-only inventory, owner approves the 8 changes in `APPWRITE_CHANGES.md` | owner |
+| D5 / D2 / FR-015 / FR-016 | Lawyer review of the drafts; insurance check | owner |
+| FR-018 | Release-SHA checklist in `RELEASE_SCOPE.md`; installer extraction check, Inno compile (not run) | engineering at release time |
+| Hardware | `docs/promts/fancontrol/07-hardware-acceptance.md` | owner present |
 
-Still to do: OPEN_WORK.md, HANDOFF.md entries, hardware items into
-`docs/promts/fancontrol/07-hardware-acceptance.md`. Merge order suggestion: notices, privacy, fr005
-(fr005 and privacy may both touch locale files and onboarding code; check conflicts).
-
-FR-005 branch notes (task/legal-fr005, 66d9b66): safety text v2 per backend, pinned in mock and
-tests; claims-to-evidence table and unsafe-exception section in COOLING_SAFETY.md. cargo test and
-npm/vitest NOT run (no node_modules there). Conflict risks: the translations branch also edits
-safety.ts; fr012 edits onboarding.rs. FR-005 row stays `wip` until the gate passes.
+Accepted gaps (owner): no installer clean-machine test, no visual pass, no screenshots, no code signing, no CI for this release.

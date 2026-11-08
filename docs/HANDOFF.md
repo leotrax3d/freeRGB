@@ -125,3 +125,7 @@ feature reference (no code). See [DECISIONS.md](DECISIONS.md).
 Wrote docs/UI_GAPS.md; merged setup-forget (modules.forget UI). Cooling/devices/locales deliberately untouched (guicool, S22, translations pending); re-audit after they merge. New i18n keys: setup.card.forget, setup.card.forgetConfirm (en+de only).
 
 UI-LEAD update: merged monitoring states, cooling profile export/import + service settings. Open: keyboard.reactive.preview (S22), real-desktop visual/a11y pass, screenshots, new i18n keys for other locales (see docs/UI_GAPS.md).
+
+## LEGAL-LEAD 2026-11-08
+
+Audit fixes FR-005/006/007/011/012/013 merged; legal drafts under `docs/legal/` (not legal advice). Online features, telemetry and download counting default off; disclaimer in installer and app (text version 3). Open items and owner decisions: `docs/legal/RELEASE_FIX_PLAN.md`, `docs/legal/OWNER_DECISIONS.md`.

@@ -147,7 +147,7 @@ See [Devices](docs/DEVICES.md), [Protocols](docs/PROTOCOLS.md) and
 - Device-process plugins run trusted native code; unlike effect packages, they are not sandboxed.
 - freeRGB is provided as is, without warranty (see the licence texts). You use it,
   and enable fan control in particular, at your own risk.
-- Draft disclaimer texts (EN/DE, under lawyer review): [safety and liability texts](docs/legal/SAFETY_LIABILITY_TEXTS.md).
+- Draft disclaimer texts (EN/DE, not yet reviewed by a lawyer): [safety and liability texts](docs/legal/SAFETY_LIABILITY_TEXTS.md).
 
 The control API uses a local named pipe or Unix socket. See
 [Security](docs/SECURITY.md) for access and trust boundaries, and the
