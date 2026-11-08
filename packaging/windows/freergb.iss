@@ -47,8 +47,8 @@ WizardSmallImageFile=..\..\assets\icons\freergb-64.png
 UninstallDisplayIcon={app}\freergb-desktop.exe
 
 [Languages]
-Name: deutsch; MessagesFile: "compiler:Languages\German.isl"
-Name: english; MessagesFile: "compiler:Default.isl"
+Name: deutsch; MessagesFile: "compiler:Languages\German.isl"; LicenseFile: "disclaimer-de.txt"
+Name: english; MessagesFile: "compiler:Default.isl"; LicenseFile: "disclaimer-en.txt"
 
 [Tasks]
 Name: startmenu; Description: "Startmenü-Verknüpfungen erstellen"; GroupDescription: "Verknüpfungen:"

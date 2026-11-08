@@ -119,7 +119,7 @@ describe("pseudo-locale regression guard", () => {
   });
   it("keeps the versioned English safety notice at its current version", () => {
     const safety = readFileSync(new URL("../../features/onboarding/safety.ts", import.meta.url), "utf8");
-    expect(safety).toContain('SAFETY_TEXT_VERSION = 2');
+    expect(safety).toContain('SAFETY_TEXT_VERSION = 3');
     expect(safety).toContain('Hardware damage and overheating');
   });
 });
