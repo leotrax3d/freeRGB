@@ -121,3 +121,31 @@ R9. Bindings (item 10): `cooling.bindings.get` after one save from the
 ## Done when
 All steps recorded with commit and result; failures turned into fix tasks;
 STATUS/FAN_COVERAGE/README progress updated only from recorded evidence.
+
+
+## Release-SHA acceptance appendix (proposed public beta)
+
+Planning only; no results are implied. Follow the existing owner-present rules and
+`00-common-rules.md`. No hardware, elevation, service changes or installer execution
+is authorized by this appendix itself. The release coordinator supplies the full
+candidate SHA, installer filename and SHA-256 from `docs/legal/RELEASE_SCOPE.md`.
+
+- [ ] Record OS/build, board/chip, firmware, provider/module/driver versions,
+  device/channel identity and role, candidate SHA, exact package hash, date and
+  owner/operator for each result in `docs/COOLING_ACCEPTANCE.md`.
+- [ ] Select applicable A-G and R steps for each operation proposed for release;
+  mark unavailable platforms/devices as unexecuted and exclude unsupported claims.
+  Preserve pump restrictions and stop criteria; do not infer other channels' results.
+- [ ] Record acquisition, calibration, explicit stop/stop-all, sensor loss, session
+  revocation, restart and restoration observations for each included backend.
+  Fault/watchdog and disconnect steps need their own owner authorization under the
+  existing rules; record actual restoration observations and any incomplete return.
+- [ ] With separate owner authorization for installer execution/elevation, cover
+  fresh install, upgrade, rollback, uninstall and reboot/service lifecycle using
+  the exact hashed candidate. Check active-control drain and resulting channel
+  state, as well as installed notices/configuration and offline defaults.
+- [ ] Check UI limitations and hardware matrix against the recorded results;
+  capture failures, recovery actions, exclusions and follow-up tasks. A different
+  build or payload requires re-evaluation of affected steps.
+- [ ] Link evidence to the release-SHA record. Owner records scope acceptance or
+  postponement; missing evidence stays open. This appendix grants no legal approval.
