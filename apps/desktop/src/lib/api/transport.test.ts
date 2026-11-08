@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { externalUrl } from "./transport";
+import { coolingSessionCommand, externalUrl } from "./transport";
 describe("reviewed external destinations", () => {
   it("keeps contact links fixed", () => {
     expect(externalUrl({ kind: "email" })).toBe("mailto:freergbteam@gmail.com");
@@ -12,5 +12,16 @@ describe("reviewed external destinations", () => {
     expect(url.searchParams.get("body")).toBe("Device info\n<test>");
     expect(url.hash).toBe("");
     expect([...url.searchParams]).toHaveLength(2);
+  });
+});
+
+
+describe("public cooling session commands", () => {
+  it("routes the six session methods to explicit Tauri commands", () => {
+    for (const action of ["status", "start", "stop", "list", "stop_channel", "stop_all"]) {
+      expect(coolingSessionCommand(`cooling.sessions.${action}`)).toBe(`cooling_sessions_${action}`);
+    }
+    expect(coolingSessionCommand("cooling.sessions.unknown")).toBeNull();
+    expect(coolingSessionCommand("cooling.status")).toBeNull();
   });
 });

@@ -16,9 +16,11 @@ import {
   ShieldCheck,
   Speaker,
   Unplug,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { memo } from "react";
+import { ConfirmButton } from "@/components/confirm-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/toast";
@@ -118,6 +120,7 @@ export const SetupCardView = memo(function SetupCardView({
   selected,
   onSelect,
   onRetry,
+  onForget,
   compact = false,
 }: {
   card: SetupCard;
@@ -127,6 +130,7 @@ export const SetupCardView = memo(function SetupCardView({
   selected?: boolean;
   onSelect?: (selected: boolean) => void;
   onRetry?: () => void;
+  onForget?: () => void;
   compact?: boolean;
 }) {
   const Icon = KIND_ICONS[card.kind] ?? Cpu;
@@ -152,6 +156,14 @@ export const SetupCardView = memo(function SetupCardView({
           </h3>
           <PhaseLine card={card} />
         </div>
+        {onForget && card.configured && !card.builtin && (
+          <ConfirmButton
+            label={t("setup.card.forget", { name: card.name })}
+            confirmLabel={t("setup.card.forgetConfirm")}
+            icon={<Trash2 aria-hidden />}
+            onConfirm={onForget}
+          />
+        )}
         {selected !== undefined && onSelect && (
           <Checkbox checked={selected} onChange={onSelect} className="mt-1">
             <span className="sr-only">{t("setup.card.setUp", { name: card.name })}</span>

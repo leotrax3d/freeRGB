@@ -1078,6 +1078,8 @@
   "setup.card.setUp": "Set up {name}",
   "setup.card.needs": "Needs a {size} module download.",
   "setup.card.installed": "Module already installed.",
+  "setup.card.forget": "Forget {name}",
+  "setup.card.forgetConfirm": "Forget device?",
   "setup.card.retry": "Try again",
   "setup.card.details": "Details",
   "setup.card.cannot": "freeRGB cannot control this device yet.",
