@@ -49,8 +49,12 @@ def artifacts(directory, version, expected_commit=None):
     name = f"freeRGB-{version}-windows-x86_64-setup.exe"
     manifest_name = f"freeRGB-{version}-windows-x86_64-build.json"
     expected = {name, name + ".sha256", manifest_name}
-    if {p.name for p in directory.iterdir()} != expected:
+    present = {p.name for p in directory.iterdir()}
+    # The detached update signature is optional here: it is produced offline with the release key.
+    if present - {name + ".sig"} != expected:
         raise ValueError("Distribution directory contains missing, stale or unexpected artifacts")
+    if name + ".sig" in present and (directory / (name + ".sig")).stat().st_size != 64:
+        raise ValueError("Installer signature must be 64 raw bytes")
     installer = directory / name
     digest = hashlib.sha256(installer.read_bytes()).hexdigest()
     if (directory / (name + ".sha256")).read_text().strip() != f"{digest}  {name}":
