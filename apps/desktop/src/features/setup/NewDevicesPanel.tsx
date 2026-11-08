@@ -73,6 +73,7 @@ export function NewDevicesPanel() {
                   setDeselected(next);
                 }}
                 onRetry={c.phase === "failed" ? () => void setup.retry(c.key) : undefined}
+                onForget={() => void setup.forget([c.key])}
               />
             ))}
           </div>

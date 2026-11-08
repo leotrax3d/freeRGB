@@ -520,6 +520,9 @@ export function mockTransport(): Transport {
         case "modules.setup.complete":
           setup.complete();
           return true as T;
+        case "modules.forget":
+          setup.forget(p.keys as string[]);
+          return true as T;
         case "modules.setup.dismiss":
           setup.dismiss(p.keys as string[]);
           return true as T;
