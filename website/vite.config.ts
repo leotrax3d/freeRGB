@@ -34,15 +34,18 @@ function contentSecurityPolicy(): Plugin {
 
 // Preload the Latin subset of Inter so the first paint already uses the web font.
 function preloadFont(): Plugin {
+  let base = "/"
   return {
     name: "freergb-preload-font",
     apply: "build",
+    configResolved(config) {
+      base = config.base
+    },
     transformIndexHtml: {
       order: "post",
       handler(html, ctx) {
         const font = Object.keys(ctx.bundle ?? {}).find((file) => /inter-latin-wght-normal-[\w-]+\.woff2$/.test(file))
         if (!font) return html
-        const base = process.env.BASE_PATH || "/"
         return html.replace("</title>", `</title>
     <link rel="preload" href="${base}${font}" as="font" type="font/woff2" crossorigin />`)
       },
@@ -50,9 +53,26 @@ function preloadFont(): Plugin {
   }
 }
 
+// Social crawlers need absolute URLs for og:image. SITE_ORIGIN defaults to the GitHub Pages host.
+function absoluteSocialUrls(): Plugin {
+  let base = "/"
+  const origin = (process.env.SITE_ORIGIN || "https://leotrax3d.github.io").replace(/\/$/, "")
+  return {
+    name: "freergb-social-urls",
+    apply: "build",
+    configResolved(config) {
+      base = config.base
+    },
+    transformIndexHtml: {
+      order: "post",
+      handler: (html) => html.replace(/content="[^"]*og-image\.png"/, `content="${origin}${base}og-image.png"`),
+    },
+  }
+}
+
 export default defineConfig(({ isSsrBuild }) => ({
   base: process.env.BASE_PATH || "/",
-  plugins: [react(), siteData(), contentSecurityPolicy(), preloadFont()],
+  plugins: [react(), siteData(), contentSecurityPolicy(), preloadFont(), absoluteSocialUrls()],
   resolve: { alias: { "@": here("./src") } },
   build: isSsrBuild
     ? { outDir: "dist-ssr", emptyOutDir: true, copyPublicDir: false }

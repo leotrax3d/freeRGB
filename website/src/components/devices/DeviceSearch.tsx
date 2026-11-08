@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
-import { Search, X } from "lucide-react"
+import { Check, Search, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -57,9 +57,10 @@ export function StatusBadge({ status, className }: { status: DeviceStatus; class
   )
 }
 
-function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: ReactNode }) {
+function Chip({ id, pressed, onClick, children }: { id?: string; pressed: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
+      id={id}
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
@@ -67,9 +68,10 @@ function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () =>
         "inline-flex h-11 items-center rounded-md border px-3.5 text-small text-muted-foreground transition-colors duration-fast ease-out md:h-9",
         "hover:border-border-strong hover:text-foreground",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        pressed && "border-border-strong bg-secondary font-medium text-foreground",
+        pressed && "gap-1.5 border-foreground bg-secondary font-medium text-foreground",
       )}
     >
+      {pressed && <Check aria-hidden className="size-3.5" />}
       {children}
     </button>
   )
@@ -199,6 +201,12 @@ export function DeviceSearch() {
   const inputRef = useRef<HTMLInputElement>(null)
   const inputId = useId()
   const countId = useId()
+  const uid = useId()
+  // The button that triggered this disappears with the empty state, so move focus to the "All" chip.
+  const showAllStatuses = () => {
+    setStatus("all")
+    requestAnimationFrame(() => document.getElementById(`${uid}-status-all`)?.focus())
+  }
 
   // Read ?q= after mount (browser only).
   useEffect(() => {
@@ -289,7 +297,7 @@ export function DeviceSearch() {
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-8">
         <div role="group" aria-label={copy.statusGroup} className="flex flex-wrap gap-2">
           {copy.statusFilters.map((f) => (
-            <Chip key={f.id} pressed={status === f.id} onClick={() => setStatus(f.id)}>
+            <Chip key={f.id} id={`${uid}-status-${f.id}`} pressed={status === f.id} onClick={() => setStatus(f.id)}>
               {f.label}
             </Chip>
           ))}
@@ -325,7 +333,7 @@ export function DeviceSearch() {
             {otherCount > 0 && (
               <div className="mt-5 space-y-3">
                 <p className="text-small text-subtle-foreground">{copy.otherMatches(otherCount)}</p>
-                <Button variant="outline" onClick={() => setStatus("all")}>
+                <Button variant="outline" onClick={showAllStatuses}>
                   {copy.showAll}
                 </Button>
               </div>
@@ -347,7 +355,7 @@ export function DeviceSearch() {
                 {copy.otherMatches(otherCount)}{" "}
                 <button
                   type="button"
-                  onClick={() => setStatus("all")}
+                  onClick={showAllStatuses}
                   className="rounded-sm font-medium text-brand-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {copy.showAll}

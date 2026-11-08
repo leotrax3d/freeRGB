@@ -26,15 +26,15 @@ export const hero = {
 }
 
 export const trust = [
-  { title: "MIT or Apache-2.0", text: "Core source on GitHub. Device modules are GPL-2.0-or-later." },
+  { title: "MIT or Apache-2.0", text: "Core source on GitHub. Modules ported from OpenRGB are GPL-2.0-or-later." },
   { title: "Runs locally", text: "No account. Online features stay off until you turn them on." },
   { title: "Windows and Linux", text: "Installer for Windows 10 and 11. Linux builds from source." },
-  { title: "No telemetry", text: "No analytics, no crash reporting, no download counting." },
+  { title: "No tracking by default", text: "No analytics or crash reporting. Download counting and ratings are opt-in." },
 ]
 
 export const deviceTeaser = {
   title: "Check your hardware first",
-  text: "Search by product name or USB ID. Each result shows whether freeRGB supports it and how it was tested.",
+  text: "Search by product name or USB ID. Each result shows whether freeRGB supports it. Every supported device is still beta.",
   placeholder: "e.g. K70, Aura, 1b1c:1bfd",
   cta: "Open the device list",
 }
@@ -73,7 +73,7 @@ export const features: Feature[] = [
     id: "cooling",
     eyebrow: "Cooling",
     title: "Fan curves from the sensors you choose",
-    text: "Pick a temperature source, draw a curve and assign it to a fan or pump. A minimum output and a critical-temperature fallback apply to every curve.",
+    text: "Pick a temperature source, draw a curve and assign it to a fan or pump. Normal settings keep a minimum fan output and request full speed when a temperature is missing or critical. Unrestricted settings can bypass these limits.",
     points: ["Minimum fan output", "Critical-temperature fallback", "Setup wizard identifies each fan channel"],
     screenshot: "cooling",
     alt: "Cooling view with a fan curve editor plotting fan speed against temperature.",
@@ -241,7 +241,8 @@ export const privacyPage = {
       title: "Web demo and admin pages",
       body: [
         "The web demo under /demo/ runs entirely in your browser with simulated devices. Its content security policy blocks all network connections.",
-        "The maintainer admin panel under /admin/ is a separate app. When it is opened, it connects to Appwrite (fra.cloud.appwrite.io). The website pages never load it.",
+        "The maintainer admin panel under /admin/ is a separate app. When it is opened, it connects to Appwrite (fra.cloud.appwrite.io) and keeps its login session in your browser. The website pages never load it.",
+        "The demo saves your last view, language and demo profile in your browser's local storage. Nothing is sent anywhere.",
       ],
     },
     {
@@ -254,7 +255,7 @@ export const privacyPage = {
     {
       title: "Licences",
       body: [
-        "The freeRGB core is available under the MIT licence or the Apache License 2.0, at your choice. Hardware modules are under GPL-2.0-or-later. Third-party components and their licences are listed in THIRD_PARTY_NOTICES.md.",
+        "The freeRGB core is available under the MIT licence or the Apache License 2.0, at your choice. Hardware modules have their own licences; modules ported from OpenRGB are GPL-2.0-or-later. Third-party components and their licences are listed in THIRD_PARTY_NOTICES.md.",
         "This website uses the Inter typeface (SIL Open Font License 1.1) and Lucide icons (ISC licence).",
       ],
     },

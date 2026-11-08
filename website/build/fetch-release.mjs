@@ -39,5 +39,10 @@ try {
   writeFileSync(out, JSON.stringify(data, null, 2) + "\n")
   console.log(`Release data: ${data.release?.tag ?? "no release"} (${data.release?.assets.length ?? 0} assets)`)
 } catch (error) {
+  // In CI a missing release would ship a Download page without an installer, so fail loudly.
+  if (process.env.CI || process.env.GITHUB_ACTIONS) {
+    console.error(`Release data could not be fetched: ${error.message}`)
+    process.exit(1)
+  }
   console.warn(`Release data not refreshed: ${error.message}.${existsSync(out) ? " Keeping the previous file." : " Building without release data."}`)
 }

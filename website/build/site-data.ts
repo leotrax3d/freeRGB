@@ -18,6 +18,19 @@ export function slug(text: string) {
     .replace(/\s/g, "-")
 }
 
+const escapeAttr = (value: string) => value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+/** Resolves a guide link: fragments stay, repo-relative paths go to GitHub, other schemes are dropped. */
+function guideHref(href: string): string | null {
+  if (href.startsWith("#")) return href
+  try {
+    const url = new URL(href, `${repoBlob}docs/`)
+    return ["http:", "https:", "mailto:"].includes(url.protocol) ? url.href : null
+  } catch {
+    return null
+  }
+}
+
 function readJson(path: string) {
   return JSON.parse(readFileSync(root(path), "utf8"))
 }
@@ -70,14 +83,14 @@ function guide() {
         const id = slug(text)
         if (depth <= 3) toc.push({ id, text: text.replace(/`/g, ""), level: depth })
         const tag = `h${Math.min(depth, 4)}`
-        return `<${tag} id="${id}">${this.parser.parseInline(tokens)}</${tag}>\n`
+        return `<${tag} id="${escapeAttr(id)}">${this.parser.parseInline(tokens)}</${tag}>\n`
       },
       link({ href, tokens }: Tokens.Link) {
         const label = this.parser.parseInline(tokens)
-        if (href.startsWith("#")) return `<a href="${href}">${label}</a>`
-        if (/^https?:/.test(href)) return `<a href="${href}" rel="noopener">${label}</a>`
-        const target = new URL(href, `${repoBlob}docs/`).href
-        return `<a href="${target}" rel="noopener">${label}</a>`
+        const target = guideHref(href)
+        if (target === null) return label
+        const rel = target.startsWith("#") ? "" : ' rel="noopener"'
+        return `<a href="${escapeAttr(target)}"${rel}>${label}</a>`
       },
     },
   })

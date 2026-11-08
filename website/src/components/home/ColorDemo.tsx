@@ -108,7 +108,7 @@ export function ColorDemo({ className }: { className?: string }) {
                   onChange={() => setEffect(e.id)}
                   className="peer sr-only"
                 />
-                <span className="flex min-h-9 cursor-pointer items-center rounded-md px-3 text-small text-muted-foreground transition-colors duration-fast ease-out hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:shadow-sm peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+                <span className="flex min-h-11 cursor-pointer items-center rounded-md px-3 md:min-h-9 text-small text-muted-foreground transition-colors duration-fast ease-out hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:shadow-sm peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
                   {e.label}
                 </span>
               </label>

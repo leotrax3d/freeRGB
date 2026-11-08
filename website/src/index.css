@@ -39,7 +39,7 @@
     --brand-foreground: 165 83% 26%;
     --border: 0 0% 90%;
     --border-strong: 0 0% 83%;
-    --input: 0 0% 83%;
+    --input: 0 0% 56%;
     --ring: 221 83% 53%;
     --radius: 10px;
     --glow-opacity: 0.18;
@@ -71,7 +71,7 @@
     --brand-foreground: 161 60% 52%;
     --border: 0 0% 15%;
     --border-strong: 0 0% 23%;
-    --input: 0 0% 23%;
+    --input: 0 0% 42%;
     --ring: 217 91% 60%;
     --glow-opacity: 0.3;
     --frame-shadow: 0.55;

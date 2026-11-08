@@ -64,7 +64,7 @@ export function DeviceTeaser() {
                   setQuery(example)
                   inputRef.current?.focus()
                 }}
-                className="inline-flex min-h-9 items-center rounded-md border border-border-strong px-3 font-mono text-[13px] text-muted-foreground transition-colors duration-fast ease-out hover:bg-accent hover:text-foreground"
+                className="inline-flex min-h-11 items-center rounded-md border border-border-strong px-3 font-mono md:min-h-9 text-[13px] text-muted-foreground transition-colors duration-fast ease-out hover:bg-accent hover:text-foreground"
               >
                 <span className="sr-only">Fill in </span>
                 {example}

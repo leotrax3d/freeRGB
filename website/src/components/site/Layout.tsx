@@ -140,7 +140,7 @@ function Footer() {
       </div>
       <div className="border-t">
         <div className="container flex flex-col gap-2 py-6 text-small text-subtle-foreground sm:flex-row sm:justify-between">
-          <p>MIT or Apache-2.0 · modules GPL-2.0-or-later</p>
+          <p>Core MIT or Apache-2.0 · modules have their own licences</p>
           <p>{footer.affiliation}</p>
         </div>
       </div>

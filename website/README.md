@@ -20,7 +20,9 @@ npm run preview
    and the star count from the GitHub API and writes
    `src/data/release.generated.json` (ignored by Git). If GitHub cannot be
    reached, the previous file is kept, or the site builds without release data.
-   Set `GITHUB_TOKEN` to avoid API rate limits.
+   Set `GITHUB_TOKEN` to avoid API rate limits. In CI (`CI` or
+   `GITHUB_ACTIONS` set) a failed fetch stops the build, so a deployed Download
+   page never lacks the installer.
 2. `tsc -b` type-checks.
 3. `vite build` builds the five pages (`index.html`, `download/`, `devices/`,
    `docs/`, `privacy/`). `build/site-data.ts` provides build-time modules:
@@ -30,6 +32,9 @@ npm run preview
    - `virtual:guide`: `docs/USER_GUIDE.md` rendered to HTML.
 4. `vite build --ssr` and `build/prerender.mjs` write the server-rendered markup
    into each page's HTML. The browser then hydrates it.
+
+`SITE_ORIGIN` (default `https://leotrax3d.github.io`) plus `BASE_PATH` gives the
+absolute `og:image` URL for link previews.
 
 The published pages make no requests to other origins. The production build sets
 a Content-Security-Policy that allows no other origin (`default-src 'self'`).
