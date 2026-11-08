@@ -1244,5 +1244,20 @@
   "cooling.setup.controls_few": "{count} контролисаних прикључака",
   "cooling.setup.sensors_few": "{count} RPM сензора",
   "setup.wizard.unsupported_few": "{count} уређаја још није подржано",
-  "setup.wizard.setUpN_few": "Подеси {count} уређаја"
+  "setup.wizard.setUpN_few": "Подеси {count} уређаја",
+  "common.beta": "Beta",
+  "settings.about.productBeta": "freeRGB desktop Beta",
+  "settings.about.disclaimer": "Besplatan, nekomercijalni softver otvorenog koda privatnog programera. Pruža se besplatno, bez garancije. Nije povezan sa bilo kojim proizvođačem hardvera.",
+  "settings.about.risk": "Kontrola ventilatora i pumpe je eksperimentalna i nije potvrđena na većini hardvera. Koristite na sopstvenu odgovornost. Odgovornost je ograničena kao što je opisano u uslovima instalacije, samo u meri dozvoljenoj zakonom; odgovornost za povrede života, tela ili zdravlja, nameru, grubu nepažnju i po obaveznom zakonu o odgovornosti za proizvode ostaje nepromenjena.",
+  "settings.about.offByDefault": "Onlajn i funkcije zajednice, telemetrija i brojanje preuzimanja: podrazumevano isključeno.",
+  "settings.about.legal": "Odricanje od odgovornosti",
+  "mainboardRgb.headers": "Zaglavlja",
+  "mainboardRgb.hint": "Podesite zaglavlja osvetljenja matične ploče",
+  "mainboardRgb.type": "Tip zaglavlja",
+  "mainboardRgb.canvas": "Platno (0-1)",
+  "mainboardRgb.test": "Testiraj RGB (6 s)",
+  "mainboardRgb.help": "Sačuvajte pre testiranja. Test prikazuje crvenu, zelenu i plavu boju po dve sekunde, a zatim nastavlja efekte. Pravougaonici platna uzorkuju deljeni efekat. Tip opisuje povezano zaglavlje; ne može promeniti njegov napon. MSI fiksne zone zadržavaju prijavljeni broj LED dioda.",
+  "mainboardRgb.argb": "5 V ARGB",
+  "mainboardRgb.rgb": "12 V RGB",
+  "mainboardRgb.unavailable": "Zaglavlja nisu dostupna. Povežite se sa ažuriranim daemonom."
 }

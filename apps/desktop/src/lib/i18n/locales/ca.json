@@ -1244,5 +1244,20 @@
   "cooling.setup.controls_many": "{count} capçaleres controlables",
   "cooling.setup.sensors_many": "{count} sensors de RPM",
   "setup.wizard.unsupported_many": "{count} dispositius encara no compatibles",
-  "setup.wizard.setUpN_many": "Configura {count} dispositius"
+  "setup.wizard.setUpN_many": "Configura {count} dispositius",
+  "common.beta": "Beta",
+  "settings.about.productBeta": "freeRGB per a escriptori Beta",
+  "settings.about.disclaimer": "Programari de codi obert gratuït i no comercial d'un desenvolupador privat. Proporcionat gratuïtament, sense garantia. No està afiliat a cap fabricant de maquinari.",
+  "settings.about.risk": "El control de ventiladors i bombes és experimental i no s'ha confirmat en la majoria de maquinari. Feu-lo servir sota la vostra responsabilitat. La responsabilitat es limita tal com es descriu en les condicions d'instal·lació, només en la mesura que ho permeti la llei; no es veu afectada la responsabilitat per danys a la vida, el cos o la salut, per dol, per negligència greu ni la que estableix la normativa obligatòria de responsabilitat de productes.",
+  "settings.about.offByDefault": "Funcions en línia i de la comunitat, telemetria i recompte de descàrregues: desactivats per defecte.",
+  "settings.about.legal": "Avís legal",
+  "mainboardRgb.headers": "Capçaleres",
+  "mainboardRgb.hint": "Configureu les capçaleres d'il·luminació de la placa mare",
+  "mainboardRgb.type": "Tipus de capçalera",
+  "mainboardRgb.canvas": "Llenç (0-1)",
+  "mainboardRgb.test": "Prova RGB (6 s)",
+  "mainboardRgb.help": "Deseu abans de provar. La prova mostra vermell, verd i blau durant dos segons cadascun i després reprèn els efectes. Els rectangles del llenç mostregen l'efecte compartit. El tipus descriu la capçalera connectada; no pot canviar-ne la tensió. Les zones fixes de MSI mantenen els recomptes de LED indicats.",
+  "mainboardRgb.argb": "5 V ARGB",
+  "mainboardRgb.rgb": "12 V RGB",
+  "mainboardRgb.unavailable": "Les capçaleres no estan disponibles. Connecteu-vos a un dimoni actualitzat."
 }

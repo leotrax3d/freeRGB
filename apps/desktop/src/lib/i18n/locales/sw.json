@@ -1239,5 +1239,20 @@
   "cooling.profileService.apply": "Spara uppstartsinställningar",
   "cooling.profileService.confirm": "Bekräfta uppstartsinställningar",
   "cooling.profileService.saved": "Inställningar för kylning vid uppstart sparade",
-  "cooling.profileService.refresh": "Uppdatera"
+  "cooling.profileService.refresh": "Uppdatera",
+  "common.beta": "Beta",
+  "settings.about.productBeta": "freeRGB desktop Beta",
+  "settings.about.disclaimer": "Programu huria ya msimbo, isiyo ya kibiashara, inayotengenezwa na mtengenezaji binafsi. Inatolewa bure, bila dhamana. Haina uhusiano na muuzaji yeyote wa vifaa.",
+  "settings.about.risk": "Udhibiti wa vipoeza na pampu ni wa majaribio na haujathibitishwa kwenye vifaa vingi. Tumia kwa hatari yako mwenyewe. Uwajibikaji umepunguzwa kama ilivyoelezwa katika masharti ya usakinishaji, kwa kiwango kinachoruhusiwa na sheria tu; uwajibikaji kwa majeraha ya maisha, mwili au afya, nia, uzembe mkubwa na chini ya sheria ya lazima ya uwajibikaji wa bidhaa unabaki bila kubadilika.",
+  "settings.about.offByDefault": "Vipengele vya mtandaoni/jamii, telemetri na kuhesabu upakuaji: zimezimwa kwa chaguomsingi.",
+  "settings.about.legal": "Kanusho",
+  "mainboardRgb.headers": "Heda",
+  "mainboardRgb.hint": "Sanidi heda za mwanga za ubao mkuu",
+  "mainboardRgb.type": "Aina ya heda",
+  "mainboardRgb.canvas": "Kanavasi (0-1)",
+  "mainboardRgb.test": "Jaribu RGB (6 s)",
+  "mainboardRgb.help": "Hifadhi kabla ya kujaribu. Jaribio linaonyesha nyekundu, kijani na bluu kwa sekunde mbili kila moja, kisha linaendelea na madhara. Mstatili wa kanavasi huchukua sampuli ya madhara yaliyoshirikiwa. Aina inaeleza heda iliyounganishwa; haiwezi kubadilisha voltaji yake. Maeneo ya kudumu ya MSI yahifadhi idadi ya LED iliyotangazwa.",
+  "mainboardRgb.argb": "5 V ARGB",
+  "mainboardRgb.rgb": "12 V RGB",
+  "mainboardRgb.unavailable": "Heda hazipatikani. Unganisha kwenye daemon iliyosasishwa."
 }
