@@ -444,6 +444,32 @@ pub fn install_verified(_: &Path, _: &Update) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    /// Release check: `FREERGB_RELEASE_DIR=<dir with setup.exe + .sig> FREERGB_RELEASE_VERSION=<v>
+    /// cargo test -p freergb-update --locked -- --ignored staged_release_signature`.
+    /// Verifies against the really pinned key, not the fixture key.
+    #[test]
+    #[ignore]
+    fn staged_release_signature_verifies_with_pinned_key() {
+        let dir = std::path::PathBuf::from(std::env::var("FREERGB_RELEASE_DIR").unwrap());
+        let version = std::env::var("FREERGB_RELEASE_VERSION").unwrap();
+        let name = format!("freeRGB-{version}-windows-x86_64-setup.exe");
+        let bytes = std::fs::read(dir.join(&name)).unwrap();
+        let update = Update {
+            version,
+            asset_id: 0,
+            sha256: Sha256::digest(&bytes)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect(),
+            size: bytes.len() as u64,
+            signature: std::fs::read(dir.join(format!("{name}.sig"))).unwrap(),
+            signature_asset_id: 0,
+        };
+        verify_signature_with_key(&update, &PINNED_UPDATE_KEY.unwrap()).unwrap();
+        let mut forged = update;
+        forged.size += 1;
+        assert!(verify_signature_with_key(&forged, &PINNED_UPDATE_KEY.unwrap()).is_err());
+    }
     use super::*;
     use ed25519_dalek::Signer;
     pub(super) fn signing_key() -> ed25519_dalek::SigningKey {
