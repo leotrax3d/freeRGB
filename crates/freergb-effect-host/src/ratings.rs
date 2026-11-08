@@ -141,6 +141,24 @@ mod tests {
         std::fs::remove_dir(file.with_extension("downloads")).unwrap();
     }
 }
+/// Persisted user choice for the online community service (ratings, shared
+/// download counts, reviewed reports). Both switches default to off: until the
+/// user opts in, no request reaches the community service and no anonymous
+/// identity or download receipt is created.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct CommunitySettings {
+    /// Allow contact with the community service at all.
+    pub online: bool,
+    /// Additionally allow sending a download receipt after an install.
+    /// Only effective together with `online`.
+    pub count_downloads: bool,
+}
+impl CommunitySettings {
+    pub fn counting(&self) -> bool {
+        self.online && self.count_downloads
+    }
+}
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Ratings {
     pub configured: bool,
@@ -211,7 +229,12 @@ impl Client {
         let file = file.with_file_name(format!("appwrite-session-{}.json", &namespace[..16]));
         Self::new(url, project, file, false).map(Some)
     }
-    fn new(url: String, project: String, file: PathBuf, development: bool) -> Result<Self, String> {
+    pub(crate) fn new(
+        url: String,
+        project: String,
+        file: PathBuf,
+        development: bool,
+    ) -> Result<Self, String> {
         let parsed = reqwest::Url::parse(&url).map_err(|_| "Invalid Appwrite endpoint")?;
         let local = development
             && parsed.scheme() == "http"
@@ -434,6 +457,11 @@ impl Client {
         std::fs::write(path, json!({"effect_id":id,"version":version}).to_string())
             .map_err(|_| "Cannot queue download count")?;
         self.flush_downloads_inner()
+    }
+    /// Deletes download receipts that were queued but not yet sent.
+    pub fn discard_queued_downloads(&self) {
+        let _guard = self.outbox.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = std::fs::remove_dir_all(self.file.with_extension("downloads"));
     }
     fn flush_downloads(&self) -> Result<(), String> {
         let _guard = self.outbox.lock().unwrap_or_else(|e| e.into_inner());

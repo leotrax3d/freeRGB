@@ -725,6 +725,42 @@ impl CoolingSessions {
             .cloned()
             .collect()
     }
+    /// Stop requests are not release evidence. Wait for terminal reports and fail
+    /// closed on blocked release, missing reports or a bounded drain timeout.
+    pub fn stop_all_and_drain(&self) -> Result<(), String> {
+        let ids: Vec<u64> = self.active().iter().filter_map(|j| j.job_id).collect();
+        self.stop_all()?;
+        let deadline = Instant::now() + Duration::from_secs(25);
+        loop {
+            let board = self.view.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(job) = board.jobs.values().find(|job| job.state == "blocked") {
+                return Err(job
+                    .error
+                    .clone()
+                    .unwrap_or("Cooling release blocked".into()));
+            }
+            let mut pending = false;
+            for id in &ids {
+                let job = board.jobs.get(id).ok_or("Cooling release report missing")?;
+                if job.state == "blocked" {
+                    return Err(job
+                        .error
+                        .clone()
+                        .unwrap_or("Cooling release blocked".into()));
+                }
+                pending |= ACTIVE.contains(&job.state.as_str());
+            }
+            drop(board);
+            if !pending {
+                return Ok(());
+            }
+            if Instant::now() >= deadline {
+                return Err("Cooling release timed out".into());
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     /// Stops every active job (each returns its own channel). Returns how many
     /// stop requests were queued; a full queue is reported as an error.
     pub fn stop_all(&self) -> Result<usize, String> {
@@ -1361,6 +1397,43 @@ mod tests {
         assert_eq!(status.jobs.len(), 2);
         assert!(sessions.stop(first).is_ok() && sessions.stop(99).is_err());
         assert!(matches!(receiver.try_recv(), Ok(Command::Stop(id)) if id == first));
+    }
+
+    #[test]
+    fn drain_waits_for_release_and_reports_blocked_mock_jobs() {
+        for blocked in [false, true] {
+            let mut sessions = CoolingSessions::default();
+            let (sender, mut receiver) = mpsc::channel(QUEUE);
+            sessions.sender = Some(sender);
+            sessions.view.lock().unwrap().available = true;
+            let id = sessions.start(request(), &SessionPolicy::legacy()).unwrap();
+            assert!(matches!(receiver.try_recv(), Ok(Command::Start(_, _))));
+            let view = sessions.view.clone();
+            let worker = std::thread::spawn(move || loop {
+                match receiver.try_recv() {
+                    Ok(Command::Stop(stopped)) => {
+                        assert_eq!(stopped, id);
+                        update(
+                            &view,
+                            id,
+                            if blocked { "blocked" } else { "stopped" },
+                            None,
+                            blocked.then(|| "mock release failed".into()),
+                        );
+                        break;
+                    }
+                    Err(mpsc::error::TryRecvError::Empty) => std::thread::yield_now(),
+                    _ => panic!("expected stop request"),
+                }
+            });
+            let result = sessions.stop_all_and_drain();
+            worker.join().unwrap();
+            if blocked {
+                assert_eq!(result.unwrap_err(), "mock release failed");
+            } else {
+                assert!(result.is_ok());
+            }
+        }
     }
 
     #[test]

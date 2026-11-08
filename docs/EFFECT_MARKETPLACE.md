@@ -172,6 +172,7 @@ for metadata, supported numeric parameter schemas and preview colours.
 | Method | Parameters | Result |
 |---|---|---|
 | `marketplace.status` | none | `packages: {source, catalog, installed, disabled, job, error}`, `active`, `runtime_error` |
+| `marketplace.community.set` | `{online?, count_downloads?}` | persisted community switches `{online, count_downloads}`, both default `false`; counting needs `online` |
 | `marketplace.refresh` | none | `true` when job accepted; poll status until `job: null` and inspect `error` |
 | `marketplace.install` | `{id}` | `true` when install/update accepted; poll status for progress/completion |
 | `marketplace.uninstall` | `{id}` | `true`; active selection falls back; rejects concurrent jobs |
@@ -210,6 +211,13 @@ native-window/hardware acceptance and live GitHub publication remain separate.
 Catalog entries now include `publisher: {id, name}`. Legacy official entries
 without that field default to the freeRGB Team; unsafe/invalid publisher metadata
 is rejected. Publisher names are searchable and shown on the effect cards.
+
+**Privacy switches.** All Appwrite traffic is off by default. `online` enables ratings,
+reports and the inbox; `count_downloads` separately enables download receipts and
+only works while `online` is on. With both off, installing an effect only contacts
+the official GitHub source and creates no anonymous identity, session file or
+receipt. `marketplace.status.packages.community` reports the state. Data flows,
+retention and gaps: [PRIVACY.md](PRIVACY.md) (draft, not legally reviewed).
 
 Shared 1–5 star ratings use Appwrite anonymous sign-in, with no user account UI
 or GitHub voting step. The Rust daemon owns session tokens, network operations

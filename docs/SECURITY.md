@@ -4,7 +4,11 @@
   interfaces whose adapter is at least `Experimental` in the registry.
 * Built-in hardware writes only via validated adapters; property writes via allowlist.
 * No firmware, flash, driver or SMBus writes without explicit user approval.
-* Devices are returned to hardware mode on disconnect and daemon exit.
+* Hardware-mode restoration is attempted on disconnect and orderly daemon exit.
+  Cooling recovery depends on the backend and can fail; verified Windows
+  motherboard emergencies retain ownership. Crash-journal recovery runs on the
+  next start, not while the daemon is stopped. See `COOLING_SAFETY.md` for
+  backend-specific claims and limits.
 * Most crates forbid unsafe code; the updater permits a documented Windows shell
   call for explicit elevation. This is not a workspace-wide unsafe-code prohibition.
 * Local API: IPC only (named pipe without remote clients / Unix socket `0600`), no TCP port.

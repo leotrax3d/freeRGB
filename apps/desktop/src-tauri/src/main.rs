@@ -59,6 +59,60 @@ async fn rpc(
         }))
 }
 
+/// Public cooling session API; preserves queue ordering and daemon validation.
+#[tauri::command]
+async fn cooling_sessions_status(
+    params: Option<Value>,
+    state: tauri::State<'_, AppState>,
+) -> queue::Reply {
+    rpc("cooling.sessions.status".into(), params, state).await
+}
+
+/// Public cooling session API; preserves queue ordering and daemon validation.
+#[tauri::command]
+async fn cooling_sessions_start(
+    params: Option<Value>,
+    state: tauri::State<'_, AppState>,
+) -> queue::Reply {
+    rpc("cooling.sessions.start".into(), params, state).await
+}
+
+/// Public cooling session API; preserves queue ordering and daemon validation.
+#[tauri::command]
+async fn cooling_sessions_stop(
+    params: Option<Value>,
+    state: tauri::State<'_, AppState>,
+) -> queue::Reply {
+    rpc("cooling.sessions.stop".into(), params, state).await
+}
+
+/// Public cooling session API; preserves queue ordering and daemon validation.
+#[tauri::command]
+async fn cooling_sessions_list(
+    params: Option<Value>,
+    state: tauri::State<'_, AppState>,
+) -> queue::Reply {
+    rpc("cooling.sessions.list".into(), params, state).await
+}
+
+/// Public cooling session API; preserves queue ordering and daemon validation.
+#[tauri::command]
+async fn cooling_sessions_stop_channel(
+    params: Option<Value>,
+    state: tauri::State<'_, AppState>,
+) -> queue::Reply {
+    rpc("cooling.sessions.stop_channel".into(), params, state).await
+}
+
+/// Public cooling session API; preserves queue ordering and daemon validation.
+#[tauri::command]
+async fn cooling_sessions_stop_all(
+    params: Option<Value>,
+    state: tauri::State<'_, AppState>,
+) -> queue::Reply {
+    rpc("cooling.sessions.stop_all".into(), params, state).await
+}
+
 /// Latest value of every slice; used once when the frontend loads.
 #[tauri::command]
 fn snapshot(state: tauri::State<'_, AppState>) -> BTreeMap<String, Value> {
@@ -209,6 +263,12 @@ fn main() {
         .manage(std::sync::Arc::new(updates::Updates::default()))
         .invoke_handler(tauri::generate_handler![
             rpc,
+            cooling_sessions_status,
+            cooling_sessions_start,
+            cooling_sessions_stop,
+            cooling_sessions_list,
+            cooling_sessions_stop_channel,
+            cooling_sessions_stop_all,
             snapshot,
             want_slices,
             start_service,
