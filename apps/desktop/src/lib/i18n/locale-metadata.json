@@ -11,6 +11,10 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "ca": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "cs": {
     "reviewed": false,
     "machineTranslated": true
@@ -99,6 +103,10 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "nb": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "nl": {
     "reviewed": false,
     "machineTranslated": true
@@ -131,7 +139,15 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "sr": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "sv": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "sw": {
     "reviewed": false,
     "machineTranslated": true
   },
