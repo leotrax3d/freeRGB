@@ -34,6 +34,14 @@ export class RpcError extends Error {
 
 const inTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/** Explicit Tauri entry points for the public session API. */
+export function coolingSessionCommand(method: string): string | null {
+  const prefix = "cooling.sessions.";
+  const action = method.startsWith(prefix) ? method.slice(prefix.length) : "";
+  return ["status", "start", "stop", "list", "stop_channel", "stop_all"].includes(action)
+    ? `cooling_sessions_${action}` : null;
+}
+
 async function tauriTransport(): Promise<Transport> {
   const { invoke } = await import("@tauri-apps/api/core");
   const { listen } = await import("@tauri-apps/api/event");
@@ -41,7 +49,10 @@ async function tauriTransport(): Promise<Transport> {
     kind: "tauri",
     async rpc<T>(method: string, params?: unknown) {
       try {
-        return (await invoke("rpc", { method, params: params ?? null })) as T;
+        const sessionCommand = coolingSessionCommand(method);
+        return (await (sessionCommand
+          ? invoke(sessionCommand, { params: params ?? null })
+          : invoke("rpc", { method, params: params ?? null }))) as T;
       } catch (error) {
         throw new RpcError(error as CallError);
       }

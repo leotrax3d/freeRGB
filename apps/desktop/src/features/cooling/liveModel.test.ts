@@ -54,3 +54,20 @@ describe("live channel model", () => {
     liveConfirmation.reset();
   });
 });
+
+
+describe("public session list", () => {
+  it("discovers a second active channel before its status event", () => {
+    const first = job(1, "/a/control/1", "executing", "manual");
+    const second = job(2, "/a/control/2", "authorizing");
+    const list: SessionList = { active: [second, first], max_active: 16,
+      assignments: { assignments: [], resume_pending: false } };
+    expect(liveChannels(first, list).map((row) => [row.control_id, row.state])).toEqual([
+      ["/a/control/1", "manual"], ["/a/control/2", "starting"],
+    ]);
+    // A previously fetched list must not resurrect a stopped status job.
+    expect(liveChannels({ ...first, state: "stopped" }, { ...list, active: [first] })).toEqual([]);
+    list.active = [{ ...second, state: "stopping" }];
+    expect(liveChannels(null, list)[0]?.state).toBe("stopping");
+  });
+});
