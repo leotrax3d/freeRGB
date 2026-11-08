@@ -49,3 +49,7 @@ per-device triggers; sensor/NVML/ADLX acceptance; cooling plugin on iCUE LINK;
 service/boot/driver-hang recovery; maintenance upgrade/uninstall/rollback;
 installer clean-machine/UAC/reboot; cross-version update; Linux hardware;
 German UI/screen reader check and screenshots; website proofread.
+
+## UI-LEAD (Tauri UI gaps)
+
+- Inventory: `docs/UI_GAPS.md`. P1 setup-forget merged. Open: re-audit cooling/devices after guicool + S22; a11y/state pass; English INTEGRATION_CHECKLIST; screenshots.

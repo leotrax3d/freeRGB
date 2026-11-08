@@ -1078,6 +1078,8 @@
   "setup.card.setUp": "{name} einrichten",
   "setup.card.needs": "Benötigt einen Moduldownload von {size}.",
   "setup.card.installed": "Modul bereits installiert.",
+  "setup.card.forget": "{name} vergessen",
+  "setup.card.forgetConfirm": "Gerät vergessen?",
   "setup.card.retry": "Erneut versuchen",
   "setup.card.details": "Details",
   "setup.card.cannot": "freeRGB kann dieses Gerät noch nicht steuern.",
