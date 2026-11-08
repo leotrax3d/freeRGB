@@ -51,3 +51,17 @@ Re-run the method diff, audit cooling + devices states/a11y, add the new i18n
 keys to other locales (new keys so far: `setup.card.forget`,
 `setup.card.forgetConfirm`; en + de done), translate this doc's German source
 `INTEGRATION_CHECKLIST.md`, and capture UI screenshots on a real desktop.
+
+## Status 2026-11-08 (update)
+
+Merged: P1 setup-forget (e71ed61), P2 monitoring empty/loading states + list
+semantics + English INTEGRATION_CHECKLIST (b5fba7d), P3 cooling profile
+JSON export/import + service startup settings (98fc855).
+New i18n keys (en + de done; other locales still need them): monitoring.loading,
+monitoring.board.providers, monitoring.board.empty, monitoring.board.unavailable,
+monitoring.serviceUnavailable, monitoring.deviceSensorsUnavailable,
+monitoring.customUnavailable, cooling.profileService.* (32 keys).
+Still open: `keyboard.reactive.preview` (S22 devices area); visual state/a11y pass
+on a real desktop; UI screenshots; `cooling.providers.list`,
+`cooling.bindings.get`, `cooling.channels.list` appear to be consumed through
+the snapshot, not direct calls (no gap confirmed).
