@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { rpc, useDaemon, useSlices } from "@/lib/store/daemon";
 import { useAction } from "@/lib/store/useAction";
+import { ProfileServiceControls } from "./ProfileServiceControls";
 import { FanCard } from "./FanCard";
 import { fanViews } from "./fanModel";
 import { activeCount } from "./liveModel";
@@ -51,6 +52,7 @@ export function CoolingActions() {
           {paused ? <Play /> : <Pause />}{paused ? t("cooling.fanOverview.resumeFans") : t("cooling.fanOverview.pauseFans")}
         </Button>
       </div>
+      <ProfileServiceControls />
       {error && <p role="alert" className="text-caption text-danger-text">{error}</p>}
     </div>
   );
