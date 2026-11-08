@@ -13,6 +13,7 @@ export function useSetup() {
     retry: (key: string) => call(`retry:${key}`, "modules.setup.retry", { keys: [key] }),
     cancel: () => call("cancel", "modules.setup.cancel"),
     dismiss: (keys: string[]) => call("dismiss", "modules.setup.dismiss", { keys }),
+    forget: (keys: string[]) => call("forget", "modules.forget", { keys }),
     complete: () => call("complete", "modules.setup.complete"),
     refreshCatalog: () => call("catalog", "modules.catalog.refresh"),
     lightTest: (devices: string[]) => call("light", "modules.light_test", { devices }),

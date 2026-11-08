@@ -11,7 +11,7 @@ import { Banner } from "@/components/status";
 import { SupportBadge } from "./SupportBadge";
 import { channelTier, controlRefusal, tierLabel } from "./support";
 import { floorFor } from "./fanModel";
-import { activeCount, clampDuty, isActive, jobsOf, liveChannels, liveConfirmation, type SessionList } from "./liveModel";
+import { clampDuty, isActive, jobsOf, liveChannels, liveConfirmation, type SessionList } from "./liveModel";
 import type { CurveSet } from "@/lib/api/control";
 import { EMPTY_SHAPING, shapingPayload, type ShapingDraft } from "./shapingModel";
 
@@ -31,7 +31,7 @@ export function LiveChannels() {
     return () => { live = false; };
   }, [session]);
   const rows = liveChannels(session, list);
-  const active = activeCount(session);
+  const active = rows.filter((r) => r.job_id !== null && ["starting", "curve", "manual", "test", "stopping"].includes(r.state)).length;
   const name = (id: string) => channels?.find((c) => c.kind === "control" && c.reading.id === id)?.name ?? id;
   return (
     <div className="flex flex-col gap-2">
@@ -86,7 +86,8 @@ export function LiveSession() {
     return () => { live = false; };
   }, []);
   const { pending, error, run } = useAction();
-  const [asking, setAsking] = useState<null | (() => void)>(null);
+  const [asking, setAsking] = useState<LiveMode | null>(null);
+  useEffect(() => { setAsking(null); }, [control, rpm, temperature, curveName]);
   // Several channels can run at once; only the selected channel's own job blocks it.
   const selectedJob = jobsOf(status).find((j) => j.control_id === control);
   const busy = selectedJob != null && isActive(selectedJob);
@@ -117,7 +118,7 @@ export function LiveSession() {
   // One confirmation per app session, not per channel; the service still checks each.
   const start = (mode: LiveMode) => {
     if (shapingError && mode !== "calibration" && mode !== "channel_test") return;
-    if (liveConfirmation.needed()) setAsking(() => () => send(mode));
+    if (liveConfirmation.needed()) setAsking(mode);
     else send(mode);
   };
   return (
@@ -127,7 +128,7 @@ export function LiveSession() {
       {asking && (
         <Banner tone="warn">
           <span className="flex-1">{t("cooling.liveSession.freergbWillControlThisFanDirectlySafety")}</span>
-          <Button size="sm" variant="primary" onClick={() => { liveConfirmation.confirm(); const go = asking; setAsking(null); go(); }}>{t("cooling.liveSession.continue")}</Button>
+          <Button size="sm" variant="primary" disabled={!ready} onClick={() => { liveConfirmation.confirm(); const mode = asking; setAsking(null); send(mode); }}>{t("cooling.liveSession.continue")}</Button>
           <Button size="sm" variant="ghost" onClick={() => setAsking(null)}>{t("cooling.liveSession.cancel")}</Button>
         </Banner>
       )}

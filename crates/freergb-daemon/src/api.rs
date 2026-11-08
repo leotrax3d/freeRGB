@@ -303,6 +303,23 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
         }
         "marketplace.report.prepare" => crate::report::marketplace(&lock(engine), params["kind"].as_str().unwrap_or_default())
             .map_err(|e|(-32602,e)),
+        "marketplace.community.set" => {
+            let manager = lock(engine).marketplace.clone();
+            let flag = |key: &str| match &params[key] {
+                Value::Null => Ok(None),
+                Value::Bool(v) => Ok(Some(*v)),
+                _ => Err((-32602, format!("{key} must be true or false"))),
+            };
+            match manager {
+                Some(manager) => flag("online")
+                    .and_then(|online| flag("count_downloads").map(|count| (online, count)))
+                    .and_then(|(online, count)| {
+                        manager.set_community(online, count).map_err(|e| (-32000, e))
+                    })
+                    .map(|settings| json!(settings)),
+                None => Err((-32003, "Marketplace is unavailable".into())),
+            }
+        }
         "marketplace.ratings.refresh" | "marketplace.rate" => {
             let manager=lock(engine).marketplace.clone();
             match manager {

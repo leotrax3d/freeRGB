@@ -2,6 +2,7 @@ import { Check, Download, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/page";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import { rpc, useDaemon } from "@/lib/store/daemon";
 import { cn } from "@/lib/utils";
@@ -113,6 +114,12 @@ export default function MarketplaceView() {
       {status?.runtime_error && <p role="alert" className="rounded-control border border-danger-text/30 p-3 text-small text-danger-text">{status.runtime_error_code && <strong>{status.runtime_error_code}: </strong>}{status.runtime_error} {t("market.err.runtime")}
         {status.runtime_error_code && <Button variant="secondary" className="mt-2" onClick={() => setReportKind("runtime")}>{t("market.err.review")}</Button>}</p>}
       {status?.packages.ratings.error && <p role="alert" className="text-small text-danger-text">{status.packages.ratings.error} {t("market.err.ratings")}</p>}
+      {status && <section aria-label={t("market.privacy.title")} className="flex flex-col gap-2 rounded-control border border-border p-3">
+        <h2 className="text-small font-medium">{t("market.privacy.title")}</h2>
+        <p className="text-caption text-text-subtle">{t("market.privacy.body")}</p>
+        <Checkbox checked={status.packages.community.online} disabled={disabled} onChange={(online) => void run("marketplace.community.set", { online })}>{t("market.privacy.online")}</Checkbox>
+        <Checkbox checked={status.packages.community.count_downloads} disabled={disabled || !status.packages.community.online} onChange={(count_downloads) => void run("marketplace.community.set", { count_downloads })}>{t("market.privacy.count")}</Checkbox>
+      </section>}
       <div className="flex flex-wrap items-center gap-4"><label className="relative min-w-48 flex-1"><Search className="absolute start-3 top-2.5 size-4 text-text-subtle" aria-hidden /><input aria-label={t("market.search")} placeholder={t("market.searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} className="h-9 w-full rounded-control border border-border bg-surface-sunken ps-9 pe-3 text-small" /></label><span className="text-caption text-text-subtle">{t("market.installedCount", { n: installed.size })}</span></div>
       <div className="flex items-center gap-3 text-small"><span>{t("market.sortBy")}</span><Select<SortOrder> label={t("market.sortAria")} value={sortOrder} onChange={setSortOrder} options={[{value:"downloads",label:t("market.sort.downloads")},{value:"rating",label:t("market.sort.rating")},{value:"name",label:t("market.sort.name")},{value:"installed",label:t("market.sort.installed")},{value:"updates",label:t("market.sort.updates")}]} />{status?.packages.ratings.configured && <Button variant="ghost" aria-label={t("market.refreshRatings")} disabled={status.packages.ratings.loading || !!status.packages.ratings.saving} onClick={() => void run("marketplace.ratings.refresh")}><RefreshCw className={cn("size-4",status.packages.ratings.loading && "animate-spin")} /></Button>}</div>
       {!status && mode !== "mock" && !error && <p role="status" className="text-small text-text-muted">{t("market.connecting")}</p>}

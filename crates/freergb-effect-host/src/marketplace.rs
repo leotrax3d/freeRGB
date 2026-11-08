@@ -19,6 +19,7 @@ use std::{
 };
 
 pub const OFFICIAL: &str = "github:leotrax3d/FreeRGB@effects";
+const COMMUNITY_OFF: &str = "Online community features are turned off. Enable them in the Marketplace privacy settings to rate effects or send reports.";
 #[cfg(test)]
 mod cancellation_tests {
     use super::*;
@@ -233,6 +234,7 @@ pub struct View {
     pub error: Option<String>,
     pub failure: Option<Failure>,
     pub ratings: crate::ratings::Ratings,
+    pub community: crate::ratings::CommunitySettings,
 }
 struct State {
     catalog: Catalog,
@@ -250,6 +252,7 @@ pub struct Manager {
     source: Source,
     bundled: bool,
     ratings_client: Option<Arc<crate::ratings::Client>>,
+    community: Mutex<crate::ratings::CommunitySettings>,
     state: Mutex<State>,
     cancel: AtomicBool,
 }
@@ -357,14 +360,28 @@ impl Manager {
             Ok(client) => (client.map(Arc::new), None),
             Err(error) => (None, Some(error)),
         };
+        // A missing or unreadable file means "off": never fall back to online.
+        let community: crate::ratings::CommunitySettings = root
+            .join("community.json")
+            .exists()
+            .then(|| read(&root.join("community.json"), 4 * 1024).ok())
+            .flatten()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+            .unwrap_or_default();
+        if let Some(client) = &ratings_client {
+            if !community.counting() {
+                client.discard_queued_downloads();
+            }
+        }
         let ratings = crate::ratings::Ratings {
-            configured: ratings_client.is_some(),
+            configured: ratings_client.is_some() && community.online,
             error: ratings_error,
             ..Default::default()
         };
         Ok(Arc::new(Self {
             cancel: AtomicBool::new(false),
             ratings_client,
+            community: Mutex::new(community),
             root,
             source,
             bundled,
@@ -384,7 +401,60 @@ impl Manager {
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
+    pub fn community_settings(&self) -> crate::ratings::CommunitySettings {
+        *self.community.lock().unwrap_or_else(|e| e.into_inner())
+    }
+    /// Changes and persists the community switches. Turning counting (or the
+    /// whole service) off also deletes receipts that were queued but not sent.
+    /// Counting cannot be enabled while the service is off.
+    pub fn set_community(
+        &self,
+        online: Option<bool>,
+        count_downloads: Option<bool>,
+    ) -> Result<crate::ratings::CommunitySettings> {
+        let mut guard = self.community.lock().unwrap_or_else(|e| e.into_inner());
+        let mut next = *guard;
+        if let Some(online) = online {
+            next.online = online;
+        }
+        if let Some(count) = count_downloads {
+            next.count_downloads = count;
+        }
+        if !next.online {
+            next.count_downloads = false;
+        }
+        if count_downloads == Some(true) && !next.online {
+            return Err("Turn on online community features before download counting".into());
+        }
+        atomic(&self.root.join("community.json"), &json(&next)?)?;
+        *guard = next;
+        drop(guard);
+        if !next.counting() {
+            if let Some(client) = &self.ratings_client {
+                client.discard_queued_downloads();
+            }
+        }
+        let mut s = self.lock();
+        if !next.online {
+            s.ratings = crate::ratings::Ratings {
+                configured: false,
+                ..Default::default()
+            };
+        } else {
+            s.ratings.configured = self.ratings_client.is_some();
+            s.ratings_attempt = None;
+        }
+        Ok(next)
+    }
+    /// The community client, only while the user has switched the service on.
+    fn community_client(&self) -> Option<Arc<crate::ratings::Client>> {
+        if !self.community_settings().online {
+            return None;
+        }
+        self.ratings_client.clone()
+    }
     pub fn view(&self) -> View {
+        let community = self.community_settings();
         let s = self.lock();
         View {
             source: self.source.describe(),
@@ -394,7 +464,11 @@ impl Manager {
             job: s.job.clone(),
             error: s.error.clone(),
             failure: s.failure.clone(),
-            ratings: s.ratings.clone(),
+            ratings: crate::ratings::Ratings {
+                configured: s.ratings.configured && community.online,
+                ..s.ratings.clone()
+            },
+            community,
         }
     }
     fn effect_ids(&self) -> Vec<String> {
@@ -414,21 +488,22 @@ impl Manager {
         payload: &serde_json::Value,
         request_id: &str,
     ) -> Result<serde_json::Value> {
-        self.ratings_client
-            .as_ref()
-            .ok_or("Community service unavailable")?
+        self.community_client()
+            .ok_or(COMMUNITY_OFF)?
             .submit(kind, payload, request_id)
     }
     pub fn inbox(&self, action: &str, params: &serde_json::Value) -> Result<serde_json::Value> {
-        self.ratings_client
-            .as_ref()
-            .ok_or("Community service unavailable")?
+        self.community_client()
+            .ok_or(COMMUNITY_OFF)?
             .inbox(action, params)
     }
     pub fn refresh_ratings(self: &Arc<Self>) -> Result<()> {
-        let Some(client) = self.ratings_client.clone() else {
+        let Some(client) = self.community_client() else {
             return Ok(());
         };
+        if !self.community_settings().counting() {
+            client.discard_queued_downloads();
+        }
         {
             let mut s = self.lock();
             if s.ratings.loading || s.ratings.saving.is_some() {
@@ -466,10 +541,10 @@ impl Manager {
         Ok(())
     }
     pub fn rate(self: &Arc<Self>, id: &str, stars: Option<u8>) -> Result<()> {
-        let client = self
-            .ratings_client
-            .clone()
-            .ok_or("Community ratings are not configured yet")?;
+        let client = self.community_client().ok_or(COMMUNITY_OFF)?;
+        if !self.community_settings().counting() {
+            client.discard_queued_downloads();
+        }
         {
             let mut s = self.lock();
             if !s
@@ -648,7 +723,12 @@ impl Manager {
                 let downloaded = matches!(result, Ok(true));
                 manager.finish(result.map(|_| ()));
                 if downloaded {
-                    if let Some(client) = &manager.ratings_client {
+                    let client = manager
+                        .community_settings()
+                        .counting()
+                        .then(|| manager.ratings_client.clone())
+                        .flatten();
+                    if let Some(client) = &client {
                         if let Err(error) = client.download(&receipt.0, &receipt.1) {
                             manager.lock().ratings.error = Some(format!(
                                 "Installed successfully; download count could not be sent: {error}"
@@ -854,5 +934,171 @@ impl Manager {
         // Retain immutable versions so existing saved profiles can report a
         // missing installation cleanly; reinstall restores them without downloads.
         Ok(())
+    }
+}
+#[cfg(test)]
+mod community_tests {
+    use super::*;
+    use crate::ratings::Client;
+    use std::net::TcpListener;
+    use std::time::{Duration, Instant};
+
+    fn directory(tag: &str) -> PathBuf {
+        let p = std::env::temp_dir().join(format!(
+            "freergb-community-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
+    /// Local release directory with the official catalog and artifacts.
+    fn release() -> PathBuf {
+        let release = directory("release");
+        let bytes = include_bytes!("../../../effects/catalog.json");
+        std::fs::write(release.join("catalog.json"), bytes).unwrap();
+        for entry in Catalog::parse(bytes).unwrap().effects {
+            std::fs::copy(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../effects/packages")
+                    .join(&entry.artifact.url),
+                release.join(&entry.artifact.url),
+            )
+            .unwrap();
+        }
+        release
+    }
+    /// A manager whose community client points at a local listener that
+    /// records every connection attempt.
+    fn with_client(root: &Path, release: &Path) -> (Arc<Manager>, TcpListener) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let url = format!("http://{}/v1", listener.local_addr().unwrap());
+        let mut manager = Manager::development(root.to_path_buf(), release.to_path_buf()).unwrap();
+        let client = Client::new(
+            url,
+            "test-project".into(),
+            root.join("ratings-session.json"),
+            true,
+        )
+        .unwrap();
+        Arc::get_mut(&mut manager).unwrap().ratings_client = Some(Arc::new(client));
+        (manager, listener)
+    }
+    fn wait_idle(manager: &Arc<Manager>) {
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while manager.busy() {
+            assert!(Instant::now() < deadline, "job timed out");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+    fn install(manager: &Arc<Manager>) {
+        manager.refresh().unwrap();
+        wait_idle(manager);
+        manager.install("aurora").unwrap();
+        wait_idle(manager);
+        assert_eq!(manager.view().installed[0].id, "aurora");
+    }
+    fn connected(listener: &TcpListener, wait: Duration) -> bool {
+        let deadline = Instant::now() + wait;
+        loop {
+            if listener.accept().is_ok() {
+                return true;
+            }
+            if Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+    fn community_files(root: &Path) -> Vec<String> {
+        std::fs::read_dir(root)
+            .unwrap()
+            .filter_map(|e| e.ok()?.file_name().into_string().ok())
+            .filter(|n| n.starts_with("ratings-session"))
+            .collect()
+    }
+
+    #[test]
+    fn defaults_are_off_and_install_creates_no_identity_or_download_record() {
+        let (root, release) = (directory("off"), release());
+        let (manager, listener) = with_client(&root, &release);
+        assert_eq!(
+            manager.community_settings(),
+            crate::ratings::CommunitySettings::default()
+        );
+        assert!(!manager.community_settings().online);
+        assert!(!manager.community_settings().count_downloads);
+        assert!(!manager.view().ratings.configured);
+        install(&manager);
+        manager.refresh_ratings().unwrap();
+        assert!(manager.rate("aurora", Some(5)).is_err());
+        assert!(manager
+            .submit_report("feedback", &serde_json::json!({}), "request-1")
+            .is_err());
+        assert!(manager.inbox("inbox", &serde_json::json!({})).is_err());
+        assert!(
+            !connected(&listener, Duration::from_millis(500)),
+            "offline mode must not contact the community service"
+        );
+        assert!(community_files(&root).is_empty(), "no identity or receipt");
+        assert!(manager.view().ratings.by_effect.is_empty());
+    }
+
+    #[test]
+    fn online_without_counting_never_sends_or_queues_a_download_receipt() {
+        let (root, release) = (directory("nocount"), release());
+        let (manager, listener) = with_client(&root, &release);
+        // Counting cannot be enabled while the service is off.
+        assert!(manager.set_community(None, Some(true)).is_err());
+        manager.set_community(Some(true), None).unwrap();
+        assert!(!manager.community_settings().count_downloads);
+        install(&manager);
+        assert!(
+            !connected(&listener, Duration::from_millis(500)),
+            "an install alone must not contact the service when counting is off"
+        );
+        assert!(community_files(&root).is_empty(), "no identity or receipt");
+        // Positive control: online features do reach the service when enabled.
+        manager.rate("aurora", Some(4)).unwrap();
+        assert!(connected(&listener, Duration::from_secs(10)));
+    }
+
+    #[test]
+    fn counting_is_opt_in_persisted_and_revocable() {
+        let (root, release) = (directory("count"), release());
+        let (manager, listener) = with_client(&root, &release);
+        manager.set_community(Some(true), Some(true)).unwrap();
+        install(&manager);
+        assert!(
+            connected(&listener, Duration::from_secs(10)),
+            "opted-in install sends a receipt"
+        );
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let queue = root.join("ratings-session.downloads");
+        while !queue.exists() {
+            assert!(Instant::now() < deadline, "receipt was not queued");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        // Revoking counting deletes unsent receipts and survives a restart.
+        manager.set_community(None, Some(false)).unwrap();
+        assert!(!queue.exists());
+        drop(manager);
+        let (reopened, _listener) = with_client(&root, &release);
+        assert!(reopened.community_settings().online);
+        assert!(!reopened.community_settings().count_downloads);
+        reopened.set_community(Some(false), None).unwrap();
+        assert!(!reopened.community_settings().online);
+        assert!(!reopened.view().ratings.configured);
+    }
+    #[test]
+    fn corrupt_settings_file_means_off() {
+        let (root, release) = (directory("corrupt"), release());
+        std::fs::write(root.join("community.json"), b"{not json").unwrap();
+        let (manager, _listener) = with_client(&root, &release);
+        assert!(!manager.community_settings().online);
     }
 }
