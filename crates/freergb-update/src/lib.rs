@@ -8,6 +8,49 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 const API: &str = "https://api.github.com/repos/leotrax3d/FreeRGB";
+// Provision a release public key here via a reviewed source change. Never load keys
+// from the network, environment or update metadata. No production key exists yet.
+const PINNED_UPDATE_KEY: Option<[u8; 32]> = None;
+
+#[cfg(not(test))]
+fn pinned_key() -> Result<[u8; 32], String> {
+    PINNED_UPDATE_KEY.ok_or_else(|| "installer signing key is not provisioned".into())
+}
+#[cfg(test)]
+fn pinned_key() -> Result<[u8; 32], String> {
+    Ok(tests::signing_key().verifying_key().to_bytes())
+}
+
+fn signature_message(update: &Update) -> Result<String, String> {
+    let version = semver::Version::parse(&update.version).map_err(|e| e.to_string())?;
+    if version.to_string() != update.version
+        || update.sha256.len() != 64
+        || !update.sha256.bytes().all(|b| b.is_ascii_hexdigit())
+        || update.size == 0
+        || update.size > MAX_INSTALLER
+    {
+        return Err("invalid signed installer metadata".into());
+    }
+    Ok(format!(
+        "freeRGB-installer-v1\nwindows-x86_64\n{}\n{}\n{}\n",
+        update.version,
+        update.size,
+        update.sha256.to_ascii_lowercase()
+    ))
+}
+
+fn verify_signature_with_key(update: &Update, key: &[u8; 32]) -> Result<(), String> {
+    let message = signature_message(update)?;
+    let signature = ed25519_dalek::Signature::from_slice(&update.signature)
+        .map_err(|_| "missing or malformed installer signature")?;
+    let key = ed25519_dalek::VerifyingKey::from_bytes(key).map_err(|e| e.to_string())?;
+    key.verify_strict(message.as_bytes(), &signature)
+        .map_err(|_| "installer signature verification failed".into())
+}
+fn verify_signature(update: &Update) -> Result<(), String> {
+    verify_signature_with_key(update, &pinned_key()?)
+}
+
 const MAX_INSTALLER: u64 = 256 * 1024 * 1024;
 
 fn temporary_installer(destination: &Path) -> Result<(PathBuf, std::fs::File), String> {
@@ -38,6 +81,10 @@ pub struct Update {
     pub asset_id: u64,
     pub sha256: String,
     pub size: u64,
+    #[serde(default)]
+    pub signature: Vec<u8>,
+    #[serde(default)]
+    pub signature_asset_id: u64,
 }
 #[derive(Deserialize)]
 struct Release {
@@ -104,6 +151,12 @@ fn select_release(release: Release, current: &str) -> Result<Option<Update>, Str
         return Ok(None);
     }
     let name = format!("freeRGB-{version}-windows-x86_64-setup.exe");
+    let signature_name = format!("{name}.sig");
+    let signature_asset_id = release
+        .assets
+        .iter()
+        .find(|a| a.name == signature_name && a.size == 64)
+        .map_or(0, |a| a.id);
     let asset = release
         .assets
         .into_iter()
@@ -125,6 +178,8 @@ fn select_release(release: Release, current: &str) -> Result<Option<Update>, Str
         asset_id: asset.id,
         sha256: digest.to_ascii_lowercase(),
         size: asset.size,
+        signature: Vec::new(),
+        signature_asset_id,
     }))
 }
 
@@ -176,11 +231,40 @@ pub fn check() -> Result<Option<Update>, String> {
     if text.len() > 1024 * 1024 {
         return Err("release metadata exceeds limit".into());
     }
-    if beta {
-        parse_release_list(&text, current)
+    let mut update = if beta {
+        parse_release_list(&text, current)?
     } else {
-        parse_release(&text, current)
+        parse_release(&text, current)?
+    };
+    if let Some(update) = &mut update {
+        fetch_signature(update)?;
+        verify_signature(update)?;
     }
+    Ok(update)
+}
+
+fn fetch_signature(update: &mut Update) -> Result<(), String> {
+    let client = client()?;
+    if update.signature.is_empty() {
+        if update.signature_asset_id == 0 {
+            return Err("release has no detached installer signature".into());
+        }
+        let response = request(
+            &client,
+            format!("{API}/releases/assets/{}", update.signature_asset_id),
+            "application/octet-stream",
+        )
+        .send()
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?;
+        response
+            .take(65)
+            .read_to_end(&mut update.signature)
+            .map_err(|e| e.to_string())?;
+    }
+    verify_signature(update)?;
+    Ok(())
 }
 
 pub fn download(update: &Update, directory: &Path) -> Result<PathBuf, String> {
@@ -193,6 +277,7 @@ pub fn download(update: &Update, directory: &Path) -> Result<PathBuf, String> {
     {
         return Err("invalid update metadata".into());
     }
+    verify_signature(update)?;
     std::fs::create_dir_all(directory).map_err(|e| e.to_string())?;
     let destination = directory.join(format!("freeRGB-{}-setup.exe", update.version));
     let client = client()?;
@@ -213,6 +298,7 @@ fn stage_verified(
     update: &Update,
     destination: &Path,
 ) -> Result<PathBuf, String> {
+    verify_signature(update)?;
     stage_transfer(destination, |file| copy_verified(reader, file, update))
 }
 
@@ -267,6 +353,7 @@ pub fn verify(path: &Path, update: &Update) -> Result<(), String> {
 }
 
 fn verified_file(path: &Path, update: &Update) -> Result<std::fs::File, String> {
+    verify_signature(update)?;
     if update.size == 0
         || update.size > MAX_INSTALLER
         || update.sha256.len() != 64
@@ -354,11 +441,69 @@ pub fn install_verified(_: &Path, _: &Update) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ed25519_dalek::Signer;
+    pub(super) fn signing_key() -> ed25519_dalek::SigningKey {
+        static KEY: std::sync::OnceLock<ed25519_dalek::SigningKey> = std::sync::OnceLock::new();
+        KEY.get_or_init(|| {
+            // Ephemeral generated test key only; never a production trust anchor.
+            let seed = format!("{:?}-{}", std::time::SystemTime::now(), std::process::id());
+            ed25519_dalek::SigningKey::from_bytes(&Sha256::digest(seed.as_bytes()).into())
+        })
+        .clone()
+    }
+    pub(super) fn signed(mut update: Update) -> Update {
+        update.signature = signing_key()
+            .sign(signature_message(&update).unwrap().as_bytes())
+            .to_bytes()
+            .to_vec();
+        update
+    }
+    #[test]
+    fn signatures_bind_code_and_version_and_reject_online_forgery() {
+        assert!(PINNED_UPDATE_KEY.is_none());
+        let mut update = super::recovery_tests::metadata(b"fixture");
+        verify_signature(&update).unwrap();
+        update.version = "9.0.0".into();
+        assert!(verify_signature(&update).is_err());
+        update = super::recovery_tests::metadata(b"attacker code");
+        update.signature.clear();
+        assert!(verify_signature(&update).is_err());
+        update = super::recovery_tests::metadata(b"fixture");
+        let other = ed25519_dalek::SigningKey::from_bytes(
+            &Sha256::digest(b"different generated test key").into(),
+        );
+        assert!(verify_signature_with_key(&update, &other.verifying_key().to_bytes()).is_err());
+        update.signature[0] ^= 1;
+        assert!(verify_signature(&update).is_err());
+    }
 
     fn release(version: &str) -> serde_json::Value {
         serde_json::json!({"tag_name":format!("v{version}"),"draft":false,"prerelease":version.contains('-'),
             "assets":[{"id":42,"name":format!("freeRGB-{version}-windows-x86_64-setup.exe"),"size":100,
                 "digest":format!("sha256:{}", "a".repeat(64))}]})
+    }
+
+    #[test]
+    fn forged_hash_and_size_cannot_authorize_payload_or_touch_destination() {
+        let root =
+            std::env::temp_dir().join(format!("freergb-signature-forgery-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("installer.exe");
+        let bytes = b"attacker payload";
+        let mut forged = super::recovery_tests::metadata(b"authorized fixture");
+        forged.sha256 = format!("{:x}", Sha256::digest(bytes));
+        forged.size = bytes.len() as u64;
+        std::fs::write(&path, bytes).unwrap();
+        assert!(verify(&path, &forged).is_err());
+        assert!(stage_verified(bytes.as_slice(), &forged, &path).is_err());
+        assert_eq!(std::fs::read_dir(&root).unwrap().count(), 1);
+        let mut json = serde_json::to_value(&forged).unwrap();
+        json.as_object_mut().unwrap().remove("signature");
+        let unsigned: Update = serde_json::from_value(json).unwrap();
+        assert!(verify(&path, &unsigned).is_err());
+        assert!(download(&unsigned, &root.join("never-created")).is_err());
+        assert!(!root.join("never-created").exists());
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -437,7 +582,10 @@ mod tests {
             asset_id: 1,
             size: bytes.len() as u64,
             sha256: format!("{:x}", Sha256::digest(bytes)),
+            signature: Vec::new(),
+            signature_asset_id: 0,
         };
+        let update = signed(update);
         let file = verified_file(&path, &update).unwrap();
         assert!(std::fs::write(&path, b"replaced").is_err());
         assert!(std::fs::remove_file(&path).is_err());
@@ -495,7 +643,10 @@ mod tests {
             asset_id: 1,
             size: bytes.len() as u64,
             sha256: format!("{:x}", Sha256::digest(bytes)),
+            signature: Vec::new(),
+            signature_asset_id: 0,
         };
+        let update = signed(update);
         verify(&path, &update).unwrap();
         std::fs::write(&path, vec![b'x'; bytes.len()]).unwrap();
         assert!(verify(&path, &update).is_err());
