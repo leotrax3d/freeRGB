@@ -140,17 +140,17 @@ Releases.
   "downloads": {
     "windows": {
       "label": "Windows 10 / 11",
-      "url": "https://github.com/leotrax3d/FreeRGB/actions",
+      "url": "https://github.com/leotrax3d/freeRGB/actions",
       "note": "Installer builds on GitHub Actions; sign-in may be required"
     },
     "linux": {
       "label": "Linux",
-      "url": "https://github.com/leotrax3d/FreeRGB/blob/main/docs/INSTALL.md#linux",
+      "url": "https://github.com/leotrax3d/freeRGB/blob/main/docs/INSTALL.md#linux",
       "note": "Build and install from source"
     },
     "source": {
       "label": "Source archive",
-      "url": "https://github.com/leotrax3d/FreeRGB/archive/refs/heads/main.zip",
+      "url": "https://github.com/leotrax3d/freeRGB/archive/refs/heads/main.zip",
       "note": "Current main branch as ZIP"
     }
   },

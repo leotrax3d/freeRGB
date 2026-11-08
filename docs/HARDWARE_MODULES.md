@@ -387,7 +387,7 @@ setup state and catalog cache next to `state.json` in the config directory.
 
 | Option | Default |
 |---|---|
-| `--module-source` / `FREERGB_MODULE_SOURCE` | `github:leotrax3d/FreeRGB@modules` (release tag `modules`; private repo needs `FREERGB_GITHUB_TOKEN`). Also `https://…` base URL or a local directory. |
+| `--module-source` / `FREERGB_MODULE_SOURCE` | `github:leotrax3d/freeRGB@modules` (release tag `modules`; private repo needs `FREERGB_GITHUB_TOKEN`). Also `https://…` base URL or a local directory. |
 | `--module-dev-key HEX` | none |
 | `--no-modules` | modules enabled |
 

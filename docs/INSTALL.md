@@ -55,7 +55,7 @@ Requirements: [Rust](https://rustup.rs/) (stable, MSVC toolchain) and the Visual
 Build Tools with the "Desktop development with C++" workload.
 
 ```powershell
-git clone https://github.com/leotrax3d/FreeRGB.git
+git clone https://github.com/leotrax3d/freeRGB.git
 cd FreeRGB
 cargo install --path crates/freergb-daemon   # freergbd
 cargo install --path crates/freergb-cli      # freergb
@@ -95,7 +95,7 @@ sudo apt install build-essential pkg-config libudev-dev \
 Build and install:
 
 ```bash
-git clone https://github.com/leotrax3d/FreeRGB.git
+git clone https://github.com/leotrax3d/freeRGB.git
 cd FreeRGB
 cargo install --path crates/freergb-daemon
 cargo install --path crates/freergb-cli

@@ -5,7 +5,7 @@ file, assigns the workstreams below to worker agents (one workstream per agent,
 run in parallel), reviews their PRs and keeps the shared files consistent.
 
 ## Context
-freeRGB (repo `leotrax3d/FreeRGB`) is a Rust RGB + fan-control suite with a
+freeRGB (repo `leotrax3d/freeRGB`) is a Rust RGB + fan-control suite with a
 daemon (`freergbd`), a Tauri/React desktop app (`apps/desktop`), a Classic
 Win32/egui GUI (`crates/freergb-gui`), a tray, an installer and signed
 downloadable hardware modules. Read first: `docs/HANDOFF.md`, `docs/STATUS.md`,
