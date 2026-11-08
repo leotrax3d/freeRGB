@@ -130,6 +130,13 @@ fn attach(
             continue;
         };
         let id = engine_id(module, info);
+        if crate::mainboard_rgb::device_key(&id.0).is_some() {
+            let e = lock(engine);
+            if !e.mainboard_rgb.settings().enabled || !e.mainboard_rgb.vendor_software().is_empty()
+            {
+                continue;
+            }
+        }
         if lock(engine).has_device(&id) {
             continue;
         }

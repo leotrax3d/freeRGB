@@ -118,6 +118,32 @@ R9. Bindings (item 10): `cooling.bindings.get` after one save from the
     desktop shows one CHA_FAN2 binding (channel-id spelling) and the pump
     binding; assigning CHA_FAN2 again in guided setup replaces it.
 
+## Motherboard lighting Headers page (S22, owner only; not executed)
+
+H1. On ASUS, Gigabyte, ASRock and MSI boards, record USB IDs, firmware, commit
+    and GUI used. Configure each external header's type, count, colour order and
+    name in Headers. Restart both GUIs and verify the same saved settings.
+    Fixed MSI zones must show the reported count/type. Type must never imply a
+    voltage conversion. Record unsupported adapter families as blocked.
+H2. On IT5711 `048d:5711`, save all six slots (four external and two onboard),
+    export/import the settings in Tauri, reopen in Classic and verify no slot
+    is lost. Verify each slot against the P2 driver's physical channel order.
+H3. Start the saved header's six-second RGB test; verify red, green and blue
+    for two seconds each, only on that header, then automatic effect return.
+    Change colour order and repeat. Include a zero-length or absent first
+    header and a name containing "LED" to check later-header addressing.
+H4. Give two headers different canvas rectangles. Run one gradient across
+    headers and a peripheral; check placement, RGB uniform colour, ARGB LED
+    progression and persistence after restart. On ASRock ensure onboard/PCH
+    zones are unaffected by external-header tests and mappings.
+H5. For each vendor application/service (Armoury Crate, MSI Center, RGB Fusion,
+    Polychrome), verify the warning before controller acquisition. Start it
+    while lighting is active: motherboard built-in/module devices must release
+    and stay closed; other peripherals continue. Close vendor software and
+    verify acquisition resumes. Verify the global management switch also
+    stops/prevents motherboard modules. Record outcomes; do not mark acceptance
+    from the simulated suite.
+
 ## Done when
 All steps recorded with commit and result; failures turned into fix tasks;
 STATUS/FAN_COVERAGE/README progress updated only from recorded evidence.

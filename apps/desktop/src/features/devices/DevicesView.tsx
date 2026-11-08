@@ -10,7 +10,6 @@ import { num } from "@/lib/format";
 import { useDaemonValue } from "@/lib/store/useDaemonValue";
 import { NewDevicesPanel, SetupExtras } from "@/features/setup/NewDevicesPanel";
 import { CoolingPluginsManager } from "@/features/cooling/PluginsSection";
-import { MainboardRgb } from "./MainboardRgb";
 
 const KINDS: Record<DeviceKind, { label: DevicesKey; icon: LucideIcon }> = {
   Keyboard: { label: "devices.kindOne.Keyboard", icon: Keyboard },
@@ -130,7 +129,6 @@ export default function DevicesView() {
           ))}
         </div>
       )}
-      <MainboardRgb />
       <SetupExtras />
       <CoolingPluginsManager />
     </>

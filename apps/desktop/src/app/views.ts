@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type ViewId = "marketplace" | "lighting" | "devices" | "layout" | "profiles" | "cooling" | "macros" | "monitoring" | "settings";
+export type ViewId = "marketplace" | "lighting" | "devices" | "headers" | "layout" | "profiles" | "cooling" | "macros" | "monitoring" | "settings";
 
 export type ViewGroup = "light" | "hardware" | "automation" | "footer";
 
@@ -46,6 +46,7 @@ export const VIEWS: readonly ViewDef[] = [
   view({ id: "layout", label: "nav.layout", icon: LayoutDashboard, group: "light", hint: "nav.layout.hint" }, () => import("@/features/layout/LayoutView")),
   view({ id: "profiles", label: "nav.profiles", icon: Layers, group: "light", hint: "nav.profiles.hint" }, () => import("@/features/profiles/ProfilesView")),
   view({ id: "devices", label: "nav.devices", icon: Cpu, group: "hardware", hint: "nav.devices.hint" }, () => import("@/features/devices/DevicesView")),
+  view({ id: "headers", label: "mainboardRgb.headers", icon: Cpu, group: "hardware", hint: "mainboardRgb.hint" }, () => import("@/features/devices/HeadersView")),
   view({ id: "cooling", label: "nav.cooling", icon: Fan, group: "hardware", hint: "nav.cooling.hint" }, () => import("@/features/cooling/CoolingView")),
   view({ id: "monitoring", label: "nav.monitoring", icon: Activity, group: "hardware", hint: "nav.monitoring.hint" }, () => import("@/features/monitoring/MonitoringView")),
   view({ id: "macros", label: "nav.macros", icon: Keyboard, group: "automation", hint: "nav.macros.hint" }, () => import("@/features/macros/MacrosView")),

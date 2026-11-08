@@ -145,6 +145,27 @@ mod tests {
     }
 
     #[test]
+    fn all_header_vendors_and_services_are_matched_without_blocking_other_devices() {
+        let processes = [
+            "MSI.CentralServer.exe",
+            "PolychromeRGB.exe",
+            "RGBFusion2.exe",
+            "ArmouryCrateService.exe",
+            "msi.centralserver.exe",
+        ];
+        assert_eq!(
+            mainboard_vendors_in(processes),
+            vec![
+                "ASRock Polychrome RGB",
+                "ASUS Armoury Crate",
+                "Gigabyte RGB Fusion",
+                "MSI Center"
+            ]
+        );
+        assert!(find_in(processes).is_empty());
+    }
+
+    #[test]
     fn mainboard_vendor_software_is_a_warning_not_a_global_conflict() {
         let running = [
             "ArmouryCrate.exe",

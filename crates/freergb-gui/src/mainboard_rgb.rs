@@ -14,6 +14,14 @@ const FAMILIES: &[(u64, &[u64], usize, &str)] = &[
         "ASUS Aura",
     ),
     (0x048d, &[0x5702, 0x8297], 2, "Gigabyte RGB Fusion 2"),
+    (
+        0x048d,
+        &[0x5711],
+        6,
+        "Gigabyte IT5711 (4 external + 2 onboard)",
+    ),
+    (0x048d, &[0x8950], 2, "Gigabyte RGB Fusion 2"),
+    (0x0414, &[0xa100], 2, "Gigabyte RGB Fusion 2"),
     (0x26ce, &[0x01a2, 0x01a6], 3, "ASRock Polychrome"),
 ];
 
@@ -30,6 +38,16 @@ pub fn controllers(
         ) else {
             continue;
         };
+        if device["info"]["id"]
+            .as_str()
+            .is_some_and(|id| id.starts_with("module:msi-motherboard:"))
+        {
+            let key = format!("{vid:04x}:{pid:04x}");
+            if !out.iter().any(|c| c.0 == key) {
+                out.push((key, "MSI Mystic Light", 4, true));
+            }
+            continue;
+        }
         if let Some((_, _, headers, label)) = FAMILIES
             .iter()
             .find(|(v, p, _, _)| *v == vid && p.contains(&pid))
@@ -53,7 +71,14 @@ pub fn controllers(
             .find(|(v, p, _, _)| ids.len() == 2 && *v == ids[0] && p.contains(&ids[1]));
         out.push((
             key.clone(),
-            family.map_or("Controller", |f| f.3),
+            family.map_or(
+                if key.starts_with("1462:") || key.starts_with("0db0:") {
+                    "MSI Mystic Light"
+                } else {
+                    "Controller"
+                },
+                |f| f.3,
+            ),
             family.map_or(4, |f| f.2),
             false,
         ));
@@ -85,7 +110,7 @@ pub fn set_header(settings: &mut Value, key: &str, index: usize, leds: u16, name
         header["name"] = json!(name);
     }
     // Keep the colour order and fallback of the header being edited.
-    for field in ["order", "fallback"] {
+    for field in ["order", "fallback", "type", "region"] {
         if let Some(value) = list[index].get(field) {
             header[field] = value.clone();
         }
@@ -159,6 +184,32 @@ impl MainboardRgbPanel {
             .unwrap_or_default();
         self.fans = self.fans.max(1);
         let draft = self.draft.get_or_insert_with(|| state["settings"].clone());
+        if let Some(controllers) = state["fixed_headers"].as_object() {
+            for (key, fixed) in controllers {
+                if let Some(headers) = fixed.as_array() {
+                    for (i, h) in headers.iter().enumerate() {
+                        let current = &draft["controllers"][key][i];
+                        if current["leds"] != h["leds"] || current["type"] != h["type"] {
+                            let name = current["name"]
+                                .as_str()
+                                .or_else(|| h["name"].as_str())
+                                .unwrap_or("")
+                                .to_owned();
+                            set_header(
+                                draft,
+                                key,
+                                i,
+                                h["leds"].as_u64().unwrap_or(1) as u16,
+                                &name,
+                                max,
+                            );
+                            draft["controllers"][key][i]["type"] = h["type"].clone();
+                            self.dirty = true;
+                        }
+                    }
+                }
+            }
+        }
         let mut enabled = draft["enabled"].as_bool().unwrap_or(true);
         if ui
             .checkbox(&mut enabled, "Manage motherboard RGB (ARGB/RGB headers)")
@@ -187,7 +238,7 @@ impl MainboardRgbPanel {
                 .unwrap_or_default();
             let list = controllers(&snapshot.devices, &saved);
             if list.is_empty() {
-                ui.label("No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB).");
+                ui.label("No supported motherboard RGB controller was found (ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB, MSI Mystic Light).");
             }
             for (key, label, headers, detected) in list {
                 ui.group(|ui| {
@@ -195,10 +246,31 @@ impl MainboardRgbPanel {
                         "{label} · {key}{}",
                         if detected { "" } else { " · not detected" }
                     ));
-                    for index in 0..headers {
+                    let fixed = state["fixed_headers"][&key].as_array();
+                    for index in 0..fixed.map_or(headers, Vec::len) {
                         let header = &draft["controllers"][&key][index];
+                        let mut kind = header["type"].as_str().unwrap_or("argb").to_owned();
+                        let mut region = header["region"].clone();
+                        if !region.is_object() {
+                            region = json!({"x":0.0,"y":0.0,"w":1.0,"h":1.0});
+                        }
+                        if let Some(fixed) = fixed.and_then(|list| list.get(index)) {
+                            kind = fixed["type"].as_str().unwrap_or("argb").to_owned();
+                        }
+                        let mut mapping_changed = false;
                         let mut leds = header["leds"].as_u64().unwrap_or(0) as u16;
-                        let mut name = header["name"].as_str().unwrap_or("").to_owned();
+                        if let Some(fixed) = fixed.and_then(|list| list.get(index)) {
+                            leds = fixed["leds"].as_u64().unwrap_or(1) as u16;
+                        }
+                        let mut name = header["name"]
+                            .as_str()
+                            .or_else(|| {
+                                fixed
+                                    .and_then(|list| list.get(index))
+                                    .and_then(|h| h["name"].as_str())
+                            })
+                            .unwrap_or("")
+                            .to_owned();
                         let mut order = header["order"].as_str().unwrap_or("rgb").to_owned();
                         let mut fallback = match header["fallback"]["mode"].as_str() {
                             Some("off") => "off".to_owned(),
@@ -210,8 +282,22 @@ impl MainboardRgbPanel {
                         };
                         let mut options_changed = false;
                         let mut changed = false;
-                        ui.horizontal(|ui| {
-                            ui.label(format!("ARGB {}", index + 1));
+                        ui.horizontal_wrapped(|ui| {
+                            ui.label(format!("Header {}", index + 1));
+                            egui::ComboBox::from_id_salt(("type", &key, index))
+                                .selected_text(&kind)
+                                .show_ui(ui, |ui| {
+                                    if fixed.is_some() {
+                                        ui.disable();
+                                    }
+                                    for (value, label) in
+                                        [("argb", "5 V ARGB"), ("rgb", "12 V RGB")]
+                                    {
+                                        mapping_changed |= ui
+                                            .selectable_value(&mut kind, value.to_owned(), label)
+                                            .changed();
+                                    }
+                                });
                             changed |= ui
                                 .add(
                                     egui::TextEdit::singleline(&mut name)
@@ -221,7 +307,8 @@ impl MainboardRgbPanel {
                                 )
                                 .changed();
                             changed |= ui
-                                .add(
+                                .add_enabled(
+                                    fixed.is_none(),
                                     egui::DragValue::new(&mut leds)
                                         .range(0..=max)
                                         .suffix(" LEDs"),
@@ -230,21 +317,24 @@ impl MainboardRgbPanel {
                             ui.small("Fan preset:");
                             for per in &presets {
                                 if ui
-                                    .small_button(format!(
-                                        "{}{per}",
-                                        if self.fans > 1 {
-                                            format!("{}×", self.fans)
-                                        } else {
-                                            String::new()
-                                        }
-                                    ))
+                                    .add_enabled(
+                                        fixed.is_none(),
+                                        egui::Button::new(format!(
+                                            "{}{per}",
+                                            if self.fans > 1 {
+                                                format!("{}×", self.fans)
+                                            } else {
+                                                String::new()
+                                            }
+                                        )),
+                                    )
                                     .clicked()
                                 {
                                     leds = per.saturating_mul(self.fans);
                                     changed = true;
                                 }
                             }
-                            if key.starts_with("0b05:") {
+                            {
                                 egui::ComboBox::from_id_salt(("order", &key, index))
                                     .selected_text(order.to_uppercase())
                                     .show_ui(ui, |ui| {
@@ -258,56 +348,108 @@ impl MainboardRgbPanel {
                                                 .changed();
                                         }
                                     });
-                                let kind = match fallback.as_str() {
-                                    "spectrum" | "off" => fallback.clone(),
-                                    _ => "static".to_owned(),
-                                };
-                                egui::ComboBox::from_id_salt(("fallback", &key, index))
-                                    .selected_text(match kind.as_str() {
-                                        "off" => "Off on stop",
-                                        "static" => "Static on stop",
-                                        _ => "Spectrum on stop",
-                                    })
-                                    .show_ui(ui, |ui| {
-                                        for (value, text) in [
-                                            ("spectrum", "Firmware spectrum"),
-                                            ("off", "Off"),
-                                            ("static", "Static colour"),
-                                        ] {
-                                            if ui.selectable_label(kind == value, text).clicked()
-                                                && kind != value
-                                            {
-                                                fallback = if value == "static" {
-                                                    "#ffffff".to_owned()
-                                                } else {
-                                                    value.to_owned()
-                                                };
-                                                options_changed = true;
+                                if key.starts_with("0b05:") {
+                                    let kind = match fallback.as_str() {
+                                        "spectrum" | "off" => fallback.clone(),
+                                        _ => "static".to_owned(),
+                                    };
+                                    egui::ComboBox::from_id_salt(("fallback", &key, index))
+                                        .selected_text(match kind.as_str() {
+                                            "off" => "Off on stop",
+                                            "static" => "Static on stop",
+                                            _ => "Spectrum on stop",
+                                        })
+                                        .show_ui(ui, |ui| {
+                                            for (value, text) in [
+                                                ("spectrum", "Firmware spectrum"),
+                                                ("off", "Off"),
+                                                ("static", "Static colour"),
+                                            ] {
+                                                if ui
+                                                    .selectable_label(kind == value, text)
+                                                    .clicked()
+                                                    && kind != value
+                                                {
+                                                    fallback = if value == "static" {
+                                                        "#ffffff".to_owned()
+                                                    } else {
+                                                        value.to_owned()
+                                                    };
+                                                    options_changed = true;
+                                                }
                                             }
+                                        });
+                                    if kind == "static" {
+                                        let mut rgb = [255u8; 3];
+                                        for (i, v) in rgb.iter_mut().enumerate() {
+                                            *v = u8::from_str_radix(
+                                                fallback.get(1 + i * 2..3 + i * 2).unwrap_or("ff"),
+                                                16,
+                                            )
+                                            .unwrap_or(255);
                                         }
-                                    });
-                                if kind == "static" {
-                                    let mut rgb = [255u8; 3];
-                                    for (i, v) in rgb.iter_mut().enumerate() {
-                                        *v = u8::from_str_radix(
-                                            fallback.get(1 + i * 2..3 + i * 2).unwrap_or("ff"),
-                                            16,
-                                        )
-                                        .unwrap_or(255);
-                                    }
-                                    if ui.color_edit_button_srgb(&mut rgb).changed() {
-                                        fallback =
-                                            format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2]);
-                                        options_changed = true;
+                                        if ui.color_edit_button_srgb(&mut rgb).changed() {
+                                            fallback = format!(
+                                                "#{:02x}{:02x}{:02x}",
+                                                rgb[0], rgb[1], rgb[2]
+                                            );
+                                            options_changed = true;
+                                        }
                                     }
                                 }
                             }
                         });
-                        if changed || options_changed {
+                        ui.horizontal(|ui| {
+                            ui.label("Canvas (0-1)");
+                            for field in ["x", "y", "w", "h"] {
+                                let mut v = region[field].as_f64().unwrap_or(0.0);
+                                ui.label(field.to_uppercase());
+                                if ui
+                                    .add(egui::DragValue::new(&mut v).speed(0.01).range(
+                                        if field == "w" || field == "h" {
+                                            0.01..=1.0
+                                        } else {
+                                            0.0..=1.0
+                                        },
+                                    ))
+                                    .changed()
+                                {
+                                    region[field] = json!(v);
+                                    mapping_changed = true;
+                                }
+                            }
+                            let conflict = state["vendor_software"]
+                                .as_array()
+                                .is_some_and(|v| !v.is_empty());
+                            if ui
+                                .add_enabled(
+                                    !self.dirty
+                                        && !changed
+                                        && !options_changed
+                                        && !mapping_changed
+                                        && detected
+                                        && leds > 0
+                                        && !conflict,
+                                    egui::Button::new("Test RGB (6 s)"),
+                                )
+                                .clicked()
+                            {
+                                let _ = tx.send(Command {
+                                    method: "mainboard_rgb.test",
+                                    params: json!({"key": key, "index": index}),
+                                });
+                            }
+                        });
+                        if kind == "rgb" {
+                            leds = leds.min(1);
+                        }
+                        if changed || options_changed || mapping_changed {
                             set_header(draft, &key, index, leds, &name, max);
                             if options_changed {
                                 set_header_options(draft, &key, index, &order, &fallback);
                             }
+                            draft["controllers"][&key][index]["type"] = json!(kind);
+                            draft["controllers"][&key][index]["region"] = region;
                             self.dirty = true;
                         }
                     }
@@ -333,6 +475,7 @@ impl MainboardRgbPanel {
                 self.dirty = false;
             }
         });
+        ui.small("Save before testing: red, green and blue for two seconds each, then effects resume. Canvas rectangles sample the shared effect. Type does not change voltage. MSI fixed zones retain reported LED counts.");
         ui.small("Headers with 0 LEDs keep their firmware effect. Lighting returns to the firmware effect when freeRGB stops.");
     }
 }
