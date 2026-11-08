@@ -5,6 +5,22 @@
 > ship any of these texts as final before decision D5 in `OWNER_DECISIONS.md`
 > is taken. Every passage marked `[LAWYER]` needs explicit review.
 
+## Integration status (DRAFT, pending lawyer review)
+
+- (a) integrated: `packaging/windows/disclaimer-en.txt` / `disclaimer-de.txt`
+  (generated from section (a), DRAFT/`[LAWYER]` markers removed from the
+  user-facing text) are the Inno `LicenseFile` of the English/German
+  `[Languages]` entries in `packaging/windows/freergb.iss`; the installer cannot
+  continue without accepting. The Beta label stays in `AppName`.
+- (b1) integrated in Settings → About (`settings.about.disclaimer`,
+  `settings.about.risk`, `settings.about.offByDefault`, `settings.about.legal`,
+  EN+DE).
+- (b2) integrated as English wizard text `SAFETY_TEXT_VERSION = 3` in
+  `safety.ts` and `onboarding.rs` (the wizard stays English-only by design, see
+  `docs/I18N.md`). Users who accepted version 2 are asked again.
+- All of this stays DRAFT until decision D5 is taken. The DRAFT status is
+  documented here only, not in user-facing strings.
+
 ## Basis and constraints
 
 - Publisher (owner decision D1, as given): one private natural person;

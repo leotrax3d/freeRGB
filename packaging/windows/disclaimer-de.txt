@@ -1,0 +1,11 @@
+﻿freeRGB – Beta-Software. Bitte vor der Installation lesen.
+
+freeRGB ist kostenlose, nicht kommerzielle, experimentelle Open-Source-Software, die von einer Privatperson unentgeltlich bereitgestellt wird. Es gibt keinen Verkauf, keine kostenpflichtigen Funktionen, keinen Supportvertrag und keine Garantie oder Zusicherung irgendeiner Art.
+
+freeRGB kann die Beleuchtung ändern und – nach einer gesonderten Bestätigung in der App – Lüfter- und Pumpendrehzahlen senken. Falsche Einstellungen, falsche Header-Zuordnungen, ungetestete Hardware, Treiber- oder Firmwareverhalten oder Softwarefehler können zu Überhitzung, Datenverlust, Beschädigung oder Zerstörung von Hardware, Brand und im Extremfall zu schweren Verletzungen oder zum Tod führen. Die Lüfter- und Pumpensteuerung ist für die meisten Mainboards und Geräte nicht auf echter Hardware bestätigt.
+
+Online- und Community-Funktionen, Telemetrie und Download-Zählung sind standardmäßig ausgeschaltet.
+
+Installation und Nutzung erfolgen auf eigene Gefahr und Verantwortung. Da die Software unentgeltlich überlassen wird, haftet der Entwickler, soweit gesetzlich zulässig, nur für Vorsatz und grobe Fahrlässigkeit sowie für arglistig verschwiegene Mängel. Unberührt bleibt die Haftung, die gesetzlich nicht ausgeschlossen oder beschränkt werden kann, insbesondere für Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit, für Vorsatz und grobe Fahrlässigkeit sowie nach zwingendem Produkthaftungsrecht.
+
+Zusätzlich gelten die Lizenzbedingungen (MIT / Apache-2.0 sowie GPL-2.0-or-later für Module) einschließlich ihrer Gewährleistungsausschlüsse, soweit gesetzlich zulässig.

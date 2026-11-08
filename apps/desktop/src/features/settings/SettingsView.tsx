@@ -146,6 +146,12 @@ export default function SettingsView() {
           <dd>{connection?.daemon_version ? `freergbd ${connection.daemon_version} · API ${connection.api_version}` : t("settings.about.notConnected")}</dd>
           <dt className="text-text-subtle">{t("settings.about.classic")}</dt>
           <dd className="text-text-muted">{t("settings.about.classicText")}</dd>
+          <dt className="text-text-subtle">{t("settings.about.legal")}</dt>
+          <dd className="flex flex-col gap-1.5 text-text-muted">
+            <span>{t("settings.about.disclaimer")}</span>
+            <span>{t("settings.about.risk")}</span>
+            <span>{t("settings.about.offByDefault")}</span>
+          </dd>
         </dl>
       </Section>
     </>
