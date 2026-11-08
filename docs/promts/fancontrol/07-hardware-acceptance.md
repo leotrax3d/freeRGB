@@ -149,3 +149,21 @@ candidate SHA, installer filename and SHA-256 from `docs/legal/RELEASE_SCOPE.md`
   build or payload requires re-evaluation of affected steps.
 - [ ] Link evidence to the release-SHA record. Owner records scope acceptance or
   postponement; missing evidence stays open. This appendix grants no legal approval.
+
+## S21: Gigabyte Fusion 2 USB variants (pending owner hardware acceptance)
+
+Software fixtures only; no hardware or real bus access performed. Test each of
+`048d:5711`, `048d:8950`, `0414:a100` when the owner has matching hardware.
+Record board/controller identity, firmware, commit, selected channel, configured
+LED count and outcome. Keep vendor RGB software closed during acceptance.
+
+- Confirm independent red/green/blue output and LED addressing on each configured
+  channel: IT5711 four external headers plus two onboard channels, 8950 two
+  headers, A100 one header. Leave unavailable channels unconfigured.
+- Check packet boundaries with 19/20 LEDs and strip class transitions at 32/33
+  and 64/65 LEDs; IT5711 must reject counts above 256 before any HID write.
+- Confirm unused channels retain firmware effects and length classes. For IT5711,
+  select header 3 or 4 independently to verify CC61 calibration and sparse mode bits.
+- Disconnect and close the app: confirm stored firmware effects return. No flash
+  save, calibration programming, driver installation or cooling commands are part
+  of this acceptance. Software support remains Experimental until recorded here.
