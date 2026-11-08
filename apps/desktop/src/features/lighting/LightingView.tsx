@@ -111,7 +111,7 @@ const EffectTile = memo(function EffectTile({
       </div>
       <div className="flex flex-col px-1">
         <span className="text-small font-medium">{label}</span>
-        <span className="text-caption text-text-subtle">{HINTS[name] ?? " "}</span>
+        <span className="text-caption text-text-subtle">{HINTS[name] ? t(HINTS[name]) : " "}</span>
       </div>
     </button>
   );
