@@ -28,11 +28,11 @@ brand images.
 - `docs/EFFECT_COLLECTION.md`, `docs/MAINBOARD_SMBUS_DRIVER_DECISION.md`:
   user path and first name removed.
 
-**Open (needs owner decision):** the prebuilt effect packages under
-`effects/development/*.wasm` (26 files) embed the build machine path
-`C:\Users\<user>\.codex\worktrees\...` in panic/debug strings. Fix: rebuild with
-`--remap-path-prefix` and refresh the catalog hashes (touches signed/hashed
-artefacts, so not done here). Editing the binaries in place would break hashes.
+**Fixed:** the 25 collection packages under `effects/development/*.wasm` embedded
+the build machine path in debug strings. `scripts/build-effects.py` now passes
+`--remap-path-prefix` for the checkout, the Rust sysroot and the home directory;
+the packages and `effects/development/catalog.json` hashes were rebuilt. The
+`effect-host` tests pass.
 
 ## (d) Internal agent/coordination docs (kept; owner decision)
 
