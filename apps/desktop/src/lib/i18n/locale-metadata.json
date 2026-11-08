@@ -39,6 +39,10 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "fa": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "fi": {
     "reviewed": false,
     "machineTranslated": true
@@ -103,6 +107,10 @@
     "reviewed": false,
     "machineTranslated": true
   },
+  "pt-BR": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
   "pt-PT": {
     "reviewed": false,
     "machineTranslated": true
@@ -132,6 +140,10 @@
     "machineTranslated": true
   },
   "tr": {
+    "reviewed": false,
+    "machineTranslated": true
+  },
+  "uk": {
     "reviewed": false,
     "machineTranslated": true
   },
