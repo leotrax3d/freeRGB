@@ -1,5 +1,5 @@
-//! Simulation-only API v2 host. No native backend, hardware enumeration or I/O.
-//! An instance represents one canonical simulated physical bus; sessions share
+//! API v2 broker core with a simulation backend. No implicit hardware access.
+//! An instance represents one canonical physical bus; sessions share
 //! its FIFO queue. Production module setup continues to accept HID API v1 only.
 use freergb_module_api::bus::{
     Call, Error, Hello, PciId, Policy, Reply, Transfer, API, MAX_OPERATIONS,
@@ -75,6 +75,22 @@ impl RegisterBus {
     }
 }
 
+/// Backend owned by the broker, never by a module. Native implementations must
+/// return by the deadline even if their isolated worker is blocked.
+pub trait Backend: Send {
+    fn name(&self) -> &'static str;
+    fn transfer(&mut self, request: &Transfer, deadline: Instant) -> Result<Vec<u8>, Error>;
+}
+
+impl Backend for RegisterBus {
+    fn name(&self) -> &'static str {
+        "simulation"
+    }
+    fn transfer(&mut self, request: &Transfer, _deadline: Instant) -> Result<Vec<u8>, Error> {
+        RegisterBus::transfer(self, request)
+    }
+}
+
 struct Admission {
     next: u64,
     queue: VecDeque<u64>,
@@ -82,14 +98,16 @@ struct Admission {
     faulted: bool,
 }
 
-pub struct SimulatedBus {
+pub struct Bus<B: Backend> {
     admission: Mutex<Admission>,
     changed: Condvar,
-    registers: Mutex<RegisterBus>,
+    registers: Mutex<B>,
 }
 
-impl SimulatedBus {
-    /// Explicit simulation route: verifies installed files before any process
+pub type SimulatedBus = Bus<RegisterBus>;
+
+impl<B: Backend> Bus<B> {
+    /// Explicit opt-in route: verifies installed files before any process
     /// starts, and derives policy only from that verified package.
     pub fn start_module(
         self: &Arc<Self>,
@@ -99,7 +117,7 @@ impl SimulatedBus {
         consent: bool,
     ) -> Result<
         (
-            freergb_modules::bus_host::BusProcess<Session>,
+            freergb_modules::bus_host::BusProcess<Session<B>>,
             freergb_module_api::Capabilities,
         ),
         freergb_module_api::ModuleError,
@@ -111,14 +129,19 @@ impl SimulatedBus {
         let hello = Hello {
             v: API,
             api: vec![API],
-            transport: "simulation".into(),
+            transport: if verified.policy().backend == "simulation" {
+                "simulation"
+            } else {
+                "native"
+            }
+            .into(),
         };
         let session = self
             .session(&hello, verified.policy().clone(), pci, consent)
             .map_err(|_| ModuleError::new(ErrorCode::Permission, "bus session denied"))?;
         freergb_modules::bus_host::BusProcess::start(verified, pci, session)
     }
-    pub fn new(registers: RegisterBus) -> Arc<Self> {
+    pub fn new(registers: B) -> Arc<Self> {
         Arc::new(Self {
             admission: Mutex::new(Admission {
                 next: 0,
@@ -139,10 +162,13 @@ impl SimulatedBus {
         policy: Policy,
         pci: PciId,
         consent: bool,
-    ) -> Result<Session, Error> {
+    ) -> Result<Session<B>, Error> {
         hello.negotiate()?;
         policy.validate()?;
-        if !consent || !policy.pci.contains(&pci) {
+        if !consent
+            || !policy.pci.contains(&pci)
+            || policy.backend != self.registers.lock().map_err(|_| Error::Faulted)?.name()
+        {
             return Err(Error::Denied);
         }
         let mut next = NEXT_CAPABILITY.lock().map_err(|_| Error::Faulted)?;
@@ -156,16 +182,12 @@ impl SimulatedBus {
         })
     }
 
-    pub fn trace(&self) -> Vec<Vec<u8>> {
-        self.registers.lock().unwrap().trace.clone()
-    }
-
     fn admit(
         &self,
         deadline: Instant,
         cancelled: &AtomicBool,
         revoked: &AtomicBool,
-    ) -> Result<Guard<'_>, Error> {
+    ) -> Result<Guard<'_, B>, Error> {
         let mut state = self.admission.lock().map_err(|_| Error::Faulted)?;
         if state.queue.len() >= MAX_QUEUE {
             return Err(Error::Busy);
@@ -205,8 +227,8 @@ impl SimulatedBus {
     }
 }
 
-struct Guard<'a>(&'a SimulatedBus);
-impl Drop for Guard<'_> {
+struct Guard<'a, B: Backend>(&'a Bus<B>);
+impl<B: Backend> Drop for Guard<'_, B> {
     fn drop(&mut self) {
         let mut state = self.0.admission.lock().unwrap_or_else(|e| e.into_inner());
         state.active = false;
@@ -216,14 +238,14 @@ impl Drop for Guard<'_> {
     }
 }
 
-pub struct Session {
-    bus: Arc<SimulatedBus>,
+pub struct Session<B: Backend = RegisterBus> {
+    bus: Arc<Bus<B>>,
     policy: Policy,
     capability: u64,
     revoked: AtomicBool,
 }
 
-impl Session {
+impl<B: Backend> Session<B> {
     pub fn capability(&self) -> u64 {
         self.capability
     }
@@ -232,8 +254,8 @@ impl Session {
         self.bus.changed.notify_all();
     }
 
-    /// Bounded wire dispatch for fixtures. Framing/process lifetime is the
-    /// caller's responsibility; this never starts a module or opens hardware.
+    /// Bounded wire dispatch. Framing/process lifetime is the
+    /// caller's responsibility; native dispatch requires a host-created backend.
     pub fn call_json(&self, bytes: &[u8], cancelled: &AtomicBool) -> Result<Reply, Error> {
         if bytes.len() > freergb_module_api::MAX_MESSAGE {
             return Err(Error::Denied);
@@ -254,7 +276,7 @@ impl Session {
         };
         tracing::debug!(call = request.call, operations = request.transfers.len(),
             outcome = ?reply.result.as_ref().map(|_| ()).map_err(|e| *e),
-            "simulated bus transaction");
+            "broker bus transaction");
         reply
     }
 
@@ -288,7 +310,7 @@ impl Session {
                 } else if Instant::now() >= deadline {
                     Err(Error::Timeout)
                 } else {
-                    registers.transfer(transfer)
+                    registers.transfer(transfer, deadline)
                 };
             match result {
                 Ok(data) => replies.push(data),
@@ -308,7 +330,7 @@ impl Session {
     }
 }
 
-impl freergb_modules::bus_host::Transport for Session {
+impl<B: Backend> freergb_modules::bus_host::Transport for Session<B> {
     fn capability(&self) -> u64 {
         self.capability()
     }
@@ -326,6 +348,12 @@ impl freergb_modules::bus_host::Transport for Session {
             .unwrap_or_else(|e| e.into_inner())
             .faulted = true;
         self.bus.changed.notify_all();
+    }
+}
+
+impl Bus<RegisterBus> {
+    pub fn trace(&self) -> Vec<Vec<u8>> {
+        self.registers.lock().unwrap().trace.clone()
     }
 }
 

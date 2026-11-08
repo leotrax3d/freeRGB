@@ -21,7 +21,7 @@ First public beta of freeRGB for Windows (x86_64).
 the app, .NET 4.8 and PawnIO if missing, the bundled LHM runtime and the
 protected motherboard service, then starts the GUI as the signed-in user. The
 first-run wizard shows the safety notice, detects devices, installs matching
-extensions and offers safe fan tests.
+extensions and offers guided fan tests.
 
 ## Known issues
 

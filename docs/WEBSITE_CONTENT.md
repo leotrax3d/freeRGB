@@ -1,9 +1,18 @@
+> Beta software. The public website must visibly label the current release as Beta.
+
 # Website content
 
 This file is the canonical source for website content that changes with the product.
 Update it when feature details, hardware support, download routes or FAQ answers
 change. The website bundles this file at build time so copy changes ship with the reviewed
 website version. Rebuild the website after editing this file.
+
+The website makes no external requests except one: the GitHub releases API call that
+fills the install panel (`api.github.com`). Fonts are self-hosted (Inter, OFL, via
+`@fontsource-variable/inter`); no CDN, analytics or cookies. The Privacy section in
+`website/src/App.tsx` (English only, the site has no i18n) states this and must be
+updated together with any change to external requests. Do not add claims that a
+board is safe or tested.
 
 Version numbers and release notes do not belong here. They come from GitHub
 Releases.
@@ -120,7 +129,7 @@ Releases.
     {
       "name": "Memory lighting",
       "id": "SMBus",
-      "scope": "Detection only while safe cross-platform control is evaluated"
+      "scope": "Detection only while cross-platform control is evaluated"
     },
     {
       "name": "Fan and pump control",

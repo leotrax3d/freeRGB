@@ -46,7 +46,7 @@ interactive, never print/one-shot mode. Put the full worker brief in
   (`ofc/<ws-id>-<topic>`). Never switch a shared checkout. One PR to `main`;
   delete branch and worktree after merge.
 - Build target on E:: gitignored `<worktree>/.cargo/config.toml` with
-  `[build] target-dir = "E:/freergb-build/<ws-id>"`. C: must not be used for
+  `[build] target-dir = "<build-dir>/<ws-id>"`. C: must not be used for
   build output. Parallel full checks on E: are fine.
 - **No UAC/elevation, no installer, no service changes, no hardware writes,
   no passwords.** Verify with mocks, simulators and byte-exact packet tests

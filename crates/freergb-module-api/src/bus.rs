@@ -59,7 +59,7 @@ pub struct Rule {
 #[serde(deny_unknown_fields)]
 pub struct Policy {
     pub pci: Vec<PciId>,
-    /// The sole backend currently supported. Native names fail validation.
+    /// Host-selected backend; never a child-supplied device path.
     pub backend: String,
     /// Must be true: banked controllers require a later audited recipe protocol.
     pub flat_registers: bool,
@@ -68,8 +68,10 @@ pub struct Policy {
 
 impl Policy {
     pub fn validate(&self) -> Result<(), Error> {
-        if self.backend != "simulation"
-            || !self.flat_registers
+        if !matches!(
+            self.backend.as_str(),
+            "simulation" | "linux-i2c-dev" | "windows-driver"
+        ) || !self.flat_registers
             || self.pci.is_empty()
             || self.pci.len() > 256
             || self.rules.is_empty()
@@ -162,7 +164,10 @@ pub struct Hello {
 
 impl Hello {
     pub fn negotiate(&self) -> Result<(), Error> {
-        if self.v == API && self.api.contains(&API) && self.transport == "simulation" {
+        if self.v == API
+            && self.api.contains(&API)
+            && matches!(self.transport.as_str(), "simulation" | "native")
+        {
             Ok(())
         } else {
             Err(Error::Unsupported)
@@ -255,6 +260,53 @@ pub struct ProcessCall {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_policy_names_preserve_address_and_register_restrictions() {
+        let mut policy = Policy {
+            pci: vec![PciId {
+                ven: 1,
+                dev: 2,
+                subven: 3,
+                subdev: 4,
+            }],
+            backend: "linux-i2c-dev".into(),
+            flat_registers: true,
+            rules: vec![Rule {
+                address: 0x18,
+                first: 0x20,
+                last: 0x21,
+                op: Operation::I2cWriteRegister,
+                max_len: 2,
+                write_mask: 0x0f,
+                write_value: 0xa0,
+            }],
+        };
+        for backend in ["simulation", "linux-i2c-dev", "windows-driver"] {
+            policy.backend = backend.into();
+            assert_eq!(policy.validate(), Ok(()));
+        }
+        policy.backend = "raw-port".into();
+        assert_eq!(policy.validate(), Err(Error::InvalidPolicy));
+        policy.backend = "linux-i2c-dev".into();
+        let mut request = Transfer {
+            op: Operation::I2cWriteRegister,
+            address: 0x18,
+            register: 0x20,
+            data: vec![0xa1, 0xa2],
+            read_len: 0,
+        };
+        assert_eq!(policy.authorize(&request), Ok(()));
+        request.register = 0x21;
+        assert_eq!(policy.authorize(&request), Err(Error::Denied));
+        request.register = 255;
+        assert_eq!(policy.authorize(&request), Err(Error::Denied));
+        policy.rules[0].address = 0x50;
+        assert_eq!(policy.validate(), Err(Error::InvalidPolicy));
+        policy.rules[0].address = 0x18;
+        policy.flat_registers = false;
+        assert_eq!(policy.validate(), Err(Error::InvalidPolicy));
+    }
 
     #[test]
     fn v1_and_raw_transfers_are_rejected() {

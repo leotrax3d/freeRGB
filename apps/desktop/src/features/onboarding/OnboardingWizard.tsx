@@ -146,7 +146,7 @@ export function OnboardingWizard() {
         <div key={step} ref={heading} tabIndex={-1} className="flex flex-col gap-6 outline-none animate-[view-in_var(--duration-base)_var(--ease-out)]">
           {step === "welcome" && (
             <div className="flex flex-col gap-4">
-              <BrandLoader size={112} label="freeRGB" className="animate-[pop-in_var(--duration-base)_var(--ease-out)_both]" />
+              <BrandLoader size={112} label="freeRGB Beta" className="animate-[pop-in_var(--duration-base)_var(--ease-out)_both]" />
               <h1 className="text-page font-semibold tracking-tight">{t("onboarding.welcome.title")}</h1>
               <p className="text-body text-text-muted">{t("onboarding.welcome.text")}</p>
               <ul className="grid gap-3 sm:grid-cols-3">

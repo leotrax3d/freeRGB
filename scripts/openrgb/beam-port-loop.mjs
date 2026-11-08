@@ -92,6 +92,10 @@ function cleanStray(wt, fam) {
   }
 }
 const gate = (wt, fam) => {
+  // Provenance step: fill the generated attribution block of modules/<fam>/PROVENANCE.md
+  // from the OpenRGB checkout (header copyright/SPDX lines, URLs at the pinned commit).
+  const pv = sh(`python scripts/fill-module-provenance.py --openrgb "${openrgb}" --module ${fam}`, wt, true);
+  if (!pv.ok) return { ok: false, cmd: "fill-module-provenance", out: pv.out.slice(-4000) };
   for (const c of ["cargo fmt --all", `cargo clippy -p freergb-module-${fam} --all-targets -- -D warnings`,
     `cargo test -p freergb-module-${fam}`, `cargo clippy -p freergb-module-${fam} --all-targets --locked -- -D warnings`]) {
     const r = sh(c, wt, true);

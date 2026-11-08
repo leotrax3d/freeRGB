@@ -13,6 +13,8 @@ import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
+SYSROOT = subprocess.run(['rustc', '--print', 'sysroot'], check=True,
+                         capture_output=True, text=True).stdout.strip()
 
 
 def compile_guest(source, ident, destination, bounded=False):
@@ -21,6 +23,10 @@ def compile_guest(source, ident, destination, bounded=False):
         '--edition', '2021', '--crate-type', 'cdylib', '--target',
         'wasm32-unknown-unknown', '-C', 'opt-level=3', '-C', 'panic=abort',
         '-C', 'strip=symbols', '--cfg', f'effect="{ident}"',
+        # Keep local paths (checkout, sysroot, home) out of the artefacts.
+        '--remap-path-prefix', f'{ROOT}=.',
+        '--remap-path-prefix', f'{SYSROOT}=/rustc',
+        '--remap-path-prefix', f'{Path.home()}=~',
     ]
     if bounded:
         command += [

@@ -58,7 +58,7 @@ describe("public demo adapter", () => {
     const adapter = mockTransport();
     const controls = (await adapter.snapshot()).cooling_channels!.filter((c) => c.kind === "control" && !c.support?.software_mode).slice(0, 2);
     expect(controls).toHaveLength(2);
-    await adapter.rpc("safety.acknowledge", { accepted: true, version: 2 });
+    await adapter.rpc("safety.acknowledge", { accepted: true, version: 3 });
     await adapter.rpc("cooling.sessions.stop_all");
     for (const control of controls) {
       await adapter.rpc("cooling.sessions.start", { mode: "manual", control_id: control.reading.id, duty_percent: 100 });

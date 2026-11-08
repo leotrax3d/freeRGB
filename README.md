@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="assets/brand/github-banner.svg" alt="freeRGB — Open-source RGB control for Windows and Linux" width="100%">
+  <img src="assets/brand/github-banner.svg" alt="freeRGB: Open-source RGB control for Windows and Linux" width="100%">
 </p>
 
 <p align="center">
-  RGB control for Windows and Linux. Built with Rust, Tauri and React.
+  Beta software for RGB control on Windows and Linux. Built with Rust, Tauri and React.
 </p>
 
 <p align="center">
@@ -22,19 +22,23 @@
   <a href="https://github.com/leotrax3d/FreeRGB/issues">Issues</a>
 </p>
 
+> Public beta, mostly untested on real hardware. Only a few devices have been
+> verified on physical hardware (see [Device support](#device-support)). Most
+> supported devices are covered by simulated tests only. Fan and pump control can
+> overheat or damage a PC if it is set up wrongly. Read the [safety notes](#safety)
+> before you enable it.
+
 ## Features
 
-- **Lighting:** 11 built-in effects, audio-reactive lighting, screen ambience and a custom layer editor.
-- **Layout:** arrange devices on a shared effect canvas with per-device brightness.
-- **Profiles and macros:** save lighting configurations and automate effects, delays and repeats.
-- **Monitoring:** temperature/RPM history, warning rules and diagnostic exports.
-- **Effects and integrations:** sandboxed Rust effect packages, device plugins and a local JSON-RPC API.
+- Lighting: 11 built-in effects, audio-reactive lighting, screen ambience and a custom layer editor.
+- Layout: arrange devices on a shared effect canvas with per-device brightness.
+- Profiles and macros: save lighting configurations and automate effects, delays and repeats.
+- Monitoring: temperature/RPM history, warning rules and diagnostic exports.
+- Effects and integrations: sandboxed Rust effect packages, device plugins and a local JSON-RPC API.
 
-The background engine keeps running when the GUI closes. Ordinary lighting needs
-no cloud account or vendor application. Online effect ratings and reports are optional and
-off by default; effect, module and update downloads use GitHub (see
-[docs/PRIVACY.md](docs/PRIVACY.md), a draft that has not been legally reviewed). Windows capture and input features do not
-yet have full Linux parity.
+The background engine keeps running when the GUI closes. Lighting needs no cloud
+account or vendor application. Windows capture and input features do not yet
+have full Linux parity.
 
 ## Gallery
 
@@ -63,10 +67,10 @@ yet have full Linux parity.
 
 ## Installation
 
-Windows installers are listed under [Releases](https://github.com/leotrax3d/FreeRGB/releases).
-The current beta.2 candidate is not published yet. Initial beta installers are
-unsigned; Windows may display a publisher or SmartScreen warning.
-Linux currently requires a source build.
+Windows installers for the beta releases are listed under
+[Releases](https://github.com/leotrax3d/FreeRGB/releases). They are unsigned, so
+Windows may show a publisher or SmartScreen warning. Linux currently requires a
+source build, and Linux hardware support is untested.
 
 See the [installation guide](docs/INSTALL.md) for dependencies, permissions and
 uninstallation, and [updates](docs/UPDATES.md) for checksum verification and upgrades.
@@ -103,7 +107,7 @@ npm ci
 npm run dev -- --host 127.0.0.1
 ```
 
-Open **http://127.0.0.1:1420**. The browser preview uses simulated devices.
+Open http://127.0.0.1:1420. The browser preview uses simulated devices.
 To test the native app with the real engine and a virtual device, start:
 
 ```bash
@@ -120,9 +124,14 @@ Then run `npm run tauri dev` in `apps/desktop`, or
 | Corsair K70 CORE RGB (`1b1c:1bfd`) | Validated | Per-key RGB; ISO/ANSI mapping |
 | Corsair iCUE LINK System Hub (`1b1c:0c3f`) | Experimental, opt-in | Selected RX/LX fan, Titan RX AIO head and LCD-ring lighting; RPM watchdog |
 | Motherboard RGB: ASUS Aura USB, Gigabyte RGB Fusion 2 USB, ASRock Polychrome USB | Supported, auto-detected | Per-header ARGB LED counts/names in the GUI; mock-tested only, see [Motherboard RGB](docs/MAINBOARD_RGB.md#hardware-validation) |
-| Motherboard fan control (Windows) | Supported with mainboard components | Up to 16 live channels, curves/fixed speed, stop all, resume after restart; watchdog and floors always on; fault handling depends on the support tier (a verified channel may hold 100% and keep its reservation, lower tiers return to firmware), see [cooling safety](docs/COOLING_SAFETY.md) |
-| Motherboard fan control (Linux) | Supported via kernel hwmon (nct6775, it87, nct6683, f71882fg, …) | All headers the kernel exposes; fixed speed or curves on any hwmon temperature; 40% floor, BIOS return on release/pause/shutdown/fault and, after a crash, at the next daemon start; synthetic tests only, see [Linux fans](docs/COOLING_LINUX_HWMON.md) |
+| Motherboard fan control (Windows) | Supported with mainboard components | Up to 16 live channels, curves/fixed speed, stop all, resume after restart; watchdog and floor policies depend on backend and unrestricted settings; fault handling depends on the support tier (a verified channel may hold 100% and keep its reservation, lower tiers attempt firmware return), see [cooling safety](docs/COOLING_SAFETY.md) |
+| Motherboard fan control (Linux) | Supported via kernel hwmon (nct6775, it87, nct6683, f71882fg, …) | All headers the kernel exposes; fixed speed or curves on any hwmon temperature; 40% floor in normal mode, firmware-return attempts on release/pause/shutdown/fault and restart recovery after a crash; synthetic tests only, see [Linux fans](docs/COOLING_LINUX_HWMON.md) |
 | Other identified devices | Discovery only | Detection does not imply control support |
+
+The [OpenRGB compatibility matrix](docs/OPENRGB_COMPATIBILITY.md) lists every
+OpenRGB device family and its status in freeRGB (hardware-verified, implemented
+with simulated tests, blocked or not implemented). "Implemented" does not mean
+tested on the real device.
 
 AIO LCD display content and DDR5 RGB control are not supported.
 The LINK hub requires daemon flag `--enable-link-hub`.
@@ -136,10 +145,20 @@ See [Devices](docs/DEVICES.md), [Protocols](docs/PROTOCOLS.md) and
   [cooling safety](docs/COOLING_SAFETY.md) before enabling it.
 - Unsupported devices have no write adapter. No firmware or flash writes.
 - Device-process plugins run trusted native code; unlike effect packages, they are not sandboxed.
+- freeRGB is provided as is, without warranty (see the licence texts). You use it,
+  and enable fan control in particular, at your own risk.
+- Draft disclaimer texts (EN/DE, not yet reviewed by a lawyer): [safety and liability texts](docs/legal/SAFETY_LIABILITY_TEXTS.md).
 
 The control API uses a local named pipe or Unix socket. See
 [Security](docs/SECURITY.md) for access and trust boundaries, and the
 [beta audit](docs/BETA_READINESS_AUDIT.md) for validation results and open release gates.
+
+## Privacy
+
+freeRGB works offline by default and needs no account. Online effect ratings and
+reports are optional and off by default. Downloads of effects, hardware modules
+and updates come from GitHub. [docs/PRIVACY.md](docs/PRIVACY.md) has the details;
+it is a draft that has not been legally reviewed.
 
 ## Documentation
 
@@ -154,7 +173,8 @@ The control API uses a local named pipe or Unix socket. See
 
 [Report bugs](https://github.com/leotrax3d/FreeRGB/issues) with the version, platform,
 device IDs, reproduction steps and redacted diagnostics. Device-support contributions
-need protocol evidence and simulator tests.
+need protocol evidence and simulator tests. To port another OpenRGB device family,
+start with the [porting guide](docs/OPENRGB_PORTING.md).
 
 ```bash
 cargo fmt --all -- --check
@@ -181,8 +201,9 @@ For frontend changes, also run `npm test` and `npm run build` in `apps/desktop`.
 
 The core application is dual-licensed under [MIT](LICENSE-MIT) or
 [Apache-2.0](LICENSE-APACHE).
-Downloadable [hardware modules](modules) have separate licenses: `razer-chroma`
-is **GPL-2.0-or-later**, ported from OpenRGB; see its
-[provenance](modules/razer-chroma/PROVENANCE.md). Vendored dependencies retain their own licenses.
+Downloadable [hardware modules](modules) have separate licenses. Modules ported
+from OpenRGB are GPL-2.0-or-later; `razer-chroma` is one, see its
+[provenance](modules/razer-chroma/PROVENANCE.md). Vendored dependencies keep their
+own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 freeRGB is not affiliated with hardware vendors or other RGB software projects.

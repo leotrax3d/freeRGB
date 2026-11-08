@@ -186,8 +186,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "polarlicht-1.0.0.wasm",
-        "size": 6307,
-        "sha256": "a277c5c7207c876b61fea5a43d072c9db616e6856360644bda50a1daf497d7d9"
+        "size": 6251,
+        "sha256": "e4171e2d3af3d859f6b88f6f4d006250dbdfac7d7e8806da96b5942a5429d1cf"
       }
     },
     {
@@ -251,8 +251,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "feuer-1.0.0.wasm",
-        "size": 6293,
-        "sha256": "4b9ac1ded75c717e2ce682ac227d3828d66e27c02928eedecff550aeff3f6b14"
+        "size": 6237,
+        "sha256": "ee6ba33b416cf8b30eb54aad9e589ff2924799b5ad3aa6c2d40be84bf19e2dcc"
       }
     },
     {
@@ -316,8 +316,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "gewitter-1.0.0.wasm",
-        "size": 6261,
-        "sha256": "1ce0b5ba0a3695dc5fb2d65d6d8b12423a82708326a64c12ca8991f5e6d861c9"
+        "size": 6205,
+        "sha256": "a3f7f506b7baac6005f0497b2000a3283da2fcfd8490364caf13ea34e4053d0f"
       }
     },
     {
@@ -381,8 +381,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "regentropfen-1.0.0.wasm",
-        "size": 7059,
-        "sha256": "460a7c716c0f89ba22128e1b8f4648d9df546b6c97052e86f327acb7addd4ce1"
+        "size": 7003,
+        "sha256": "5a74da76727b342ab8d4aa01b2cc5e2d3ec17965696c4b3626e0b07e6c920cd7"
       }
     },
     {
@@ -446,8 +446,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "sternenhimmel-1.0.0.wasm",
-        "size": 6393,
-        "sha256": "899fc21cfcaf53488bca3024e3296ae39247ed4df0a29a5d3ef35dc90c4c43ba"
+        "size": 6337,
+        "sha256": "dec2558ab500d5b6a22f0cb53b00c60cf6352201d68bff5b04d6439dcf41f987"
       }
     },
     {
@@ -519,8 +519,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "meteorschauer-1.0.0.wasm",
-        "size": 6369,
-        "sha256": "2d6c0e874f0616ee5c62b63f05dc8e7fde36b917e12adcc062c9e468e5507e07"
+        "size": 6313,
+        "sha256": "d3ed0e35f24903f7bcbe2b969867f99b376d4206164c4b48b07b3cd9f79fdd68"
       }
     },
     {
@@ -584,8 +584,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "ozean-1.0.0.wasm",
-        "size": 6122,
-        "sha256": "8ba6e191ad03e93944e6ca461c2f0e16b0796dbedd9546a895dfae9ab3644904"
+        "size": 6066,
+        "sha256": "5d0a015ed9f86e65cc7d74b152b04622d3395a27856f2f6664d3a3ebd8f801b7"
       }
     },
     {
@@ -649,8 +649,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "lava-1.0.0.wasm",
-        "size": 7206,
-        "sha256": "2ff3721283132acad96acdaaf0c0125b6c0896bb6d47859b7f5bb8e269693a61"
+        "size": 7150,
+        "sha256": "42135501185ea75dc3aa1479c5b3273e86d18545100b1875653b056b513b65d3"
       }
     },
     {
@@ -706,8 +706,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "plasma-1.0.0.wasm",
-        "size": 6390,
-        "sha256": "3e513380526c39336b3e4654106ea28b138bc6792a8a1f394f4a9bfc5c4d4d47"
+        "size": 6334,
+        "sha256": "d09953070f9e2d02cdb12e1f2a4bad36ade85a4909b5eb874e35a717bcde1ee5"
       }
     },
     {
@@ -771,8 +771,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "galaxie-1.0.0.wasm",
-        "size": 6344,
-        "sha256": "4163bad87a331ec6784747728c4ce7c1a5b4b750e86fdb16ae8a00cd279ea2c4"
+        "size": 6288,
+        "sha256": "dc3040221cb8e3e97937ea67aa9e2965756ce69c843a734513bb2dcaf0932daf"
       }
     },
     {
@@ -836,8 +836,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "schwarzes-loch-1.0.0.wasm",
-        "size": 6376,
-        "sha256": "5e0cc030eef7719cebb08ffc9ceee24f640ff1c5f7dc3ff4184f5c9307e92f94"
+        "size": 6320,
+        "sha256": "a4431dac1a4830dfa57a5ed65640dd284a9a3448ddc1db7aa11b5d7413e3904d"
       }
     },
     {
@@ -901,8 +901,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "konfetti-1.0.0.wasm",
-        "size": 6385,
-        "sha256": "536c82e35593192b83e6fc807c91fef7aafd0c44d52af043a694c548798d174c"
+        "size": 6329,
+        "sha256": "85f1b2640931c5639e19d2959a1897b0e1c6bc9e335b4061af64f4528a086b1c"
       }
     },
     {
@@ -966,8 +966,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "gluehwuermchen-1.0.0.wasm",
-        "size": 6468,
-        "sha256": "7b6befc5ddff84c2eb9760a6279b3d3b94ae3a36677c85658cd2a12b3425b34f"
+        "size": 6412,
+        "sha256": "0ae85860770f583513ae5d2568d2b062ee10811e850eaacbf956e6a0893beaf3"
       }
     },
     {
@@ -1031,8 +1031,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "neonroehren-1.0.0.wasm",
-        "size": 6193,
-        "sha256": "854a3f2008cb6832f62db5e2450ce9cb2997da7c7080d578409cfa586c5e20c5"
+        "size": 6137,
+        "sha256": "a04c8c572540c304145d0569bc2b79d9ddba8f0ab46cc66e8c65b4ce53ee2e01"
       }
     },
     {
@@ -1096,8 +1096,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "cyberpunk-1.0.0.wasm",
-        "size": 7172,
-        "sha256": "a59deff04ff2d05f6e247d6186c84d5597ea45a187a9a3c8f28ccba7b492989b"
+        "size": 7116,
+        "sha256": "f65acb922e452a1a3284da3c57d76408ef2022db0a4b25d804a773964cdb75e3"
       }
     },
     {
@@ -1161,8 +1161,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "matrixregen-1.0.0.wasm",
-        "size": 6151,
-        "sha256": "b6d3eab40a4f4e94c7d131771c58f588f671fb6608418c27ae8eddac879c8af1"
+        "size": 6095,
+        "sha256": "5b82d9cb418132a132f543e2b2a50bf98e7933b893e8cc31ddde37f637393886"
       }
     },
     {
@@ -1226,8 +1226,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "radar-1.0.0.wasm",
-        "size": 6253,
-        "sha256": "b488a7cdacab582d5a2d3eb3c9a836745dbc481a9dd15dfd1c35dcc1a7abe240"
+        "size": 6197,
+        "sha256": "ee168e3ef86a8f40ddc366e88450abe48e964d312a5af2125bc032b0731ad003"
       }
     },
     {
@@ -1291,8 +1291,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "herzschlag-1.0.0.wasm",
-        "size": 6276,
-        "sha256": "8e856c3755fc853fda41681eff9937d5bd26424d9e1bf15d09920bdbb41a9f1e"
+        "size": 6220,
+        "sha256": "39df1b9b48b21b66dff9a4f7a8dd834a14736b5bed9aeada123c5e77ba7ff84e"
       }
     },
     {
@@ -1356,8 +1356,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "atemlicht-1.0.0.wasm",
-        "size": 6173,
-        "sha256": "7ed640160036e227d2ab23aa479dce58c7db6f8a194e50970681efc2f676e9d2"
+        "size": 6117,
+        "sha256": "27910a2ae645da3dd71a4f628589103a351fb51881964eb04ab51d8803861999"
       }
     },
     {
@@ -1421,8 +1421,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "pendel-1.0.0.wasm",
-        "size": 7126,
-        "sha256": "6c60de990c73b5717ee1b8e7939fd649f14d1dbcd65324c0a9368cd3cc0bc755"
+        "size": 7070,
+        "sha256": "63f5e5556844e2ebceb81f9ac7451db19c5d81ecbb4a4f0b1cbabc06c7cf05a2"
       }
     },
     {
@@ -1486,8 +1486,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "kaleidoskop-1.0.0.wasm",
-        "size": 6303,
-        "sha256": "dad371021457e2e6d2bf9a62ca9c2f53cd6ef866c1577a7bd84da50f3299b0c1"
+        "size": 6247,
+        "sha256": "d4b5ce4f948cf4b4da9f14fe303b3d04ccaaf4a907efa372e9fd1cc646a75953"
       }
     },
     {
@@ -1551,8 +1551,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "schachbrett-1.0.0.wasm",
-        "size": 7167,
-        "sha256": "548318b3d029d57cc6d9b2bc1c986ae2630117513f4cd993904886f5285e9f81"
+        "size": 7111,
+        "sha256": "f271087a71520b136231e59abcab4f9c63b991a1785dbd9633b181d47938e96c"
       }
     },
     {
@@ -1616,8 +1616,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "farbfluss-1.0.0.wasm",
-        "size": 6477,
-        "sha256": "655a961684a433fbd45279072f9fdc7b9fff678e38ab3db00b3c223b662a011a"
+        "size": 6421,
+        "sha256": "bf97e982bbb652dea0920bd383aea8087c02b3ac95fef34b3b4deb02bde41f8c"
       }
     },
     {
@@ -1681,8 +1681,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "feuerwerk-1.0.0.wasm",
-        "size": 7954,
-        "sha256": "85fab82610945adf5c4d63c7ee0652e09b7e9f5e1ec08355a64733a107361e71"
+        "size": 7898,
+        "sha256": "cf8454f550df46b1016426c1719f2a5f7a4e024597aff23312e476c2af4b161b"
       }
     },
     {
@@ -1746,8 +1746,8 @@
       "artifact": {
         "target": "wasm32-unknown-unknown",
         "url": "reaktionsdiffusion-1.0.0.wasm",
-        "size": 9121,
-        "sha256": "fd963d9925c6206ecb8ba3b2595ae436fe73bf9984498dc37bad21857d2460c7"
+        "size": 9065,
+        "sha256": "bfdecf63316ce16243ce21edccf1385011bcb8aeb6422555a33efa7ddfefa433"
       }
     }
   ]

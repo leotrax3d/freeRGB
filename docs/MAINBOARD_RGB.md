@@ -253,32 +253,47 @@ remain partial against the full upstream controller behavior.
 | `MSIMotherboardController` | MSI Mystic Light X870 | `0db0:0076` | `REGISTER_HID_DETECTOR_PU` | partial | MSIMotherboardController family row above |
 | `MSIRGBController` | MSI-RGB | `dynamic` | `REGISTER_DETECTOR` | missing | MSIRGBController family row above |
 
-## Configuration (modern GUI: Devices page; Classic: Monitoring → Motherboard RGB; daemon RPC)
+## Configuration (Headers page in both GUIs; daemon RPC)
 
 Supported controllers are detected and opened at startup like any other device.
 `mainboard-rgb.json` (per-user config directory) holds:
 
 - `enabled` — global "Manage motherboard RGB" switch, default **on**;
-- per controller (`vvvv:pppp`) up to four headers with `leds` (0..512) and an
+- per controller (`vvvv:pppp`) up to four headers (six for IT5711 `048d:5711`: four external and two onboard) with `leds` (0..512) and an
   optional `name` shown on the layout canvas. Presets for 8/12/16/18-LED fans
-- ASUS Aura headers also take `order` (`rgb` default, `rbg`, `grb`, `gbr`, `brg`,
+- Headers take `type` (`argb` default; `rgb` uses one colour slot), optional
+  `region` (`x`, `y`, `w`, `h`, normalised shared-canvas coordinates), and `order` (`rgb` default, `rbg`, `grb`, `gbr`, `brg`,
   `bgr`) and `fallback` (`{"mode":"spectrum"}` default, `{"mode":"off"}`,
   `{"mode":"static","color":"#rrggbb"}`). `order` is the byte order the strip
   expects: if a red test LED shows green and a green one shows red, choose `grb`.
   `fallback` is what the header shows when freeRGB stops: the firmware spectrum
   effect (the previous effect cannot be read back), the firmware "off" effect, or
   one last direct frame in the given colour. Both are volatile: nothing is
-  written to flash. Gigabyte and ASRock headers ignore these two fields.
+  written to flash. Only ASUS supports `fallback`; other adapters apply user
+  colour order in the shared render path before their own firmware calibration.
+  A type selection describes the attachment and never changes header voltage.
+  MSI modules expose their actual fixed external zones: the GUIs retain their
+  reported count/type rather than offering a count the module cannot honour.
+  Names, colour order, test pattern and canvas mapping remain editable.
 - `mainboard_rgb.get` also returns `detected` per controller: what the controller
   reports (ASUS: which of the four ARGB headers exist and the fixed-LED count; the
   protocol does not report attached strip lengths, so the LED count stays a user
   setting). The modern GUI can export/import the settings as JSON (validated; the
-  per-header test pattern is an owner step, see below).
+  test pattern uses `mainboard_rgb.test {key,index}` after saving).
+- `mainboard_rgb.get.fixed_headers` exposes fixed MSI zone names, types and
+  counts from the connected module layout. Unsupported/offline controllers
+  remain configurable from saved settings; no probing is initiated by the GUI.
 
-Owner acceptance (needs the real board, not run by the worker): set a header's
-LED count, apply a red/green/blue frame, pick the `order` that shows the right
-colours, then close freeRGB and check the chosen `fallback`.
-  (times chained fans) are offered by the GUI.
+Hardware acceptance is tracked only in
+[07-hardware-acceptance.md](promts/fancontrol/07-hardware-acceptance.md).
+Presets multiply the selected LED count by the number of chained fans.
+
+`mainboard_rgb.test {key,index}` shows red, green and blue on the saved header
+for two seconds each, then returns to the shared effect. It rejects disabled
+management, zero-length headers and known vendor conflicts. Both GUIs show
+running Armoury Crate, MSI Center, RGB Fusion and Polychrome warnings. The scan
+also releases active motherboard devices and prevents built-in/module reopens
+while vendor software runs; other devices continue normally.
 
 RPC: `mainboard_rgb.get`, `mainboard_rgb.save {settings}`; saving releases the
 controllers so the next scan reopens them with the new header table. A header

@@ -137,7 +137,7 @@ export function mockTransport(): Transport {
   const mockJobs = new Map<number, CoolingSession>();
   const setJob = (job: CoolingSession) => { mockJobs.set(job.job_id!, job); session = job; emit("cooling_session"); };
   let unrestricted = false;
-  let onboarding: OnboardingStatus = { completed: false, safety_text_version: 2, safety_acknowledged: false, safety_acknowledged_unix: null };
+  let onboarding: OnboardingStatus = { completed: false, safety_text_version: 3, safety_acknowledged: false, safety_acknowledged_unix: null };
   // Demo: three identified headers (two fans, one pump) and two live channels.
   const demoBinding = (index: number, header: string, role: "fan" | "pump"): ChannelBinding => ({
     provider: "mainboard.lhm", device_id: "mainboard.lhm:/lpc/nct6701d/0", control_id: JSON.stringify(["/lpc/nct6701d/0", `/lpc/nct6701d/0/control/${index}`]),
@@ -367,7 +367,7 @@ export function mockTransport(): Transport {
           onboarding = { ...onboarding, completed: false }; emit("onboarding");
           return true as T;
         case "safety.acknowledge":
-          if (p.accepted !== true || p.version !== 2) fail("The current safety notice must be read and accepted");
+          if (p.accepted !== true || p.version !== 3) fail("The current safety notice must be read and accepted");
           onboarding = { ...onboarding, safety_acknowledged: true, safety_acknowledged_unix: Math.floor(Date.now() / 1000) }; emit("onboarding");
           return true as T;
         case "safety.revoke":
@@ -428,11 +428,12 @@ export function mockTransport(): Transport {
         case "cooling.hwmon.set":
         case "cooling.hwmon.release":
           return true as T;
+        case "mainboard_rgb.test": return { seconds: 6 } as T;
         case "mainboard_rgb.get":
-          return { settings: mainboardRgb, max_headers: 4, max_leds: 512, fan_presets: [8, 12, 16, 18], vendor_software: [], error: null } as T;
+          return { settings: mainboardRgb, max_headers: 6, max_leds: 512, fan_presets: [8, 12, 16, 18], vendor_software: [], error: null } as T;
         case "mainboard_rgb.save": {
           const next = p.settings as typeof mainboardRgb;
-          if (Object.values(next.controllers).some((h) => h.length > 4 || h.some((x) => x.leds < 0 || x.leds > 512))) fail("ARGB LED counts must be 0..=512");
+          if (Object.entries(next.controllers).some(([key, h]) => h.length > (key === "048d:5711" ? 6 : 4) || h.some((x) => x.leds < 0 || x.leds > 512))) fail("ARGB LED counts must be 0..=512");
           mainboardRgb = next;
           return { saved: true, released: 0 } as T;
         }

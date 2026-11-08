@@ -43,3 +43,5 @@ a:focus-visible,button:focus-visible,input:focus-visible,[role=slider]:focus-vis
 @media(max-width:700px){.overview{padding-block:44px;gap:30px}.overview h1{font-size:clamp(44px,9vw,62px)}.lead{font-size:15px;margin-top:20px}.effect-stage{height:200px}.effect-option{font-size:10px}.effect-playground{padding:12px}.effect-stage-copy h2{font-size:24px}.product-tour{padding-top:42px}.tour-heading{align-items:flex-start;gap:14px}.tour-heading h2{font-size:28px}.tour-caption p{font-size:13px}.view-header h2,.hardware-spotlight .view-header h2{font-size:26px}.catalog{padding-block:44px}.feature-row{gap:12px;padding-block:22px}.feature-row ul{grid-column:2;padding-top:0}.feature-copy p{font-size:13px}.feature-row li{font-size:12px}.check-examples button{font-size:11px}}
 
 @media(min-width:1151px){.overview .lead{max-width:420px}}
+
+.privacy-note p{padding:18px 22px 0;color:var(--subtle);font-size:12px;line-height:1.7;max-width:780px}.privacy-note p:last-child{padding-bottom:20px}.privacy-note a{color:var(--muted);text-decoration:underline}

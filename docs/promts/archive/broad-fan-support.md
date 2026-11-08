@@ -9,7 +9,7 @@ Kauf (`docs/DECISIONS.md` #14).
 
 ## Arbeitsumgebung (zwingend)
 
-Der Ordner `C:\Users\harald\Documents\FreeRGB` wird von anderen Sitzungen
+Der Ordner `<repo>` wird von anderen Sitzungen
 gleichzeitig benutzt. Arbeite **nie** direkt darin und wechsle dort keinen
 Branch. Lege einen eigenen Worktree an:
 `git worktree add ../FreeRGB-fans feature/broad-fan-support` (Branch existiert

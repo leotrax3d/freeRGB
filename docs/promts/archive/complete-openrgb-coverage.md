@@ -8,7 +8,7 @@ OpenRGB unterstützt**, mit allen RGB-Funktionen, über den Rust-Hintergrunddien
 
 ## 0. Arbeitsumgebung (zwingend zuerst)
 
-* `C:\Users\harald\Documents\FreeRGB` wird von anderen Sitzungen gleichzeitig
+* `<repo>` wird von anderen Sitzungen gleichzeitig
   benutzt. Arbeite **nie** darin, wechsle dort keinen Branch. Lege einen eigenen
   Worktree an:
   `git worktree add ../FreeRGB-coverage -b coverage/<arbeitspaket> origin/feature/parity-expansion`

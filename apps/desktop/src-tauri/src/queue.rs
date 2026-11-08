@@ -26,6 +26,9 @@ pub const ALLOWED: &[&str] = &[
     "marketplace.disable",
     "daemon.version",
     "monitoring.sensors.list",
+    "mainboard_rgb.get",
+    "mainboard_rgb.save",
+    "mainboard_rgb.test",
     "cooling.providers.list",
     "cooling.channels.list",
     "cooling.bindings.get",
@@ -266,6 +269,33 @@ mod tests {
         assert_eq!(first_rx.try_recv(), Ok(Err(CallError::Superseded)));
         let methods: Vec<_> = pending.iter().map(|j| j.method.as_str()).collect();
         assert_eq!(methods, ["brightness.set", "macros.run", "macros.run"]);
+    }
+
+    #[test]
+    fn headers_and_keyboard_preview_are_public_ordered_actions() {
+        let mut pending = Vec::new();
+        for method in [
+            "mainboard_rgb.get",
+            "mainboard_rgb.save",
+            "mainboard_rgb.test",
+            "keyboard.reactive.preview",
+        ] {
+            assert!(ALLOWED.contains(&method));
+            let (request, _) = job(method, Value::Null);
+            push_job(&mut pending, request);
+        }
+        assert_eq!(
+            pending
+                .iter()
+                .map(|j| j.method.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "mainboard_rgb.get",
+                "mainboard_rgb.save",
+                "mainboard_rgb.test",
+                "keyboard.reactive.preview"
+            ]
+        );
     }
 
     #[test]

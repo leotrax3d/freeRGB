@@ -585,7 +585,13 @@ pub fn handle_line(engine: &SharedEngine, line: &str) -> Reply {
                 let removed = engine.fan_support.revoke(control_id).map_err(|e| (-32000, e))?;
                 Ok(json!({"revoked": removed, "background_reapplied": removed && engine.reapply_background()}))
             }),
-        "mainboard_rgb.get" => Ok(lock(engine).mainboard_rgb.view()),
+        "mainboard_rgb.test" => (|| {
+            let key = params["key"].as_str().ok_or_else(|| (-32602, "Missing controller key".to_owned()))?;
+            let index = params["index"].as_u64().ok_or_else(|| (-32602, "Missing header index".to_owned()))?;
+            lock(engine).mainboard_rgb.start_test(key.to_owned(), index as usize).map_err(|e| (-32602, e))?;
+            Ok(json!({"seconds": 6}))
+        })(),
+        "mainboard_rgb.get" => Ok(lock(engine).mainboard_rgb_view()),
         "mainboard_rgb.save" => serde_json::from_value(params["settings"].clone())
             .map_err(invalid_params)
             .and_then(|settings: crate::mainboard_rgb::Settings| {
@@ -1656,6 +1662,9 @@ mod tests {
 
 /// Device ids opened by motherboard RGB adapters (`hid:vvvv:pppp:serial`).
 fn is_mainboard_device(id: &str) -> bool {
+    if id.starts_with("module:") {
+        return crate::mainboard_rgb::device_key(id).is_some();
+    }
     let mut parts = id.split(':');
     let (Some("hid"), Some(vid), Some(pid)) = (parts.next(), parts.next(), parts.next()) else {
         return false;
@@ -1675,10 +1684,66 @@ fn is_mainboard_device(id: &str) -> bool {
 #[cfg(test)]
 mod mainboard_rgb_tests {
     #[test]
+    fn headers_rpc_saves_six_slots_and_rejects_conflicted_tests_without_hardware() {
+        use super::*;
+        use freergb_core::Rgb;
+        use freergb_effects::EffectSpec;
+        use std::sync::{Arc, Mutex};
+        let engine = Arc::new(Mutex::new(crate::engine::Engine::new(
+            EffectSpec::Solid { color: Rgb::BLACK },
+            30,
+        )));
+        let call = |method: &str, params: Value| -> Value {
+            serde_json::from_str(
+                &handle_line(
+                    &engine,
+                    &json!({"id":1,"method":method,"params":params}).to_string(),
+                )
+                .line,
+            )
+            .unwrap()
+        };
+        let settings = json!({"enabled":true,"controllers":{"048d:5711":[{"leds":1},{"leds":2},{"leds":3},{"leds":4},{"leds":5},{"leds":6}]}});
+        assert_eq!(
+            call("mainboard_rgb.save", json!({"settings":settings}))["result"]["saved"],
+            true
+        );
+        assert_eq!(
+            call("mainboard_rgb.get", json!({}))["result"]["settings"],
+            settings
+        );
+        assert_eq!(
+            call("mainboard_rgb.test", json!({"key":"048d:5711","index":5}))["result"]["seconds"],
+            6
+        );
+        assert_eq!(
+            call("mainboard_rgb.test", json!({"key":"048d:5711","index":6}))["error"]["code"],
+            -32602
+        );
+        assert_eq!(
+            call("mainboard_rgb.test", json!({"index":0}))["error"]["code"],
+            -32602
+        );
+        lock(&engine)
+            .mainboard_rgb
+            .set_vendor_software(vec!["MSI Center"]);
+        assert_eq!(
+            call("mainboard_rgb.test", json!({"key":"048d:5711","index":0}))["error"]["code"],
+            -32602
+        );
+    }
+
+    #[test]
     fn mainboard_device_ids_are_recognised() {
         assert!(super::is_mainboard_device("hid:0b05:19af:ABC"));
         assert!(super::is_mainboard_device("hid:048d:5702:noserial"));
         assert!(!super::is_mainboard_device("hid:1b1c:1bfd:x"));
         assert!(!super::is_mainboard_device("virtual:0"));
+        assert!(super::is_mainboard_device(
+            "module:msi-motherboard:1462:7b12:fixture"
+        ));
+        assert!(!super::is_mainboard_device(
+            "module:msi-keyboard:1462:1234:fixture"
+        ));
     }
 }

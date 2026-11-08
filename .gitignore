@@ -5,3 +5,11 @@
 **/dist/
 **/dist-demo/
 **/*.tsbuildinfo
+
+# agent / temp artefacts
+*.log
+.s18/
+.beam-task.md
+opencode.json
+.env
+.env.*

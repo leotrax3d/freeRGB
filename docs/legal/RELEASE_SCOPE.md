@@ -33,3 +33,11 @@ Keep this record and results in a release evidence attachment bound to the candi
 - [ ] Extract Windows installers using a non-executing extractor (record tool/version/command) into a scratch directory; do not launch setup, helper scripts, services or prerequisites. List and hash all extracted payload and inspect installer directives/scripts for extra downloads, temporary payload and embedded components. Likewise list/extract Linux packages and archives without running maintainer scripts. Compare against the build manifest, allowlist, SBOM, notices and source set; investigate every extra/missing file. Extraction failure is an open gate, not permission to run an installer here.
 - [ ] Review release notes, onboarding, website and support matrix against evidence; state beta limitations and offline defaults. Resolve or explicitly exclude D2/D3 provenance, D5 wording, D6 branding and D4/D8 online concerns with the responsible owner/lawyer. Record decisions without treating this checklist as legal approval.
 - [ ] Attach owner-present hardware/installer execution results from prompt 07 for this candidate and exact hashed installer, or remove affected operations/platform claims from scope. Record remaining failures and exclusions before the owner makes the publication decision. Signing, keys and publishing remain owner/coordinator work; this branch does not publish a release.
+
+## Owner decisions applied (2026-11-08)
+
+- Worldwide target; public beta with binaries and matching source; online, telemetry and download counting off.
+- Untested hardware features are included and listed as "untested" in release notes and support matrix.
+- Accepted gaps: installer clean-machine test, real-app visual pass, screenshots.
+- No code-signing certificate, no CI for this release; local gates only.
+- Website without Impressum (open lawyer question), no external requests, short privacy note page.

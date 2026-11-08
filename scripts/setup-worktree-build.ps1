@@ -1,6 +1,6 @@
 param(
     [string]$TargetDir,
-    [string]$CacheDir = 'E:/freergb-build/sccache',
+    [string]$CacheDir = "$env:LOCALAPPDATA/freergb-build/sccache",
     [switch]$UseDefaultLinker
 )
 $ErrorActionPreference = 'Stop'
@@ -14,7 +14,7 @@ try {
     }
     $content = if (Test-Path -LiteralPath $config) { [IO.File]::ReadAllText($config) } else { '' }
     if (-not $TargetDir -and $content -notmatch '(?m)^\s*target-dir\s*=') {
-        $TargetDir = 'E:/freergb-build/' + (Split-Path $root -Leaf)
+        $TargetDir = "$env:LOCALAPPDATA/freergb-build/" + (Split-Path $root -Leaf)
     }
     function Set-TomlKey([string]$Section, [string]$Key, [string]$Value) {
         $header = '(?m)^\[' + [regex]::Escape($Section) + '\][ \t]*\r?$'

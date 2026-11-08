@@ -1164,6 +1164,10 @@ impl Engine {
                     frame = Frame::solid(layout.len(), *color);
                 }
             }
+            if let Some(key) = crate::mainboard_rgb::device_key(&w.id.0) {
+                self.mainboard_rgb
+                    .apply(&key, &layout, &self.canvas, &mut frame);
+            }
             let frame = frame.corrected(&corr);
             let (lock, cv) = &*w.slot;
             if guard(lock).replace(frame).is_some() {
@@ -1179,6 +1183,23 @@ impl Engine {
             let fps = (self.ticks - ticks_then) as f64 / elapsed.as_secs_f64();
             self.fps_window = (now, self.ticks, fps);
         }
+    }
+
+    pub fn mainboard_rgb_view(&self) -> Value {
+        let mut view = self.mainboard_rgb.view();
+        let mut fixed = serde_json::Map::new();
+        for w in &self.workers {
+            if w.id.0.starts_with("module:msi-motherboard:") {
+                if let Some(key) = crate::mainboard_rgb::device_key(&w.id.0) {
+                    fixed.insert(
+                        key,
+                        json!(crate::mainboard_rgb::fixed_headers(&guard(&w.view).layout)),
+                    );
+                }
+            }
+        }
+        view["fixed_headers"] = json!(fixed);
+        view
     }
 
     pub fn devices(&self) -> Vec<DeviceSummary> {

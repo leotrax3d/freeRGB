@@ -42,7 +42,7 @@ Workers report with `hc send <coordinator id> "<result or blocker>"`.
    `scripts/openrgb/port-<family>-devices.mjs`, generated `devices_table.rs`,
    byte-exact packet tests against upstream, `COPYING`, `PROVENANCE.md`,
    workspace member, `docs/OPENRGB_PORTING.md` row with commit hash.
-3. Gate locally (target dir `E:/freergb-build/<ws>` via gitignored
+3. Gate locally (target dir `<build-dir>/<ws>` via gitignored
    `.cargo/config.toml`): `cargo fmt --all --check`,
    `cargo clippy -p freergb-module-<family> --all-targets --locked -- -D warnings`,
    `cargo test -p freergb-module-<family> --locked`. Coordinator runs the full

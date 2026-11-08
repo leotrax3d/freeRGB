@@ -2,17 +2,17 @@
 
 > **Status: engineering draft. Not reviewed or approved by a lawyer. Do not publish
 > as is.** It describes what the code does on the repository state this file was
-> written against (task FR-006 in `docs/legal/RISK_REGISTER.md`). Every item in
-> square brackets is an open owner or lawyer decision (`docs/legal/OWNER_DECISIONS.md`,
-> D4 and D8). The live Appwrite project was **not** inspected for this draft;
-> statements about server behaviour come from the function source in
-> `appwrite/community/` and from `docs/APPWRITE_SETUP.md` / `docs/ADMIN_PANEL.md`.
+> written against (task FR-006 in `docs/legal/RISK_REGISTER.md`). Remaining square brackets need owner details or review. D4 decisions are recorded
+> in `docs/legal/APPWRITE_CHANGES.md`. A read-only MCP inspection on 2026-11-08
+> was blocked by reauthentication; live settings remain unverified. Behaviour
+> below is inferred from repository source and historical setup notes.
 
 ## 1. Controller
 
-[Name, address and contact of the controller for the community service, the
-website and the download pages. Not yet decided (D1, D4). Contact for privacy
-requests: [e-mail]. Data protection officer: [required? to be decided].]
+The controller of the community service is the private owner (D4 decision).
+[Owner: insert full name, service address and privacy contact e-mail before
+publication. Website/publisher details under D1 and any DPO requirement still
+need assessment.]
 
 ## 2. Summary
 
@@ -66,14 +66,16 @@ Notes:
 
 ## 4. Purposes and legal bases
 
-Legal bases are **placeholders for the owner and a lawyer**. They are not decided
-and no basis is claimed here.
+D4 owner decision: consent under Art. 6(1)(a) GDPR for community accounts
+and ratings. Download counting remains off by default and requires separate
+consent. This records the owner decision, not legal approval; remaining purposes
+and the consent/withdrawal implementation still need review.
 
 | Purpose | Data | Legal basis |
 |---|---|---|
-| Show effect ratings and download totals | F4 | [Art. 6(1)(a) or (f) GDPR - to be decided] |
-| Let a user rate effects | F5, F6, F8 | [to be decided] (user requests the feature) |
-| Count downloads for popularity statistics | F5, F7 | [to be decided]; proposal: consent only (opt-in), as implemented |
+| Show effect ratings and download totals | F4 | Art. 6(1)(a), consent for optional community ratings |
+| Let a user rate effects | F5, F6, F8 | Art. 6(1)(a), consent for accounts and ratings |
+| Count downloads for popularity statistics | F5, F7 | Art. 6(1)(a), separate consent; off by default |
 | Receive, answer and moderate reports | F9-F11 | [to be decided] (user requests contact) |
 | Prevent abuse and overload | F12, F15 | [Art. 6(1)(f) - legitimate interest, balancing to be written] |
 | Serve the website | F13-F15 | [to be decided; the Google Fonts request in particular] |
@@ -88,8 +90,9 @@ blanket consent requirement.
 
 - **Appwrite** (Appwrite Cloud, project in region `fra`, endpoint
   `fra.cloud.appwrite.io`) hosts the community database and function.
-  [Processing agreement (Art. 28), data location, sub-processors and any
-  third-country transfer to be checked and documented.]
+  D4 decision: EU hosting and DPA accepted by the owner. Acceptance is
+  owner-reported; the agreement/version, acceptance evidence, actual region,
+  sub-processors and any transfer safeguards remain to be verified.
 - **GitHub** hosts the repository, effect catalog, module and application
   releases. [Role and transfer basis to be assessed.]
 - **Google Fonts** (website only). [To be decided; self-hosting the font removes
@@ -99,9 +102,10 @@ blanket consent requirement.
 
 ## 6. Retention and deletion
 
-Technical state as implemented (details in `docs/APPWRITE_SETUP.md`):
+Repository behaviour (not a verified live inspection; details in
+`docs/APPWRITE_SETUP.md`):
 
-| Data | Server retention today |
+| Data | Retention in repository source (live deployment unverified) |
 |---|---|
 | `quota_slots` | deleted by the scheduled function `community-maintenance` (60-minute interval) when expired for more than 24 hours; the same operation exists as admin action `admin.cleanup` (max. 100 rows per call) |
 | `ratings` | kept until the user withdraws the vote in the app (`stars: null` deletes the row); no automatic expiry |
@@ -118,10 +122,21 @@ in the Marketplace privacy settings deletes unsent receipts. The session file is
 kept until the user deletes it [uninstaller behaviour is not verified]. Turning
 the community features off does not delete server-side data.
 
-**Missing before any online operation (open work, no decision taken):**
+Proposed limits in `appwrite/community/src/retention.js` are **not deployed or
+fully enforced**: quota slots 1 day after expiry; ratings 180 days after last
+vote; download receipts 7 days from creation; reports and all linked messages
+30 days from submission creation; audit and blocks 30 days from creation;
+anonymous accounts 180 days after last activity; sessions maximum 30 days;
+function/request logs 7 days; backups maximum 30 days. The hourly cleanup
+adds up to one hour plus any backlog to row deletion. Linked messages expire
+with their parent even when newer. Early withdrawal/deletion remains required.
+Provider limits are requested targets, subject to verified provider support.
+See `legal/APPWRITE_CHANGES.md` for the owner approval list and enforcement gaps.
 
-1. A documented retention period per table [owner/lawyer], with a scheduled
-   function that enforces it (today only `quota_slots` is cleaned).
+**Missing before release of the online service:**
+
+1. Owner approval of the proposed periods and implementation of scheduled
+   enforcement (today only `quota_slots` is cleaned).
 2. A way to delete a person's server-side data: ratings, download rows, reports,
    messages, blocked entry **and** the Appwrite anonymous user. No such
    operation exists, neither self-service nor as an operator runbook.
@@ -130,7 +145,7 @@ the community features off does not delete server-side data.
    anonymous ID / delete my data" action is needed (or a documented alternative).
 4. A data-export (access) procedure.
 5. Verified Appwrite log, session and execution-log retention settings.
-6. Controller, legal bases, processing agreement and the final Art. 13 text.
+6. Controller contact details, remaining legal bases, DPA evidence and final Art. 13 text.
 
 ## 7. Your rights
 

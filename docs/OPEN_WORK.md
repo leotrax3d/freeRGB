@@ -53,3 +53,7 @@ German UI/screen reader check and screenshots; website proofread.
 ## UI-LEAD (Tauri UI gaps)
 
 - Inventory: `docs/UI_GAPS.md`. P1 setup-forget merged. Open: re-audit cooling/devices after guicool + S22; a11y/state pass; English INTEGRATION_CHECKLIST; screenshots.
+
+## Legal release fixes (2026-11-08)
+
+Merged: FR-005/006/007/011/012/013 and the legal drafts. Open: D3 provenance rewrites, Appwrite re-auth and approval, lawyer/insurance review, release-SHA checks. See [RELEASE_FIX_PLAN.md](legal/RELEASE_FIX_PLAN.md) and [OWNER_DECISIONS.md](legal/OWNER_DECISIONS.md).

@@ -1,1 +1,1 @@
-{"name":"freergb-community","private":true,"type":"module","scripts":{"test":"node --test test/api.test.js"},"engines":{"node":">=22"}}
+{"name":"freergb-community","private":true,"type":"module","scripts":{"test":"node --test test/api.test.js test/cleanup.test.js"},"engines":{"node":">=22"}}

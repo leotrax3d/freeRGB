@@ -41,7 +41,7 @@ Der Build ergänzt tatsächliche Dateigrößen und SHA-256-Hashes im Entwicklung
 
 ## Lokal ausprobieren (Windows / PowerShell)
 
-Im vorhandenen Worktree `C:\Users\harald\.codex\worktrees\appwrite-community\FreeRGB`:
+Im Wurzelverzeichnis des Repositorys:
 
 ```powershell
 # Bereits kompilierte Pakete sind eingecheckt. Neubau bei Quelländerungen:

@@ -133,6 +133,11 @@ Step 6. Add tests in src/tests.rs (copy the test style of the example):
 
 Step 7. Copy COPYING from the example. Write PROVENANCE.md like the example:
   OpenRGB commit, the exact source file paths, license line.
+  Then run `python scripts/fill-module-provenance.py --openrgb <checkout> --module <FAMILY>`:
+  it appends the generated attribution block (upstream paths, URLs at the commit, SPDX and
+  copyright/author lines from the file headers). Name every upstream file you used in
+  backticks (`File.cpp`) in your hand-written record so the script can resolve it, list the
+  changes you made, and do not edit the generated block by hand.
 
 Step 8. Add "modules/<FAMILY>" to the [workspace] members in the root Cargo.toml
   (keep alphabetical order, change nothing else). Add one row to docs/OPENRGB_PORTING.md

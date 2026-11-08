@@ -118,11 +118,65 @@ R9. Bindings (item 10): `cooling.bindings.get` after one save from the
     desktop shows one CHA_FAN2 binding (channel-id spelling) and the pump
     binding; assigning CHA_FAN2 again in guided setup replaces it.
 
+## Motherboard lighting Headers page (S22, owner only; not executed)
+
+H1. On ASUS, Gigabyte, ASRock and MSI boards, record USB IDs, firmware, commit
+    and GUI used. Configure each external header's type, count, colour order and
+    name in Headers. Restart both GUIs and verify the same saved settings.
+    Fixed MSI zones must show the reported count/type. Type must never imply a
+    voltage conversion. Record unsupported adapter families as blocked.
+H2. On IT5711 `048d:5711`, save all six slots (four external and two onboard),
+    export/import the settings in Tauri, reopen in Classic and verify no slot
+    is lost. Verify each slot against the P2 driver's physical channel order.
+H3. Start the saved header's six-second RGB test; verify red, green and blue
+    for two seconds each, only on that header, then automatic effect return.
+    Change colour order and repeat. Include a zero-length or absent first
+    header and a name containing "LED" to check later-header addressing.
+H4. Give two headers different canvas rectangles. Run one gradient across
+    headers and a peripheral; check placement, RGB uniform colour, ARGB LED
+    progression and persistence after restart. On ASRock ensure onboard/PCH
+    zones are unaffected by external-header tests and mappings.
+H5. For each vendor application/service (Armoury Crate, MSI Center, RGB Fusion,
+    Polychrome), verify the warning before controller acquisition. Start it
+    while lighting is active: motherboard built-in/module devices must release
+    and stay closed; other peripherals continue. Close vendor software and
+    verify acquisition resumes. Verify the global management switch also
+    stops/prevents motherboard modules. Record outcomes; do not mark acceptance
+    from the simulated suite.
+
 ## Done when
 All steps recorded with commit and result; failures turned into fix tasks;
 STATUS/FAN_COVERAGE/README progress updated only from recorded evidence.
 
 
+## Beta review follow-up packages (2026-11-08; not executed here)
+
+Source review: `docs/legal/FAN_CONTROL_DEFAULTS.md`.
+
+- **FC-defaults (code package):** inventory every API, CLI, profile, boot service,
+  plugin and persisted-assignment entry point against current acknowledgement;
+  regression cases for fresh install, stale/revoked acknowledgement, restart,
+  existing configuration and upgrade. Decide with owner whether a separate
+  persistent master OFF switch is required; present gate permits opted-in resume.
+- **FC-RPM (code + hardware):** distinguish PWM floors, calibration minima and
+  actual tachometer feedback. Confirm stale/stalled RPM behavior per backend;
+  assess whether mapped open-loop fallback needs an additional stall response.
+  Never infer a physical minimum from a duty percentage.
+- **FC-pump (owner hardware):** verify header identity, pump 100% default,
+  refusal of reduction before separate confirmation, and forbidden fan-stop
+  shaping. Use mocks for reduction/unlock checks until owner authorizes each
+  physical step; never reduce the identified AIO pump in this session plan.
+- **FC-return (owner hardware):** record stop, revoke, crash/restart, suspend,
+  driver failure and power-loss behavior separately for Windows tiers, hwmon,
+  GPU and plugins. Confirm actual firmware/driver return, retained unresolved
+  journals and blocked reacquisition. Process-side watchdogs alone are not
+  evidence of recovery while that process is absent.
+- **FC-unlock (UI/API package):** verify EN/DE warnings precede unlock; switch,
+  exact channel name, identity invalidation and separate pump confirmation must
+  be enforced. Confirm the API rejects bypass attempts without these records.
+
+All physical steps remain subject to the owner-present rules above. This list
+records open evidence and implementation questions, not completed acceptance.
 ## Release-SHA acceptance appendix (proposed public beta)
 
 Planning only; no results are implied. Follow the existing owner-present rules and
@@ -149,3 +203,42 @@ candidate SHA, installer filename and SHA-256 from `docs/legal/RELEASE_SCOPE.md`
   build or payload requires re-evaluation of affected steps.
 - [ ] Link evidence to the release-SHA record. Owner records scope acceptance or
   postponement; missing evidence stays open. This appendix grants no legal approval.
+
+## S21: Gigabyte Fusion 2 USB variants (pending owner hardware acceptance)
+
+Software fixtures only; no hardware or real bus access performed. Test each of
+`048d:5711`, `048d:8950`, `0414:a100` when the owner has matching hardware.
+Record board/controller identity, firmware, commit, selected channel, configured
+LED count and outcome. Keep vendor RGB software closed during acceptance.
+
+- Confirm independent red/green/blue output and LED addressing on each configured
+  channel: IT5711 four external headers plus two onboard channels, 8950 two
+  headers, A100 one header. Leave unavailable channels unconfigured.
+- Check packet boundaries with 19/20 LEDs and strip class transitions at 32/33
+  and 64/65 LEDs; IT5711 must reject counts above 256 before any HID write.
+- Confirm unused channels retain firmware effects and length classes. For IT5711,
+  select header 3 or 4 independently to verify CC61 calibration and sparse mode bits.
+- Disconnect and close the app: confirm stored firmware effects return. No flash
+  save, calibration programming, driver installation or cooling commands are part
+  of this acceptance. Software support remains Experimental until recorded here.
+
+## P3 native SMBus / I2C acceptance (S23; owner-run, not executed)
+
+Prerequisites: owner driver/licence/signing decision in
+`docs/MAINBOARD_SMBUS_DRIVER_DECISION.md`, protected-worker IPC integration,
+and review of the exact board/controller address/register policy. Use a disposable
+owner-approved system and known controller; no scanning or SPD writes.
+
+- Linux: confirm adapter identity/permissions, non-force busy-device refusal,
+  byte/block SMBus wire format, repeated START for I2C register reads, exact-length
+  replies and unsupported-transaction behavior. Confirm no unintended register
+  access, permission changes or kernel module loading.
+- Windows: verify the pinned driver's publisher/signature, controller module
+  licence/signature and supported signing/security settings. Confirm all six
+  transactions through the protected helper; no raw port/script/IOCTL endpoint.
+- Two approved modules on one adapter: confirm serialized access and independent
+  address/register/write-mask allow-lists; denied batches cause no I/O.
+- Timeout, disconnect and helper failure: confirm shared adapter quarantine, no
+  retry/replacement while native I/O may remain in flight, and explicit owner
+  recovery only after worker exit. Confirm clean shutdown and vendor-software
+  conflict handling. Record commit, board, driver/version and results.

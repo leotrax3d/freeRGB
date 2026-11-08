@@ -63,7 +63,7 @@ export function Sidebar() {
   return (
     <nav ref={nav} onKeyDown={onKeyDown} aria-label={t("nav.main")} className="flex w-60 shrink-0 flex-col gap-1 bg-bg px-3 pb-3 pt-5">
       <div className="mb-5 flex items-center gap-3 px-3">
-        <BrandWordmark height={26} />
+        <BrandWordmark height={26} /><span className="text-small text-text-subtle">{t("common.beta")}</span>
       </div>
       <button
         type="button"

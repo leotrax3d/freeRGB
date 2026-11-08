@@ -62,10 +62,10 @@ const ENTRIES: &[Entry] = &[
     // Gigabyte RGB Fusion 2 USB (ITE IT5702/IT8297), vendor page 0xFF89/0xCC.
     fusion2(0x048D, 0x5702, SupportLevel::Experimental),
     fusion2(0x048D, 0x8297, SupportLevel::Experimental),
-    // Same family with more headers/other calibration: reported only.
-    fusion2(0x048D, 0x5711, SupportLevel::Identified),
-    fusion2(0x048D, 0x8950, SupportLevel::Identified),
-    fusion2(0x0414, 0xA100, SupportLevel::Identified),
+    // Variant-specific header counts and calibration are handled by the adapter.
+    fusion2(0x048D, 0x5711, SupportLevel::Experimental),
+    fusion2(0x048D, 0x8950, SupportLevel::Experimental),
+    fusion2(0x0414, 0xA100, SupportLevel::Experimental),
 ];
 
 const fn aura(pid: u16) -> Entry {
@@ -259,8 +259,12 @@ mod tests {
             assert_eq!(m.adapter, "gigabyte-fusion2-usb");
             assert_eq!(m.level, SupportLevel::Experimental);
         }
-        let it5711 = match_interface(0x048D, 0x5711, 0xFF89, 0x00CC).unwrap();
-        assert_eq!(it5711.level, SupportLevel::Identified);
+        for (vid, pid) in [(0x048D, 0x5711), (0x048D, 0x8950), (0x0414, 0xA100)] {
+            let variant = match_interface(vid, pid, 0xFF89, 0x00CC).unwrap();
+            assert_eq!(variant.adapter, "gigabyte-fusion2-usb");
+            assert_eq!(variant.level, SupportLevel::Experimental);
+            assert!(match_interface(vid, pid, 0x0001, 0x0006).is_none());
+        }
         for (vid, pid, adapter) in [
             (0x1462, 0x7C56, "msi-mystic-light"),
             (0x0B05, 0x18A5, "asus-aura-addressable"),
