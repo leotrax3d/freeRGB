@@ -137,7 +137,7 @@ export function mockTransport(): Transport {
   const mockJobs = new Map<number, CoolingSession>();
   const setJob = (job: CoolingSession) => { mockJobs.set(job.job_id!, job); session = job; emit("cooling_session"); };
   let unrestricted = false;
-  let onboarding: OnboardingStatus = { completed: false, safety_text_version: 1, safety_acknowledged: false, safety_acknowledged_unix: null };
+  let onboarding: OnboardingStatus = { completed: false, safety_text_version: 2, safety_acknowledged: false, safety_acknowledged_unix: null };
   // Demo: three identified headers (two fans, one pump) and two live channels.
   const demoBinding = (index: number, header: string, role: "fan" | "pump"): ChannelBinding => ({
     provider: "mainboard.lhm", device_id: "mainboard.lhm:/lpc/nct6701d/0", control_id: JSON.stringify(["/lpc/nct6701d/0", `/lpc/nct6701d/0/control/${index}`]),
@@ -161,6 +161,8 @@ export function mockTransport(): Transport {
   let applyState: CoolingBackground["apply"] = { state: "idle", error: null };
   const coolingProfiles = new Map<string, BackgroundChannel[]>();
   let activeProfile: string | null = null;
+  let coolingService = { mode: "login", boot_profile: null as string | null, headless: false, boot: { state: "unavailable" }, error: null };
+  const coolingDocuments = new Map<string, Record<string, unknown>>();
   const tierOf = (id: string) => coolingChannels.find((c) => c.reading.id === id)?.support?.tier ?? "verified";
   const effectiveTier = (id: string) => (evidence[id]?.unlock.startsWith("unlocked") && unrestricted ? "unrestricted" : tierOf(id));
   const background = (): CoolingBackground => ({
@@ -365,7 +367,7 @@ export function mockTransport(): Transport {
           onboarding = { ...onboarding, completed: false }; emit("onboarding");
           return true as T;
         case "safety.acknowledge":
-          if (p.accepted !== true || p.version !== 1) fail("The current safety notice must be read and accepted");
+          if (p.accepted !== true || p.version !== 2) fail("The current safety notice must be read and accepted");
           onboarding = { ...onboarding, safety_acknowledged: true, safety_acknowledged_unix: Math.floor(Date.now() / 1000) }; emit("onboarding");
           return true as T;
         case "safety.revoke":
@@ -484,13 +486,50 @@ export function mockTransport(): Transport {
           evidence[p.control_id as string] = { ...evidence[p.control_id as string]!, unlock: "none" };
           emit("cooling_support");
           return { revoked: true, background_reapplied: false } as T;
+        case "cooling.service.get":
+          return structuredClone(coolingService) as T;
+        case "cooling.service.set":
+          if (p.mode !== "login" && p.mode !== "service") fail("Invalid cooling service mode");
+          coolingService = { ...coolingService, mode: p.mode as string, boot_profile: (p.boot_profile as string | null) ?? null };
+          return true as T;
+        case "cooling.profiles.export": {
+          const name = p.name as string;
+          const channels = coolingProfiles.get(name) ?? fail("Unknown cooling profile");
+          return structuredClone(coolingDocuments.get(name) ?? {
+            schema: "freergb.cooling-profile", version: 2, name,
+            source: { board: "mock", devices: [] },
+            profile: { channels, assignments: [], curve_set: null, sensors: null },
+          }) as T;
+        }
+        case "cooling.profiles.import": {
+          const doc = (typeof p.document === "string" ? JSON.parse(p.document) : p.document) as Record<string, unknown>;
+          if (!doc || doc.schema !== "freergb.cooling-profile" || doc.version !== 2) fail("Invalid cooling profile document");
+          const name = (p.name ?? doc.name) as string;
+          if (typeof name !== "string" || !name || name !== name.trim() || name.length > 64 || /[\u0000-\u001f\u007f]/.test(name)) fail("Invalid cooling profile name");
+          const profile = doc.profile as { channels?: BackgroundChannel[]; assignments?: { confirmed_fan?: boolean }[] };
+          if (!profile || !Array.isArray(profile.channels)) fail("Invalid cooling profile");
+          const same = (doc.source as { board?: string } | undefined)?.board === "mock";
+          const stored = structuredClone(doc);
+          stored.name = name;
+          if (!same) {
+            const imported = stored.profile as typeof profile;
+            for (const c of imported.channels ?? []) c.confirmed_fan = false;
+            for (const a of imported.assignments ?? []) a.confirmed_fan = false;
+          }
+          coolingDocuments.set(name, stored);
+          coolingProfiles.set(name, (stored.profile as typeof profile).channels!);
+          emit("cooling_profiles");
+          return { name, report: { name, remapped: 0, same_board: same, unresolved: [], needs_confirmation: !same } } as T;
+        }
         case "cooling.profiles.list":
           return slices().cooling_profiles as T;
         case "cooling.profiles.save":
+          coolingDocuments.delete(p.name as string);
           coolingProfiles.set(p.name as string, (p.channels as BackgroundChannel[] | undefined) ?? backgroundSaved);
           emit("cooling_profiles");
           return true as T;
         case "cooling.profiles.delete":
+          coolingDocuments.delete(p.name as string);
           coolingProfiles.delete(p.name as string);
           if (activeProfile === p.name) activeProfile = null;
           emit("cooling_profiles");
@@ -519,6 +558,9 @@ export function mockTransport(): Transport {
           return true as T;
         case "modules.setup.complete":
           setup.complete();
+          return true as T;
+        case "modules.forget":
+          setup.forget(p.keys as string[]);
           return true as T;
         case "modules.setup.dismiss":
           setup.dismiss(p.keys as string[]);

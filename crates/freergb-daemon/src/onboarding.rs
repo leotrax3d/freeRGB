@@ -8,7 +8,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 /// Bump when the safety/liability text changes materially: users confirm again.
-pub const SAFETY_TEXT_VERSION: u32 = 1;
+pub const SAFETY_TEXT_VERSION: u32 = 2;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
