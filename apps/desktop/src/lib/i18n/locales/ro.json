@@ -1259,5 +1259,12 @@
   "monitoring.deviceSensorsUnavailable": "Citirile senzorilor dispozitivului nu sunt disponibile.",
   "monitoring.customUnavailable": "Sursele de temperatură personalizate nu sunt disponibile.",
   "settings.about.disclaimer": "Software gratuit, necomercial, open-source, creat de un dezvoltator privat. Furnizat gratuit, fără garanție. Nu este afiliat cu niciun producător de hardware.",
-  "settings.about.risk": "Controlul ventilatoarelor și al pompelor este experimental și neconfirmat pe majoritatea hardware-ului. Folosește pe propria răspundere. Răspunderea este limitată conform termenilor de instalare, numai în limitele permise de lege; răspunderea pentru vătămarea vieții, integritate corporală sau sănătate, intenție, neglijență gravă și conform legii privind răspunderea obligatorie pentru produse rămâne neafectată."
+  "settings.about.risk": "Controlul ventilatoarelor și al pompelor este experimental și neconfirmat pe majoritatea hardware-ului. Folosește pe propria răspundere. Răspunderea este limitată conform termenilor de instalare, numai în limitele permise de lege; răspunderea pentru vătămarea vieții, integritate corporală sau sănătate, intenție, neglijență gravă și conform legii privind răspunderea obligatorie pentru produse rămâne neafectată.",
+  "error.daemon.profile": "Profilul nu a putut fi încărcat sau salvat.",
+  "error.daemon.deviceNotFound": "Dispozitivul nu a fost găsit.",
+  "error.daemon.refused": "Daemonul a refuzat cererea.",
+  "error.daemon.modulesDisabled": "Modulele hardware sunt dezactivate.",
+  "error.daemon.unknownMethod": "Daemonul nu cunoaște această cerere (nepotrivire de versiune?).",
+  "error.daemon.invalidParams": "Cerere invalidă.",
+  "error.daemon.unreachable": "Nu se poate contacta freergbd. Rulează?"
 }

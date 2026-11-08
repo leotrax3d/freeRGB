@@ -1254,5 +1254,12 @@
   "settings.contact.errEmpty": "పంపే ముందు దయచేసి సందేశాన్ని నమోదు చేయండి.",
   "settings.contact.errObject": "నివేదిక JSON ఆబ్జెక్ట్ అయి ఉండాలి.",
   "settings.contact.errSize": "నివేదిక 30 KB కంటే చిన్నదిగా ఉండాలి.",
-  "settings.contact.sentMessage": "మీ సందేశం freeRGB డెవలపర్లకు పంపబడింది."
+  "settings.contact.sentMessage": "మీ సందేశం freeRGB డెవలపర్లకు పంపబడింది.",
+  "error.daemon.profile": "ప్రొఫైల్‌ను లోడ్ చేయలేకపోయాము లేదా సేవ్ చేయలేకపోయాము.",
+  "error.daemon.deviceNotFound": "పరికరం కనుగొనబడలేదు.",
+  "error.daemon.refused": "డీమన్ అభ్యర్థనను తిరస్కరించింది",
+  "error.daemon.modulesDisabled": "హార్డ్‌వేర్ మాడ్యూళ్లు నిలిపివేయబడ్డాయి.",
+  "error.daemon.unknownMethod": "డీమన్‌కు ఈ అభ్యర్థన తెలియదు (వెర్షన్ అసంగతి?).",
+  "error.daemon.invalidParams": "చెల్లని అభ్యర్థన",
+  "error.daemon.unreachable": "freergbd ను చేరుకోలేకపోతున్నాము. అది నడుస్తోందా?"
 }

@@ -1259,5 +1259,12 @@
   "cooling.profileService.interactive": "Processus actuel : session utilisateur",
   "cooling.profileService.boot": "Résultat du démarrage : {state}",
   "cooling.profileService.pending": "En attente",
-  "cooling.profileService.resumed": "Affectations reprises"
+  "cooling.profileService.resumed": "Affectations reprises",
+  "error.daemon.profile": "Le profil n'a pas pu être chargé ou enregistré.",
+  "error.daemon.deviceNotFound": "Périphérique introuvable.",
+  "error.daemon.refused": "Le démon a refusé la requête.",
+  "error.daemon.modulesDisabled": "Les modules matériels sont désactivés.",
+  "error.daemon.unknownMethod": "Le démon ne reconnaît pas cette requête (incompatibilité de version ?).",
+  "error.daemon.invalidParams": "Requête invalide.",
+  "error.daemon.unreachable": "Impossible de joindre freergbd. Est-il en cours d'exécution ?"
 }

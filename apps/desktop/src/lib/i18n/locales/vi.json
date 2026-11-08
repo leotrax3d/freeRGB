@@ -1254,5 +1254,12 @@
   "cooling.profileService.copy": "Sao chép JSON",
   "cooling.profileService.copied": "Đã sao chép JSON hồ sơ",
   "cooling.profileService.import": "Nhập JSON",
-  "cooling.profileService.imported": "Hồ sơ đã được nhập nhưng chưa kích hoạt"
+  "cooling.profileService.imported": "Hồ sơ đã được nhập nhưng chưa kích hoạt",
+  "error.daemon.profile": "Không thể tải hoặc lưu hồ sơ.",
+  "error.daemon.deviceNotFound": "Không tìm thấy thiết bị.",
+  "error.daemon.refused": "Trình nền từ chối yêu cầu",
+  "error.daemon.modulesDisabled": "Các mô-đun phần cứng đã bị vô hiệu hóa.",
+  "error.daemon.unknownMethod": "Trình nền không hỗ trợ yêu cầu này (không khớp phiên bản?).",
+  "error.daemon.invalidParams": "Yêu cầu không hợp lệ",
+  "error.daemon.unreachable": "Không thể kết nối freergbd. Nó có đang chạy không?"
 }

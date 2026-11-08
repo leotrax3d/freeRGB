@@ -1254,5 +1254,12 @@
   "cooling.profileService.copy": "JSON kopiëren",
   "cooling.profileService.copied": "Profiel-JSON gekopieerd",
   "cooling.profileService.import": "JSON importeren",
-  "cooling.profileService.imported": "Profiel geïmporteerd zonder activering"
+  "cooling.profileService.imported": "Profiel geïmporteerd zonder activering",
+  "error.daemon.profile": "Het profiel kon niet worden geladen of opgeslagen.",
+  "error.daemon.deviceNotFound": "Apparaat niet gevonden.",
+  "error.daemon.refused": "De daemon weigerde het verzoek.",
+  "error.daemon.modulesDisabled": "Hardwaremodules zijn uitgeschakeld.",
+  "error.daemon.unknownMethod": "De daemon kent dit verzoek niet (versiegeschil?).",
+  "error.daemon.invalidParams": "Ongeldig verzoek",
+  "error.daemon.unreachable": "Kan freergbd niet bereiken. Draait het?"
 }

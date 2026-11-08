@@ -1269,5 +1269,12 @@
   "cooling.profileService.apply": "Salva settings tal-bidu",
   "cooling.profileService.confirm": "Ikkonferma settings tal-bidu",
   "cooling.profileService.saved": "Settings tal-bidu tal-kessaħ ġew salvati",
-  "cooling.profileService.refresh": "Aġġorna"
+  "cooling.profileService.refresh": "Aġġorna",
+  "error.daemon.profile": "Il-profil ma setax jiġi mgħobbi jew imħażen.",
+  "error.daemon.deviceNotFound": "L-apparat ma nstabx.",
+  "error.daemon.refused": "Id-daemon irrifjuta t-talba",
+  "error.daemon.modulesDisabled": "Il-moduli tal-hardware huma diżattivati.",
+  "error.daemon.unknownMethod": "Id-daemon ma jafx din it-talba (nuqqas ta' qbil fil-verżjoni?).",
+  "error.daemon.invalidParams": "Talba mhux valida",
+  "error.daemon.unreachable": "Ma jistax jintlaħaq freergbd. Qed jaħdem?"
 }

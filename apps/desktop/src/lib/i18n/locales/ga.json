@@ -1269,5 +1269,12 @@
   "cooling.profileService.apply": "Sábháil suímh tosaithe",
   "cooling.profileService.confirm": "Deimhnigh suímh tosaithe",
   "cooling.profileService.saved": "Sábháladh suímh tosaithe fuarúcháin",
-  "cooling.profileService.refresh": "Athnuachan"
+  "cooling.profileService.refresh": "Athnuachan",
+  "error.daemon.profile": "Níorbh fhéidir an próifíl a luchtú ná a shábháil.",
+  "error.daemon.deviceNotFound": "Níor aimsíodh an gléas.",
+  "error.daemon.refused": "Dhiúltaigh an daemon don iarratas.",
+  "error.daemon.modulesDisabled": "Tá modúil crua-earraí díchumasaithe.",
+  "error.daemon.unknownMethod": "Ní aithníonn an daemon an t-iarratas seo (mí-oiriúnú leagan?).",
+  "error.daemon.invalidParams": "Iarratas neamhbhailí.",
+  "error.daemon.unreachable": "Ní féidir freergbd a shroicheadh. An bhfuil sé ag rith?"
 }

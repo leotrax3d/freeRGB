@@ -1259,5 +1259,12 @@
   "mainboardRgb.rgb": "12 V RGB",
   "mainboardRgb.unavailable": "Os cabeçalhos estão indisponíveis. Ligue-se a um daemon atualizado.",
   "cooling.profileService.manage": "Transferência de perfis e arranque",
-  "cooling.profileService.json": "JSON do perfil de arrefecimento"
+  "cooling.profileService.json": "JSON do perfil de arrefecimento",
+  "error.daemon.profile": "Não foi possível carregar ou guardar o perfil.",
+  "error.daemon.deviceNotFound": "Dispositivo não encontrado.",
+  "error.daemon.refused": "O daemon recusou o pedido.",
+  "error.daemon.modulesDisabled": "Os módulos de hardware estão desativados.",
+  "error.daemon.unknownMethod": "O daemon não reconhece este pedido (incompatibilidade de versões?).",
+  "error.daemon.invalidParams": "Pedido inválido.",
+  "error.daemon.unreachable": "Não é possível contactar o freergbd. Está em execução?"
 }

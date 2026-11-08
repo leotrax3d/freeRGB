@@ -1264,5 +1264,12 @@
   "cooling.profileService.apply": "Зберегти параметри запуску",
   "cooling.profileService.confirm": "Підтвердити параметри запуску",
   "cooling.profileService.saved": "Параметри запуску охолодження збережено",
-  "cooling.profileService.refresh": "Оновити"
+  "cooling.profileService.refresh": "Оновити",
+  "error.daemon.profile": "Профіль не вдалося завантажити або зберегти.",
+  "error.daemon.deviceNotFound": "Пристрій не знайдено.",
+  "error.daemon.refused": "Демон відхилив запит.",
+  "error.daemon.modulesDisabled": "Апаратні модулі вимкнено.",
+  "error.daemon.unknownMethod": "Демон не підтримує цей запит (невідповідність версій?).",
+  "error.daemon.invalidParams": "Некоректний запит.",
+  "error.daemon.unreachable": "Не вдається зв'язатися з freergbd. Він запущений?"
 }

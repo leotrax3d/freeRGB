@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "ذخیره تنظیمات راه‌اندازی",
   "cooling.profileService.confirm": "تأیید تنظیمات راه‌اندازی",
   "cooling.profileService.saved": "تنظیمات راه‌اندازی خنک‌سازی ذخیره شدند",
-  "cooling.profileService.refresh": "به‌روزرسانی"
+  "cooling.profileService.refresh": "به‌روزرسانی",
+  "error.daemon.profile": "پروفایل بارگذاری یا ذخیره نشد.",
+  "error.daemon.deviceNotFound": "دستگاه یافت نشد.",
+  "error.daemon.refused": "دیمن درخواست را رد کرد.",
+  "error.daemon.modulesDisabled": "ماژول‌های سخت‌افزاری غیرفعال‌اند.",
+  "error.daemon.unknownMethod": "دیمن این درخواست را نمی‌شناسد (عدم تطابق نسخه؟).",
+  "error.daemon.invalidParams": "درخواست نامعتبر.",
+  "error.daemon.unreachable": "نمی‌توان به freergbd دسترسی پیدا کرد. آیا در حال اجراست؟"
 }

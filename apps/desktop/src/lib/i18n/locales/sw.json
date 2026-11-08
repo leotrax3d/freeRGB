@@ -1254,5 +1254,12 @@
   "mainboardRgb.help": "Hifadhi kabla ya kujaribu. Jaribio linaonyesha nyekundu, kijani na bluu kwa sekunde mbili kila moja, kisha linaendelea na madhara. Mstatili wa kanavasi huchukua sampuli ya madhara yaliyoshirikiwa. Aina inaeleza heda iliyounganishwa; haiwezi kubadilisha voltaji yake. Maeneo ya kudumu ya MSI yahifadhi idadi ya LED iliyotangazwa.",
   "mainboardRgb.argb": "5 V ARGB",
   "mainboardRgb.rgb": "12 V RGB",
-  "mainboardRgb.unavailable": "Heda hazipatikani. Unganisha kwenye daemon iliyosasishwa."
+  "mainboardRgb.unavailable": "Heda hazipatikani. Unganisha kwenye daemon iliyosasishwa.",
+  "error.daemon.profile": "Wasifu haukuweza kupakiwa au kuhifadhiwa.",
+  "error.daemon.deviceNotFound": "Kifaa hakijapatikana.",
+  "error.daemon.refused": "Deemoni ilikataa ombi.",
+  "error.daemon.modulesDisabled": "Moduli za maunzi zimezimwa.",
+  "error.daemon.unknownMethod": "Deemoni haijui ombi hili (toleo halilingani?).",
+  "error.daemon.invalidParams": "Ombi batili.",
+  "error.daemon.unreachable": "Haiwezi kufikia freergbd. Inaendeshwa?"
 }

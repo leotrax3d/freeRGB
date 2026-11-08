@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Αποθήκευση ρυθμίσεων εκκίνησης",
   "cooling.profileService.confirm": "Επιβεβαίωση ρυθμίσεων εκκίνησης",
   "cooling.profileService.saved": "Αποθηκεύτηκαν οι ρυθμίσεις εκκίνησης ψύξης",
-  "cooling.profileService.refresh": "Ανανέωση"
+  "cooling.profileService.refresh": "Ανανέωση",
+  "error.daemon.profile": "Το προφίλ δεν μπόρεσε να φορτωθεί ή να αποθηκευτεί.",
+  "error.daemon.deviceNotFound": "Η συσκευή δεν βρέθηκε.",
+  "error.daemon.refused": "Το daemon απέρριψε το αίτημα",
+  "error.daemon.modulesDisabled": "Τα αρθρώματα υλικού είναι απενεργοποιημένα.",
+  "error.daemon.unknownMethod": "Το daemon δεν αναγνωρίζει αυτό το αίτημα (ασυμφωνία έκδοσης;).",
+  "error.daemon.invalidParams": "Μη έγκυρο αίτημα",
+  "error.daemon.unreachable": "Δεν είναι δυνατή η πρόσβαση στο freergbd. Εκτελείται;"
 }

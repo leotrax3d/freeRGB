@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "स्टार्टअप सेटिंग्स सहेजें",
   "cooling.profileService.confirm": "स्टार्टअप सेटिंग्स की पुष्टि करें",
   "cooling.profileService.saved": "कूलिंग स्टार्टअप सेटिंग्स सहेजी गईं",
-  "cooling.profileService.refresh": "रिफ़्रेश करें"
+  "cooling.profileService.refresh": "रिफ़्रेश करें",
+  "error.daemon.profile": "प्रोफ़ाइल लोड या सहेजा नहीं जा सका।",
+  "error.daemon.deviceNotFound": "डिवाइस नहीं मिला।",
+  "error.daemon.refused": "डेमन ने अनुरोध अस्वीकार किया।",
+  "error.daemon.modulesDisabled": "हार्डवेयर मॉड्यूल अक्षम हैं।",
+  "error.daemon.unknownMethod": "डेमन इस अनुरोध को नहीं जानता (संस्करण बेमेल?)।",
+  "error.daemon.invalidParams": "अमान्य अनुरोध",
+  "error.daemon.unreachable": "freergbd तक नहीं पहुंचा जा सकता। क्या यह चल रहा है?"
 }

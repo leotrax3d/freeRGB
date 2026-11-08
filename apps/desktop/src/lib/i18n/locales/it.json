@@ -1259,5 +1259,12 @@
   "cooling.profileService.apply": "Salva impostazioni di avvio",
   "cooling.profileService.confirm": "Conferma impostazioni di avvio",
   "cooling.profileService.saved": "Impostazioni di avvio del raffreddamento salvate",
-  "cooling.profileService.refresh": "Aggiorna"
+  "cooling.profileService.refresh": "Aggiorna",
+  "error.daemon.profile": "Impossibile caricare o salvare il profilo.",
+  "error.daemon.deviceNotFound": "Dispositivo non trovato.",
+  "error.daemon.refused": "Il demone ha rifiutato la richiesta.",
+  "error.daemon.modulesDisabled": "I moduli hardware sono disabilitati.",
+  "error.daemon.unknownMethod": "Il demone non riconosce questa richiesta (versione non corrispondente?).",
+  "error.daemon.invalidParams": "Richiesta non valida.",
+  "error.daemon.unreachable": "Impossibile raggiungere freergbd. È in esecuzione?"
 }

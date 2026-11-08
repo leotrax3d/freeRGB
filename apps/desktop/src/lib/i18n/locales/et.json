@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Salvesta käivitussätted",
   "cooling.profileService.confirm": "Kinnita käivitussätted",
   "cooling.profileService.saved": "Jahutuse käivitussätted salvestatud",
-  "cooling.profileService.refresh": "Värskenda"
+  "cooling.profileService.refresh": "Värskenda",
+  "error.daemon.profile": "Profiili ei õnnestunud laadida ega salvestada.",
+  "error.daemon.deviceNotFound": "Seadet ei leitud.",
+  "error.daemon.refused": "Deemon keeldus päringust.",
+  "error.daemon.modulesDisabled": "Riistvaramoodulid on keelatud.",
+  "error.daemon.unknownMethod": "Deemon ei tunne seda päringut (versioonide mittevastavus?).",
+  "error.daemon.invalidParams": "Vigane päring.",
+  "error.daemon.unreachable": "freergbd ei ole kättesaadav. Kas see töötab?"
 }

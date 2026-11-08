@@ -1264,5 +1264,12 @@
   "cooling.profileService.apply": "Uložiť štartovacie nastavenia",
   "cooling.profileService.confirm": "Potvrdiť štartovacie nastavenia",
   "cooling.profileService.saved": "Štartovacie nastavenia chladenia uložené",
-  "cooling.profileService.refresh": "Obnoviť"
+  "cooling.profileService.refresh": "Obnoviť",
+  "error.daemon.profile": "Profil sa nepodarilo načítať alebo uložiť.",
+  "error.daemon.deviceNotFound": "Zariadenie sa nenašlo.",
+  "error.daemon.refused": "Démon odmietol požiadavku",
+  "error.daemon.modulesDisabled": "Hardvérové moduly sú zakázané.",
+  "error.daemon.unknownMethod": "Démon nepozná túto požiadavku (nezhoda verzií?).",
+  "error.daemon.invalidParams": "Neplatná požiadavka",
+  "error.daemon.unreachable": "Nedá sa spojiť s freergbd. Beží?"
 }

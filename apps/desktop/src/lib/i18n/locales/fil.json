@@ -1254,5 +1254,12 @@
   "mainboardRgb.mainboardRgb.argbHeaderValueFallbackColour": "Kulay ng fallback ng ARGB header {p0}",
   "mainboardRgb.mainboardRgb.notReportedByController": "hindi iniulat ng controller",
   "mainboardRgb.mainboardRgb.fansChainedPerHeaderForPresets": "Mga fan na naka-chain sa bawat header para sa preset",
-  "mainboardRgb.mainboardRgb.save": "I-save"
+  "mainboardRgb.mainboardRgb.save": "I-save",
+  "error.daemon.profile": "Hindi nai-load o nai-save ang profile.",
+  "error.daemon.deviceNotFound": "Hindi nakita ang device.",
+  "error.daemon.refused": "Tinanggihan ng daemon ang kahilingan",
+  "error.daemon.modulesDisabled": "Naka-disable ang mga hardware module.",
+  "error.daemon.unknownMethod": "Hindi alam ng daemon ang kahilingang ito (hindi tugma ang bersyon?).",
+  "error.daemon.invalidParams": "Hindi wastong kahilingan.",
+  "error.daemon.unreachable": "Hindi maaabot ang freergbd. Tumatakbo ba ito?"
 }

@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Tallenna käynnistysasetukset",
   "cooling.profileService.confirm": "Vahvista käynnistysasetukset",
   "cooling.profileService.saved": "Jäähdytyksen käynnistysasetukset tallennettu",
-  "cooling.profileService.refresh": "Päivitä"
+  "cooling.profileService.refresh": "Päivitä",
+  "error.daemon.profile": "Profiilia ei voitu ladata tai tallentaa.",
+  "error.daemon.deviceNotFound": "Laitetta ei löytynyt.",
+  "error.daemon.refused": "Taustapalvelu hylkäsi pyynnön",
+  "error.daemon.modulesDisabled": "Laitteistomoduulit on poistettu käytöstä.",
+  "error.daemon.unknownMethod": "Taustapalvelu ei tunnista tätä pyyntöä (versioepäsuhta?).",
+  "error.daemon.invalidParams": "Virheellinen pyyntö",
+  "error.daemon.unreachable": "freergbd ei ole tavoitettavissa. Onko se käynnissä?"
 }

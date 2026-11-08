@@ -1274,5 +1274,12 @@
   "cooling.profileService.apply": "حفظ إعدادات التشغيل",
   "cooling.profileService.confirm": "تأكيد إعدادات التشغيل",
   "cooling.profileService.saved": "تم حفظ إعدادات تشغيل التبريد",
-  "cooling.profileService.refresh": "تحديث"
+  "cooling.profileService.refresh": "تحديث",
+  "error.daemon.profile": "تعذر تحميل ملف التكوين أو حفظه.",
+  "error.daemon.deviceNotFound": "لم يتم العثور على الجهاز.",
+  "error.daemon.refused": "رفض الخدمة الخلفية الطلب",
+  "error.daemon.modulesDisabled": "وحدات الأجهزة معطّلة.",
+  "error.daemon.unknownMethod": "الخدمة الخلفية لا تعرف هذا الطلب (عدم تطابق الإصدار؟).",
+  "error.daemon.invalidParams": "طلب غير صالح",
+  "error.daemon.unreachable": "تعذّر الوصول إلى freergbd. هل يعمل؟"
 }

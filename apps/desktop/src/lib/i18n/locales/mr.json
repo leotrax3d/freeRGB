@@ -1254,5 +1254,12 @@
   "cooling.profileService.copy": "JSON कॉपी करा",
   "cooling.profileService.copied": "प्रोफाइल JSON कॉपी झाले",
   "cooling.profileService.import": "JSON आयात करा",
-  "cooling.profileService.imported": "प्रोफाइल सक्रियतेशिवाय आयात झाले"
+  "cooling.profileService.imported": "प्रोफाइल सक्रियतेशिवाय आयात झाले",
+  "error.daemon.profile": "प्रोफाइल लोड किंवा सेव्ह करता आला नाही.",
+  "error.daemon.deviceNotFound": "डिव्हाइस सापडले नाही.",
+  "error.daemon.refused": "डीमनने विनंती नाकारली",
+  "error.daemon.modulesDisabled": "हार्डवेअर मॉड्यूल्स अक्षम आहेत.",
+  "error.daemon.unknownMethod": "डीमनला ही विनंती माहीत नाही (आवृत्ती जुळत नाही?).",
+  "error.daemon.invalidParams": "अवैध विनंती",
+  "error.daemon.unreachable": "freergbd शी संपर्क होत नाही. ते चालू आहे का?"
 }

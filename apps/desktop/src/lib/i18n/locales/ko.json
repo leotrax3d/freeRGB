@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "시작 설정 저장",
   "cooling.profileService.confirm": "시작 설정 확인",
   "cooling.profileService.saved": "냉각 시작 설정이 저장되었습니다",
-  "cooling.profileService.refresh": "새로 고침"
+  "cooling.profileService.refresh": "새로 고침",
+  "error.daemon.profile": "프로필을 불러오거나 저장할 수 없습니다.",
+  "error.daemon.deviceNotFound": "장치를 찾을 수 없습니다.",
+  "error.daemon.refused": "데몬이 요청을 거부했습니다.",
+  "error.daemon.modulesDisabled": "하드웨어 모듈이 비활성화되어 있습니다.",
+  "error.daemon.unknownMethod": "데몬이 이 요청을 인식하지 못합니다 (버전 불일치?).",
+  "error.daemon.invalidParams": "잘못된 요청입니다.",
+  "error.daemon.unreachable": "freergbd에 연결할 수 없습니다. 실행 중인가요?"
 }

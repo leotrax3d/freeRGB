@@ -1259,5 +1259,12 @@
   "cooling.profileService.apply": "Guardar configuración de inicio",
   "cooling.profileService.confirm": "Confirmar configuración de inicio",
   "cooling.profileService.saved": "Configuración de inicio de refrigeración guardada",
-  "cooling.profileService.refresh": "Actualizar"
+  "cooling.profileService.refresh": "Actualizar",
+  "error.daemon.profile": "No se pudo cargar ni guardar el perfil.",
+  "error.daemon.deviceNotFound": "Dispositivo no encontrado.",
+  "error.daemon.refused": "El daemon rechazó la solicitud.",
+  "error.daemon.modulesDisabled": "Los módulos de hardware están deshabilitados.",
+  "error.daemon.unknownMethod": "El daemon no reconoce esta solicitud (¿desajuste de versión?).",
+  "error.daemon.invalidParams": "Solicitud inválida.",
+  "error.daemon.unreachable": "No se puede conectar con freergbd. ¿Está en ejecución?"
 }

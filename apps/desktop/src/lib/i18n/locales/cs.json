@@ -1264,5 +1264,12 @@
   "cooling.profileService.apply": "Uložit nastavení spuštění",
   "cooling.profileService.confirm": "Potvrdit nastavení spuštění",
   "cooling.profileService.saved": "Nastavení spuštění chlazení bylo uloženo",
-  "cooling.profileService.refresh": "Obnovit"
+  "cooling.profileService.refresh": "Obnovit",
+  "error.daemon.profile": "Profil se nepodařilo načíst ani uložit.",
+  "error.daemon.deviceNotFound": "Zařízení nebylo nalezeno.",
+  "error.daemon.refused": "Daemon odmítl požadavek.",
+  "error.daemon.modulesDisabled": "Hardwarové moduly jsou vypnuty.",
+  "error.daemon.unknownMethod": "Daemon tento požadavek nezná (nesoulad verzí?).",
+  "error.daemon.invalidParams": "Neplatný požadavek.",
+  "error.daemon.unreachable": "Nelze se spojit s freergbd. Běží?"
 }

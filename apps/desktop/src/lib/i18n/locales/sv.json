@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Spara uppstartsinställningar",
   "cooling.profileService.confirm": "Bekräfta uppstartsinställningar",
   "cooling.profileService.saved": "Uppstartsinställningar för kylning sparade",
-  "cooling.profileService.refresh": "Uppdatera"
+  "cooling.profileService.refresh": "Uppdatera",
+  "error.daemon.profile": "Profilen kunde inte laddas eller sparas.",
+  "error.daemon.deviceNotFound": "Enheten hittades inte.",
+  "error.daemon.refused": "Daemonen avvisade begäran.",
+  "error.daemon.modulesDisabled": "Hårdvarumoduler är inaktiverade.",
+  "error.daemon.unknownMethod": "Daemonen känner inte till denna begäran (versionsfel?).",
+  "error.daemon.invalidParams": "Ogiltig begäran",
+  "error.daemon.unreachable": "Kan inte nå freergbd. Körs den?"
 }

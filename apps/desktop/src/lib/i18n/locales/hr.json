@@ -1259,5 +1259,12 @@
   "cooling.profileService.apply": "Spremi postavke pokretanja",
   "cooling.profileService.confirm": "Potvrdi postavke pokretanja",
   "cooling.profileService.saved": "Postavke pokretanja hlađenja su spremljene",
-  "cooling.profileService.refresh": "Osvježi"
+  "cooling.profileService.refresh": "Osvježi",
+  "error.daemon.profile": "Profil nije bilo moguće učitati ili spremiti.",
+  "error.daemon.deviceNotFound": "Uređaj nije pronađen.",
+  "error.daemon.refused": "Demon je odbio zahtjev",
+  "error.daemon.modulesDisabled": "Hardverski moduli su onemogućeni.",
+  "error.daemon.unknownMethod": "Demon ne prepoznaje ovaj zahtjev (neslaganje verzija?).",
+  "error.daemon.invalidParams": "Nevažeći zahtjev",
+  "error.daemon.unreachable": "Nije moguće dohvatiti freergbd. Je li pokrenut?"
 }

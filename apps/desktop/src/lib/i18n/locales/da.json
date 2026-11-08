@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Gem opstartsindstillinger",
   "cooling.profileService.confirm": "Bekræft opstartsindstillinger",
   "cooling.profileService.saved": "Opstartsindstillinger for køling gemt",
-  "cooling.profileService.refresh": "Opdater"
+  "cooling.profileService.refresh": "Opdater",
+  "error.daemon.profile": "Profilen kunne ikke indlæses eller gemmes.",
+  "error.daemon.deviceNotFound": "Enheden blev ikke fundet.",
+  "error.daemon.refused": "Dæmonen afviste anmodningen",
+  "error.daemon.modulesDisabled": "Hardwaremoduler er deaktiveret.",
+  "error.daemon.unknownMethod": "Dæmonen kender ikke denne anmodning (versionsmismatch?).",
+  "error.daemon.invalidParams": "Ugyldig anmodning",
+  "error.daemon.unreachable": "Kan ikke nå freergbd. Kører den?"
 }

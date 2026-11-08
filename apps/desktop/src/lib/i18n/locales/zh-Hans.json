@@ -1254,5 +1254,12 @@
   "monitoring.deviceSensorsUnavailable": "设备传感器读数不可用。",
   "monitoring.customUnavailable": "自定义温度源不可用。",
   "settings.about.disclaimer": "由个人开发者开发的免费、非商业开源软件。免费提供，不附带任何保修。与任何硬件厂商无关联。",
-  "settings.about.risk": "风扇与水泵控制为实验功能，且在大多数硬件上尚未确认。使用风险自负。责任范围按安装条款所述限制，仅在法律允许的范围内；对生命、身体或健康损害、故意行为、重大过失以及根据强制性产品责任法承担的责任不受影响。"
+  "settings.about.risk": "风扇与水泵控制为实验功能，且在大多数硬件上尚未确认。使用风险自负。责任范围按安装条款所述限制，仅在法律允许的范围内；对生命、身体或健康损害、故意行为、重大过失以及根据强制性产品责任法承担的责任不受影响。",
+  "error.daemon.profile": "无法加载或保存配置文件。",
+  "error.daemon.deviceNotFound": "未找到设备。",
+  "error.daemon.refused": "守护进程拒绝了请求。",
+  "error.daemon.modulesDisabled": "硬件模块已禁用。",
+  "error.daemon.unknownMethod": "守护进程不识别此请求（版本不匹配？）。",
+  "error.daemon.invalidParams": "无效请求。",
+  "error.daemon.unreachable": "无法连接到 freergbd。它正在运行吗？"
 }

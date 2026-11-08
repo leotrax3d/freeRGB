@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Simpan tetapan permulaan",
   "cooling.profileService.confirm": "Sahkan tetapan permulaan",
   "cooling.profileService.saved": "Tetapan permulaan penyejukan disimpan",
-  "cooling.profileService.refresh": "Muat semula"
+  "cooling.profileService.refresh": "Muat semula",
+  "error.daemon.profile": "Profil tidak dapat dimuatkan atau disimpan.",
+  "error.daemon.deviceNotFound": "Peranti tidak ditemui.",
+  "error.daemon.refused": "Daemon menolak permintaan.",
+  "error.daemon.modulesDisabled": "Modul perkakasan dilumpuhkan.",
+  "error.daemon.unknownMethod": "Daemon tidak mengenali permintaan ini (ketidakpadanan versi?).",
+  "error.daemon.invalidParams": "Permintaan tidak sah",
+  "error.daemon.unreachable": "Tidak dapat mencapai freergbd. Adakah ia sedang berjalan?"
 }

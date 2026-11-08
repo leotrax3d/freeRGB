@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "儲存啟動設定",
   "cooling.profileService.confirm": "確認啟動設定",
   "cooling.profileService.saved": "已儲存冷卻啟動設定",
-  "cooling.profileService.refresh": "重新整理"
+  "cooling.profileService.refresh": "重新整理",
+  "error.daemon.profile": "設定檔無法載入或儲存。",
+  "error.daemon.deviceNotFound": "找不到裝置。",
+  "error.daemon.refused": "守護程式拒絕了該請求",
+  "error.daemon.modulesDisabled": "硬體模組已停用。",
+  "error.daemon.unknownMethod": "守護程式不認識此請求（版本不相符？）。",
+  "error.daemon.invalidParams": "無效的請求",
+  "error.daemon.unreachable": "無法連線到 freergbd。它正在執行嗎？"
 }

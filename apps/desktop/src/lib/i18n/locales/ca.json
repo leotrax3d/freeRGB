@@ -1259,5 +1259,12 @@
   "mainboardRgb.help": "Deseu abans de provar. La prova mostra vermell, verd i blau durant dos segons cadascun i després reprèn els efectes. Els rectangles del llenç mostregen l'efecte compartit. El tipus descriu la capçalera connectada; no pot canviar-ne la tensió. Les zones fixes de MSI mantenen els recomptes de LED indicats.",
   "mainboardRgb.argb": "5 V ARGB",
   "mainboardRgb.rgb": "12 V RGB",
-  "mainboardRgb.unavailable": "Les capçaleres no estan disponibles. Connecteu-vos a un dimoni actualitzat."
+  "mainboardRgb.unavailable": "Les capçaleres no estan disponibles. Connecteu-vos a un dimoni actualitzat.",
+  "error.daemon.profile": "El perfil no s'ha pogut carregar ni desar.",
+  "error.daemon.deviceNotFound": "Dispositiu no trobat.",
+  "error.daemon.refused": "El dimoni ha rebutjat la sol·licitud",
+  "error.daemon.modulesDisabled": "Els mòduls de maquinari estan desactivats.",
+  "error.daemon.unknownMethod": "El dimoni no reconeix aquesta sol·licitud (desajust de versió?).",
+  "error.daemon.invalidParams": "Sol·licitud no vàlida",
+  "error.daemon.unreachable": "No es pot contactar amb freergbd. S'està executant?"
 }

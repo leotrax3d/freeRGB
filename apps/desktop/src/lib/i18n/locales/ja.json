@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "起動設定を保存",
   "cooling.profileService.confirm": "起動設定を確認",
   "cooling.profileService.saved": "冷却起動設定を保存しました",
-  "cooling.profileService.refresh": "更新"
+  "cooling.profileService.refresh": "更新",
+  "error.daemon.profile": "プロファイルを読み込む、または保存できませんでした。",
+  "error.daemon.deviceNotFound": "デバイスが見つかりません。",
+  "error.daemon.refused": "デーモンがリクエストを拒否しました。",
+  "error.daemon.modulesDisabled": "ハードウェアモジュールは無効です。",
+  "error.daemon.unknownMethod": "デーモンはこのリクエストを認識しません（バージョンの不一致？）。",
+  "error.daemon.invalidParams": "無効なリクエストです。",
+  "error.daemon.unreachable": "freergbd に接続できません。実行中ですか？"
 }

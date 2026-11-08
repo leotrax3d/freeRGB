@@ -1259,5 +1259,12 @@
   "cooling.profileService.apply": "Saglabāt sāknēšanas iestatījumus",
   "cooling.profileService.confirm": "Apstiprināt sāknēšanas iestatījumus",
   "cooling.profileService.saved": "Dzesēšanas sāknēšanas iestatījumi saglabāti",
-  "cooling.profileService.refresh": "Atjaunināt"
+  "cooling.profileService.refresh": "Atjaunināt",
+  "error.daemon.profile": "Profilu neizdevās ielādēt vai saglabāt.",
+  "error.daemon.deviceNotFound": "Ierīce nav atrasta.",
+  "error.daemon.refused": "Dēmons noraidīja pieprasījumu",
+  "error.daemon.modulesDisabled": "Aparatūras moduļi ir izslēgti.",
+  "error.daemon.unknownMethod": "Dēmons nepazīst šo pieprasījumu (versiju nesaderība?).",
+  "error.daemon.invalidParams": "Nederīgs pieprasījums",
+  "error.daemon.unreachable": "Nevar sasniegt freergbd. Vai tas darbojas?"
 }

@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Simpan pengaturan startup",
   "cooling.profileService.confirm": "Konfirmasi pengaturan startup",
   "cooling.profileService.saved": "Pengaturan startup pendinginan disimpan",
-  "cooling.profileService.refresh": "Segarkan"
+  "cooling.profileService.refresh": "Segarkan",
+  "error.daemon.profile": "Profil tidak dapat dimuat atau disimpan.",
+  "error.daemon.deviceNotFound": "Perangkat tidak ditemukan.",
+  "error.daemon.refused": "Daemon menolak permintaan",
+  "error.daemon.modulesDisabled": "Modul perangkat keras dinonaktifkan.",
+  "error.daemon.unknownMethod": "Daemon tidak mengenali permintaan ini (ketidakcocokan versi?).",
+  "error.daemon.invalidParams": "Permintaan tidak valid",
+  "error.daemon.unreachable": "Tidak dapat menjangkau freergbd. Apakah sedang berjalan?"
 }

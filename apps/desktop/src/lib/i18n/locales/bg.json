@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Запази настройките при стартиране",
   "cooling.profileService.confirm": "Потвърди настройките при стартиране",
   "cooling.profileService.saved": "Настройките за стартиране на охлаждането са запазени",
-  "cooling.profileService.refresh": "Обнови"
+  "cooling.profileService.refresh": "Обнови",
+  "error.daemon.profile": "Профилът не може да бъде зареден или запазен.",
+  "error.daemon.deviceNotFound": "Устройството не е намерено.",
+  "error.daemon.refused": "Демонът отказа заявката.",
+  "error.daemon.modulesDisabled": "Хардуерните модули са деактивирани.",
+  "error.daemon.unknownMethod": "Демонът не разпознава тази заявка (несъответствие на версията?).",
+  "error.daemon.invalidParams": "Невалидна заявка",
+  "error.daemon.unreachable": "Не може да се достигне freergbd. Работи ли?"
 }

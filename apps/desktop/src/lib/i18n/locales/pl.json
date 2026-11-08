@@ -1264,5 +1264,12 @@
   "mainboardRgb.rgb": "12 V RGB",
   "mainboardRgb.unavailable": "Złącza są niedostępne. Połącz się z zaktualizowanym demonem.",
   "cooling.profileService.manage": "Transfer profilu i uruchamianie",
-  "cooling.profileService.json": "JSON profilu chłodzenia"
+  "cooling.profileService.json": "JSON profilu chłodzenia",
+  "error.daemon.profile": "Nie udało się załadować ani zapisać profilu.",
+  "error.daemon.deviceNotFound": "Nie znaleziono urządzenia.",
+  "error.daemon.refused": "Demon odrzucił żądanie",
+  "error.daemon.modulesDisabled": "Moduły sprzętowe są wyłączone.",
+  "error.daemon.unknownMethod": "Demon nie obsługuje tego żądania (niezgodność wersji?).",
+  "error.daemon.invalidParams": "Nieprawidłowe żądanie",
+  "error.daemon.unreachable": "Nie można połączyć się z freergbd. Czy jest uruchomiony?"
 }

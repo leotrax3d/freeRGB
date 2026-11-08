@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Başlangıç ayarlarını kaydet",
   "cooling.profileService.confirm": "Başlangıç ayarlarını onayla",
   "cooling.profileService.saved": "Soğutma başlangıç ayarları kaydedildi",
-  "cooling.profileService.refresh": "Yenile"
+  "cooling.profileService.refresh": "Yenile",
+  "error.daemon.profile": "Profil yüklenemedi veya kaydedilemedi.",
+  "error.daemon.deviceNotFound": "Cihaz bulunamadı.",
+  "error.daemon.refused": "Arka plan hizmeti isteği reddetti.",
+  "error.daemon.modulesDisabled": "Donanım modülleri devre dışı.",
+  "error.daemon.unknownMethod": "Arka plan hizmeti bu isteği tanımıyor (sürüm uyuşmazlığı?).",
+  "error.daemon.invalidParams": "Geçersiz istek",
+  "error.daemon.unreachable": "freergbd'ye erişilemiyor. Çalışıyor mu?"
 }

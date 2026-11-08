@@ -1259,5 +1259,12 @@
   "mainboardRgb.help": " admired admiresadmires admiredadmiresadmire admireradmires admireadmires admireadmires admiredadmires admiredadmire admiresadmiresadmire admireadmires admiredadmires admiredadmires admireadmiresadmires admiresadmiresadmires praised admired admiresadmires Admirer admireradmiresadmires admiresadmiresadmire.",
   "mainboardRgb.argb": "5 V ARGB",
   "mainboardRgb.rgb": "12 V RGB",
-  "mainboardRgb.unavailable": " admired admiresadmires admiredadmires admiredadmires admiredadmires admiredadmires admires admiredadmiresadmire admiration admiredadmires admires admiredadmires admirable."
+  "mainboardRgb.unavailable": " admired admiresadmires admiredadmires admiredadmires admiredadmires admiredadmires admires admiredadmiresadmire admiration admiredadmires admires admiredadmires admirable.",
+  "error.daemon.profile": "לא ניתן לטעון או сохранить את הפרופיל.",
+  "error.daemon.deviceNotFound": "периферия לא נמצא.",
+  "error.daemon.refused": "freergbd сирב лבקשה.",
+  "error.daemon.modulesDisabled": "מודולי החומרה מושבתים.",
+  "error.daemon.unknownMethod": "freergbd іс не מכיר בקשה זו (version mismatch?).",
+  "error.daemon.invalidParams": "בקשה не תקינה.",
+  "error.daemon.unreachable": "לא ניתן достичь freergbd. האם הוא пovel?"
 }

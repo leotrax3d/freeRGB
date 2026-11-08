@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "اسٹارٹ اپ ترتیبات محفوظ کریں",
   "cooling.profileService.confirm": "اسٹارٹ اپ ترتیبات کی تصدیق کریں",
   "cooling.profileService.saved": "کولنگ اسٹارٹ اپ ترتیبات محفوظ ہو گئیں",
-  "cooling.profileService.refresh": "تازہ کریں"
+  "cooling.profileService.refresh": "تازہ کریں",
+  "error.daemon.profile": "پروفائل لوड یا محفوظ نہیں کی جا سکی۔",
+  "error.daemon.deviceNotFound": "ڈیوائس نہیں ملی۔",
+  "error.daemon.refused": "ڈیمن نے درخواست مسترد کر دی",
+  "error.daemon.modulesDisabled": "ہارڈویئر موڈیولز غیر فعال ہیں۔",
+  "error.daemon.unknownMethod": "ڈیمن اس درخواست کو نہیں جانتا (ورژن کی عدم مماثلت؟)۔",
+  "error.daemon.invalidParams": "غلط درخواست",
+  "error.daemon.unreachable": "freergbd تک رسائی نہیں ہو سکی۔ کیا یہ چل رہا ہے؟"
 }

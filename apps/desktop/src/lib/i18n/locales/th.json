@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "บันทึกการตั้งค่าเริ่มต้น",
   "cooling.profileService.confirm": "ยืนยันการตั้งค่าเริ่มต้น",
   "cooling.profileService.saved": "บันทึกการตั้งค่าเริ่มต้นระบบระบายความร้อนแล้ว",
-  "cooling.profileService.refresh": "รีเฟรช"
+  "cooling.profileService.refresh": "รีเฟรช",
+  "error.daemon.profile": "ไม่สามารถโหลดหรือบันทึกโปรไฟล์ได้",
+  "error.daemon.deviceNotFound": "ไม่พบอุปกรณ์",
+  "error.daemon.refused": "เดมอนปฏิเสธคำขอ",
+  "error.daemon.modulesDisabled": "โมดูลฮาร์ดแวร์ถูกปิดใช้งาน",
+  "error.daemon.unknownMethod": "เดมอนไม่รู้จักคำขอนี้ (เวอร์ชันไม่ตรงกัน?)",
+  "error.daemon.invalidParams": "คำขอไม่ถูกต้อง",
+  "error.daemon.unreachable": "ไม่สามารถเข้าถึง freergbd ได้ กำลังทำงานอยู่หรือไม่?"
 }

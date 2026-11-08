@@ -1259,5 +1259,12 @@
   "monitoring.deviceSensorsUnavailable": "Leituras dos sensores do dispositivo indisponíveis.",
   "monitoring.customUnavailable": "Fontes de temperatura personalizadas indisponíveis.",
   "settings.about.disclaimer": "Software gratuito, não comercial e de código aberto de um desenvolvedor privado. Fornecido gratuitamente, sem garantia. Não é afiliado a nenhum fabricante de hardware.",
-  "settings.about.risk": "O controle de ventoinhas e bombas é experimental e não é confirmado na maioria dos hardwares. Use por sua conta e risco. A responsabilidade é limitada conforme descrito nos termos de instalação, apenas na medida permitida por lei; permanecem inalteradas a responsabilidade por lesões à vida, ao corpo ou à saúde, por dolo, por culpa grave e sob a lei obrigatória de responsabilidade do produto."
+  "settings.about.risk": "O controle de ventoinhas e bombas é experimental e não é confirmado na maioria dos hardwares. Use por sua conta e risco. A responsabilidade é limitada conforme descrito nos termos de instalação, apenas na medida permitida por lei; permanecem inalteradas a responsabilidade por lesões à vida, ao corpo ou à saúde, por dolo, por culpa grave e sob a lei obrigatória de responsabilidade do produto.",
+  "error.daemon.profile": "Não foi possível carregar ou salvar o perfil.",
+  "error.daemon.deviceNotFound": "Dispositivo não encontrado.",
+  "error.daemon.refused": "O daemon recusou a requisição",
+  "error.daemon.modulesDisabled": "Os módulos de hardware estão desativados.",
+  "error.daemon.unknownMethod": "O daemon não reconhece esta requisição (incompatibilidade de versão?).",
+  "error.daemon.invalidParams": "Requisição inválida",
+  "error.daemon.unreachable": "Não foi possível acessar o freergbd. Ele está em execução?"
 }

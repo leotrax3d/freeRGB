@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "স্টার্টআপ সেটিংস সংরক্ষণ করুন",
   "cooling.profileService.confirm": "স্টার্টআপ সেটিংস নিশ্চিত করুন",
   "cooling.profileService.saved": "কুলিং স্টার্টআপ সেটিংস সংরক্ষণ করা হয়েছে",
-  "cooling.profileService.refresh": "রিফ্রেশ"
+  "cooling.profileService.refresh": "রিফ্রেশ",
+  "error.daemon.profile": "প্রোফাইল লোড বা সংরক্ষণ করা যায়নি।",
+  "error.daemon.deviceNotFound": "ডিভাইস পাওয়া যায়নি।",
+  "error.daemon.refused": "ডেমন অনুরোধটি প্রত্যাখ্যান করেছে।",
+  "error.daemon.modulesDisabled": "হার্ডওয়্যার মডিউলগুলি অক্ষম করা আছে।",
+  "error.daemon.unknownMethod": "ডেমন এই অনুরোধ চিনতে পারে না (সংস্করণ অমিল?)।",
+  "error.daemon.invalidParams": "অবৈধ অনুরোধ।",
+  "error.daemon.unreachable": "freergbd-এ পৌঁছানো যাচ্ছে না। এটি চলছে কি?"
 }

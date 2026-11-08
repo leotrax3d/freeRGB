@@ -1264,5 +1264,12 @@
   "cooling.profileService.apply": "Shrani zagonske nastavitve",
   "cooling.profileService.confirm": "Potrdi zagonske nastavitve",
   "cooling.profileService.saved": "Zagonske nastavitve hlajenja shranjene",
-  "cooling.profileService.refresh": "Osveži"
+  "cooling.profileService.refresh": "Osveži",
+  "error.daemon.profile": "Profila ni bilo mogoče naložiti ali shraniti.",
+  "error.daemon.deviceNotFound": "Naprava ni bila najdena.",
+  "error.daemon.refused": "Ozadnji program je zavrnil zahtevo.",
+  "error.daemon.modulesDisabled": "Strojni moduli so onemogočeni.",
+  "error.daemon.unknownMethod": "Ozadnji program ne pozna te zahteve (neujemanje različic?).",
+  "error.daemon.invalidParams": "Neveljavna zahteva.",
+  "error.daemon.unreachable": "Ni mogoče doseči freergbd. Ali deluje?"
 }

@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "துவக்க அமைப்புகளை சேமி",
   "cooling.profileService.confirm": "துவக்க அமைப்புகளை உறுதிசெய்க",
   "cooling.profileService.saved": "குளிர்விப்பு துவக்க அமைப்புகள் சேமிக்கப்பட்டன",
-  "cooling.profileService.refresh": "புதுப்பி"
+  "cooling.profileService.refresh": "புதுப்பி",
+  "error.daemon.profile": "சுயவிவரத்தை ஏற்ற அல்லது சேமிக்க முடியவில்லை.",
+  "error.daemon.deviceNotFound": "சாதனம் காணப்படவில்லை.",
+  "error.daemon.refused": "பின்னணி சேவை கோரிக்கையை மறுத்தது.",
+  "error.daemon.modulesDisabled": "வன்பொருள் தொகுதிகள் முடக்கப்பட்டுள்ளன.",
+  "error.daemon.unknownMethod": "பின்னணி சேவை இந்தக் கோரிக்கையை அறியவில்லை (பதிப்பு பொருந்தாமை?).",
+  "error.daemon.invalidParams": "தவறான கோரிக்கை.",
+  "error.daemon.unreachable": "freergbd-ஐ அணுக முடியவில்லை. இயங்குகிறதா?"
 }

@@ -1264,5 +1264,12 @@
   "cooling.profileService.apply": "Išsaugoti paleidimo nustatymus",
   "cooling.profileService.confirm": "Patvirtinti paleidimo nustatymus",
   "cooling.profileService.saved": "Aušinimo paleidimo nustatymai išsaugoti",
-  "cooling.profileService.refresh": "Atnaujinti"
+  "cooling.profileService.refresh": "Atnaujinti",
+  "error.daemon.profile": "Profilio nepavyko įkelti arba išsaugoti.",
+  "error.daemon.deviceNotFound": "Įrenginys nerastas.",
+  "error.daemon.refused": "Demonas atmetė užklausą",
+  "error.daemon.modulesDisabled": "Aparatūros moduliai išjungti.",
+  "error.daemon.unknownMethod": "Demonas neatpažįsta šios užklausos (nesutampa versijos?).",
+  "error.daemon.invalidParams": "Neteisinga užklausa",
+  "error.daemon.unreachable": "Nepavyksta pasiekti freergbd. Ar jis veikia?"
 }

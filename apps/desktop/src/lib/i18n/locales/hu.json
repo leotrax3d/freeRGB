@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Indítási beállítások mentése",
   "cooling.profileService.confirm": "Indítási beállítások megerősítése",
   "cooling.profileService.saved": "Hűtési indítási beállítások mentve",
-  "cooling.profileService.refresh": "Frissítés"
+  "cooling.profileService.refresh": "Frissítés",
+  "error.daemon.profile": "A profil betöltése vagy mentése nem sikerült.",
+  "error.daemon.deviceNotFound": "Eszköz nem található.",
+  "error.daemon.refused": "A démon elutasította a kérést.",
+  "error.daemon.modulesDisabled": "A hardvermodulok le vannak tiltva.",
+  "error.daemon.unknownMethod": "A démon nem ismeri ezt a kérést (verzióeltérés?).",
+  "error.daemon.invalidParams": "Érvénytelen kérés",
+  "error.daemon.unreachable": "A freergbd nem érhető el. Fut?"
 }

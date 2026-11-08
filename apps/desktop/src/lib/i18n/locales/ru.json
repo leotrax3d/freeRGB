@@ -1264,5 +1264,12 @@
   "cooling.profileService.apply": "Сохранить параметры запуска",
   "cooling.profileService.confirm": "Подтвердить параметры запуска",
   "cooling.profileService.saved": "Параметры запуска охлаждения сохранены",
-  "cooling.profileService.refresh": "Обновить"
+  "cooling.profileService.refresh": "Обновить",
+  "error.daemon.profile": "Не удалось загрузить или сохранить профиль.",
+  "error.daemon.deviceNotFound": "Устройство не найдено.",
+  "error.daemon.refused": "Демон отклонил запрос",
+  "error.daemon.modulesDisabled": "Аппаратные модули отключены.",
+  "error.daemon.unknownMethod": "Демон не распознаёт этот запрос (несовпадение версий?).",
+  "error.daemon.invalidParams": "Некорректный запрос",
+  "error.daemon.unreachable": "Не удаётся подключиться к freergbd. Он запущен?"
 }

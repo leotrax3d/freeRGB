@@ -1254,5 +1254,12 @@
   "mainboardRgb.help": "Lagre før testing. Testen viser rødt, grønt og blått i to sekunder hver, og gjenopptar deretter effektene. Lerretrektangler sampler den delte effekten. Type beskriver den tilkoblede headeren; den kan ikke endre spenningen. MSI faste soner beholder sine rapporterte LED-antall.",
   "mainboardRgb.argb": "5 V ARGB",
   "mainboardRgb.rgb": "12 V RGB",
-  "mainboardRgb.unavailable": "Headere er utilgjengelige. Koble til en oppdatert daemon."
+  "mainboardRgb.unavailable": "Headere er utilgjengelige. Koble til en oppdatert daemon.",
+  "error.daemon.profile": "Profilen kunne ikke lastes eller lagres.",
+  "error.daemon.deviceNotFound": "Enheten ble ikke funnet.",
+  "error.daemon.refused": "Daemonen avviste forespørselen.",
+  "error.daemon.modulesDisabled": "Maskinvaremodulene er deaktivert.",
+  "error.daemon.unknownMethod": "Daemonen kjenner ikke denne forespørselen (versjonsmismatch?).",
+  "error.daemon.invalidParams": "Ugyldig forespørsel.",
+  "error.daemon.unreachable": "Kan ikke nå freergbd. Kjører den?"
 }

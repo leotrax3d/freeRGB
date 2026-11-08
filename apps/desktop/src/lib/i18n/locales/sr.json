@@ -1259,5 +1259,12 @@
   "mainboardRgb.help": "Sačuvajte pre testiranja. Test prikazuje crvenu, zelenu i plavu boju po dve sekunde, a zatim nastavlja efekte. Pravougaonici platna uzorkuju deljeni efekat. Tip opisuje povezano zaglavlje; ne može promeniti njegov napon. MSI fiksne zone zadržavaju prijavljeni broj LED dioda.",
   "mainboardRgb.argb": "5 V ARGB",
   "mainboardRgb.rgb": "12 V RGB",
-  "mainboardRgb.unavailable": "Zaglavlja nisu dostupna. Povežite se sa ažuriranim daemonom."
+  "mainboardRgb.unavailable": "Zaglavlja nisu dostupna. Povežite se sa ažuriranim daemonom.",
+  "error.daemon.profile": "Profil nije mogao da se učita ili sačuva.",
+  "error.daemon.deviceNotFound": "Uređaj nije pronađen.",
+  "error.daemon.refused": "Demon je odbio zahtev.",
+  "error.daemon.modulesDisabled": "Hardverski moduli su onemogućeni.",
+  "error.daemon.unknownMethod": "Demon ne prepoznaje ovaj zahtev (neusklađenost verzija?).",
+  "error.daemon.invalidParams": "Neispravan zahtev.",
+  "error.daemon.unreachable": "Nije moguće pristupiti freergbd. Da li je pokrenut?"
 }
