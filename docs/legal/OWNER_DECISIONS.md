@@ -47,3 +47,13 @@ Recorded as the owner's decisions. Nothing here is legal approval.
 3. Disclaimer under German law (EN+DE), shown in the installer (must accept) and in the app (About and before enabling fan control). It must not claim an exclusion where German law forbids it (life/body/health, gross negligence, intent); gratuitous-provision rules (§§ 521, 524 BGB) referenced. Draft for lawyer review.
 4. Fan control: default OFF and explicit opt-in, minimum RPM/pump protection, BIOS fallback and warnings before unrestricted unlock are verified from code (`FAN_CONTROL_DEFAULTS.md`); gaps become packages or hardware items.
 5. The owner checks liability insurance coverage. Optional later: an association or foundation as publisher.
+
+## Owner answers, release scope (2026-11-08)
+
+Recorded as owner decisions; not legal approval. Details: `RELEASE_SCOPE.md`.
+
+- Target markets: worldwide. Foreign law is not assessed (see `LAWYER_REVIEW.md`).
+- Release scope D7 accepted: public beta, binaries plus source, online/telemetry/download counting off. Untested hardware features stay included but are listed as "untested" in release notes and the support matrix.
+- Known gaps accepted: no installer clean-machine test, no real-app visual pass, no screenshots.
+- No code-signing certificate and no CI for this release; local gates only.
+- Website: no Impressum planned (private, non-commercial). Whether a provider-identification duty applies to a worldwide website of a private person is an open lawyer question. External requests are removed (self-hosted fonts; GitHub release fetch only if documented) and a short privacy note page is added.
