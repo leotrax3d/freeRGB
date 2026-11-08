@@ -1254,5 +1254,12 @@
   "cooling.profileService.apply": "Starteinstellungen speichern",
   "cooling.profileService.confirm": "Starteinstellungen bestätigen",
   "cooling.profileService.saved": "Starteinstellungen der Kühlung gespeichert",
-  "cooling.profileService.refresh": "Aktualisieren"
+  "cooling.profileService.refresh": "Aktualisieren",
+  "error.daemon.profile": "Das Profil konnte nicht geladen oder gespeichert werden.",
+  "error.daemon.deviceNotFound": "Gerät nicht gefunden.",
+  "error.daemon.refused": "Der Dienst hat die Anfrage abgelehnt",
+  "error.daemon.modulesDisabled": "Hardware-Module sind deaktiviert.",
+  "error.daemon.unknownMethod": "Der Dienst kennt diese Anfrage nicht (Versionskonflikt?).",
+  "error.daemon.invalidParams": "Ungültige Anfrage",
+  "error.daemon.unreachable": "freergbd ist nicht erreichbar. Läuft der Dienst?"
 }
