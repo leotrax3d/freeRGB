@@ -73,3 +73,11 @@ Done and merged: S1-S12, S14, S16, S17, S18 (49 locales, machine-translated), S1
 
 * S18 merged: 49 locales, all marked `machineTranslated`, `reviewed: false`. Remaining: human review per locale; any locale beyond the 49 is open.
 * S19b open: machine translation of `docs/USER_GUIDE.md` per locale (`docs/i18n/`) and the website language links were stopped before any file was produced. Website guide pages only link to `docs/USER_GUIDE.md`.
+
+## Bughunt pipeline (2026-11-09)
+
+Track the current cycle in [BUGHUNT.md](BUGHUNT.md). Priority: the owner-reported
+missing automatic setup wizard after installation (issue #2); independently
+replay fresh and retained state before choosing a fix. Other initial reports:
+WebView2 prerequisite (#1), installed-build raw lighting hints (#3, main already
+contains a candidate fix). Harness integration and full-cycle counts pending.

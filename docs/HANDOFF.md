@@ -138,3 +138,10 @@ In flight: S19b (machine-translated `docs/USER_GUIDE` per locale under `docs/i18
 
 Open: hardware acceptance (see `docs/promts/fancontrol/07-hardware-acceptance.md`), Windows SMBus driver choice, Authenticode signing, Linux packages build only in CI, human review of machine translations (`reviewed: false`), real device ports in `modules/` (separate owner).
 Build note: gates run `cargo fmt --check`, `clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked` (nextest stalls on full-workspace listing); use `npm.cmd` on Windows.
+
+## BUGHUNT-LEAD 2026-11-09
+
+Repeatable browser exploration and an independently filed/triaged bug pipeline
+are being prepared on task/bughunt-harness. Current cycle evidence, issue links,
+owner testbench conditions and counts: [BUGHUNT.md](BUGHUNT.md). Source base was
+fetched from GitHub before work. No release workflow or tag is in scope.
