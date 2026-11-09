@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "application": "apps/desktop browser demo",
+  "locales": [
+    "en",
+    "de"
+  ],
+  "viewports": [
+    {
+      "name": "desktop",
+      "width": 1600,
+      "height": 1000
+    },
+    {
+      "name": "compact",
+      "width": 1024,
+      "height": 700
+    }
+  ],
+  "views": [
+    {
+      "id": "marketplace",
+      "navName": "Marketplace"
+    },
+    {
+      "id": "lighting",
+      "navName": "Lighting"
+    },
+    {
+      "id": "layout",
+      "navName": "Layout"
+    },
+    {
+      "id": "profiles",
+      "navName": "Profiles"
+    },
+    {
+      "id": "devices",
+      "navName": "Devices"
+    },
+    {
+      "id": "headers",
+      "navName": "Headers"
+    },
+    {
+      "id": "cooling",
+      "navName": "Cooling"
+    },
+    {
+      "id": "monitoring",
+      "navName": "Monitoring"
+    },
+    {
+      "id": "macros",
+      "navName": "Macros"
+    },
+    {
+      "id": "settings",
+      "navName": "Settings"
+    }
+  ],
+  "interactiveSelector": "button, [role=button], [role=tab], select, input:not([type=hidden]), textarea, [role=checkbox], [role=switch], [role=combobox], [role=option], [role=menuitem], [role=slider], summary",
+  "inputSamples": [
+    "",
+    "Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value Bughunt long value",
+    "<>&'\"/\\🙂 ñ"
+  ],
+  "interactionBudgetPerSession": 1200,
+  "notes": [
+    "Every listed view is loaded once per locale and viewport; interactive controls are enumerated and acted on within the per-session budget.",
+    "Controls are exercised only against the browser demo's mock backend. Browser-owned file pickers and controls requiring native OS behavior are recorded as skipped.",
+    "Findings from automated checks are suspects requiring human review; axe and DOM heuristics do not establish a confirmed product defect.",
+    "Each navigation view starts from a fresh demo page and completes onboarding, preventing modal state from hiding subsequent views. The locale selector is explicitly omitted to preserve each locale scenario.",
+    "Up to 120 stable control identities per view plus bounded onboarding. Numeric inputs use empty, min/max and out-of-range numbers. Final visible unvisited controls are inventoried; native file pickers, disabled controls and locale switching are explicit omissions.",
+    "Details summaries are interactive crawl targets; checkVisibility excludes descendants of closed details and hidden ancestors until their section is opened."
+  ],
+  "interactionBudgetPerView": 120
+}
