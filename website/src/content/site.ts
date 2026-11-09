@@ -16,7 +16,7 @@ export const hero = {
   badge: "Public beta · Windows and Linux",
   title: "One app for your RGB lighting and fans",
   lead:
-    "freeRGB runs lighting effects across devices from different vendors and sets fan curves from your temperature sensors. It is open source, runs on your PC and needs no account.",
+    "freeRGB runs lighting effects across devices from different vendors and sets fan curves from your temperature sensors. It is written in Rust, open source, lightweight (a 19 MB installer) and needs no account.",
   primaryWindows: "Download for Windows",
   primaryLinux: "Install on Linux",
   secondary: "Try the web demo",

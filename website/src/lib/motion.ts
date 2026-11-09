@@ -112,17 +112,17 @@ function build(calm: boolean) {
     })
     tilt(frame, 5)
   }
-  // Cards swing up out of the page with the scroll, one after another.
+  // Cards rise one after another with the scroll. No rotation: cards that share borders
+  // (trust strip) must stay aligned, so they only move vertically.
   for (const list of $$("[data-batch]")) {
     const items = Array.from(list.children) as HTMLElement[]
     if (calm) { reveal(items, list, true); continue }
-    list.style.perspective = "1200px"
-    gsap.fromTo(items, { y: 120, rotateX: -35, rotate: (i) => (i % 2 ? 3 : -3), opacity: 0, transformOrigin: "50% 100%" }, {
-      y: 0, rotateX: 0, rotate: 0, opacity: 1, ease: "none", stagger: 0.15,
-      scrollTrigger: { trigger: list, start: "top bottom", end: "top 55%", scrub: 0.5 },
+    gsap.fromTo(items, { y: 48, opacity: 0 }, {
+      y: 0, opacity: 1, ease: "power1.out", stagger: 0.12,
+      scrollTrigger: { trigger: list, start: "top bottom", end: "top 60%", scrub: 0.5 },
     })
-    // Hover tilt on an inner layer, so it never fights the scroll animation.
-    for (const card of items) tilt(card, 8)
+    const joined = list.classList.contains("gap-px")
+    if (!joined) for (const card of items) tilt(card, 6)
   }
   for (const header of $$("[data-header]"))
     ScrollTrigger.create({ start: 8, end: "max", onToggle: (s) => header.toggleAttribute("data-scrolled", s.isActive) })
