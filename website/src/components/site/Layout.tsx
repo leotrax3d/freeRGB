@@ -42,7 +42,7 @@ function Logo() {
 function Header({ page }: { page: PageId }) {
   const current = (path: string) => (path === `${page}/` ? "page" : undefined)
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+    <header data-header="" className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="container flex h-16 items-center gap-6">
         <Logo />
         <nav aria-label="Main" className="ml-4 hidden md:block">

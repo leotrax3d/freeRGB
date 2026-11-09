@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 /** Page title block used at the top of every sub-page. */
 export function PageHeader({ title, lead, children }: { title: string; lead: string; children?: ReactNode }) {
   return (
-    <div className="container pb-12 pt-16 md:pb-16 md:pt-24">
+    <div data-reveal="" className="container pb-12 pt-16 md:pb-16 md:pt-24">
       <h1 className="max-w-3xl text-h1">{title}</h1>
       <p className="mt-5 max-w-2xl text-lead text-muted-foreground">{lead}</p>
       {children}

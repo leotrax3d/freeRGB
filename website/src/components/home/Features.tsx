@@ -17,7 +17,7 @@ export function Features() {
         const flipped = index % 2 === 1
         return (
           <section key={feature.id} id={feature.id} aria-labelledby={titleId} className="container py-16 md:py-24">
-            <div className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
+            <div data-feature="" data-flipped={flipped ? "" : undefined} className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
               <div className={cn("max-w-xl", flipped && "lg:order-last")}>
                 <Eyebrow>{feature.eyebrow}</Eyebrow>
                 <h2 id={titleId} className="mt-3 text-h2">
@@ -39,8 +39,10 @@ export function Features() {
                 </ul>
                 {feature.id === "lighting" && <ColorDemo className="mt-8" />}
               </div>
-              <div className="rounded-card border bg-card p-1.5">
+              <div>
+              <div data-scrub="" className="rounded-card border bg-card p-1.5">
                 <Screenshot name={feature.screenshot} alt={feature.alt} sizes="(min-width: 1024px) 560px, 100vw" className="rounded-[9px]" />
+              </div>
               </div>
             </div>
           </section>

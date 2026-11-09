@@ -172,6 +172,28 @@
   }
 }
 
+/* Scroll motion (src/lib/motion.ts). Only applies while JS is starting; static HTML stays visible. */
+.motion-pending :is([data-hero] > *, [data-reveal] > *, [data-batch] > *, [data-feature] > *, [data-reveal-scale], [data-hero-shot]) {
+  opacity: 0;
+}
+html:not(.motion-pending) [data-header] {
+  transition: background-color 240ms cubic-bezier(0.2, 0, 0, 1), border-color 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+[data-header]:not([data-scrolled]) {
+  background-color: transparent;
+  border-color: transparent;
+  backdrop-filter: none;
+}
+.motion-btn {
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+.motion-btn:hover {
+  transform: translateY(-1px);
+}
+.motion-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

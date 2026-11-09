@@ -22,7 +22,7 @@ export function DeviceTeaser() {
 
   return (
     <section aria-labelledby="device-check-title" className="container py-16 md:py-24">
-      <div className="grid gap-8 rounded-card border bg-card p-6 md:p-10 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:gap-12">
+      <div data-reveal="" className="grid gap-8 rounded-card border bg-card p-6 md:p-10 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:gap-12">
         <div>
           <h2 id="device-check-title" className="text-h2">
             {deviceTeaser.title}
