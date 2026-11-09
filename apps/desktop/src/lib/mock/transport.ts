@@ -158,6 +158,7 @@ export function mockTransport(): Transport {
     "/lpc/nct6701d/0/control/4": { test: "none", tested: null, unlock: "none" },
   };
   let backgroundSaved: BackgroundChannel[] = [];
+  let fansPaused = false;
   let applyState: CoolingBackground["apply"] = { state: "idle", error: null };
   const coolingProfiles = new Map<string, BackgroundChannel[]>();
   let activeProfile: string | null = null;
@@ -167,7 +168,7 @@ export function mockTransport(): Transport {
   const effectiveTier = (id: string) => (evidence[id]?.unlock.startsWith("unlocked") && unrestricted ? "unrestricted" : tierOf(id));
   const background = (): CoolingBackground => ({
     available: true, saved: { channels: backgroundSaved }, apply: applyState,
-    service: { version: 1, error: null, updated_utc: new Date().toISOString(), channels: applyState.state === "applied" ? backgroundSaved.map((c) => ({ control_id: c.control_id, tier: effectiveTier(c.control_id), state: "running", duty_percent: Math.max(40, c.curve.minimum_percent), fault: null, warning: null })) : [] },
+    service: { version: 1, error: null, paused: fansPaused, updated_utc: new Date().toISOString(), channels: applyState.state === "applied" ? backgroundSaved.map((c) => ({ control_id: c.control_id, tier: effectiveTier(c.control_id), state: "running", duty_percent: Math.max(40, c.curve.minimum_percent), fault: null, warning: null })) : [] },
   });
   const supportView = (): CoolingSupportView => ({ unrestricted_enabled: unrestricted, board_identity_available: true, channels: evidence, error: null });
   const fail = (message: string): never => { throw new RpcError({ kind: "rpc", code: -32006, message }); };
@@ -456,6 +457,11 @@ export function mockTransport(): Transport {
 
           return true as T;
         }
+        case "cooling.fans.pause":
+          if (typeof p.paused !== "boolean") throw new RpcError({ kind: "rpc", code: -32602, message: "paused:boolean required" });
+          fansPaused = p.paused;
+          emit("cooling_background");
+          return { paused: fansPaused } as T;
         case "cooling.background.get":
           return background() as T;
         case "cooling.background.apply": {
