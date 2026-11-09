@@ -1,5 +1,39 @@
 @import "@fontsource-variable/inter";
 
+/* Text light (src/lib/motion.ts: initTextLight). The pointer paints an RGB spot into the
+   letters themselves via background-clip: text. No glow, no shadow. JS adds .lit and sets
+   --base to the element's own text colour; --la is the strength (hero 1, elsewhere softer).
+   --lr is the spot radius, registered so it can ease in and out. */
+@property --lr {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.lit {
+  background-image:
+    radial-gradient(
+      var(--lr) circle at var(--mx, 50%) var(--my, 50%),
+      rgb(239 68 68 / var(--la, 1)),
+      rgb(245 158 11 / var(--la, 1)) 22%,
+      rgb(16 163 127 / var(--la, 1)) 44%,
+      rgb(59 130 246 / var(--la, 1)) 66%,
+      rgb(168 85 247 / var(--la, 1)) 84%,
+      transparent
+    ),
+    linear-gradient(var(--base), var(--base));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: --lr 320ms cubic-bezier(0.2, 0, 0, 1);
+}
+/* "RGB" in the hero: on hover each letter takes its channel colour. Colour only, no movement. */
+[data-rgb] > span {
+  transition: color 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+[data-rgb].rgb-on > span:nth-child(2) { color: #ef4444; }
+[data-rgb].rgb-on > span:nth-child(3) { color: #10a37f; }
+[data-rgb].rgb-on > span:nth-child(4) { color: #3b82f6; }
+
 /* Fallback with Inter's metrics, so text does not reflow when the web font arrives (no layout shift). */
 @font-face {
   font-family: "Inter Fallback";
@@ -175,7 +209,7 @@
 }
 
 /* Scroll motion (src/lib/motion.ts). Only applies while JS is starting; static HTML stays visible. */
-.motion-pending :is([data-hero] > *, [data-reveal] > *, [data-batch] > *, [data-feature] > *, [data-reveal-scale], [data-hero-shot]) {
+.motion-pending :is([data-hero] > *, [data-reveal] > *, [data-batch] > *, [data-feature] > *, [data-reveal-scale], [data-hero-shot], [data-stat]) {
   opacity: 0;
 }
 html:not(.motion-pending) [data-header] {
@@ -217,3 +251,62 @@ html:not(.motion-pending) [data-header] {
 html::-webkit-scrollbar {
   display: none;
 }
+
+/* Hero word drum (components/home/WordDrum.tsx): a cylinder that keeps turning. Words share one
+   grid cell; the drum clips them, so a word rolls away over the top while the next rolls up
+   from below, without ever crossing the text around it. */
+[data-drum] {
+  overflow: hidden;
+  padding-block: 0.1em;
+  margin-block: -0.1em;
+  perspective: 600px;
+  vertical-align: bottom;
+}
+[data-drum] > span {
+  grid-area: 1 / 1;
+  justify-self: center;
+  backface-visibility: hidden;
+  transform-origin: 50% 50% -0.5em;
+  transition: transform 800ms cubic-bezier(0.65, 0, 0.35, 1), opacity 800ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+[data-drum] > [data-state="in"] { transform: rotateX(0deg); opacity: 1; }
+[data-drum] > [data-state="out"] { transform: rotateX(90deg); opacity: 0; }
+[data-drum] > [data-state="wait"] { transform: rotateX(-90deg); opacity: 0; transition: none; }
+/* Each word has its own small effect while it is shown. */
+[data-fx="rgb"] > span:nth-child(1) { color: #ef4444; }
+[data-fx="rgb"] > span:nth-child(2) { color: #10a37f; }
+[data-fx="rgb"] > span:nth-child(3) { color: #3b82f6; }
+[data-fx="lighting"] {
+  background: linear-gradient(90deg, #ef4444, #f59e0b, #10a37f, #3b82f6, #a855f7, #ef4444) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: drum-light 3s linear infinite;
+}
+@keyframes drum-light { to { background-position: -200% 0; } }
+@keyframes drum-fan { to { transform: rotate(360deg); } }
+
+/* Custom cursor (src/lib/motion.ts: initCursor): the freeRGB ring. Only with a fine pointer. */
+html.ring-cursor, html.ring-cursor * { cursor: none; }
+html.ring-cursor :is(input, textarea, select, [contenteditable]) { cursor: text; }
+[data-cursor] {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  pointer-events: none;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  transition: opacity 150ms ease, width 200ms cubic-bezier(0.2, 0, 0, 1), height 200ms cubic-bezier(0.2, 0, 0, 1), margin 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+[data-cursor] svg { width: 100%; height: 100%; animation: drum-fan 6s linear infinite; }
+[data-cursor].is-link { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+[data-cursor].is-down svg { transform: scale(0.85); }
+[data-fx="fans"] { color: hsl(var(--brand-foreground)); }
+
+/* The rolling words are the hero focus: larger than the line above. */
+[data-drum] { font-size: 1.4em; line-height: 1; }
+
+/* background-clip: text only paints inside the box; give hero words room for descenders (y, p, g). */
+[data-hero] [data-word] { padding-block: 0.08em 0.16em; margin-block: -0.08em -0.16em; }

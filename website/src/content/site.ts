@@ -16,7 +16,7 @@ export const hero = {
   badge: "Public beta · Windows and Linux",
   title: "One app for your RGB lighting and fans",
   lead:
-    "freeRGB runs lighting effects across devices from different vendors and sets fan curves from your temperature sensors. It is written in Rust, open source, lightweight (a 19 MB installer) and needs no account.",
+    "freeRGB runs lighting effects across devices from different vendors and sets fan curves from your temperature sensors. It is open source, runs on your PC and needs no account.",
   primaryWindows: "Download for Windows",
   primaryLinux: "Install on Linux",
   secondary: "Try the web demo",
@@ -225,14 +225,6 @@ export const privacyPage = {
         "Release data, download links and checksums are fetched from GitHub when the site is built, not when you visit. Links to GitHub only contact GitHub when you click them.",
         "If you switch between light and dark mode, the choice is saved in your browser's local storage. It never leaves your device.",
         "The site is hosted on GitHub Pages. GitHub receives your IP address and request data when it serves these pages; see GitHub's privacy statement.",
-      ],
-    },
-    {
-      title: "Web demo and admin pages",
-      body: [
-        "The web demo under /demo/ runs entirely in your browser with simulated devices. Its content security policy blocks all network connections.",
-        "The maintainer admin panel under /admin/ is a separate app. When it is opened, it connects to Appwrite (fra.cloud.appwrite.io) and keeps its login session in your browser. The website pages never load it.",
-        "The demo saves your last view, language and demo profile in your browser's local storage. Nothing is sent anywhere.",
       ],
     },
     {

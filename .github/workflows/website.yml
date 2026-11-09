@@ -45,6 +45,7 @@ jobs:
       - name: Build website and isolated demo from shared UI
         run: npm run build:site --prefix website
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_PATH: ${{ vars.WEBSITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
       - uses: actions/upload-pages-artifact@v3
         with:

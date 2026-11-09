@@ -71,6 +71,9 @@ function reveal(targets: Element[], trigger: Element, calm: boolean) {
   })
 }
 
+/** Resolves a theme token ("161 60% 52%") to a colour GSAP can interpolate. */
+const token = (name: string) => `hsl(${getComputedStyle(document.documentElement).getPropertyValue(name).trim().split(/\s+/).join(", ")})`
+
 const scrub = (trigger: Element, start: string, end: string) => ({ trigger, start, end, scrub: 0.4 })
 
 function build(calm: boolean) {
@@ -87,7 +90,7 @@ function build(calm: boolean) {
   for (const el of $$("[data-reveal]")) reveal(Array.from(el.children), el, calm)
   for (const el of $$("[data-reveal-scale]")) {
     if (calm) reveal([el], el, true)
-    else gsap.fromTo(el, { scale: 0.86, opacity: 0.3 }, { scale: 1, opacity: 1, ease: "none", scrollTrigger: scrub(el, "top bottom", "top 55%") })
+    else gsap.fromTo(el, { scale: 0.86 }, { scale: 1, ease: "none", scrollTrigger: scrub(el, "top bottom", "top 55%") })
   }
   const mm = gsap.matchMedia()
   for (const el of $$("[data-feature]")) {
@@ -112,17 +115,40 @@ function build(calm: boolean) {
     })
     tilt(frame, 5)
   }
-  // Cards rise one after another with the scroll. No rotation: cards that share borders
-  // (trust strip) must stay aligned, so they only move vertically.
   for (const list of $$("[data-batch]")) {
     const items = Array.from(list.children) as HTMLElement[]
     if (calm) { reveal(items, list, true); continue }
-    gsap.fromTo(items, { y: 48, opacity: 0 }, {
-      y: 0, opacity: 1, ease: "power1.out", stagger: 0.12,
-      scrollTrigger: { trigger: list, start: "top bottom", end: "top 60%", scrub: 0.5 },
-    })
+    // Cards tilt up from the page. Lists whose cards share borders (gap-px) tilt as one
+    // piece, so no gaps open between them mid-way. Opacity is full early, so the
+    // in-between state never shows half-transparent, overlapping cards.
     const joined = list.classList.contains("gap-px")
+    const targets = joined ? [list] : items
+    list.parentElement!.style.perspective = "1400px"
+    if (!joined) list.style.perspective = "1400px"
+    const st = { trigger: list, start: "top bottom", end: "top 60%", scrub: 0.5 }
+    gsap.fromTo(targets, { y: 60, rotateX: 28, transformOrigin: "50% 100%" }, { y: 0, rotateX: 0, ease: "power1.out", stagger: 0.1, scrollTrigger: st })
+    gsap.fromTo(targets, { opacity: 0 }, { opacity: 1, ease: "none", stagger: 0.1, scrollTrigger: { ...st, end: "top 85%" } })
     if (!joined) for (const card of items) tilt(card, 6)
+  }
+  // Footprint numbers: the headline moment. Cards punch in one after another, each value
+  // races up from 0 with a motion blur that resolves as it lands, and a brand line sweeps
+  // under it. Final values are in the static HTML, so nothing depends on this running.
+  for (const grid of $$("[data-stats]")) {
+    const cards = $$("[data-stat]", grid)
+    if (calm) { reveal(cards, grid, true); continue }
+    const tl = gsap.timeline({ scrollTrigger: { trigger: grid, start: "top 85%", once: true } })
+    tl.fromTo(cards, { opacity: 0, y: 70, scale: 0.85, rotateX: 25, transformOrigin: "50% 100%" }, { opacity: 1, y: 0, scale: 1, rotateX: 0, duration: 0.9, ease: "back.out(1.6)", stagger: 0.09 })
+    cards.forEach((card, i) => {
+      const at = i * 0.09 + 0.15
+      for (const el of $$("[data-count]", card)) {
+        const end = Number(el.dataset.count), decimals = Number(el.dataset.decimals) || 0, state = { v: 0 }
+        tl.fromTo(state, { v: 0 }, { v: end, duration: 1.6, ease: "expo.out", onUpdate: () => { el.textContent = state.v.toFixed(decimals) } }, at)
+          .fromTo(el, { filter: "blur(8px)", opacity: 0.4 }, { filter: "blur(0px)", opacity: 1, duration: 1.1, ease: "power3.out", clearProps: "filter" }, at)
+      }
+      const value = card.querySelector("dd > span")
+      if (value) tl.fromTo(value, { color: token("--brand-foreground") }, { color: token("--foreground"), duration: 1.4, ease: "power2.inOut", clearProps: "color" }, at + 0.3)
+    })
+    grid.style.perspective = "1400px"
   }
   for (const header of $$("[data-header]"))
     ScrollTrigger.create({ start: 8, end: "max", onToggle: (s) => header.toggleAttribute("data-scrolled", s.isActive) })
@@ -130,7 +156,84 @@ function build(calm: boolean) {
     gsap.fromTo(bar, { scaleX: 0 }, { scaleX: 1, ease: "none", scrollTrigger: { start: 0, end: "max", scrub: 0.2 } })
 }
 
+// Text the pointer can light. Hero text is strong; everything else is softer and smaller.
+const LIGHTABLE = "[data-hero] [data-light], main :is(h2, h3, p, dt, dd, li > span, summary, button[data-state])"
+
+/** Pointer light on text (fine pointers only): an RGB spot painted into the letters. */
+function initTextLight() {
+  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return
+  const prepared = new WeakSet<HTMLElement>()
+  let current: HTMLElement[] = []
+  let frame = 0
+  const prepare = (el: HTMLElement) => {
+    if (prepared.has(el)) return
+    prepared.add(el)
+    // Keep the element's own colour as the base layer, then hand painting to the gradient.
+    el.style.setProperty("--base", getComputedStyle(el).color)
+    const hero = !!el.closest("[data-hero]")
+    el.style.setProperty("--la", hero ? "1" : "0.9")
+    el.dataset.lr = hero ? (el.tagName === "P" ? "220px" : "320px") : "260px"
+    el.classList.add("lit")
+  }
+  const update = (x: number, y: number, target: Element | null) => {
+    const hero = target?.closest("[data-hero]")
+    const next = hero ? $$("[data-light]", hero) : ([target?.closest(LIGHTABLE)].filter(Boolean) as HTMLElement[])
+    for (const el of current) if (!next.includes(el)) el.style.setProperty("--lr", "0px")
+    for (const el of next) {
+      prepare(el)
+      const r = el.getBoundingClientRect()
+      el.style.setProperty("--mx", `${x - r.left}px`)
+      el.style.setProperty("--my", `${y - r.top}px`)
+      el.style.setProperty("--lr", el.dataset.lr!)
+    }
+    current = next
+  }
+  document.addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "mouse") return
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(() => update(e.clientX, e.clientY, e.target as Element))
+  }, { passive: true })
+  document.addEventListener("pointerleave", () => update(0, 0, null))
+  for (const rgb of $$("[data-rgb]")) {
+    const word = rgb.closest("[data-word]") ?? rgb
+    word.addEventListener("pointerenter", () => rgb.classList.add("rgb-on"))
+    word.addEventListener("pointerleave", () => rgb.classList.remove("rgb-on"))
+  }
+}
+
+/** Custom cursor: the freeRGB ring (red, green, blue arcs) Fine pointers only. */
+function initCursor(calm: boolean) {
+  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return
+  const ring = document.createElement("div")
+  ring.dataset.cursor = ""
+  ring.setAttribute("aria-hidden", "true")
+  // Three arcs with gaps, like the logo: r=10, circumference ~62.8, each arc 17 with a 3.9 gap.
+  ring.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round">
+    <circle cx="12" cy="12" r="10" stroke="#ef4444" stroke-dasharray="17 45.8" stroke-dashoffset="0"/>
+    <circle cx="12" cy="12" r="10" stroke="#10a37f" stroke-dasharray="17 45.8" stroke-dashoffset="-20.9"/>
+    <circle cx="12" cy="12" r="10" stroke="#3b82f6" stroke-dasharray="17 45.8" stroke-dashoffset="-41.8"/></svg>`
+  ring.style.opacity = "0"
+  document.body.append(ring)
+  document.documentElement.classList.add("ring-cursor")
+  const lag = calm ? 0 : 0.18
+  const rx = gsap.quickTo(ring, "x", { duration: lag, ease: "power3.out" }), ry = gsap.quickTo(ring, "y", { duration: lag, ease: "power3.out" })
+  document.addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "mouse") return
+    rx(e.clientX)
+    ry(e.clientY)
+    const t = e.target as Element
+    ring.classList.toggle("is-link", !!t.closest?.("a, button, summary, [role=tab], label"))
+    const text = !!t.closest?.("input, textarea, select, [contenteditable]")
+    ring.style.opacity = text ? "0" : "1"
+  }, { passive: true })
+  document.addEventListener("pointerdown", () => ring.classList.add("is-down"))
+  document.addEventListener("pointerup", () => ring.classList.remove("is-down"))
+  document.documentElement.addEventListener("pointerleave", () => (ring.style.opacity = "0"))
+}
+
 export function initMotion() {
+  initTextLight()
+  initCursor(prefersReducedMotion())
   const calm = prefersReducedMotion()
   try {
     gsap.registerPlugin(ScrollTrigger)

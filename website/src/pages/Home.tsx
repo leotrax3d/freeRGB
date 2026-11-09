@@ -1,3 +1,4 @@
+import { Footprint } from "@/components/home/Footprint"
 import { Reveal } from "@/components/site/Reveal"
 import { ArrowRight, Boxes, Cable, Laptop, Puzzle, Terminal, type LucideIcon } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -142,8 +143,8 @@ function FinalCta() {
 export function HomePage() {
   return (
     <>
-      <div aria-hidden data-progress="" className="pointer-events-none fixed inset-x-0 top-0 z-50 h-0.5 origin-left scale-x-0 bg-brand" />
       <Hero />
+      <Footprint />
       <TrustStrip />
       <DeviceTeaser />
       <Features />

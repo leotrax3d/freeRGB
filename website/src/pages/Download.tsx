@@ -85,7 +85,7 @@ function BetaNotice() {
             {download.betaTitle}.
           </strong>{" "}
           {download.betaText}{" "}
-          <TextLink href={blob("docs/COOLING_SAFETY.md")} className="text-[13px]">
+          <TextLink href={blob("docs/COOLING_SAFETY.md")} className="text-[13px] underline">
             {download.betaLink}
           </TextLink>
         </p>
@@ -101,7 +101,6 @@ function WindowsCard({ os }: { os: DetectedOs }) {
         <h2 id="windows-title" className="text-h3">
           {download.windowsTitle}
         </h2>
-        <DetectedBadge show={os === "windows"} os="Windows" />
       </div>
 
       {!release ? (
@@ -131,7 +130,6 @@ function WindowsCard({ os }: { os: DetectedOs }) {
               {installer.sha256 && (
                 <CodeBlock
                   className="mt-6"
-                  caption={copy.installerHash}
                   code={installer.sha256}
                   copyLabel="Copy SHA-256 of the installer"
                   wrap
@@ -163,7 +161,6 @@ function LinuxCard({ os }: { os: DetectedOs }) {
         <h2 id="linux-title" className="text-h3">
           {download.linuxTitle}
         </h2>
-        <DetectedBadge show={detected} os="Linux" />
       </div>
       <p className="mt-3 text-small text-muted-foreground">{download.linuxText}</p>
       <CodeBlock wrap className="mt-5" caption={copy.udevCaption} code={UDEV_COMMANDS} copyLabel="Copy udev commands" />
@@ -276,14 +273,6 @@ function VerifySection({ os }: { os: DetectedOs }) {
             />
             <div className="mt-5 flex flex-col items-start gap-3 text-small">
               <TextLink href={blob("docs/UPDATES.md")}>{copy.updaterLink}</TextLink>
-              {installerSig && (
-                <a
-                  href={installerSig.url}
-                  className="break-all rounded-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                >
-                  {copy.sigAsset}: <span className="font-mono text-[13px]">{installerSig.name}</span>
-                </a>
-              )}
             </div>
           </Card>
         </div>
