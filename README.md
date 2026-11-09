@@ -1,7 +1,7 @@
 <p align="center">
   <img src="assets/brand/github-banner.svg" alt="freeRGB: Open-source RGB control for Windows and Linux" width="100%">
 </p>
-
+ 
 <p align="center">
   Beta software for RGB control on Windows and Linux. Built with Rust, Tauri and React.
 </p>
