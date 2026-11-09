@@ -46,6 +46,23 @@ export function parallax(el: HTMLElement, distance = 30) {
   return () => mm.revert()
 }
 
+/**
+ * Hover tilt towards the pointer (fine pointers only). Uses the CSS `rotate` property,
+ * which composes with GSAP's `transform`, so it never fights the scroll animations.
+ */
+function tilt(el: HTMLElement, max: number) {
+  if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return
+  el.parentElement?.style.setProperty("perspective", "1200px")
+  el.style.transition = "rotate 240ms cubic-bezier(0.2, 0, 0, 1)"
+  el.addEventListener("pointermove", (e) => {
+    const r = el.getBoundingClientRect()
+    const dx = (e.clientX - r.left) / r.width - 0.5, dy = (e.clientY - r.top) / r.height - 0.5
+    const len = Math.hypot(dx, dy) || 1
+    el.style.rotate = `${-dy / len} ${dx / len} 0 ${Math.min(1, len * 2) * max}deg`
+  })
+  el.addEventListener("pointerleave", () => (el.style.rotate = ""))
+}
+
 function reveal(targets: Element[], trigger: Element, calm: boolean) {
   if (!targets.length) return
   gsap.fromTo(targets, calm ? { opacity: 0 } : { opacity: 0, y: 14 }, {
@@ -75,21 +92,37 @@ function build(calm: boolean) {
   const mm = gsap.matchMedia()
   for (const el of $$("[data-feature]")) {
     const [text, media] = Array.from(el.children) as HTMLElement[]
-    if (text) reveal(Array.from(text.children), el, calm)
+    const lines = text ? (Array.from(text.children) as HTMLElement[]) : []
     const frame = media?.querySelector<HTMLElement>("[data-scrub]")
-    if (!media || !frame) continue
-    if (calm) { reveal([media], el, true); continue }
-    gsap.fromTo(frame, { clipPath: "inset(10% 14% 10% 14% round 20px)" }, { clipPath: "inset(0% 0% 0% 0% round 14px)", ease: "none", scrollTrigger: scrub(frame, "top 95%", "center 55%") })
-    const img = frame.querySelector("img")
-    if (img) gsap.fromTo(img, { scale: 1.18 }, { scale: 1, ease: "none", scrollTrigger: scrub(frame, "top 95%", "center 55%") })
-    mm.add("(min-width: 768px)", () => {
-      gsap.fromTo(media, { y: 30 }, { y: -30, ease: "none", scrollTrigger: { trigger: el, start: "top bottom", end: "bottom top", scrub: true } })
+    if (calm || !frame) { reveal(lines, el, calm); if (frame) reveal([frame], el, true); continue }
+    const side = el.hasAttribute("data-flipped") ? -1 : 1
+    // One feature at a time: the section holds still while its text builds line by line,
+    // then the screenshot drives in from its side. Only then the page moves on.
+    mm.add({ wide: "(min-width: 1024px)", narrow: "(max-width: 1023px)" }, (c) => {
+      const wide = c.conditions?.wide
+      const tl = gsap.timeline({
+        defaults: { ease: "power2.out" },
+        // Builds while the section enters and is complete by the time it reaches the
+        // middle of the screen, so nothing in view is ever empty.
+        scrollTrigger: { trigger: el, start: "top 90%", end: wide ? "center 55%" : "top 30%", scrub: 0.6 },
+      })
+      tl.fromTo(lines, { opacity: 0, y: 40 }, { opacity: 1, y: 0, stagger: 0.25, duration: 0.6 })
+        .fromTo(frame, { xPercent: (wide ? 70 : 30) * side, rotate: 6 * side, opacity: 0 }, { xPercent: 0, rotate: 0, opacity: 1, duration: 1 }, "-=0.2")
+        .to({}, { duration: 0.4 })
     })
+    tilt(frame, 5)
   }
+  // Cards swing up out of the page with the scroll, one after another.
   for (const list of $$("[data-batch]")) {
-    const items = Array.from(list.children)
-    if (calm) reveal(items, list, true)
-    else gsap.fromTo(items, { y: 60, opacity: 0 }, { y: 0, opacity: 1, ease: "none", stagger: 0.12, scrollTrigger: { trigger: list, start: "top 98%", end: "top 60%", scrub: 0.5 } })
+    const items = Array.from(list.children) as HTMLElement[]
+    if (calm) { reveal(items, list, true); continue }
+    list.style.perspective = "1200px"
+    gsap.fromTo(items, { y: 120, rotateX: -35, rotate: (i) => (i % 2 ? 3 : -3), opacity: 0, transformOrigin: "50% 100%" }, {
+      y: 0, rotateX: 0, rotate: 0, opacity: 1, ease: "none", stagger: 0.15,
+      scrollTrigger: { trigger: list, start: "top bottom", end: "top 55%", scrub: 0.5 },
+    })
+    // Hover tilt on an inner layer, so it never fights the scroll animation.
+    for (const card of items) tilt(card, 8)
   }
   for (const header of $$("[data-header]"))
     ScrollTrigger.create({ start: 8, end: "max", onToggle: (s) => header.toggleAttribute("data-scrolled", s.isActive) })

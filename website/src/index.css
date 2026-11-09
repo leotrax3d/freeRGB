@@ -83,6 +83,7 @@
   }
 
   html {
+    overflow-x: clip;
     -webkit-text-size-adjust: 100%;
     scroll-padding-top: 5rem;
   }
@@ -196,6 +197,7 @@ html:not(.motion-pending) [data-header] {
 
 @media (prefers-reduced-motion: reduce) {
   html {
+    overflow-x: clip;
     scroll-behavior: auto;
   }
   *,
