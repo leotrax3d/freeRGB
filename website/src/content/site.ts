@@ -52,15 +52,6 @@ export type Feature = {
 
 export const features: Feature[] = [
   {
-    id: "lighting",
-    eyebrow: "Lighting",
-    title: "One effect across every device",
-    text: "Pick an effect and set its colour, speed and brightness in one view. Stack up to eight layers to build your own.",
-    points: ["11 built-in effects", "Up to 8 layers per effect", "Effect plugins in WebAssembly"],
-    screenshot: "marketplace",
-    alt: "Effect Marketplace with three installable effects: Aurora, Comet and Prism.",
-  },
-  {
     id: "layout",
     eyebrow: "Layout",
     title: "Place your devices on one canvas",
@@ -77,7 +68,6 @@ export const features: Feature[] = [
     points: ["Minimum fan output", "Critical-temperature fallback", "Setup wizard identifies each fan channel"],
     screenshot: "cooling",
     alt: "Cooling view with a fan curve editor plotting fan speed against temperature.",
-    maturity: "Beta · motherboard fan control is not confirmed on real hardware for most boards",
   },
   {
     id: "monitoring",

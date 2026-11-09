@@ -1,15 +1,10 @@
 import { Fragment } from "react"
 import { ArrowUpRight } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Screenshot } from "@/components/site/Screenshot"
 import { DownloadButton } from "@/components/home/DownloadButton"
 import { hero } from "@/content/site"
 import { href } from "@/lib/paths"
-
-// Badge merges classes with tailwind-merge, which drops the custom text-caption size next to
-// a colour class. The arbitrary values below restate the caption token so it survives.
-const caption = "text-[12px] leading-4 font-medium tracking-[0.01em]"
 
 export function Hero() {
   return (
@@ -22,11 +17,8 @@ export function Hero() {
       />
       <div className="container relative pb-16 pt-16 md:pb-24 md:pt-24">
         <div data-hero="" className="mx-auto flex max-w-3xl flex-col items-center text-center">
-          <Badge variant="muted" className={`gap-2 rounded-full px-3 py-1 ${caption}`}>
-            <span aria-hidden className="size-1.5 rounded-full bg-warning" />
-            {hero.badge}
-          </Badge>
-          <h1 className="mt-6 text-balance text-display">{hero.title.split(" ").map((word, i) => (
+          <h1 className="text-balance text-display">
+            {hero.title.split(" ").map((word, i) => (
               <Fragment key={i}>
                 {i > 0 && " "}
                 <span data-word="" className="inline-block">
@@ -50,7 +42,6 @@ export function Hero() {
         </div>
 
         <div className="relative mx-auto mt-16 max-w-[1100px] md:mt-20">
-          <div aria-hidden data-glow-parallax="" className="rgb-glow animate-glow-hue z-0" style={{ left: "-10%", right: "-10%", top: "10%", bottom: "20%" }} />
           <div data-hero-shot="" className="relative z-10 rounded-panel border bg-card p-2 shadow-frame">
             <Screenshot name="lighting" alt={hero.screenshotAlt} priority sizes="(min-width: 1200px) 1100px, 100vw" className="rounded-[12px]" />
           </div>

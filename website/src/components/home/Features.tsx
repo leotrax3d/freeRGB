@@ -2,7 +2,6 @@ import { Check } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Eyebrow } from "@/components/site/Section"
 import { Screenshot } from "@/components/site/Screenshot"
-import { ColorDemo } from "@/components/home/ColorDemo"
 import { features } from "@/content/site"
 import { cn } from "@/lib/utils"
 
@@ -37,7 +36,6 @@ export function Features() {
                     </li>
                   ))}
                 </ul>
-                {feature.id === "lighting" && <ColorDemo className="mt-8" />}
               </div>
               <div>
               <div data-scrub="" className="rounded-card border bg-card p-1.5">
