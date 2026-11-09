@@ -1,3 +1,5 @@
+import { Footprint } from "@/components/home/Footprint"
+import { Reveal } from "@/components/site/Reveal"
 import { ArrowRight, Boxes, Cable, Laptop, Puzzle, Terminal, type LucideIcon } from "lucide-react"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
@@ -30,14 +32,14 @@ const osIcons: Record<string, LucideIcon> = { windows: Laptop, linux: Terminal }
 function PlatformBlock() {
   return (
     <Section labelledBy="platform-title">
-      <div className="max-w-2xl">
+      <div data-reveal="" className="max-w-2xl">
         <Eyebrow>{copy.platformEyebrow}</Eyebrow>
         <h2 id="platform-title" className="mt-3 text-h2">
           {platform.title}
         </h2>
         <p className="mt-4 text-body text-muted-foreground">{platform.text}</p>
       </div>
-      <ul className="mt-10 grid gap-4 md:grid-cols-3">
+      <ul data-batch="" className="mt-10 grid gap-4 md:grid-cols-3">
         {platform.points.map((point, i) => {
           const Icon = platformIcons[i] ?? Cable
           return (
@@ -56,11 +58,13 @@ function PlatformBlock() {
 function Platforms() {
   return (
     <Section labelledBy="platforms-title">
-      <Eyebrow>{copy.platformsEyebrow}</Eyebrow>
-      <h2 id="platforms-title" className="mt-3 text-h2">
-        {copy.platformsTitle}
-      </h2>
-      <ul className="mt-10 grid gap-4 md:grid-cols-2">
+      <Reveal>
+        <Eyebrow>{copy.platformsEyebrow}</Eyebrow>
+        <h2 id="platforms-title" className="mt-3 text-h2">
+          {copy.platformsTitle}
+        </h2>
+      </Reveal>
+      <ul data-batch="" className="mt-10 grid gap-4 md:grid-cols-2">
         {platforms.map((os) => {
           const Icon = osIcons[os.id] ?? Laptop
           return (
@@ -86,7 +90,7 @@ function Platforms() {
 function Faq() {
   return (
     <Section labelledBy="faq-title">
-      <div className="grid gap-10 lg:grid-cols-[1fr_2fr] lg:gap-16">
+      <div data-reveal="" className="grid gap-10 lg:grid-cols-[1fr_2fr] lg:gap-16">
         <div>
           <h2 id="faq-title" className="text-h2">
             {copy.faqTitle}
@@ -120,7 +124,7 @@ function Faq() {
 function FinalCta() {
   return (
     <Section labelledBy="cta-title">
-      <div className="flex flex-col items-center rounded-panel border bg-card px-6 py-12 text-center md:px-12 md:py-16">
+      <div data-reveal-scale="" className="flex flex-col items-center rounded-panel border bg-card px-6 py-12 text-center md:px-12 md:py-16">
         <h2 id="cta-title" className="text-h2">
           {copy.ctaTitle}
         </h2>
@@ -140,6 +144,7 @@ export function HomePage() {
   return (
     <>
       <Hero />
+      <Footprint />
       <TrustStrip />
       <DeviceTeaser />
       <Features />

@@ -16,7 +16,7 @@ export function DownloadButton({ className }: { className?: string }) {
     setLinux(/Linux|X11/i.test(ua) && !/Android|CrOS/i.test(ua))
   }, [])
   return (
-    <Button size="lg" className={cn("min-w-[15rem]", className)} asChild>
+    <Button size="lg" className={cn("motion-btn min-w-[15rem]", className)} asChild>
       <a href={href(linux ? "download/#linux" : "download/")}>
         {linux ? <Terminal aria-hidden /> : <Download aria-hidden />}
         {linux ? hero.primaryLinux : hero.primaryWindows}

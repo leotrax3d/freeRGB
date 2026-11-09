@@ -9,7 +9,7 @@ export function TrustStrip() {
       <h2 id="trust-title" className="sr-only">
         Project facts
       </h2>
-      <ul className="grid gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-2 lg:grid-cols-4">
+      <ul data-batch="" className="grid gap-px overflow-hidden rounded-card border bg-border sm:grid-cols-2 lg:grid-cols-4">
         {trust.map((item, i) => {
           const Icon = icons[i] ?? Scale
           return (

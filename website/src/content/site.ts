@@ -52,15 +52,6 @@ export type Feature = {
 
 export const features: Feature[] = [
   {
-    id: "lighting",
-    eyebrow: "Lighting",
-    title: "One effect across every device",
-    text: "Pick an effect and set its colour, speed and brightness in one view. Stack up to eight layers to build your own.",
-    points: ["11 built-in effects", "Up to 8 layers per effect", "Effect plugins in WebAssembly"],
-    screenshot: "marketplace",
-    alt: "Effect Marketplace with three installable effects: Aurora, Comet and Prism.",
-  },
-  {
     id: "layout",
     eyebrow: "Layout",
     title: "Place your devices on one canvas",
@@ -77,7 +68,6 @@ export const features: Feature[] = [
     points: ["Minimum fan output", "Critical-temperature fallback", "Setup wizard identifies each fan channel"],
     screenshot: "cooling",
     alt: "Cooling view with a fan curve editor plotting fan speed against temperature.",
-    maturity: "Beta · motherboard fan control is not confirmed on real hardware for most boards",
   },
   {
     id: "monitoring",
@@ -235,14 +225,6 @@ export const privacyPage = {
         "Release data, download links and checksums are fetched from GitHub when the site is built, not when you visit. Links to GitHub only contact GitHub when you click them.",
         "If you switch between light and dark mode, the choice is saved in your browser's local storage. It never leaves your device.",
         "The site is hosted on GitHub Pages. GitHub receives your IP address and request data when it serves these pages; see GitHub's privacy statement.",
-      ],
-    },
-    {
-      title: "Web demo and admin pages",
-      body: [
-        "The web demo under /demo/ runs entirely in your browser with simulated devices. Its content security policy blocks all network connections.",
-        "The maintainer admin panel under /admin/ is a separate app. When it is opened, it connects to Appwrite (fra.cloud.appwrite.io) and keeps its login session in your browser. The website pages never load it.",
-        "The demo saves your last view, language and demo profile in your browser's local storage. Nothing is sent anywhere.",
       ],
     },
     {

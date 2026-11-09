@@ -50,7 +50,6 @@ const sidecarSha = installer ? assetNamed(`${installer.name}.sha256`) : undefine
 const sha256sums = assetNamed("SHA256SUMS")
 const installerSig = installer ? assetNamed(`${installer.name}.sig`) : undefined
 const installerName = installer?.name ?? "freeRGB-<version>-windows-x86_64-setup.exe"
-const windowsText = platforms.find((p) => p.id === "windows")?.text
 
 function TextLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
   return (
@@ -79,17 +78,17 @@ function DetectedBadge({ show, os }: { show: boolean; os: string }) {
 function BetaNotice() {
   return (
     <div className="container">
-      <Card role="note" aria-labelledby="beta-title" className="flex gap-4 rounded-card p-5 shadow-none md:p-6">
-        <TriangleAlert aria-hidden className="mt-0.5 size-5 shrink-0 text-warning" />
-        <div className="min-w-0">
-          <h2 id="beta-title" className="text-h3">
-            {download.betaTitle}
-          </h2>
-          <p className="mt-2 max-w-3xl text-small text-muted-foreground">{download.betaText}</p>
-          <TextLink href={blob("docs/COOLING_SAFETY.md")} className="mt-3 text-small">
+      <Card role="note" aria-labelledby="beta-title" className="flex gap-3 rounded-card px-4 py-3 shadow-none">
+        <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+        <p className="min-w-0 text-[13px] leading-5 text-muted-foreground">
+          <strong id="beta-title" className="font-semibold text-foreground">
+            {download.betaTitle}.
+          </strong>{" "}
+          {download.betaText}{" "}
+          <TextLink href={blob("docs/COOLING_SAFETY.md")} className="text-[13px] underline">
             {download.betaLink}
           </TextLink>
-        </div>
+        </p>
       </Card>
     </div>
   )
@@ -102,7 +101,6 @@ function WindowsCard({ os }: { os: DetectedOs }) {
         <h2 id="windows-title" className="text-h3">
           {download.windowsTitle}
         </h2>
-        <DetectedBadge show={os === "windows"} os="Windows" />
       </div>
 
       {!release ? (
@@ -111,11 +109,9 @@ function WindowsCard({ os }: { os: DetectedOs }) {
         <>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-small text-muted-foreground">
             <span className="font-medium text-foreground">{release.name}</span>
-            <code className="font-mono text-[13px] text-subtle-foreground">{release.tag}</code>
             {release.prerelease && <Badge variant="warning">{copy.prerelease}</Badge>}
             <time dateTime={release.publishedAt}>{formatDate(release.publishedAt)}</time>
           </div>
-          {windowsText && <p className="mt-4 max-w-2xl text-small text-muted-foreground">{windowsText}</p>}
 
           {installer ? (
             <>
@@ -134,7 +130,6 @@ function WindowsCard({ os }: { os: DetectedOs }) {
               {installer.sha256 && (
                 <CodeBlock
                   className="mt-6"
-                  caption={copy.installerHash}
                   code={installer.sha256}
                   copyLabel="Copy SHA-256 of the installer"
                   wrap
@@ -145,10 +140,6 @@ function WindowsCard({ os }: { os: DetectedOs }) {
             <p className="mt-6 text-body text-muted-foreground">{copy.noInstaller}</p>
           )}
 
-          <div className="mt-6 flex flex-wrap gap-x-6 gap-y-3 text-small">
-            <TextLink href={release.url}>{download.releaseNotes}</TextLink>
-            <TextLink href={release.url}>{download.allAssets}</TextLink>
-          </div>
         </>
       )}
     </Card>
@@ -170,10 +161,9 @@ function LinuxCard({ os }: { os: DetectedOs }) {
         <h2 id="linux-title" className="text-h3">
           {download.linuxTitle}
         </h2>
-        <DetectedBadge show={detected} os="Linux" />
       </div>
       <p className="mt-3 text-small text-muted-foreground">{download.linuxText}</p>
-      <CodeBlock className="mt-5" caption={copy.udevCaption} code={UDEV_COMMANDS} copyLabel="Copy udev commands" />
+      <CodeBlock wrap className="mt-5" caption={copy.udevCaption} code={UDEV_COMMANDS} copyLabel="Copy udev commands" />
       <div className="mt-6 lg:mt-auto lg:pt-6">
         <Button variant="outline" className="h-11 w-full sm:w-auto" asChild>
           <a href={`${blob("docs/INSTALL.md")}#linux`}>
@@ -225,14 +215,14 @@ function VerifySection({ os }: { os: DetectedOs }) {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="powershell" className="mt-4">
-              <CodeBlock code={`Get-FileHash .\\${installerName} -Algorithm SHA256`} copyLabel="Copy PowerShell command" />
+              <CodeBlock wrap code={`Get-FileHash .\\${installerName} -Algorithm SHA256`} copyLabel="Copy PowerShell command" />
             </TabsContent>
             <TabsContent value="cmd" className="mt-4">
-              <CodeBlock code={`certutil -hashfile ${installerName} SHA256`} copyLabel="Copy Command Prompt command" />
+              <CodeBlock wrap code={`certutil -hashfile ${installerName} SHA256`} copyLabel="Copy Command Prompt command" />
             </TabsContent>
             <TabsContent value="unix" className="mt-4 space-y-4">
-              <CodeBlock caption="Linux" code={`sha256sum ${installerName}`} copyLabel="Copy Linux command" />
-              <CodeBlock caption="macOS" code={`shasum -a 256 ${installerName}`} copyLabel="Copy macOS command" />
+              <CodeBlock wrap caption="Linux" code={`sha256sum ${installerName}`} copyLabel="Copy Linux command" />
+              <CodeBlock wrap caption="macOS" code={`shasum -a 256 ${installerName}`} copyLabel="Copy macOS command" />
             </TabsContent>
           </Tabs>
           <p className="mt-4 max-w-2xl text-small text-subtle-foreground">{copy.caseNote}</p>
@@ -283,14 +273,6 @@ function VerifySection({ os }: { os: DetectedOs }) {
             />
             <div className="mt-5 flex flex-col items-start gap-3 text-small">
               <TextLink href={blob("docs/UPDATES.md")}>{copy.updaterLink}</TextLink>
-              {installerSig && (
-                <a
-                  href={installerSig.url}
-                  className="break-all rounded-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                >
-                  {copy.sigAsset}: <span className="font-mono text-[13px]">{installerSig.name}</span>
-                </a>
-              )}
             </div>
           </Card>
         </div>
@@ -323,7 +305,7 @@ function SourceSection() {
             </Button>
           </div>
         </div>
-        <CodeBlock caption={copy.cloneCaption} code={CLONE_COMMAND} copyLabel="Copy git clone command" />
+        <CodeBlock wrap caption={copy.cloneCaption} code={CLONE_COMMAND} copyLabel="Copy git clone command" />
       </div>
     </Section>
   )
