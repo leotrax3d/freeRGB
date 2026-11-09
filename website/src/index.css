@@ -84,6 +84,7 @@
 
   html {
     overflow-x: clip;
+    scrollbar-width: none;
     -webkit-text-size-adjust: 100%;
     scroll-padding-top: 5rem;
   }
@@ -211,4 +212,8 @@ html:not(.motion-pending) [data-header] {
     animation: none !important;
     filter: blur(var(--glow-blur)) hue-rotate(40deg);
   }
+}
+
+html::-webkit-scrollbar {
+  display: none;
 }

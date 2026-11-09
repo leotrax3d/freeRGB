@@ -9,12 +9,6 @@ import { href } from "@/lib/paths"
 export function Hero() {
   return (
     <div className="relative overflow-hidden">
-      {/* Faint light from the top edge. Neutral colour, no hue. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[560px]"
-        style={{ background: "radial-gradient(ellipse 60% 100% at 50% 0%, hsl(var(--foreground) / 0.06), transparent 70%)" }}
-      />
       <div className="container relative pb-16 pt-16 md:pb-24 md:pt-24">
         <div data-hero="" className="mx-auto flex max-w-3xl flex-col items-center text-center">
           <h1 className="text-balance text-display">
