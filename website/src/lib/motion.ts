@@ -1,18 +1,18 @@
 // Scroll motion for the website: Lenis smooth scroll + GSAP ScrollTrigger.
 // Driven by data attributes in the prerendered markup, so nothing is hidden in the
-// static HTML. public/theme-init.js adds `motion-pending` to <html> (JS on, motion
-// allowed); CSS hides reveal targets only under that class until initMotion() runs.
+// static HTML. public/theme-init.js adds `motion-pending` to <html> (JS on); CSS hides
+// reveal targets only under that class until initMotion() runs.
 //
-//   data-hero          children reveal in sequence on load ([data-word] spans are split words)
-//   data-hero-shot     rises in with scale 0.96 -> 1
-//   data-glow-parallax moves slower than the page
-//   data-reveal        children fade/translate up on enter, staggered
-//   data-batch         children revealed with ScrollTrigger.batch
-//   data-feature       two children slide in from opposite sides (data-flipped swaps them)
-//   data-reveal-scale  scale/opacity reveal
-//   data-scrub         scroll-linked parallax of +-30 px (768 px and up)
+// Style: few large scroll-linked moments (scrub) plus quick, short text reveals.
+//   data-hero          words and lines rise quickly on load ([data-word] = split words)
+//   data-hero-shot     tilted back and smaller, lies flat as you scroll
+//   data-reveal        children reveal quickly on enter
+//   data-batch         cards rise with the scroll, staggered
+//   data-feature       text reveals; screenshot ([data-scrub]) opens from a smaller window
+//   data-reveal-scale  grows into place with the scroll
 //   data-header        gets data-scrolled after 8 px
 //   data-progress      scaleX scroll progress
+// Reduced motion: short opacity fades only, native scrolling, no movement.
 import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 import Lenis from "lenis"
@@ -27,8 +27,7 @@ function release() {
   document.documentElement.classList.remove("motion-pending")
 }
 
-const up = { opacity: 0, y: 24 }
-const done = { clearProps: "willChange" }
+const done = { clearProps: "transform,willChange" }
 const $$ = (s: string, root: ParentNode = document) => Array.from(root.querySelectorAll<HTMLElement>(s))
 
 export function scrollToTarget(target: string | HTMLElement) {
@@ -47,45 +46,51 @@ export function parallax(el: HTMLElement, distance = 30) {
   return () => mm.revert()
 }
 
-function reveal(targets: Element[], trigger: Element) {
+function reveal(targets: Element[], trigger: Element, calm: boolean) {
   if (!targets.length) return
-  gsap.fromTo(targets, up, {
-    opacity: 1, y: 0, duration: 0.8, ease: "power3.out", stagger: 0.08, willChange: "transform,opacity",
-    scrollTrigger: { trigger, start: "top 85%", once: true }, ...done,
+  gsap.fromTo(targets, calm ? { opacity: 0 } : { opacity: 0, y: 14 }, {
+    opacity: 1, y: 0, duration: calm ? 0.4 : 0.55, ease: "power2.out", stagger: 0.05,
+    scrollTrigger: { trigger, start: "top 92%", once: true }, ...done,
   })
 }
 
-function build() {
+const scrub = (trigger: Element, start: string, end: string) => ({ trigger, start, end, scrub: 0.4 })
+
+function build(calm: boolean) {
   for (const hero of $$("[data-hero]")) {
     const items = Array.from(hero.children).flatMap((c) => (c.querySelector("[data-word]") ? $$("[data-word]", c) : [c]))
-    gsap.fromTo(items, up, { opacity: 1, y: 0, duration: 0.9, ease: "expo.out", stagger: 0.05, delay: 0.05, ...done })
+    gsap.fromTo(items, calm ? { opacity: 0 } : { opacity: 0, yPercent: 40 }, { opacity: 1, yPercent: 0, duration: calm ? 0.4 : 0.6, ease: "expo.out", stagger: 0.035, ...done })
   }
-  for (const shot of $$("[data-hero-shot]"))
-    gsap.fromTo(shot, { opacity: 0, y: 40, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.9, delay: 0.35, ease: "expo.out", ...done })
-  for (const el of $$("[data-glow-parallax]"))
-    gsap.to(el, { yPercent: 25, ease: "none", scrollTrigger: { trigger: el.parentElement, start: "top top", end: "bottom top", scrub: true } })
-  for (const el of $$("[data-reveal]")) reveal(Array.from(el.children), el)
-  for (const el of $$("[data-reveal-scale]"))
-    gsap.fromTo(el, { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.8, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 85%", once: true }, ...done })
+  for (const shot of $$("[data-hero-shot]")) {
+    gsap.fromTo(shot, { opacity: 0 }, { opacity: 1, duration: 0.5, delay: 0.15, ease: "power2.out" })
+    if (calm) continue
+    shot.parentElement?.style.setProperty("perspective", "1600px")
+    gsap.fromTo(shot, { rotateX: 22, scale: 0.88, y: -20, transformOrigin: "50% 0%" }, { rotateX: 0, scale: 1, y: 0, ease: "none", scrollTrigger: scrub(shot, "top 95%", "top 25%") })
+  }
+  for (const el of $$("[data-reveal]")) reveal(Array.from(el.children), el, calm)
+  for (const el of $$("[data-reveal-scale]")) {
+    if (calm) reveal([el], el, true)
+    else gsap.fromTo(el, { scale: 0.86, opacity: 0.3 }, { scale: 1, opacity: 1, ease: "none", scrollTrigger: scrub(el, "top bottom", "top 55%") })
+  }
+  const mm = gsap.matchMedia()
   for (const el of $$("[data-feature]")) {
-    const [text, shot] = Array.from(el.children)
-    const side = el.hasAttribute("data-flipped") ? -1 : 1
-    gsap.matchMedia().add({ wide: "(min-width: 1024px)" }, (c) => {
-      const x = c.conditions?.wide ? 40 : 0
-      for (const [node, sign] of [[text, -side], [shot, side]] as const)
-        if (node)
-          gsap.fromTo(node, { opacity: 0, x: x * sign, y: x ? 0 : 24 }, { opacity: 1, x: 0, y: 0, duration: 0.9, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 80%", once: true }, ...done })
+    const [text, media] = Array.from(el.children) as HTMLElement[]
+    if (text) reveal(Array.from(text.children), el, calm)
+    const frame = media?.querySelector<HTMLElement>("[data-scrub]")
+    if (!media || !frame) continue
+    if (calm) { reveal([media], el, true); continue }
+    gsap.fromTo(frame, { clipPath: "inset(10% 14% 10% 14% round 20px)" }, { clipPath: "inset(0% 0% 0% 0% round 14px)", ease: "none", scrollTrigger: scrub(frame, "top 95%", "center 55%") })
+    const img = frame.querySelector("img")
+    if (img) gsap.fromTo(img, { scale: 1.18 }, { scale: 1, ease: "none", scrollTrigger: scrub(frame, "top 95%", "center 55%") })
+    mm.add("(min-width: 768px)", () => {
+      gsap.fromTo(media, { y: 30 }, { y: -30, ease: "none", scrollTrigger: { trigger: el, start: "top bottom", end: "bottom top", scrub: true } })
     })
   }
   for (const list of $$("[data-batch]")) {
     const items = Array.from(list.children)
-    gsap.set(items, up)
-    ScrollTrigger.batch(items, {
-      start: "top 90%", once: true,
-      onEnter: (batch) => { gsap.to(batch, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", stagger: 0.08, overwrite: true }) },
-    })
+    if (calm) reveal(items, list, true)
+    else gsap.fromTo(items, { y: 60, opacity: 0 }, { y: 0, opacity: 1, ease: "none", stagger: 0.12, scrollTrigger: { trigger: list, start: "top 98%", end: "top 60%", scrub: 0.5 } })
   }
-  for (const el of $$("[data-scrub]")) parallax(el)
   for (const header of $$("[data-header]"))
     ScrollTrigger.create({ start: 8, end: "max", onToggle: (s) => header.toggleAttribute("data-scrolled", s.isActive) })
   for (const bar of $$("[data-progress]"))
@@ -93,14 +98,17 @@ function build() {
 }
 
 export function initMotion() {
-  if (prefersReducedMotion()) return release()
+  const calm = prefersReducedMotion()
   try {
     gsap.registerPlugin(ScrollTrigger)
-    lenis = new Lenis({ autoRaf: false })
-    lenis.on("scroll", ScrollTrigger.update)
-    gsap.ticker.add(raf)
-    gsap.ticker.lagSmoothing(0)
-    ctx = gsap.context(build)
+    if (!calm) {
+      // Light smoothing for the wheel only, with quick catch-up so scrolling never drags.
+      lenis = new Lenis({ autoRaf: false, lerp: 0.18, wheelMultiplier: 1.05, syncTouch: false })
+      lenis.on("scroll", ScrollTrigger.update)
+      gsap.ticker.add(raf)
+      gsap.ticker.lagSmoothing(0)
+    }
+    ctx = gsap.context(() => build(calm))
     document.addEventListener("click", onAnchorClick)
     if (location.hash) requestAnimationFrame(() => scrollToTarget(decodeURIComponent(location.hash)))
     ScrollTrigger.refresh()

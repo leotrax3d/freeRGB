@@ -5,7 +5,7 @@ try {
   var dark = stored ? stored === "dark" : !window.matchMedia("(prefers-color-scheme: light)").matches
   document.documentElement.classList.toggle("dark", dark)
   // Scroll motion: hide reveal targets until src/lib/motion.ts takes over (JS on only).
-  if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("motion-pending")
+  document.documentElement.classList.add("motion-pending")
 } catch (e) {
   document.documentElement.classList.add("dark")
 }
