@@ -74,7 +74,7 @@ function reveal(targets: Element[], trigger: Element, calm: boolean) {
 /** Resolves a theme token ("161 60% 52%") to a colour GSAP can interpolate. */
 const token = (name: string) => `hsl(${getComputedStyle(document.documentElement).getPropertyValue(name).trim().split(/\s+/).join(", ")})`
 
-const scrub = (trigger: Element, start: string, end: string) => ({ trigger, start, end, scrub: 0.4 })
+const scrub = (trigger: Element, start: string, end: string) => ({ trigger, start, end, scrub: true })
 
 function build(calm: boolean) {
   for (const hero of $$("[data-hero]")) {
@@ -107,7 +107,7 @@ function build(calm: boolean) {
         defaults: { ease: "power2.out" },
         // Builds while the section enters and is complete by the time it reaches the
         // middle of the screen, so nothing in view is ever empty.
-        scrollTrigger: { trigger: el, start: "top 90%", end: wide ? "center 55%" : "top 30%", scrub: 0.6 },
+        scrollTrigger: { trigger: el, start: "top 90%", end: wide ? "center 55%" : "top 30%", scrub: true },
       })
       tl.fromTo(lines, { opacity: 0, y: 40 }, { opacity: 1, y: 0, stagger: 0.25, duration: 0.6 })
         .fromTo(frame, { xPercent: (wide ? 70 : 30) * side, rotate: 6 * side, opacity: 0 }, { xPercent: 0, rotate: 0, opacity: 1, duration: 1 }, "-=0.2")
@@ -125,7 +125,7 @@ function build(calm: boolean) {
     const targets = joined ? [list] : items
     list.parentElement!.style.perspective = "1400px"
     if (!joined) list.style.perspective = "1400px"
-    const st = { trigger: list, start: "top bottom", end: "top 60%", scrub: 0.5 }
+    const st = { trigger: list, start: "top bottom", end: "top 60%", scrub: true }
     gsap.fromTo(targets, { y: 60, rotateX: 28, transformOrigin: "50% 100%" }, { y: 0, rotateX: 0, ease: "power1.out", stagger: 0.1, scrollTrigger: st })
     gsap.fromTo(targets, { opacity: 0 }, { opacity: 1, ease: "none", stagger: 0.1, scrollTrigger: { ...st, end: "top 85%" } })
     if (!joined) for (const card of items) tilt(card, 6)
@@ -153,7 +153,7 @@ function build(calm: boolean) {
   for (const header of $$("[data-header]"))
     ScrollTrigger.create({ start: 8, end: "max", onToggle: (s) => header.toggleAttribute("data-scrolled", s.isActive) })
   for (const bar of $$("[data-progress]"))
-    gsap.fromTo(bar, { scaleX: 0 }, { scaleX: 1, ease: "none", scrollTrigger: { start: 0, end: "max", scrub: 0.2 } })
+    gsap.fromTo(bar, { scaleX: 0 }, { scaleX: 1, ease: "none", scrollTrigger: { start: 0, end: "max", scrub: true } })
 }
 
 // Text the pointer can light. Hero text is strong; everything else is softer and smaller.
@@ -201,34 +201,111 @@ function initTextLight() {
   }
 }
 
-/** Custom cursor: the freeRGB ring (red, green, blue arcs) Fine pointers only. */
+// Things the cursor turns towards: anything you can press, plus screenshots and images.
+const AIMABLE = "a[href], button:not([disabled]), summary, [role=tab], [role=button], label[for], img, picture, [data-scrub]"
+const AIM_RADIUS = 220 // px from the pointer to a target's edge
+const REST = 0 // arrow points up-left by default, like the system cursor
+
+/**
+ * Custom cursor (fine pointers only): a normal arrow, drawn a little cleaner, that sits
+ * exactly on the pointer (no lag) and turns its tip towards the nearest button, link or
+ * image. Only the rotation is smoothed, with a critically damped spring, so it never
+ * wobbles or overshoots. The tip is the hotspot and the rotation origin, so clicks land
+ * exactly where the arrow points.
+ */
 function initCursor(calm: boolean) {
   if (!window.matchMedia("(hover: hover) and (pointer: fine)").matches) return
-  const ring = document.createElement("div")
-  ring.dataset.cursor = ""
-  ring.setAttribute("aria-hidden", "true")
-  // Three arcs with gaps, like the logo: r=10, circumference ~62.8, each arc 17 with a 3.9 gap.
-  ring.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round">
-    <circle cx="12" cy="12" r="10" stroke="#ef4444" stroke-dasharray="17 45.8" stroke-dashoffset="0"/>
-    <circle cx="12" cy="12" r="10" stroke="#10a37f" stroke-dasharray="17 45.8" stroke-dashoffset="-20.9"/>
-    <circle cx="12" cy="12" r="10" stroke="#3b82f6" stroke-dasharray="17 45.8" stroke-dashoffset="-41.8"/></svg>`
-  ring.style.opacity = "0"
-  document.body.append(ring)
-  document.documentElement.classList.add("ring-cursor")
-  const lag = calm ? 0 : 0.18
-  const rx = gsap.quickTo(ring, "x", { duration: lag, ease: "power3.out" }), ry = gsap.quickTo(ring, "y", { duration: lag, ease: "power3.out" })
+  const el = document.createElement("div")
+  el.dataset.cursor = ""
+  el.setAttribute("aria-hidden", "true")
+  // Classic arrow proportions; tip at (2,2). Light fill with a dark outline reads on any background.
+  el.innerHTML = `<svg viewBox="0 0 24 24" width="24" height="24">
+    <defs><linearGradient id="cur-rgb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ef4444"/><stop offset=".5" stop-color="#10a37f"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs>
+    <path class="cur-shadow" d="${ARROW}" transform="translate(.6 1.2)"/>
+    <path class="cur-body" d="${ARROW}"/></svg>`
+  el.style.opacity = "0"
+  document.body.append(el)
+  document.documentElement.classList.add("custom-cursor")
+
+  // The arrow's own axis (tip towards the middle of the tail) in screen degrees, ~ -115.
+  const AXIS = (Math.atan2(2 - 15.5, 2 - 8.5) * 180) / Math.PI
+  let x = -100, y = -100, angle = REST, vel = 0, goal = REST, last = 0, raf = 0, visible = false
+  let targets: HTMLElement[] = [], scanned = 0, hover: Element | null = null
+
+  const scan = () => {
+    targets = $$(AIMABLE).filter((t) => !t.closest("[data-cursor]") && t.getClientRects().length > 0)
+    scanned = performance.now()
+  }
+  const aim = () => {
+    if (performance.now() - scanned > 1000) scan()
+    // Directly over a target: point at its centre.
+    const over = hover?.closest?.<HTMLElement>(AIMABLE)
+    let best: DOMRect | null = over ? over.getBoundingClientRect() : null
+    if (!best) {
+      let dist = AIM_RADIUS
+      for (const t of targets) {
+        const r = t.getBoundingClientRect()
+        if (r.width === 0 || r.bottom < y - AIM_RADIUS || r.top > y + AIM_RADIUS) continue
+        const d = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom))
+        if (d < dist) { dist = d; best = r }
+      }
+    }
+    if (!best) return REST
+    const dx = best.left + best.width / 2 - x, dy = best.top + best.height / 2 - y
+    if (Math.hypot(dx, dy) < 10) return goal // too close to have a direction: hold still
+    return (Math.atan2(dy, dx) * 180) / Math.PI - AXIS
+  }
+  const paint = () => (el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle.toFixed(2)}deg)`)
+  const tick = (now: number) => {
+    const dt = Math.min(0.05, (now - last) / 1000 || 0.016)
+    last = now
+    // Shortest way round, then a critically damped spring (no overshoot).
+    const diff = ((((goal - angle) % 360) + 540) % 360) - 180
+    if (calm) { angle += diff; vel = 0 }
+    else {
+      const k = 220
+      vel += (diff * k - vel * 2 * Math.sqrt(k)) * dt
+      angle += vel * dt
+    }
+    paint()
+    raf = Math.abs(diff) > 0.05 || Math.abs(vel) > 0.05 ? requestAnimationFrame(tick) : 0
+  }
+  const kick = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick) } }
+  const show = (on: boolean) => { if (on !== visible) { visible = on; el.style.opacity = on ? "1" : "0" } }
+
   document.addEventListener("pointermove", (e) => {
     if (e.pointerType !== "mouse") return
-    rx(e.clientX)
-    ry(e.clientY)
-    const t = e.target as Element
-    ring.classList.toggle("is-link", !!t.closest?.("a, button, summary, [role=tab], label"))
-    const text = !!t.closest?.("input, textarea, select, [contenteditable]")
-    ring.style.opacity = text ? "0" : "1"
+    x = e.clientX
+    y = e.clientY
+    hover = e.target as Element
+    show(!hover.closest?.("input, textarea, select, [contenteditable]"))
+    el.classList.toggle("is-link", !!hover.closest?.("a, button, summary, [role=tab], [role=button], label"))
+    goal = aim()
+    paint() // position follows the pointer 1:1, on the same event
+    kick()
   }, { passive: true })
-  document.addEventListener("pointerdown", () => ring.classList.add("is-down"))
-  document.addEventListener("pointerup", () => ring.classList.remove("is-down"))
-  document.documentElement.addEventListener("pointerleave", () => (ring.style.opacity = "0"))
+  // Scrolling moves targets under a still pointer: aim again.
+  addEventListener("scroll", () => { if (visible) { goal = aim(); kick() } }, { passive: true })
+  addEventListener("resize", scan)
+  document.addEventListener("pointerdown", () => el.classList.add("is-down"))
+  document.addEventListener("pointerup", () => el.classList.remove("is-down"))
+  document.documentElement.addEventListener("pointerleave", () => show(false))
+}
+
+// Classic arrow outline in a 24 px box, tip at (2, 2).
+const ARROW = "M2 2 L2 19.2 L6.6 15.1 L9.6 21.6 L12.6 20.3 L9.7 13.9 L15.9 13.9 Z"
+
+/** Trackpads and precision wheels bring their own inertia: smoothing them again feels floaty. */
+function wheelFilter() {
+  let precise = -Infinity
+  return ({ event }: { event: WheelEvent | TouchEvent }) => {
+    if (!(event instanceof WheelEvent)) return true
+    const fine = event.deltaMode === 0 && (event.deltaX !== 0 || !Number.isInteger(event.deltaY) || Math.abs(event.deltaY) < 40)
+    if (fine) precise = event.timeStamp
+    // Stay native for the rest of a trackpad gesture (its momentum tail can look like a wheel).
+    return event.timeStamp - precise > 400
+  }
 }
 
 export function initMotion() {
@@ -238,8 +315,12 @@ export function initMotion() {
   try {
     gsap.registerPlugin(ScrollTrigger)
     if (!calm) {
-      // Light smoothing for the wheel only, with quick catch-up so scrolling never drags.
-      lenis = new Lenis({ autoRaf: false, lerp: 0.18, wheelMultiplier: 1.05, syncTouch: false })
+      // Mouse wheels only: each notch glides for a short, fixed time with an ease-out,
+      // like the OS smooth scroll. Trackpads, touch and keyboard stay fully native.
+      lenis = new Lenis({
+        autoRaf: false, duration: 0.45, easing: (t) => 1 - Math.pow(1 - t, 3),
+        wheelMultiplier: 1, syncTouch: false, virtualScroll: wheelFilter(),
+      })
       lenis.on("scroll", ScrollTrigger.update)
       gsap.ticker.add(raf)
       gsap.ticker.lagSmoothing(0)

@@ -12,6 +12,12 @@ export const nav = [
   { href: "privacy/", label: "Privacy" },
 ] as const
 
+// Legal notice and privacy policy of the site operator (shared with leotrax3d.dev for now).
+export const legal = {
+  imprint: "https://leotrax3d.dev/impressum.html",
+  privacy: "https://leotrax3d.dev/datenschutzerklaerung.html",
+}
+
 export const hero = {
   badge: "Public beta · Windows and Linux",
   title: "One app for your RGB lighting and fans",
