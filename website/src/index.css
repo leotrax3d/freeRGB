@@ -286,6 +286,18 @@ html::-webkit-scrollbar {
 @keyframes drum-light { to { background-position: -200% 0; } }
 @keyframes drum-fan { to { transform: rotate(360deg); } }
 
+/* Coming-soon screen (src/components/site/ComingSoon.tsx), only while html.gate is set. */
+[data-gate] { display: none; }
+html.gate { overflow: hidden; }
+html.gate [data-gate] { display: flex; animation: gate-in 600ms cubic-bezier(0.2, 0, 0, 1) both; }
+html.gate [data-gate][data-leaving] { animation: gate-out 450ms cubic-bezier(0.4, 0, 1, 1) both; }
+[data-gate] .gate-ring { animation: drum-fan 8s linear infinite; }
+@keyframes gate-in { from { opacity: 0; transform: scale(1.02); } }
+@keyframes gate-out { to { opacity: 0; transform: scale(0.98); visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) {
+  html.gate [data-gate], html.gate [data-gate][data-leaving], [data-gate] .gate-ring { animation-duration: 1ms; }
+}
+
 /* Custom cursor (src/lib/motion.ts: initCursor): a clean arrow that turns towards targets. */
 html.custom-cursor, html.custom-cursor * { cursor: none; }
 html.custom-cursor :is(input, textarea, select, [contenteditable]) { cursor: text; }
