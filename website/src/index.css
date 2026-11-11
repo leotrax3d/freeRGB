@@ -286,23 +286,28 @@ html::-webkit-scrollbar {
 @keyframes drum-light { to { background-position: -200% 0; } }
 @keyframes drum-fan { to { transform: rotate(360deg); } }
 
-/* Custom cursor (src/lib/motion.ts: initCursor): the freeRGB ring. Only with a fine pointer. */
-html.ring-cursor, html.ring-cursor * { cursor: none; }
-html.ring-cursor :is(input, textarea, select, [contenteditable]) { cursor: text; }
+/* Custom cursor (src/lib/motion.ts: initCursor): a clean arrow that turns towards targets. */
+html.custom-cursor, html.custom-cursor * { cursor: none; }
+html.custom-cursor :is(input, textarea, select, [contenteditable]) { cursor: text; }
 [data-cursor] {
   position: fixed;
   left: 0;
   top: 0;
   z-index: 100;
   pointer-events: none;
-  width: 28px;
-  height: 28px;
-  margin: -14px 0 0 -14px;
-  transition: opacity 150ms ease, width 200ms cubic-bezier(0.2, 0, 0, 1), height 200ms cubic-bezier(0.2, 0, 0, 1), margin 200ms cubic-bezier(0.2, 0, 0, 1);
+  width: 24px;
+  height: 24px;
+  /* The arrow tip (2,2 in the viewBox) is the hotspot and the rotation centre. */
+  margin: -2px 0 0 -2px;
+  transform-origin: 2px 2px;
+  will-change: transform;
+  transition: opacity 120ms ease;
 }
-[data-cursor] svg { width: 100%; height: 100%; animation: drum-fan 6s linear infinite; }
-[data-cursor].is-link { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
-[data-cursor].is-down svg { transform: scale(0.85); }
+[data-cursor] svg { display: block; overflow: visible; transform-origin: 2px 2px; transition: transform 140ms cubic-bezier(0.2, 0, 0, 1); }
+[data-cursor] .cur-shadow { fill: rgb(0 0 0 / 0.3); filter: blur(1.2px); }
+[data-cursor] .cur-body { fill: #fff; stroke: #0b0d10; stroke-width: 1.4; stroke-linejoin: round; }
+[data-cursor].is-link .cur-body { fill: url(#cur-rgb); stroke: #fff; }
+[data-cursor].is-down svg { transform: scale(0.88); }
 [data-fx="fans"] { color: hsl(var(--brand-foreground)); }
 
 /* The rolling words are the hero focus: larger than the line above. */
