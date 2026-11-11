@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from "react"
 import { Github, Menu, Moon, Sun } from "lucide-react"
 import ring from "../../../../assets/brand/ring-dark.svg"
 import { Button } from "@/components/ui/button"
-import { ComingSoon } from "@/components/site/ComingSoon"
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { blob, footer, nav, repo } from "@/content/site"
 import { cn } from "@/lib/utils"
@@ -152,7 +151,6 @@ function Footer() {
 export function Layout({ page, children }: { page: PageId; children: ReactNode }) {
   return (
     <>
-      <ComingSoon />
       <a
         href="#main"
         className="sr-only z-50 rounded-md bg-primary px-4 py-3 text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-3"

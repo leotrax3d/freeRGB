@@ -322,14 +322,6 @@ export function initMotion() {
         wheelMultiplier: 1, syncTouch: false, virtualScroll: wheelFilter(),
       })
       lenis.on("scroll", ScrollTrigger.update)
-      const html = document.documentElement
-      if (html.classList.contains("gate")) {
-        lenis.stop()
-        const watch = new MutationObserver(() => {
-          if (!html.classList.contains("gate")) { watch.disconnect(); lenis?.start() }
-        })
-        watch.observe(html, { attributes: true, attributeFilter: ["class"] })
-      }
       gsap.ticker.add(raf)
       gsap.ticker.lagSmoothing(0)
     }

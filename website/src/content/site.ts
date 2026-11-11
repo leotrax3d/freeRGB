@@ -12,20 +12,15 @@ export const nav = [
   { href: "privacy/", label: "Privacy" },
 ] as const
 
-export const comingSoon = {
-  title: "Coming soon.",
-  enter: "Take a look",
-}
-
 export const hero = {
-  badge: "Early alpha · Windows and Linux",
+  badge: "Public beta · Windows and Linux",
   title: "One app for your RGB lighting and fans",
   lead:
     "freeRGB runs lighting effects across devices from different vendors and sets fan curves from your temperature sensors. It is open source, runs on your PC and needs no account.",
   primaryWindows: "Download for Windows",
   primaryLinux: "Install on Linux",
   secondary: "Try the web demo",
-  note: "Early alpha. Not ready for daily use yet.",
+  note: "Beta software. Most devices have not been tested on real hardware yet.",
   screenshotAlt:
     "The freeRGB lighting view: a list of effects with colour previews on the left and speed and direction controls on the right.",
 }
@@ -226,10 +221,9 @@ export const privacyPage = {
     {
       title: "This website",
       body: [
-        "This site sets no cookies and runs no analytics or tracking. Fonts, scripts and images are served from this site. Apart from the one-time click count described below, your browser sends no requests to other services.",
+        "This site sets no cookies and runs no analytics or tracking. Fonts, scripts and images are served from this site. Your browser sends no requests to other services while you read these pages.",
         "Release data, download links and checksums are fetched from GitHub when the site is built, not when you visit. Links to GitHub only contact GitHub when you click them.",
         "If you switch between light and dark mode, the choice is saved in your browser's local storage. It never leaves your device.",
-        "The first time you click past the coming-soon screen, the site counts that click once. It sends a random ID stored in your browser to our database (Supabase). To count each device only once, the database also keeps a keyed hash of your IP address and browser name; the IP address itself is not stored. Nothing else is sent, and nothing is sent on later visits.",
         "The site is hosted on GitHub Pages. GitHub receives your IP address and request data when it serves these pages; see GitHub's privacy statement.",
       ],
     },

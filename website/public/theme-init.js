@@ -6,8 +6,6 @@ try {
   document.documentElement.classList.toggle("dark", dark)
   // Scroll motion: hide reveal targets until src/lib/motion.ts takes over (JS on only).
   document.documentElement.classList.add("motion-pending")
-  // Coming-soon screen until this device clicks through once (src/components/site/ComingSoon.tsx).
-  if (!localStorage.getItem("freergb-entered")) document.documentElement.classList.add("gate")
 } catch (e) {
   document.documentElement.classList.add("dark")
 }

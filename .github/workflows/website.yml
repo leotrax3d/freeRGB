@@ -47,9 +47,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_PATH: ${{ vars.WEBSITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
-          # Public values only (Project URL + publishable key); empty means no click counting.
-          VITE_SUPABASE_URL: ${{ vars.WEBSITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.WEBSITE_SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: website/dist
