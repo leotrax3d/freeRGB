@@ -1,6 +1,6 @@
 import { ArrowUpRight } from "lucide-react"
 import { PageHeader } from "@/components/site/Section"
-import { blob, privacyPage } from "@/content/site"
+import { blob, legal, privacyPage } from "@/content/site"
 
 const LINKS_TITLE = "Documents on GitHub"
 const GITHUB_PRIVACY = {
@@ -57,6 +57,18 @@ export function PrivacyPage() {
                   </li>
                 ))}
                 <li className="mt-2 border-t pt-2">
+                  <a href={legal.imprint} rel="noopener" className={linkClass}>
+                    Impressum
+                    <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  </a>
+                </li>
+                <li>
+                  <a href={legal.privacy} rel="noopener" className={linkClass}>
+                    Datenschutzerklärung
+                    <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  </a>
+                </li>
+                <li>
                   <a href={GITHUB_PRIVACY.url} rel="noopener" className={linkClass}>
                     {GITHUB_PRIVACY.label}
                     <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />

@@ -3,7 +3,7 @@ import { Github, Menu, Moon, Sun } from "lucide-react"
 import ring from "../../../../assets/brand/ring-dark.svg"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { blob, footer, nav, repo } from "@/content/site"
+import { blob, footer, legal, nav, repo } from "@/content/site"
 import { cn } from "@/lib/utils"
 import { href } from "@/lib/paths"
 
@@ -114,7 +114,7 @@ function Footer() {
   const columns = [
     { title: "Product", links: [{ label: "Download", url: href("download/") }, { label: "Devices", url: href("devices/") }, { label: "Web demo", url: href("demo/") }] },
     { title: "Docs", links: [{ label: "User guide", url: href("docs/") }, { label: "Install guide", url: blob("docs/INSTALL.md") }, { label: "Project status", url: blob("docs/STATUS.md") }] },
-    { title: "Project", links: [{ label: "Source code", url: repo }, { label: "Report a bug", url: `${repo}/issues` }, { label: "Privacy and legal", url: href("privacy/") }] },
+    { title: "Project", links: [{ label: "Source code", url: repo }, { label: "Report a bug", url: `${repo}/issues` }, { label: "Privacy and legal", url: href("privacy/") }, { label: "Impressum", url: legal.imprint }, { label: "Datenschutzerklärung", url: legal.privacy }] },
   ]
   return (
     <footer className="mt-24 border-t">
